@@ -551,6 +551,9 @@ Shell,3</code></pre></div>
   var state = load();
   if (!state.tasks) state.tasks = {};
   if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
@@ -600,17 +603,21 @@ Shell,3</code></pre></div>
         '<p><span class="lbl">Correct output</span><code>' + esc(d.ans) + '</code></p>' +
         '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
       var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
-      function check() {
-        if (el.dataset.done) return; el.dataset.done = '1';
-        var ok = norm(input.value) === norm(d.ans);
+      function markDone(ok) {
         input.disabled = true; btn.disabled = true;
         if (ok) drillCorrect[i] = true;
         rev.classList.add('show', ok ? 'right' : 'wrong');
         rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
-        refreshCounters();
+      }
+      function check() {
+        if (el.dataset.done) return; el.dataset.done = '1';
+        var ok = norm(input.value) === norm(d.ans);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
       }
       btn.addEventListener('click', check);
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
       wrap.appendChild(el);
     });
   }
@@ -797,7 +804,15 @@ Shell,3</code></pre></div>
   var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
   var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
   var fcControls = document.getElementById('fc-controls');
-  function initDeck() { pile = CARDS.map(function (c, i) { return i; }); mastered = 0; showingBack = false; document.getElementById('c-cards').textContent = '0'; document.getElementById('fc-mastered').textContent = '0'; renderCard(); }
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
   function renderCard() {
     document.getElementById('fc-pile').textContent = pile.length;
     document.getElementById('fc-mastered').textContent = mastered;
@@ -819,7 +834,7 @@ Shell,3</code></pre></div>
     fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
   }
   fcCard.addEventListener('click', flip);
-  document.getElementById('fc-got').addEventListener('click', function () { pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
   document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
   initDeck();
 
@@ -876,6 +891,7 @@ Shell,3</code></pre></div>
         b.addEventListener('click', function () {
           if (el.dataset.done) return; el.dataset.done = '1'; answered++;
           var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
           document.getElementById('c-quiz').textContent = quizCorrect;
           Array.prototype.forEach.call(opts.children, function (bb, i) {
             bb.disabled = true;
@@ -910,6 +926,7 @@ Shell,3</code></pre></div>
         });
         opts.appendChild(b);
       });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
       wrap.appendChild(el);
     });
   }
@@ -921,7 +938,7 @@ Shell,3</code></pre></div>
     refreshCounters();
   }
   function resetDrills() {
-    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; buildDrills(); refreshCounters();
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
   }
   function resetArrange() {
     document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
@@ -932,18 +949,18 @@ Shell,3</code></pre></div>
     document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
   }
   function resetQuiz() {
-    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; buildQuiz();
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
   }
 
   document.getElementById('reset-part-1').addEventListener('click', resetTasks);
   document.getElementById('reset-part-2').addEventListener('click', resetDrills);
   document.getElementById('reset-part-3').addEventListener('click', resetArrange);
   document.getElementById('reset-part-4').addEventListener('click', resetWrites);
-  document.getElementById('reset-part-5').addEventListener('click', initDeck);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
   document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
 
   document.getElementById('reset-all').addEventListener('click', function () {
-    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); initDeck();
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
   });
 
   /* initial build */

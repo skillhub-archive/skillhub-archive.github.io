@@ -105,6 +105,15 @@
     cursor: pointer; letter-spacing: .04em;
   }
   .reset-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+  .save-box { margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
+  .save-msg { margin: 0 0 10px; font-size: 13.5px; color: var(--ink-soft); }
+  .save-ta { width: 100%; min-height: 90px; font-family: var(--mono); font-size: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); resize: vertical; }
+  .save-actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 
   /* ---- Section headings ---- */
   .sec { margin-top: 56px; }
@@ -233,6 +242,20 @@
       <div class="bar-wrap">
         <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
         <div class="bar-caption"><span id="bar-label">Not started, tick a session when you finish it</span><span id="bar-pct">0%</span></div>
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress</button>
+      <button class="save-btn" id="import-btn">Import progress</button>
+      <span class="save-hint">Save your progress or move it to another device.</span>
+    </div>
+    <div class="save-box" id="save-box" style="display:none">
+      <p class="save-msg" id="save-msg"></p>
+      <textarea class="save-ta" id="save-ta" spellcheck="false" placeholder="Your progress code appears here when you Export. To Import, paste a code and click Load."></textarea>
+      <div class="save-actions">
+        <button class="save-btn" id="download-btn">Download file</button>
+        <button class="save-btn primary" id="load-btn" style="display:none">Load pasted code</button>
+        <button class="save-btn" id="save-close">Close</button>
       </div>
     </div>
   </header>
@@ -602,6 +625,51 @@
       save(state);
       render(state);
     });
+
+    // ---- Export / import ALL progress (every py-* key: Hub + all sessions) ----
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('py-') === 0) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sBox = document.getElementById('save-box');
+    var sTa = document.getElementById('save-ta');
+    var sMsg = document.getElementById('save-msg');
+    var sDl = document.getElementById('download-btn');
+    var sLoad = document.getElementById('load-btn');
+    document.getElementById('export-btn').addEventListener('click', function () {
+      sTa.value = JSON.stringify(collectProgress());
+      sMsg.textContent = 'This code holds all your progress across the Hub and every session. Copy it, or download the file, then load it on another device.';
+      sDl.style.display = ''; sLoad.style.display = 'none';
+      sBox.style.display = ''; sTa.focus(); sTa.select();
+    });
+    document.getElementById('import-btn').addEventListener('click', function () {
+      sTa.value = '';
+      sMsg.textContent = 'Paste a progress code (or the contents of a downloaded file) below, then click Load. This overwrites the progress saved on this device.';
+      sDl.style.display = 'none'; sLoad.style.display = '';
+      sBox.style.display = ''; sTa.focus();
+    });
+    sDl.addEventListener('click', function () {
+      var blob = new Blob([sTa.value || JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+    sLoad.addEventListener('click', function () {
+      var data;
+      try { data = JSON.parse(sTa.value); } catch (e) { sMsg.textContent = 'That does not look like a valid progress code. Make sure you pasted the whole thing.'; return; }
+      if (!data || typeof data !== 'object') { sMsg.textContent = 'That does not look like a valid progress code.'; return; }
+      var n = 0;
+      for (var k in data) { if (k.indexOf('py-') === 0) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} } }
+      sMsg.textContent = 'Loaded ' + n + ' saved section(s). Reloading the Hub...';
+      setTimeout(function () { location.reload(); }, 700);
+    });
+    document.getElementById('save-close').addEventListener('click', function () { sBox.style.display = 'none'; });
   })();
 </script>
 
