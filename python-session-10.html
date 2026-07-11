@@ -1,0 +1,943 @@
+<style>
+  :root {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+      --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+      --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+    --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+    --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (Cascadia Code otherwise draws != as a glyph, >= as, -> as, etc.) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 20px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 68ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .err { color: var(--bad); }
+  .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
+  .filebox .fl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px; }
+  .filebox pre { margin: 0; background: none; border: none; padding: 0; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .pt:hover { text-decoration: underline; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 8ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 46ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .sendoff { margin-top: 30px; background: var(--gold-soft); border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); border-radius: 12px; padding: 18px 20px; }
+  .sendoff h3 { margin: 0 0 8px; font-size: 16px; color: var(--gold); }
+  .sendoff p { margin: 0 0 8px; font-size: 14px; color: var(--ink-soft); }
+  .sendoff a { color: var(--accent); text-decoration: none; }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 10 // Level 5 &middot; Capstone</div>
+      <a class="hublink" href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Capstone: API &rarr; transform &rarr; report</h1>
+    <p class="goal">This is the finale, one script that uses every level of the sprint at once. You will authenticate to a real API and page through all of your results (Level 4), reshape that data into a table and clean and group it with pandas (Level 5), and write a finished report file to disk (Level 3). Then you will organize it the way real tools are built: small named functions behind a single entry point, instead of one long block. The whole sprint, end to end, in one tool you run yourself.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Ship a small tool that goes from live data to a finished report file.</span>
+
+    <div class="howto">
+      <span class="ic">&gt;_</span>
+      <p><b>Open VS Code and a terminal before you start.</b> Same six-part rhythm. Two ideas run through today: <b>the data changes shape at every step</b> (a paginated pull gives a list of dicts, pandas turns that into a table, the report comes out as a file), and <b>a tool made of small functions</b> is easier to test and reuse than one long script. New this session: the <code>if __name__ == "__main__":</code> guard, explained in Part 1.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/8</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then your turn. Each task builds one piece of the capstone tool (fetch, reshape, summarize, organize), so by Task 5 you are assembling the whole thing and running it for real against your own GitHub account.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. The whole pipeline in one script</h3>
+      <p>This session has no new library to learn. Instead you connect the ones you already have into one flow, the flow behind almost every data tool: pull data from somewhere, reshape and clean it, write the answer out. Here is the exact chain you will build, and which session each link comes from:</p>
+      <ul class="pts">
+        <li>An <b>authenticated, paginated pull</b> (Session 8) asks an API for your data one page at a time and collects it into a single list of dicts.</li>
+        <li>That list of dicts is precisely what <code>response.json()</code> hands back (Session 7) when an endpoint returns a list.</li>
+        <li><code>pd.DataFrame(list_of_dicts)</code> turns that same shape straight into a table (Session 9), one row per dict.</li>
+        <li>You clean it, group it, and <code>df.to_csv(...)</code> writes the finished report to a file (Sessions 9 and 5).</li>
+      </ul>
+      <p>Notice the thread that has run through the whole back half of the sprint: <b>the data is rarely the type you think it is, so you convert or clean it before you use it.</b> A CSV cell looked like a number but was text (Session 5). A JSON body looked like a dict but was text until you parsed it (Session 7). A blank cell was not zero but <code>NaN</code>, a float (Session 9). Every step of this pipeline has one of those moments, and handling it is most of the work.</p>
+      <p>Step one is your credential. In Session 8 you created a GitHub personal access token (<code>Settings &gt; Developer settings &gt; Personal access tokens &gt; Tokens classic &gt; Generate</code>; it starts with <code>ghp_</code>) and stored it in an environment variable so it never sits in your code. Read it back with <code>os.getenv</code> and build the bearer header you will send on every request:</p>
+<pre><code>import os
+
+token = os.getenv("GITHUB_TOKEN")                 <span class="cm"># read the token from the environment, never hardcode it</span>
+headers = {"Authorization": f"Bearer {token}"}    <span class="cm"># the bearer header, sent on every request (Session 8)</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read your token and build the auth header</div>
+        <p>Set your token as an environment variable (as in Session 8), then in a new file read it back with <code>os.getenv</code> and build the <code>headers</code> dict. Print a short confirmation so you know it loaded. Do not paste the token into your code, that is the whole point of the env var.</p>
+        <div class="filebox"><span class="fl">terminal</span>
+<pre><code>PS C:\work&gt; $env:GITHUB_TOKEN = "ghp_your_token_here"
+PS C:\work&gt; python capstone.py
+<span class="out">Header ready.</span></code></pre></div>
+        <details><summary>Show reference solution</summary>
+<pre><code>import os
+
+token = os.getenv("GITHUB_TOKEN")                 <span class="cm"># read the secret from the environment</span>
+if not token:
+    print("No token set. See Session 8 to create and store one.")
+headers = {"Authorization": f"Bearer {token}"}    <span class="cm"># build the header we send on every request</span>
+print("Header ready.")</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I read my token from the environment and built the header</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. The authenticated, paginated pull</h3>
+      <p>The first real step is <b>fetch</b>, and this is Session 8 almost verbatim, so it should feel familiar. You send your <code>headers</code> on a GET to the repos endpoint, and because an account can have more repos than fit in one response, you <b>page</b>: ask for page 1, then page 2, and so on, adding each page onto one list with <code>.extend</code>, until a page comes back with fewer items than you asked for, which means there is no more data (the Session 8 stop condition). Wrap the whole thing in <code>try/except requests.RequestException</code> (Sessions 6 and 8) so a network problem fails with a clear message instead of a raw traceback, and check for a <code>401</code> (Session 8) so a bad token tells you to fix your token. Notice this is already written as a <b>function</b>, one named job, we will make that a habit in Concept E:</p>
+<pre><code>import requests, os
+
+def fetch_repos(headers):
+    url = "https://api.github.com/user/repos"   <span class="cm"># this endpoint requires a token</span>
+    repos = []
+    page = 1
+    try:
+        while True:
+            resp = requests.get(url, headers=headers, params={"per_page": 100, "page": page})
+            if resp.status_code == 401:
+                print("401: check your token.")
+                return []
+            resp.raise_for_status()          <span class="cm"># any other bad status raises, caught below</span>
+            batch = resp.json()              <span class="cm"># a list of repo dicts for this page</span>
+            repos.extend(batch)              <span class="cm"># add this page onto the running list</span>
+            if len(batch) &lt; 100:             <span class="cm"># a page shorter than 100 means we are done</span>
+                break
+            page += 1
+    except requests.RequestException as e:
+        print("Network error:", e)
+        return []
+    return repos</code></pre>
+      <p>Here is the shape of what comes back, verified against the public equivalent of this endpoint. Each page is a list of repo dicts, and a repo dict has dozens of fields (most trimmed here):</p>
+      <div class="filebox"><span class="fl">response.json() for one page (shape, values vary)</span>
+<pre><code>[
+  {"name": "toolbox", "full_name": "you/toolbox", "private": false,
+   "language": "Python", "stargazers_count": 12, "forks_count": 2},
+  {"name": "dotfiles", "full_name": "you/dotfiles", "private": false,
+   "language": "Shell", "stargazers_count": 3, "forks_count": 0}
+]</code></pre></div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write fetch_repos</div>
+        <p>Reuse your Session 8 pagination: page through <code>/user/repos</code> with <code>per_page=100</code>, extend each page onto one list, stop on a short page, and handle a 401 and network errors. If your account is new or empty, that is fine, the tool will pull 0 repos and still prove your auth works.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import requests, os
+
+def fetch_repos(headers):
+    url = "https://api.github.com/user/repos"
+    repos = []
+    page = 1
+    try:
+        while True:
+            resp = requests.get(url, headers=headers, params={"per_page": 100, "page": page})
+            if resp.status_code == 401:
+                print("401: check your token.")
+                return []
+            resp.raise_for_status()
+            batch = resp.json()
+            repos.extend(batch)
+            if len(batch) &lt; 100:
+                break
+            page += 1
+    except requests.RequestException as e:
+        print("Network error:", e)
+        return []
+    return repos</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I wrote a paginated, authenticated fetch_repos</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Reshape and clean with pandas</h3>
+      <p>Now hand that list of dicts to pandas. Because it is a list of dicts, <code>pd.DataFrame(repos)</code> turns it straight into a table (Session 9), one row per repo and one column per key. A repo object has dozens of fields you do not need, so select just the columns you care about with the double-bracket list form, <code>df[["name", "language", "stargazers_count", "private"]]</code> (Session 9). Then clean: some repos have no detected language, which comes in as <code>NaN</code>, so drop those rows with <code>dropna</code> (or fill them with <code>fillna("Unknown")</code> if you would rather keep them). This is the same clean-before-you-use-it habit as the rest of the pipeline:</p>
+<pre><code>import pandas as pd
+
+def to_dataframe(repos):
+    df = pd.DataFrame(repos)                                      <span class="cm"># list of dicts -&gt; table</span>
+    df = df[["name", "language", "stargazers_count", "private"]]  <span class="cm"># keep only the columns the report needs</span>
+    df = df.dropna()                                              <span class="cm"># drop repos with no language (a NaN)</span>
+    return df</code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build and clean the table</div>
+        <p>You do not need a live pull to practice this half. Make a small list of repo dicts by hand (three or four, each with <code>name</code>, <code>language</code>, and <code>stargazers_count</code>, and let one have <code>None</code> for the language). Build a DataFrame from it, select the columns you want, drop the missing-language row, and print <code>shape</code> and <code>head()</code> to confirm.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import pandas as pd
+
+repos = [{"name": "toolbox", "language": "Python", "stargazers_count": 12},
+         {"name": "dotfiles", "language": "Shell", "stargazers_count": 3},
+         {"name": "scratch", "language": None, "stargazers_count": 0}]
+df = pd.DataFrame(repos)                       <span class="cm"># list of dicts becomes rows</span>
+df = df[["name", "language", "stargazers_count"]]   <span class="cm"># pick the columns we want</span>
+df = df.dropna()                               <span class="cm"># the scratch row (no language) drops out</span>
+print(df.shape)                                <span class="cm"># -&gt; (2, 3): two rows survived</span>
+print(df.head())</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I built a DataFrame from a list of dicts and cleaned it</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Group, summarize, and write the report</h3>
+      <p>With a clean table, the summary is one line (Session 9): group by language and total the stars. <code>groupby("language")["stargazers_count"].sum()</code> gives a total per language; <code>reset_index()</code> flattens it back into a plain two-column table; and <code>to_csv("summary.csv", index=False)</code> writes the report without pandas automatic row numbers. That file is your deliverable, it went from a live API to a finished report:</p>
+<pre><code>def summarize(df):
+    summary = df.groupby("language")["stargazers_count"].sum().reset_index()   <span class="cm"># total stars per language, flat table</span>
+    summary.to_csv("summary.csv", index=False)   <span class="cm"># write the report, no extra 0,1,2 column</span>
+    return summary</code></pre>
+      <div class="filebox"><span class="fl">summary.csv (what the report holds, your languages and totals will vary)</span>
+<pre><code>language,stargazers_count
+Python,17
+Shell,3</code></pre></div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Summarize and export</div>
+        <p>Using the cleaned DataFrame from Task 3, group by <code>language</code>, total <code>stargazers_count</code>, <code>reset_index()</code>, write it to <code>summary.csv</code> with <code>index=False</code>, and print it. Open the CSV to confirm there is no extra index column.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>summary = df.groupby("language")["stargazers_count"].sum().reset_index()
+summary.to_csv("summary.csv", index=False)
+print(summary)                                 <span class="cm"># a language column and a stargazers_count column</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I grouped, summarized, and wrote the report file</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Organizing the tool: functions and the main guard</h3>
+      <p>You could write all of this as one long script, top to bottom: read the token, loop the pages, build the DataFrame, clean, group, write, all in a single flat file. It runs. But it is hard to test one piece without running the whole thing, hard to reuse the fetch without also triggering the report, and hard to read. Here is the tempting <b>one-blob</b> version (shortened):</p>
+<pre><code><span class="cm"># THE ONE-BLOB SCRIPT: everything top to bottom, no functions</span>
+token = os.getenv("GITHUB_TOKEN")
+headers = {"Authorization": f"Bearer {token}"}
+repos = []
+page = 1
+while True:
+    ...                                        <span class="cm"># the whole pagination loop, inline</span>
+df = pd.DataFrame(repos)
+df = df[["name", "language", "stargazers_count", "private"]].dropna()
+summary = df.groupby("language")["stargazers_count"].sum().reset_index()
+summary.to_csv("summary.csv", index=False)
+print(summary)</code></pre>
+      <p>The <b>organized</b> version is the same logic split into named functions, each doing one job (Session 4), with a <code>main()</code> that calls them in order. This is the Session 4 lesson (functions take inputs and return values) applied to a whole tool, the return value of each step is the input to the next:</p>
+<pre><code>def main():
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        print("Set GITHUB_TOKEN first (see Session 8).")
+        return
+    headers = {"Authorization": f"Bearer {token}"}
+    repos = fetch_repos(headers)               <span class="cm"># step 1: pull (returns a list of dicts)</span>
+    print(f"Pulled {len(repos)} repos.")
+    df = to_dataframe(repos)                   <span class="cm"># step 2: reshape and clean (returns a DataFrame)</span>
+    summary = summarize(df)                    <span class="cm"># step 3: group and write (returns the summary)</span>
+    print(summary)
+
+if __name__ == "__main__":
+    main()</code></pre>
+      <p>That last block is new, and it sits at the bottom of nearly every Python tool, so it is worth understanding rather than copying. <code>__name__</code> is a <b>built-in variable that Python sets automatically for every file.</b> When you run a file directly (<code>python capstone.py</code>), Python sets that file's <code>__name__</code> to the string <code>"__main__"</code>. But when another file <i>imports</i> your file to reuse its functions, Python sets <code>__name__</code> to the module's name instead (for example <code>"capstone"</code>). So the line <code>if __name__ == "__main__":</code> reads as: <b>run this block only when the file is being run directly, not when it is being imported.</b> That means running the tool does the work, while importing it just loads <code>fetch_repos</code> and the others for reuse elsewhere, without firing off a network pull as a side effect. It is the standard way to give a file both a "run me" behavior and a "borrow my functions" behavior.</p>
+      <p>Two light finishing touches make a tool something you (or a teammate) can re-run later. First, capture the exact packages it needs: <code>pip freeze &gt; requirements.txt</code> (Session 6) writes <code>requests</code>, <code>pandas</code>, and their versions to a file, so anyone can <code>pip install -r requirements.txt</code> and get the same setup. Second, add a short <b>README</b>, a plain text file that says what the tool does, how to set the token, and how to run it. That is the difference between a script on your machine and a tool someone else can pick up.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: ship the whole tool, run it live</div>
+        <p>This is your Session 10 milestone and the finish line of the sprint, run for real in VS Code with your own token. Put it all together into one file: <code>os.getenv</code> the token and build the headers, <code>fetch_repos</code> to page through <code>/user/repos</code>, <code>to_dataframe</code> to build and clean the table, <code>summarize</code> to group and write <code>summary.csv</code>, and a <code>main()</code> behind <code>if __name__ == "__main__": main()</code>. Run it. Your repo counts and languages are yours, so they will not match the example, that is the point: it is your data, pulled live, turned into a report file.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import os
+import requests
+import pandas as pd
+
+def fetch_repos(headers):
+    url = "https://api.github.com/user/repos"
+    repos = []
+    page = 1
+    try:
+        while True:
+            resp = requests.get(url, headers=headers, params={"per_page": 100, "page": page})
+            if resp.status_code == 401:
+                print("401: check your token.")
+                return []
+            resp.raise_for_status()
+            batch = resp.json()
+            repos.extend(batch)
+            if len(batch) &lt; 100:
+                break
+            page += 1
+    except requests.RequestException as e:
+        print("Network error:", e)
+        return []
+    return repos
+
+def to_dataframe(repos):
+    df = pd.DataFrame(repos)
+    df = df[["name", "language", "stargazers_count", "private"]]
+    return df.dropna()
+
+def summarize(df):
+    summary = df.groupby("language")["stargazers_count"].sum().reset_index()
+    summary.to_csv("summary.csv", index=False)
+    return summary
+
+def main():
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        print("Set GITHUB_TOKEN first (see Session 8).")
+        return
+    headers = {"Authorization": f"Bearer {token}"}
+    repos = fetch_repos(headers)
+    print(f"Pulled {len(repos)} repos.")
+    df = to_dataframe(repos)
+    summary = summarize(df)
+    print(summary)
+
+if __name__ == "__main__":
+    main()</code></pre>
+          <div class="filebox"><span class="fl">example run (built from a few sample repos, yours will differ)</span>
+<pre><code><span class="cm"># printed to the terminal:</span>
+Pulled 4 repos.
+  language  stargazers_count
+0   Python                17
+1    Shell                 3
+
+<span class="cm"># written to summary.csv:</span>
+language,stargazers_count
+Python,17
+Shell,3</code></pre></div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I shipped the full tool and ran it live against my account</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each snippet and <b>work out what it prints in your head</b>, type your answer, then check. These are small, self-contained pieces pulled from across the pipeline (build a header, run the page loop, parse JSON, total a column), each printing a single clean value, so there is no network, no token, and no file needed. There is no "watch it run" link, so the honest move is to <b>run any you are unsure about in VS Code</b>. Type the <b>printed output</b> exactly.</p>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it from scratch. First reassemble scrambled programs (mind the order, you cannot group a table before you have built it), then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the program (Parsons)</h3>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write it yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the code in the box, reveal the reference to compare, then run yours in VS Code. The workbook can't run Python, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours runs correctly, or <b>Needs another pass</b> to drop your cursor back in the editor and keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax you should summon instantly, drawn from the whole pipeline. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK (COMPREHENSIVE FINAL QUIZ) ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Final quiz</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">The comprehensive finish, 10 questions across all five levels, options shuffled each time. Aim for 8 out of 10. If a wrong answer surprises you, use the review link to jump straight to the source.</p>
+    <div class="note">&#127937; <b>This is your whole-sprint review:</b> 8 of these 10 questions pull from earlier sessions, at least one from every level (marked <i>recall</i>, they open that session in a new tab), and 2 cover the capstone you built today. Pulling old material back up on a delay is exactly what locks it into long-term memory.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+
+    <div class="sendoff">
+      <h3>Where to go next</h3>
+      <p>That is the sprint: from confident code-reader to someone who authenticates to an API, wrangles the data, and ships a report file, unassisted. The one muscle worth keeping warm is the one you flagged at the start, writing code without help, and it only closes with reps.</p>
+      <p>Your <a href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">Hub</a> lists the five resources to keep leveling up: <b>Automate the Boring Stuff</b> and the <b>official Python docs</b> for fundamentals, <b>Real Python</b> and <b>Corey Schafer</b> for clear second angles on any topic, and <b>Exercism</b> for practice problems with real mentor feedback, the best place to keep building the write-it-yourself muscle. Pick a small annoyance in your own week and build a tool for it. That is how this sticks.</p>
+    </div>
+  </section>
+
+  <footer>
+    Session 10 of 10, the finale. You built a tool that goes from a live API to a finished report file, using every level of the sprint at once. Tick <b>S10</b> on your <a href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">Hub</a> to complete all ten sessions. That is the whole 20-hour sprint done. Congratulations, and keep shipping small tools.
+  </footer>
+</div>
+
+<script>
+  var STORE = "py-s10-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills (all tiny, deterministic, in-memory pieces of the pipeline) ---------- */
+  var DRILLS = [
+    { code: 'token = "ghp_demo"\nheaders = {"Authorization": f"Bearer {token}"}\nprint(headers["Authorization"])', ans: 'Bearer ghp_demo', why: 'An f-string (Session 1) drops the token into the header value, and this is the bearer-auth header from Session 8. headers["Authorization"] then reads that value back like a dict key, so it prints Bearer ghp_demo.' },
+    { code: 'status = 401\nif status == 401:\n    print("check your token")\nelse:\n    print("looks ok")', ans: 'check your token', why: '401 means unauthorized (Session 8), so the if branch fires and prints its message. Plain if/else from Session 2.' },
+    { code: 'pages = [[1, 2, 3], [4, 5, 6], [7]]\nrepos = []\nfor page in pages:\n    repos.extend(page)\n    if len(page) < 3:\n        break\nprint(len(repos))', ans: '7', why: '.extend adds each page onto one running list (Session 8). It runs all three pages (3 + 3 + 1 items) and then break fires because the last page has fewer than 3 items, a short page. So len(repos) is 7.' },
+    { code: 'import json\nbody = \'[{"name": "a"}, {"name": "b"}]\'\ndata = json.loads(body)\nprint(data[1]["name"])', ans: 'b', why: 'json.loads turns the JSON text into a Python list of dicts (Session 7). data[1] is the second dict, and ["name"] reads its value, so it prints b.' },
+    { code: 'import pandas as pd\nrepos = [{"stars": 5}, {"stars": 15}]\ndf = pd.DataFrame(repos)\nprint(df["stars"].sum())', ans: '20', why: 'A list of dicts becomes a table with pd.DataFrame (Session 9), one row per dict. df["stars"] is that column, and .sum() totals it: 5 + 15 is 20.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"stars": ["5", "10", "15"]})\nprint(df["stars"].astype(int).sum())', ans: '30', why: 'The values are text ("5", "10", "15"), the Session 5 string trap on a whole column. .astype(int) converts them to whole numbers (Session 9), then .sum() adds them: 5 + 10 + 15 is 30.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"lang": ["py", "js", "py"], "stars": [10, 3, 5]})\ntotals = df.groupby("lang")["stars"].sum()\nprint(totals["py"])', ans: '15', why: 'groupby("lang") splits the rows by language and .sum() totals stars in each group (Session 9). py has 10 and 5, so its total is 15. The result is labeled by group, so totals["py"] reads one group back like a dict key.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"lang": ["py", None, "js"]})\nprint(len(df.dropna()))', ans: '2', why: 'The None becomes a NaN (missing) in the column (Session 9). dropna() removes that one row, leaving two, so len is 2.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="What does it print?" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct output</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function check() {
+        if (el.dataset.done) return; el.dataset.done = '1';
+        var ok = norm(input.value) === norm(d.ans);
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+        refreshCounters();
+      }
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'Arrange a tool entry point: define main to run the three pipeline steps in order, then guard it so it only runs when the file is run directly.',
+      lines: ['def main():', '    repos = fetch_repos(headers)', '    df = to_dataframe(repos)', '    summary = summarize(df)', '    print(summary)', 'if __name__ == "__main__":', '    main()'] },
+    { prompt: 'Arrange the pandas half of the tool: build the table, drop rows with a hole, total stars per language as a flat table, then write the report file.',
+      lines: ['import pandas as pd', 'df = pd.DataFrame(repos)', 'df = df.dropna()', 'summary = df.groupby("language")["stars"].sum().reset_index()', 'summary.to_csv("summary.csv", index=False)'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your program (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (btn.disabled) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so it reads the token from the environment and builds the bearer auth header. The target output is your clue.',
+      code: 'import os\nos.environ["GITHUB_TOKEN"] = "ghp_demo"\ntoken = os.%%("GITHUB_TOKEN")\nheaders = {%%: f"Bearer {token}"}\nprint(headers["Authorization"])   # -> Bearer ghp_demo', ans: ['getenv', '"Authorization"'] },
+    { prompt: 'Fill the blanks so the row with the missing language is removed first, then stars are totalled per language.',
+      code: 'import pandas as pd\ndf = pd.DataFrame({"lang": ["py", "py", None], "stars": [10, 20, 5]})\ndf = df.%%()                          # handle the missing language before grouping\ntotals = df.groupby("lang")["stars"].%%()\nprint(totals["py"])                   # -> 30', ans: ['dropna', 'sum'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var want = f.ans[i], ok;
+          if (/^["'].*["']$/.test(want)) {
+            // the answer is a quoted string key, so the learner must actually quote it
+            // (bare Authorization would be a NameError); accept "Authorization" or 'Authorization'
+            var v = b.value.trim();
+            ok = (/^".*"$/.test(v) || /^'.*'$/.test(v)) && norm(v) === norm(want);
+          } else {
+            ok = norm(b.value) === norm(want);
+          }
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Read a GitHub token from the GITHUB_TOKEN environment variable with os.getenv (never hardcode it). If it is missing, print a clear reminder; otherwise build the bearer auth header and print that it is ready.',
+      sol: 'import os\n\ntoken = os.getenv("GITHUB_TOKEN")\nif not token:\n    print("No token set. Set GITHUB_TOKEN first (see Session 8).")\nelse:\n    headers = {"Authorization": f"Bearer {token}"}\n    print("Header ready.")' },
+    { task: 'Write a function fetch_repos(headers) that pages through https://api.github.com/user/repos: start at page 1, GET with params per_page=100 and page=n, extend a list with each page, stop when a page returns fewer than 100 items, and return the full list. Wrap the loop in try/except requests.RequestException.',
+      sol: 'import requests\n\ndef fetch_repos(headers):\n    url = "https://api.github.com/user/repos"\n    repos = []\n    page = 1\n    try:\n        while True:\n            resp = requests.get(url, headers=headers, params={"per_page": 100, "page": page})\n            resp.raise_for_status()\n            batch = resp.json()\n            repos.extend(batch)         # add this page to the running list\n            if len(batch) < 100:        # short page means no more data\n                break\n            page += 1\n    except requests.RequestException as e:\n        print("Network error:", e)\n        return []\n    return repos' },
+    { task: 'Given a list of repo dicts (each with a "language" and a "stargazers_count"), build a DataFrame, drop rows with a missing language, then total stargazers per language and print the total for "Python".',
+      sol: 'import pandas as pd\n\nrepos = [{"language": "Python", "stargazers_count": 12},\n         {"language": "Shell", "stargazers_count": 3},\n         {"language": "Python", "stargazers_count": 5}]\ndf = pd.DataFrame(repos)\ndf = df.dropna()                                       # drop any missing-language rows\ntotals = df.groupby("language")["stargazers_count"].sum()\nprint(totals["Python"])                                # -> 17' },
+    { task: 'The milestone. Build the whole tool: os.getenv the token and build headers, fetch_repos to page through /user/repos, to_dataframe to build and clean the table, summarize to group stars per language and write summary.csv with index=False, and a main() behind if __name__ == "__main__": main().',
+      sol: 'import os\nimport requests\nimport pandas as pd\n\ndef fetch_repos(headers):\n    url = "https://api.github.com/user/repos"\n    repos = []\n    page = 1\n    try:\n        while True:\n            resp = requests.get(url, headers=headers, params={"per_page": 100, "page": page})\n            if resp.status_code == 401:\n                print("401: check your token.")\n                return []\n            resp.raise_for_status()\n            batch = resp.json()\n            repos.extend(batch)\n            if len(batch) < 100:\n                break\n            page += 1\n    except requests.RequestException as e:\n        print("Network error:", e)\n        return []\n    return repos\n\ndef to_dataframe(repos):\n    df = pd.DataFrame(repos)\n    df = df[["name", "language", "stargazers_count", "private"]]\n    return df.dropna()\n\ndef summarize(df):\n    summary = df.groupby("language")["stargazers_count"].sum().reset_index()\n    summary.to_csv("summary.csv", index=False)\n    return summary\n\ndef main():\n    token = os.getenv("GITHUB_TOKEN")\n    if not token:\n        print("Set GITHUB_TOKEN first (see Session 8).")\n        return\n    headers = {"Authorization": f"Bearer {token}"}\n    repos = fetch_repos(headers)\n    print(f"Pulled {len(repos)} repos.")\n    df = to_dataframe(repos)\n    summary = summarize(df)\n    print(summary)\n\nif __name__ == "__main__":\n    main()' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your code here, then run it in VS Code"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in VS Code:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Read a secret from an environment variable', b: 'os.getenv("GITHUB_TOKEN")' },
+    { f: 'Build a bearer-token auth header', b: '{"Authorization": f"Bearer {token}"}' },
+    { f: 'The condition that ends a pagination loop', b: 'a page shorter than per_page' },
+    { f: 'Add every item of a page to a running list', b: 'repos.extend(page)' },
+    { f: 'Turn a list of dicts into a table', b: 'pd.DataFrame(list_of_dicts)' },
+    { f: 'Drop rows that have a missing value', b: 'df.dropna()' },
+    { f: 'Total a column within each group', b: 'df.groupby("col")["value"].sum()' },
+    { f: 'Write a DataFrame to CSV without the index column', b: 'df.to_csv("out.csv", index=False)' },
+    { f: 'Run a block only when the file is run directly', b: 'if __name__ == "__main__":' },
+    { f: 'Catch any network error from requests', b: 'except requests.RequestException:' },
+    { f: 'Save your project exact dependencies', b: 'pip freeze > requirements.txt' },
+    { f: 'Parse a JSON response body into Python', b: 'response.json()' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() { pile = CARDS.map(function (c, i) { return i; }); mastered = 0; showingBack = false; document.getElementById('c-cards').textContent = '0'; document.getElementById('fc-mastered').textContent = '0'; renderCard(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: comprehensive final quiz (all five levels + the capstone) ---------- */
+  var S1_URL = 'https://claude.ai/code/artifact/0be37ed6-a1c8-45fd-8ee5-5a3c3ae20fc4';
+  var S2_URL = 'https://claude.ai/code/artifact/30ccbd16-95e4-44dd-a1c5-51b73db038fb';
+  var S3_URL = 'https://claude.ai/code/artifact/ace0fd4f-3bf7-4d09-9625-84b1527c543d';
+  var S4_URL = 'https://claude.ai/code/artifact/015de950-d8e0-4448-8ec7-960e72e19465';
+  var S5_URL = 'https://claude.ai/code/artifact/f812334c-5352-4443-b42f-74a6caf32ca0';
+  var S6_URL = 'https://claude.ai/code/artifact/538ff8c0-7285-42ee-9cd2-b8eac483ce25';
+  var S7_URL = 'https://claude.ai/code/artifact/7026071c-9552-4256-8c91-c25f6034289f';
+  var S8_URL = 'https://claude.ai/code/artifact/9ccdd3f5-6931-4c7e-bf99-789196a065c6';
+  var S9_URL = 'https://claude.ai/code/artifact/0ca2712b-55a3-466f-ad14-975d3b1ada72';
+  var QUIZ = [
+    { q: 'Recall (Session 1, Level 1): price is the integer 42. What does print(f"Total: ${price:.2f}") display?', o: ['Total: $42.00', 'Total: $42', 'Total: ${price:.2f}', 'Total: 42.0'], c: 0,
+      e: 'An f-string (Session 1) runs the code in the braces and drops the result in. The :.2f format spec means show this number as a float with exactly two decimal places, so 42 becomes 42.00. Formatting money to two places is a habit worth keeping.', part: { url: S1_URL, label: 'Session 1 - f-strings and :.2f' } },
+    { q: 'Recall (Session 4, Level 2): a function runs some code but has no return statement. What does calling it give back?', o: ['None', 'The last line it printed', '0', 'An error, every function must return something'], c: 0,
+      e: 'A function with no return statement still hands back the special value None (Session 4). That is why printing inside a function is not the same as returning a value. The capstone leans on return to pass data from fetch_repos to to_dataframe to summarize.', part: { url: S4_URL, label: 'Session 4 - return values and None' } },
+    { q: 'Recall (Session 6, Level 3): your script crashes and prints a traceback of several lines. Which line names the actual error?', o: ['The last line, the ExceptionType and message at the bottom', 'The first line at the top', 'The line with the most indentation', 'None of them, a traceback is just noise'], c: 0,
+      e: 'You read a traceback bottom-up (Session 6): the very last line is the ExceptionType and message that actually stopped the program, for example ValueError: invalid literal for int(). The lines above it are the call path that led there.', part: { url: S6_URL, label: 'Session 6 - reading a traceback' } },
+    { q: 'Recall (Session 5, Level 3): you read two numbers from CSV cells and 42 + 8 gives 428 instead of 50. Why?', o: ['Every value read from a CSV cell is text (a string), so + joins them; convert with int() or float() before doing math', 'Python cannot add numbers that came from a file', 'The CSV file was saved incorrectly', '42 + 8 really is 428 in Python'], c: 0,
+      e: 'Values read from a CSV arrive as strings (Session 5), so "42" + "8" concatenates to "428". You convert with int() or float() first. This is the same check-the-type-before-you-trust-it thread that becomes astype in pandas.', part: { url: S5_URL, label: 'Session 5 - CSV cells are strings' } },
+    { q: 'Recall (Session 7, Level 4): you get a response back from requests.get. What does response.json() give you?', o: ['The response body parsed into Python objects (typically a list of dicts)', 'The raw text of the page, unparsed', 'The HTTP status code as a number', 'A pandas DataFrame, ready to use'], c: 0,
+      e: 'response.json() parses the JSON text of the body into Python objects (Session 7), typically a list of dicts for a list endpoint. That list-of-dicts is exactly the shape pd.DataFrame() turns into a table, which is the hinge of the pipeline you build today.', part: { url: S7_URL, label: 'Session 7 - response.json()' } },
+    { q: 'Recall (Session 8, Level 4): you are paging through an API with per_page=100. How do you know you have reached the last page?', o: ['A page comes back with fewer than 100 items, so a short page means there is no more data', 'The API sends you an email when it ends', 'Page numbers always stop at 10', 'You never know for sure, so you loop forever'], c: 0,
+      e: 'The stop condition (Session 8): keep asking for the next page and .extend each one into your list, but when a page returns fewer than per_page items you have hit the end, so break. The capstone reuses this exact loop.', part: { url: S8_URL, label: 'Session 8 - pagination stop condition' } },
+    { q: 'Recall (Session 9, Level 5): a numeric column has one blank cell, and df["amount"].astype(int) raises an error. Why, and what fixes it?', o: ['The blank became NaN (a float), forcing the column to float64, and there is no integer for NaN; drop or fill the missing value first, then convert', 'astype only works on text columns', 'You must reinstall pandas before converting', 'Integers cannot be stored in a pandas column'], c: 0,
+      e: 'An empty cell becomes NaN, a special float meaning missing (Session 9), so the whole column reads in as float64 and astype(int) cannot turn NaN into a whole number. Clean first with dropna or fillna, then convert. Same clean-then-convert order the capstone uses on the repo data.', part: { url: S9_URL, label: 'Session 9 - NaN and clean-then-convert' } },
+    { q: 'Recall (Session 9, Level 5): df.groupby("language")["stars"].sum() gives per-language totals. How do you save it as a flat report with no extra row-number column?', o: ['Call .reset_index() to flatten it, then to_csv("out.csv", index=False)', 'Just print it, pandas saves the file automatically', 'to_csv always writes the index and there is no way to skip it', 'Loop over the groups and write each one with open()'], c: 0,
+      e: 'A grouped result is labeled by the group, so .reset_index() turns those labels back into a normal column (Session 9). Then to_csv("out.csv", index=False) writes the report, and index=False leaves off pandas automatic 0,1,2 numbers you do not want in a report.', part: { url: S9_URL, label: 'Session 9 - reset_index and to_csv' } },
+    { q: 'Today: the capstone pulls repos from the API, reshapes them with pandas, and writes a CSV. What is the correct shape of that pipeline?', o: ['An authenticated paginated pull collects a list of dicts, pd.DataFrame turns that list into a table, you clean and groupby it, then to_csv writes the report', 'pandas calls the API for you, so you can skip requests entirely', 'You write the empty CSV first, then fill it in from the API', 'You must save the raw JSON to disk before pandas can read it'], c: 0,
+      e: 'The through-line of the whole sprint: the paginated authenticated GET (Session 8) collects a list of dicts, which is the shape response.json() returns (Session 7), which pd.DataFrame(list_of_dicts) turns straight into a table (Session 9), which you clean, group, and to_csv into a finished report. Each level is one link in that chain.', part: { id: 'concept-a', label: 'A. The whole pipeline in one script' } },
+    { q: 'Today: you split the tool into functions and end the file with if __name__ == "__main__": main(). What does that last line do?', o: ['It runs main() only when the file is executed directly, not when the file is imported by another script', 'It is required or Python will not define your functions', 'It makes the code run measurably faster', 'It renames the file to main'], c: 0,
+      e: 'Python sets the built-in variable __name__ to "__main__" when you run a file directly, but to the module name when another file imports it. Guarding main() behind if __name__ == "__main__": means running the file does the work, while importing it just loads the functions for reuse, which is why organized functions beat one long top-to-bottom blob.', part: { id: 'concept-e', label: 'E. Organizing the tool with a main guard' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">' + (item.part && item.part.url ? 'recall' : 'check') + '</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // cumulative question: source lives in an earlier workbook, open it in a new tab
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener">&#8599; Review in ' + esc(item.part.label) + '</a>';
+            } else {
+              // this-session question: scroll in-page (a raw #hash would reload the sandboxed iframe)
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 8
+              ? 'Final quiz: ' + quizCorrect + '/' + QUIZ.length + '. That is a pass. You have completed the sprint, tick S10 on your Hub to finish all ten sessions.'
+              : 'Final quiz: ' + quizCorrect + '/' + QUIZ.length + '. Aim for 8 or more; use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', initDeck);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); initDeck();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

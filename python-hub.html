@@ -1,0 +1,597 @@
+<style>
+  :root {
+    --bg: #F4F5F8;
+    --surface: #FFFFFF;
+    --surface-2: #EDEFF3;
+    --ink: #1A1D26;
+    --ink-soft: #4A4F5C;
+    --ink-faint: #8A8F9C;
+    --border: #E1E4EA;
+    --accent: #4B47D6;
+    --accent-soft: #EEEDFB;
+    --gold: #B26E12;
+    --gold-bright: #C77F1A;
+    --gold-soft: #FBF1DF;
+    --good: #1F8A5B;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1117;
+      --surface: #171A22;
+      --surface-2: #1F232D;
+      --ink: #EDEFF4;
+      --ink-soft: #AEB4C0;
+      --ink-faint: #6B7280;
+      --border: #262B36;
+      --accent: #8A85FF;
+      --accent-soft: #211F3A;
+      --gold: #E6A94B;
+      --gold-bright: #E6A94B;
+      --gold-soft: #2A2213;
+      --good: #3FBE82;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+    --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+    --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Disable programming ligatures so any code shows the exact characters you type */
+  code, pre { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ---- Header ---- */
+  header.hero { padding: 56px 0 32px; border-bottom: 1px solid var(--border); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+  }
+  h1 {
+    font-size: clamp(32px, 5vw, 52px); line-height: 1.05; margin: 14px 0 10px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .lede { font-size: 18px; color: var(--ink-soft); max-width: 62ch; margin: 0; }
+
+  /* ---- Progress panel ---- */
+  .progress-panel {
+    margin-top: 32px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 1fr auto; gap: 18px 32px; align-items: center;
+  }
+  .pp-stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .pp-stat .num {
+    font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .pp-stat .lbl {
+    font-size: 12px; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: .08em; margin-top: 6px;
+  }
+  .pp-stat .num.accent { color: var(--accent); }
+  .bar-wrap { grid-column: 1 / -1; }
+  .bar-track { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--gold-bright)); border-radius: 99px; transition: width .5s ease; }
+  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-faint); }
+  .reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--ink-faint);
+    font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 7px;
+    cursor: pointer; letter-spacing: .04em;
+  }
+  .reset-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  /* ---- Section headings ---- */
+  .sec { margin-top: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .sec-head h2 { font-size: 24px; margin: 0; letter-spacing: -.01em; font-weight: 750; }
+  .sec-kicker { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: .1em; }
+  .sec-sub { color: var(--ink-soft); margin: 0 0 26px; max-width: 68ch; }
+
+  /* ---- How it works strip ---- */
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .fact {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .fact .k { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); }
+  .fact .v { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* ---- Levels ---- */
+  .level { margin-top: 30px; }
+  .level-head {
+    display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px;
+    padding-left: 4px;
+  }
+  .level-badge {
+    flex: none; width: 52px; height: 52px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-family: var(--mono);
+    font-weight: 700; font-size: 13px; text-align: center; line-height: 1.1;
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .level-badge small { display: block; font-size: 9px; letter-spacing: .1em; opacity: .8; }
+  .level-title { font-size: 19px; font-weight: 750; margin: 2px 0 4px; }
+  .level-milestone {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 13px;
+    color: var(--gold); background: var(--gold-soft); border-radius: 8px;
+    padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent);
+    font-weight: 600;
+  }
+  .level-milestone .flag { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; opacity: .85; text-transform: uppercase; }
+
+  .sessions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 20px 18px; box-shadow: var(--shadow); position: relative;
+    display: flex; flex-direction: column; transition: border-color .2s, transform .2s;
+  }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+  .card.done::after {
+    content: "✓ done"; position: absolute; top: 16px; right: 16px;
+    font-family: var(--mono); font-size: 11px; color: var(--good); font-weight: 700;
+  }
+  .card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .snum {
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; letter-spacing: .03em;
+  }
+  .sdur { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
+  .card h3 { font-size: 17px; margin: 0 0 10px; letter-spacing: -.01em; line-height: 1.25; padding-right: 44px; }
+  .learn { margin: 0 0 12px; padding-left: 18px; }
+  .learn li { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .card-meta { margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .mrow { font-size: 12.5px; display: flex; gap: 8px; }
+  .mrow .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); flex: none; width: 62px; padding-top: 1px; }
+  .mrow .txt { color: var(--ink-soft); }
+  .mrow .txt b { color: var(--gold); font-weight: 600; }
+  .check {
+    margin-top: 14px; display: flex; align-items: center; gap: 9px; cursor: pointer;
+    font-size: 13px; color: var(--ink-soft); user-select: none;
+  }
+  .check input { width: 16px; height: 16px; accent-color: var(--good); cursor: pointer; }
+  .check:hover { color: var(--ink); }
+  .card-open { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: #fff; background: var(--accent); padding: 8px 14px; border-radius: 8px; text-decoration: none; }
+  .card-open:hover { filter: brightness(1.06); }
+  .card-pending { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); border: 1px dashed var(--border); padding: 7px 11px; border-radius: 8px; letter-spacing: .02em; }
+
+  /* ---- Resources ---- */
+  .res-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .res {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .res .rnum { font-family: var(--mono); font-size: 12px; color: var(--gold); font-weight: 700; }
+  .res h4 { margin: 6px 0 2px; font-size: 16px; }
+  .res .cost { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--good); margin-bottom: 8px; }
+  .res .cost.paid { color: var(--ink-faint); }
+  .res p { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 10px; }
+  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .res a { color: var(--accent); text-decoration: none; font-size: 12.5px; font-family: var(--mono); word-break: break-all; }
+  .res a:hover { text-decoration: underline; }
+
+  /* ---- callout ---- */
+  .callout {
+    margin-top: 40px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 12px; padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .callout h3 { margin: 0 0 8px; font-size: 16px; }
+  .callout p { margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; }
+  .callout code {
+    font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
+    padding: 2px 6px; border-radius: 5px; color: var(--ink);
+  }
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+
+  @media (max-width: 720px) {
+    .progress-panel { grid-template-columns: 1fr; }
+    .facts { grid-template-columns: 1fr 1fr; }
+    .sessions { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Python // 20-Hour Sprint</div>
+    <h1>Python, the 20% that pays</h1>
+    <p class="lede">A focused sprint from confident code-reader to someone who ships tools, calls APIs, and wrangles data unassisted. Ten two-hour sessions, five levels, a milestone at every step so you always know exactly where you stand.</p>
+
+    <div class="progress-panel">
+      <div class="pp-stats">
+        <div class="pp-stat"><div class="num accent" id="stat-sessions">0/10</div><div class="lbl">Sessions done</div></div>
+        <div class="pp-stat"><div class="num" id="stat-level">Level 1</div><div class="lbl">Current level</div></div>
+        <div class="pp-stat"><div class="num" id="stat-hours">0h</div><div class="lbl">Hours invested</div></div>
+      </div>
+      <button class="reset-btn" id="reset">reset progress</button>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+        <div class="bar-caption"><span id="bar-label">Not started, tick a session when you finish it</span><span id="bar-pct">0%</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the shape</span><h2>How this sprint works</h2></div>
+    <p class="sec-sub">Each session is ~1h45 of hands-on work plus a built-in 15-minute review. Everything leans toward your goal: a solid foundation, then hard into APIs and data, the skills that move you out of Support and into tooling.</p>
+    <div class="facts">
+      <div class="fact"><div class="k">5</div><div class="v">Levels, beginner &rarr; advanced, each with a clear "you can now&hellip;" milestone.</div></div>
+      <div class="fact"><div class="k">10</div><div class="v">Two-hour hands-on workbooks you complete in VS Code, built on demand.</div></div>
+      <div class="fact"><div class="k">6</div><div class="v">Practice modes each session: learn-and-do, predict, arrange, fill, write, recall.</div></div>
+      <div class="fact"><div class="k">&sum;</div><div class="v">Cumulative review, later sessions re-test earlier ones (spaced practice).</div></div>
+    </div>
+  </section>
+
+  <!-- LEVELS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the path</span><h2>The five levels</h2></div>
+    <p class="sec-sub">When you're ready for a session, ask me to build it and I'll generate its hands-on workbook as its own artifact. Built sessions show an <b>Open</b> link below; the rest are waiting to be built. Tick the box when you finish so this page tracks where you are.</p>
+
+    <!-- LEVEL 1 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>01</small></div>
+        <div>
+          <div class="level-title">Foundations</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can read and write a basic Python script from a blank file.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="1" data-level="1">
+          <div class="card-top"><span class="snum">S01</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Setup &amp; the building blocks</h3>
+          <ul class="learn">
+            <li>Install Python + VS Code; run code in the REPL and as a file</li>
+            <li>Variables, numbers, strings, f-strings, <code>print</code>/<code>input</code></li>
+            <li>Types &amp; converting between them; the "everything is an object" idea</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Write and run your own script that takes input and formats output.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Automate the Boring Stuff, Ch.0&ndash;1 (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Re-type today's examples from memory, no copy-paste.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="1"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/0be37ed6-a1c8-45fd-8ee5-5a3c3ae20fc4" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="2" data-level="1">
+          <div class="card-top"><span class="snum">S02</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Making decisions &amp; repeating work</h3>
+          <ul class="learn">
+            <li>Booleans, comparison &amp; logical operators, truthiness</li>
+            <li><code>if / elif / else</code> branching</li>
+            <li><code>for</code> and <code>while</code> loops, <code>range</code>, <code>break</code>/<code>continue</code></li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Build a script that loops and makes decisions (e.g. a guess-checker).</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Automate the Boring Stuff, Ch.2 (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Trace a loop on paper, predict each iteration's output.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="2"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/30ccbd16-95e4-44dd-a1c5-51b73db038fb" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL 2 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>02</small></div>
+        <div>
+          <div class="level-title">Data structures &amp; reusable code</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can model real data and factor code into functions.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="3" data-level="2">
+          <div class="card-top"><span class="snum">S03</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Lists, dicts &amp; the core containers</h3>
+          <ul class="learn">
+            <li>Lists &amp; tuples: indexing, slicing, common methods</li>
+            <li>Dictionaries &amp; sets: key/value modelling, membership</li>
+            <li>Iterating containers; a first taste of list comprehensions</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Model a record (a customer, a job) as a dict inside a list and transform it.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Automate the Boring Stuff, Ch.4&ndash;5 (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Rebuild a small dataset from memory and query it.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="3"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/ace0fd4f-3bf7-4d09-9625-84b1527c543d" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="4" data-level="2">
+          <div class="card-top"><span class="snum">S04</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Functions &amp; modules</h3>
+          <ul class="learn">
+            <li>Defining functions; positional, keyword &amp; default arguments</li>
+            <li><code>return</code> values, scope, docstrings</li>
+            <li>Importing from the standard library; what a module is</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Refactor an earlier script into clean, reusable functions.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">ATBS Ch.3 + Real Python "Defining Functions"</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Explain out loud what each function takes and returns.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="4"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/015de950-d8e0-4448-8ec7-960e72e19465" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL 3 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>03</small></div>
+        <div>
+          <div class="level-title">Real-world Python</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can write scripts that touch files, fail gracefully, and use packages.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="5" data-level="3">
+          <div class="card-top"><span class="snum">S05</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Files, folders &amp; CSV</h3>
+          <ul class="learn">
+            <li>Reading &amp; writing text files; the <code>with</code> context manager</li>
+            <li><code>pathlib</code> for paths that work on Windows</li>
+            <li>Reading &amp; writing CSV, the automation workhorse</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Read a CSV, transform the rows, write a new CSV out.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">ATBS Ch.9 + Ch.16 (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Run your script on a real file from your work folder.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="5"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/f812334c-5352-4443-b42f-74a6caf32ca0" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="6" data-level="3">
+          <div class="card-top"><span class="snum">S06</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Errors, environments &amp; packages</h3>
+          <ul class="learn">
+            <li>Exceptions: reading tracebacks, <code>try / except / finally</code></li>
+            <li>Raising your own errors; a little logging</li>
+            <li>Virtual environments &amp; <code>pip</code> install</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Make a script fail gracefully and install a third-party package.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Real Python "Exceptions" + "Virtual Environments"</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Deliberately break your script and read the traceback.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="6"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/538ff8c0-7285-42ee-9cd2-b8eac483ce25" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL 4 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>04</small></div>
+        <div>
+          <div class="level-title">APIs &amp; integration</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can pull and push data through a real REST API in Python.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="7" data-level="4">
+          <div class="card-top"><span class="snum">S07</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>HTTP, JSON &amp; your first API call</h3>
+          <ul class="learn">
+            <li>How HTTP works: URLs, methods, status codes</li>
+            <li>JSON &harr; Python dicts</li>
+            <li>The <code>requests</code> library: GET, query params, parsing responses</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Call a real public API and pull specific fields out of the response.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Real Python "requests library" + a free public API</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Explain the round trip: request &rarr; status &rarr; JSON &rarr; dict.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="7"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/7026071c-9552-4256-8c91-c25f6034289f" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="8" data-level="4">
+          <div class="card-top"><span class="snum">S08</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Real integrations: auth, POST &amp; pagination</h3>
+          <ul class="learn">
+            <li>Authentication: API keys, bearer tokens, headers</li>
+            <li>Sending data with POST; handling error responses</li>
+            <li>Pagination &amp; rate limits, structuring an integration script</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Write a script that authenticates and pulls every page of results.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Real Python requests (auth) + the SmartMoving API guide</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Map today's patterns onto an API you use at work.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="8"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/9ccdd3f5-6931-4c7e-bf99-789196a065c6" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL 5 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>05</small></div>
+        <div>
+          <div class="level-title">Data wrangling &amp; shipping a tool</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can clean &amp; summarize real data and ship an end-to-end tool.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="9" data-level="5">
+          <div class="card-top"><span class="snum">S09</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>pandas essentials</h3>
+          <ul class="learn">
+            <li>DataFrames &amp; Series; reading CSV/JSON into pandas</li>
+            <li>Selecting, filtering &amp; cleaning data</li>
+            <li><code>groupby</code> &amp; aggregation; exporting a summary</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Load messy data, clean it, and export a grouped summary report.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">"10 minutes to pandas" + Real Python pandas</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Reproduce one column of a Smart Insights report in pandas.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="9"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/0ca2712b-55a3-466f-ad14-975d3b1ada72" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="10" data-level="5">
+          <div class="card-top"><span class="snum">S10</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Capstone: API &rarr; transform &rarr; report</h3>
+          <ul class="learn">
+            <li>Combine it all: pull from an API, wrangle with pandas, write a report</li>
+            <li>Organizing a small project; where to go next</li>
+            <li><b>Comprehensive final quiz</b> across all ten sessions</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Ship a small tool that goes from live data to a finished report file.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Your own capstone + the final quiz artifact</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">The comprehensive quiz is your review, aim for 8/10+.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="10"> Mark session complete</label>
+          <a class="card-open" href="https://claude.ai/code/artifact/d60a57a0-2ba1-4fd3-b501-c58ae069204f" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESOURCES -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// keep going</span><h2>Top 5 resources</h2></div>
+    <p class="sec-sub">Curated for your goal, not a generic list. Four are free. Use the first three <b>during</b> the sprint and the last two to keep leveling up <b>after</b> it.</p>
+    <div class="res-grid">
+      <div class="res">
+        <div class="rnum">01</div>
+        <h4>Automate the Boring Stuff</h4>
+        <div class="cost">Free online</div>
+        <p>Al Sweigart's automation-first Python book. It teaches exactly the practical, "make the computer do the tedious thing" mindset you're after, no computer-science detours. This is your main spine for Levels 1&ndash;3.</p>
+        <div class="when">Use: during, Sessions 1&ndash;6</div>
+        <a href="https://automatetheboringstuff.com">automatetheboringstuff.com</a>
+      </div>
+      <div class="res">
+        <div class="rnum">02</div>
+        <h4>Real Python</h4>
+        <div class="cost paid">Free + membership</div>
+        <p>The clearest tutorials anywhere on <code>requests</code>, APIs, and pandas, the exact topics in your Levels 4&ndash;5. Many articles are free; membership unlocks deeper courses if you want them later.</p>
+        <div class="when">Use: during, Levels 4&ndash;5 + reference</div>
+        <a href="https://realpython.com">realpython.com</a>
+      </div>
+      <div class="res">
+        <div class="rnum">03</div>
+        <h4>Official Python Tutorial &amp; Docs</h4>
+        <div class="cost">Free</div>
+        <p>The authoritative source. Learning to read the official docs is itself a career skill, it's how you'll answer your own questions long after this sprint ends. Skim the relevant section each session.</p>
+        <div class="when">Use: during, every session</div>
+        <a href="https://docs.python.org/3/tutorial/">docs.python.org/3/tutorial</a>
+      </div>
+      <div class="res">
+        <div class="rnum">04</div>
+        <h4>Corey Schafer (YouTube)</h4>
+        <div class="cost">Free</div>
+        <p>When a concept doesn't click in text, his walkthroughs of functions, files, <code>requests</code>, and pandas are the clearest video explanations available. A perfect "second angle" on any hard session.</p>
+        <div class="when">Use: during + after, on demand</div>
+        <a href="https://youtube.com/@coreyms">youtube.com/@coreyms</a>
+      </div>
+      <div class="res">
+        <div class="rnum">05</div>
+        <h4>Exercism, Python track</h4>
+        <div class="cost">Free</div>
+        <p>Free practice problems with real human mentor feedback. This directly builds the one muscle you flagged as your gap: writing code unassisted. The best place to keep sharpening after the sprint.</p>
+        <div class="when">Use: after, ongoing practice</div>
+        <a href="https://exercism.org/tracks/python">exercism.org/tracks/python</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="callout">
+    <h3>How to travel between sessions</h3>
+    <p>This Hub is your map. Built sessions show an <b>Open workbook</b> link on their card (it opens in a new tab, and each workbook links back here). For any session I haven't built yet, just ask, for example: <code>build Session 2</code>, and I'll generate its hands-on workbook and add its link to this page.</p>
+    <p>Tick a session's box when you finish it, the progress bar, level, and hours update automatically and are remembered on this device.</p>
+  </div>
+
+  <footer>
+    Python 20-Hour Sprint
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = "py-sprint-progress-v1";
+    var HOURS_PER = 2;
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('input[data-check]'));
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+      catch (e) { return {}; }
+    }
+    function save(state) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    function currentLevel(doneCount) {
+      // level = 2 sessions each; current level is the one you're working through
+      var lvl = Math.floor(doneCount / 2) + 1;
+      return Math.min(lvl, 5);
+    }
+
+    function render(state) {
+      var done = 0;
+      boxes.forEach(function (b) {
+        var id = b.getAttribute('data-check');
+        var isDone = !!state[id];
+        b.checked = isDone;
+        var card = b.closest('.card');
+        if (card) card.classList.toggle('done', isDone);
+        if (isDone) done++;
+      });
+      var pct = Math.round((done / boxes.length) * 100);
+      document.getElementById('bar').style.width = pct + '%';
+      document.getElementById('bar-pct').textContent = pct + '%';
+      document.getElementById('stat-sessions').textContent = done + '/10';
+      document.getElementById('stat-hours').textContent = (done * HOURS_PER) + 'h';
+      document.getElementById('stat-level').textContent = 'Level ' + currentLevel(done);
+      var label = document.getElementById('bar-label');
+      if (done === 0) label.textContent = 'Not started, tick a session when you finish it';
+      else if (done === boxes.length) label.textContent = 'Sprint complete, you did the thing 🎉';
+      else label.textContent = 'On Level ' + currentLevel(done) + ', keep going';
+    }
+
+    var state = load();
+    render(state);
+
+    boxes.forEach(function (b) {
+      b.addEventListener('change', function () {
+        state[b.getAttribute('data-check')] = b.checked;
+        save(state);
+        render(state);
+      });
+    });
+
+    document.getElementById('reset').addEventListener('click', function () {
+      state = {};
+      save(state);
+      render(state);
+    });
+  })();
+</script>

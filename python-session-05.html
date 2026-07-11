@@ -1,0 +1,844 @@
+<style>
+  :root {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+      --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+      --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+    --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+    --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (Cascadia Code otherwise draws != as a glyph, >= as, -> as, etc.) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 60ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 20px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 68ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
+  .filebox .fl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px; }
+  .filebox pre { margin: 0; background: none; border: none; padding: 0; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .pt:hover { text-decoration: underline; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  .parsons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: 1fr; } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 8ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 46ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 05 // Level 3 &middot; Files &amp; CSV</div>
+      <a class="hublink" href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Files, folders &amp; CSV</h1>
+    <p class="goal">Until now your programs forgot everything the moment they finished. Reading and writing files is what lets a script remember, and it is the doorway to real automation: open a spreadsheet, transform its rows, save the result. CSV is the format that runs the business world, so this is the session where Python starts doing your actual work.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Read a real CSV, transform or filter it with a function, and write the results to a new file.</span>
+
+    <div class="howto">
+      <span class="ic">&gt;_</span>
+      <p><b>Open VS Code before you start.</b> Same six-part rhythm, each part hands you less scaffolding than the last. Files only click when you actually create and read them, so <b>run every example</b> and open the resulting file to see what landed. Two ideas do the heavy lifting today: the <b>with</b> block (which closes files for you) and the fact that <b>everything read from a file is a string</b> (even the digits), so slow down on those two.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/11</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Do each task in VS Code before moving on, check the box when it runs. Make yourself a scratch folder to hold the little files you create today.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. Opening a file the safe way: <code>with</code></h3>
+      <p>To touch a file you first <b>open</b> it. The built-in <code>open(path, mode)</code> function hands you back a <b>file object</b> you read from or write to. The catch: an open file holds a system resource, and you must <b>close</b> it when done or you risk lost data and locked files. The clunky manual way makes you remember that yourself:</p>
+<pre><code><span class="cm"># The manual way: YOU must remember to close it</span>
+f = open("notes.txt", "w")
+f.write("hello")
+f.close()                  <span class="cm"># forget this line and data can be lost or the file stays locked</span></code></pre>
+      <p>The fix is the <code>with</code> statement. A <code>with</code> block is a <b>context manager</b>: a wrapper that sets something up and then guarantees the matching teardown when the block ends. For a file, the teardown is closing it, automatically, even if your code crashes partway. This is the standard, idiomatic way to work with files, so use it every time:</p>
+<pre><code><span class="cm"># The clean way: with auto-closes the file for you, even if an error happens</span>
+with open("notes.txt", "w") as f:   <span class="cm"># "as f" names the file object</span>
+    f.write("hello")                <span class="cm"># write into the file; indented, so it runs while the file is open</span>
+<span class="cm"># file is automatically closed right here, no f.close() needed</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write your first file</div>
+        <p>Using a <code>with</code> block, open a file called <code>hello.txt</code> in write mode (<code>"w"</code>) and write one line of text into it. Run it, then open <code>hello.txt</code> in VS Code's file explorer to confirm your text is really there.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>with open("hello.txt", "w") as f:
+    f.write("Hello from Python!")
+<span class="cm"># now open hello.txt in VS Code, your line is inside</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Reading: the whole file vs one line at a time</h3>
+      <p>Opening with no mode (or <code>"r"</code>) means <b>read</b>. Once open, you have two everyday choices. Call <code>.read()</code> to slurp the <b>entire file into one string</b>, simple, but it loads the whole thing into memory. Or <b>iterate the file object in a <code>for</code> loop</b> to walk it <b>one line at a time</b>, which scales to huge files. One wrinkle: each line you read still carries its trailing <b>newline character</b> (written <code>\n</code>, the invisible "start a new line" marker), so you usually call <code>.strip()</code> on it to shave off that newline and any stray spaces. The same is true of <code>.read()</code>: it hands back <i>every</i> character in the file, including the newline at the very end (most editors add one), so printing the whole string can leave a trailing blank line. That is a big reason the line-by-line approach below tends to read more cleanly.</p>
+      <div class="filebox"><span class="fl">greetings.txt contains</span><pre><code>Hello
+World</code></pre></div>
+<pre><code><span class="cm"># Option 1: read the WHOLE file into a single string</span>
+with open("greetings.txt") as f:
+    content = f.read()     <span class="cm"># one big string, every newline included</span>
+print(content)             <span class="cm"># the newlines become real line breaks -&gt;</span> <span class="out">Hello</span>
+                           <span class="out">World</span>
+                           <span class="cm"># + a blank line here, because the file ends in a newline (most do)</span>
+
+<span class="cm"># Option 2: iterate line by line, the cleaner read for most work</span>
+with open("greetings.txt") as f:
+    for line in f:                 <span class="cm"># the file hands you one line each loop</span>
+        print(line.strip())        <span class="cm"># .strip() shaves the trailing newline off each -&gt;</span> <span class="out">Hello</span>
+                                   <span class="out">World</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read it back</div>
+        <p>First create a small text file (reuse <code>hello.txt</code> from Task 1, or make a new one with two or three lines). Then write a second script that opens it and <b>loops over the lines</b>, printing each one with <code>.strip()</code> so there are no blank gaps between them.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>with open("hello.txt") as f:        <span class="cm"># no mode = read</span>
+    for line in f:
+        print(line.strip())         <span class="cm"># each line, newline shaved off</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Writing: <code>"w"</code> overwrites, <code>"a"</code> appends</h3>
+      <p>The mode you pass to <code>open()</code> decides what writing does, and mixing these two up is a classic way to lose data. <b><code>"w"</code> (write)</b> opens the file <b>empty</b>: it erases anything already there before you write a single character. <b><code>"a"</code> (append)</b> keeps the existing contents and adds your new text <b>onto the end</b>. Use <code>.write()</code> to put text in; unlike <code>print</code>, it does <b>not</b> add a newline for you, so end your lines with <code>\n</code> yourself when you want them separated.</p>
+<pre><code><span class="cm"># "w" starts fresh, wiping whatever was in the file first</span>
+with open("log.txt", "w") as f:
+    f.write("first line\n")     <span class="cm"># \n is the newline character; .write adds none on its own</span>
+
+<span class="cm"># "a" keeps what is there and adds to the end</span>
+with open("log.txt", "a") as f:
+    f.write("second line\n")
+<span class="cm"># log.txt now holds BOTH lines. Opening with "w" again would wipe it back to empty.</span></code></pre>
+      <p>A light word on <b>paths and folders</b>. Rather than gluing strings like <code>"data" + "\\" + "log.txt"</code> (and guessing at slashes), the standard library's <code>pathlib</code> builds paths safely with a <code>/</code> operator that does the right thing on Windows and Mac alike:</p>
+<pre><code>from pathlib import Path         <span class="cm"># Path is a class for filesystem paths</span>
+folder = Path("data")           <span class="cm"># a folder named data</span>
+file_path = folder / "log.txt"  <span class="cm"># join with / -&gt; a full path object</span>
+print(file_path)                <span class="cm"># on Windows prints -&gt;</span> <span class="out">data\log.txt</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Overwrite, then append</div>
+        <p>Open a file <code>diary.txt</code> in <code>"w"</code> mode and write one line. Run it. Now change the mode to <code>"a"</code>, write a second line, and run again. Open the file: both lines should be there. Then switch back to <code>"w"</code>, run once more, and watch it reset to a single line, that is the difference, felt directly.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>with open("diary.txt", "w") as f:   <span class="cm"># run 1: starts the file fresh</span>
+    f.write("Day one\n")
+
+with open("diary.txt", "a") as f:   <span class="cm"># run 2: adds to the end</span>
+    f.write("Day two\n")
+<span class="cm"># diary.txt now has both lines. Re-run with "w" and only the newest write survives.</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. CSV: rows in, rows out</h3>
+      <p>A <b>CSV</b> (comma-separated values) file is just a text file where each line is a row and commas separate the columns, exactly what a spreadsheet export looks like. Two string methods make this tick, and they are worth knowing on their own. <code>.split(",")</code> cuts a string into a <b>list</b> of pieces at every comma; <code>",".join(...)</code> is its mirror image, gluing a list of strings back into one string with a comma between each item:</p>
+<pre><code>row = "Move,300"
+parts = row.split(",")     <span class="cm"># cut on every comma into a list -&gt;</span> <span class="out">['Move', '300']</span>
+print(",".join(parts))     <span class="cm"># glue the list back into one string -&gt;</span> <span class="out">Move,300</span></code></pre>
+      <p>You <i>could</i> parse a whole file by hand this way, but quoted fields and other edge cases make hand-splitting fragile, so Python ships a <code>csv</code> module that does it correctly. Bring it in with <code>import csv</code>. It gives you two ways to read:</p>
+      <ul class="pts">
+        <li><code>csv.reader(f)</code> hands you each row as a <b>list</b> of strings: <code>["Move", "300"]</code>.</li>
+        <li><code>csv.DictReader(f)</code> treats the first row as <b>headers</b> and hands you each later row as a <b>dict</b> keyed by those headers: <code>{"name": "Move", "price": "300"}</code>. Usually the friendlier choice, and it ties straight back to the dicts you built in Session 3.</li>
+      </ul>
+      <div class="filebox"><span class="fl">jobs.csv contains</span><pre><code>name,price
+Move,300
+Pack,120
+Storage,80</code></pre></div>
+<pre><code>import csv                              <span class="cm"># the CSV module</span>
+
+<span class="cm"># DictReader turns each data row into a dict keyed by the header row</span>
+with open("jobs.csv") as f:
+    reader = csv.DictReader(f)
+    jobs = list(reader)                <span class="cm"># collect all rows into a list of dicts</span>
+<span class="cm"># jobs[0] is {"name": "Move", "price": "300"}  (note: price came in as a STRING)</span></code></pre>
+      <p>Writing goes the other way with <code>csv.writer</code> (you hand it lists) or <code>csv.DictWriter</code> (you hand it dicts). With <code>DictWriter</code> you declare the column names once as <code>fieldnames</code>, call <code>.writeheader()</code> to lay down the header row, then <code>.writerows(...)</code> for the data. One Windows detail: pass <code>newline=""</code> when opening a file for CSV writing, or you get a blank line between every row.</p>
+<pre><code>import csv
+
+rows = [{"name": "Move", "total": 330}, {"name": "Pack", "total": 132}]
+with open("out.csv", "w", newline="") as f:      <span class="cm"># newline="" avoids double-spaced rows on Windows</span>
+    writer = csv.DictWriter(f, fieldnames=["name", "total"])
+    writer.writeheader()               <span class="cm"># writes the column-name row: name,total</span>
+    writer.writerows(rows)             <span class="cm"># writes every data row</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Round-trip a CSV</div>
+        <p>In VS Code, hand-make a file <code>people.csv</code> with a header row <code>name,age</code> and two or three data rows. Then write a script that reads it with <code>csv.DictReader</code>, collects the rows into a <b>list of dicts</b>, and prints each person's name. (You will filter and write results in the milestone, this is just the read half.)</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import csv
+
+with open("people.csv") as f:
+    people = list(csv.DictReader(f))   <span class="cm"># list of dicts, one per row</span>
+
+for person in people:
+    print(person["name"])              <span class="cm"># reach into each dict by header</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. The string trap (read this twice), then your milestone</h3>
+      <p>Here is the single biggest gotcha in real-world data work, and it is the same one <code>input()</code> sprang on you back in Session 1: <b>everything you read from a text file or a CSV cell comes back as a string</b>, even when it looks like a number. The characters <code>4</code> and <code>2</code> sitting in a cell arrive as the text <code>"42"</code>, not the number <code>42</code>. If you try to do math on them without converting first, Python does the wrong thing quietly instead of erroring:</p>
+<pre><code>price = "42"               <span class="cm"># a value straight from a CSV cell: it is TEXT</span>
+tax = "8"
+print(price + tax)         <span class="cm"># BROKEN: + glues strings, so you get -&gt;</span> <span class="out">428</span>
+print(int(price) + int(tax))   <span class="cm"># FIXED: convert to numbers first -&gt;</span> <span class="out">50</span></code></pre>
+      <p>So the rule for any CSV number: run it through <code>int()</code> (whole numbers) or <code>float()</code> (decimals) <b>before</b> you calculate. Forget, and <code>"10" + "20"</code> becomes <code>"1020"</code> instead of <code>30</code>. This one bug accounts for a huge share of "why is my total wrong?" moments, so make converting a reflex.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: read &rarr; transform &rarr; write</div>
+        <p>This is your Session 5 milestone, the whole point of the session. Starting from the same <code>jobs.csv</code> shown above (headers <code>name,price</code>, three rows), write a script that: (1) reads the rows with <code>csv.DictReader</code>; (2) uses a <b>function</b> <code>total_with_tax(price, rate=0.1)</code> (yes, the one you built in Session 4, now fed a string, so convert inside it) to compute each total; (3) keeps only the jobs whose total is over 100; and (4) writes those results to a <b>new</b> file <code>jobs_with_tax.csv</code>. Build it before peeking, this is exactly the kind of task that will replace manual spreadsheet work for you.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import csv
+
+def total_with_tax(price, rate=0.1):
+    """Return the price plus tax (price arrives as a string, so convert it)."""
+    return float(price) * (1 + rate)   <span class="cm"># float() turns the text into a number first</span>
+
+<span class="cm"># 1. read the raw rows into a list of dicts</span>
+with open("jobs.csv") as f:
+    jobs = list(csv.DictReader(f))
+
+<span class="cm"># 2 + 3. transform each row, keep only totals over 100</span>
+results = []
+for job in jobs:
+    total = total_with_tax(job["price"])
+    if total &gt; 100:
+        results.append({"name": job["name"], "total": f"{total:.2f}"})  <span class="cm"># :.2f = money to 2 places (Session 1)</span>
+
+<span class="cm"># 4. write the survivors to a brand-new CSV</span>
+with open("jobs_with_tax.csv", "w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=["name", "total"])
+    writer.writeheader()
+    writer.writerows(results)
+
+print(f"Wrote {len(results)} rows")   <span class="cm"># with the sample data -&gt;</span> <span class="out">Wrote 2 rows</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I built and ran this myself</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each snippet and <b>work out what it prints in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model, don't run it first. These all work on <b>in-memory</b> text and rows (no real files needed), so the "watch it run" links step through them live. When a snippet prints on two lines, type both parts separated by a space (e.g. <code>['a', 'b']</code> then <code>['c', 'd']</code>). They get harder toward the end.</p>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it from scratch. First reassemble scrambled programs (mind the indentation, it decides which lines sit inside the <code>with</code> block or the loop), then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the program (Parsons)</h3>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write it yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the code in the box, reveal the reference to compare, then run yours in VS Code (make the little input files by hand first). The workbook can't run Python, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours runs correctly, or <b>Needs another pass</b> to drop your cursor back in the editor and keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> this session mixes in 2 questions from earlier sessions (one from <b>Session 3</b>, one from <b>Session 4</b>, marked <i>recall</i>). Pulling old material back up on a delay is exactly what moves it into long-term memory.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 05 of 10 &middot; Hit the read &rarr; transform &rarr; write milestone unassisted, then tick <b>S05</b> on your <a href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">Hub</a>. &middot; Next: <b>Session 06, errors, virtual environments &amp; pip</b>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "py-s05-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // Python Tutor deep-link builder (correct encoding at runtime)
+  function ptLink(code) {
+    return "https://pythontutor.com/visualize.html#code=" + encodeURIComponent(code) +
+      "&cumulative=false&curInstr=0&heapPrimitives=nevernest&mode=display&origin=opt-frontend.js&py=3&rawInputLstJSON=%5B%5D&textReferences=false";
+  }
+  // wire any element carrying data-ptcode (decode the &#10; newlines we stored as literal \n)
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ptcode]'), function (a) {
+    a.setAttribute('href', ptLink(a.getAttribute('data-ptcode')));
+  });
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills (all in-memory, no real files) ---------- */
+  var DRILLS = [
+    { code: 'print("a,b,c".split(","))', ans: "['a', 'b', 'c']", why: '.split(",") cuts a string at every comma and returns a list of the pieces: three one-letter strings.' },
+    { code: 'print(",".join(["x", "y", "z"]))', ans: 'x,y,z', why: '.join is the opposite of split: it glues a list back into one string, putting the "," between each item. Writing a CSV line by hand looks like this.' },
+    { code: 'print("name,age,city".split(",")[1])', ans: 'age', why: 'split gives ["name", "age", "city"], and [1] takes the second item (indexes start at 0, from Session 3), which is "age".' },
+    { code: 'row = ["10", "20"]\nprint(row[0] + row[1])', ans: '1020', why: 'The values are STRINGS (as CSV cells always are), so + glues them into "1020". This is the string trap: it is not 30.' },
+    { code: 'row = ["10", "20"]\nprint(int(row[0]) + int(row[1]))', ans: '30', why: 'int() converts each string to a whole number FIRST, so now + does real math: 10 + 20 = 30. This is the fix for the trap above.' },
+    { code: 'line = "  hello \\n"\nprint(line.strip())', ans: 'hello', why: '.strip() removes whitespace from both ends, including the trailing newline \\n (the "start a new line" character), leaving just "hello".' },
+    { code: 'import csv\nfor row in csv.reader(["a,b", "c,d"]):\n    print(row)', ans: "['a', 'b']\n['c', 'd']", why: 'csv.reader walks any list of text lines and splits each into a LIST of strings. Two lines in, two lists out.' },
+    { code: 'import csv\nlines = ["name,age", "Ada,42"]\nfor row in csv.DictReader(lines):\n    print(row["name"])', ans: 'Ada', why: 'DictReader uses the first line ("name,age") as headers, so the next row becomes {"name": "Ada", "age": "42"}. row["name"] pulls out "Ada".' },
+    { code: 'import csv\nlines = ["n", "5", "7"]\ntotal = 0\nfor row in csv.DictReader(lines):\n    total += int(row["n"])\nprint(total)', ans: '12', why: 'Header is "n", so the two rows are {"n": "5"} and {"n": "7"}. Each value is a STRING, so int() converts before adding: 5 + 7 = 12 (+= means add-into, from Session 2).' },
+    { code: 'text = "a,b\\nc,d\\n"\nprint(text.strip().split("\\n"))', ans: "['a,b', 'c,d']", why: 'strip() removes the trailing newline, then split("\\n") cuts on the remaining newline between the two rows, giving a list of two row-strings.' },
+    { code: 'line = "3,4,5"\nnums = [int(x) for x in line.split(",")]\nprint(sum(nums))', ans: '12', why: 'split gives ["3","4","5"]; the list comprehension (from Session 3) runs int() on each to get [3, 4, 5]; sum() adds them: 3+4+5 = 12. Split, convert, calculate, the whole CSV-number workflow in one line.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="What does it print?" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<p style="margin:10px 0 0"><a class="pt" href="' + ptLink(d.code) + '" target="_blank" rel="noopener">&#9654; watch it run</a></p>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct output</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function check() {
+        if (el.dataset.done) return; el.dataset.done = '1';
+        var ok = norm(input.value) === norm(d.ans);
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+        refreshCounters();
+      }
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'Write two names to a file, one per line, using a with block and a loop.',
+      lines: ['names = ["Ada", "Sam"]', 'with open("names.txt", "w") as f:', '    for name in names:', '        f.write(name + "\\n")'] },
+    { prompt: 'Read a CSV into a list of dicts, then print how many rows there were.',
+      lines: ['import csv', 'with open("jobs.csv") as f:', '    reader = csv.DictReader(f)', '    jobs = list(reader)', 'print(len(jobs))'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your program (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (btn.disabled) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so this appends a line to a log file using a with block.',
+      code: 'with open("log.txt", "%%") as f:   # so old lines are kept, not erased\n    f.%%("new entry\\n")            # put the text in', ans: ['a', 'write'] },
+    { prompt: 'Fill the blanks so this reads a CSV as dicts and prints the first row\'s item column.',
+      code: 'import csv\nlines = ["item,qty", "box,3"]\nreader = csv.%%(lines)      # rows as dicts, keyed by header\nfor row in reader:\n    print(row[%%])          # -> box', ans: ['DictReader', '"item"'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Using a with block, write three lines into a file called shopping.txt (one grocery item per line). Remember .write does not add newlines for you.',
+      sol: 'items = ["milk", "eggs", "bread"]\nwith open("shopping.txt", "w") as f:\n    for item in items:\n        f.write(item + "\\n")   # \\n ends each line yourself' },
+    { task: 'Read shopping.txt back and print each line with no blank gaps between them (strip the newline off each line as you go).',
+      sol: 'with open("shopping.txt") as f:      # no mode = read\n    for line in f:\n        print(line.strip())          # shave the trailing newline' },
+    { task: 'Open notes.txt in APPEND mode and add one new line, without erasing what is already there. Then say (in a comment) what would change if you used "w" instead.',
+      sol: 'with open("notes.txt", "a") as f:    # "a" keeps existing lines\n    f.write("one more note\\n")\n# with "w" the file would be wiped first, losing every older note' },
+    { task: 'The mini-milestone: make a file jobs.csv (headers name,price and two rows) by hand. Then read it with csv.DictReader, and for each job print "name: total" where total is the price (a string!) converted to a float and multiplied by 1.1, formatted to 2 decimals.',
+      sol: 'import csv\n\nwith open("jobs.csv") as f:\n    for job in csv.DictReader(f):\n        total = float(job["price"]) * 1.1   # convert the string BEFORE math\n        print(f"{job[\'name\']}: {total:.2f}") # :.2f = 2 decimal places (Session 1)' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your code here, then run it in VS Code"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in VS Code:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Open a file for reading with a context manager (name it f)', b: 'with open("f.txt") as f:' },
+    { f: 'Open a file for writing, erasing what was there (mode)', b: 'open("f.txt", "w")' },
+    { f: 'Open a file to add to the end, keeping old contents (mode)', b: 'open("f.txt", "a")' },
+    { f: 'Read the entire open file into one string', b: 'f.read()' },
+    { f: 'Loop over an open file one line at a time', b: 'for line in f:' },
+    { f: 'Write a piece of text into an open file', b: 'f.write("text")' },
+    { f: 'Strip the trailing newline and spaces off a line', b: 'line.strip()' },
+    { f: 'Split the string "a,b,c" on its commas', b: '"a,b,c".split(",")' },
+    { f: 'Import the CSV module', b: 'import csv' },
+    { f: 'Read CSV rows as dicts keyed by the header row', b: 'csv.DictReader(f)' },
+    { f: 'Build a path to data/log.txt with pathlib', b: 'Path("data") / "log.txt"' },
+    { f: 'Convert the CSV string "42" into a whole number', b: 'int("42")' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() { pile = CARDS.map(function (c, i) { return i; }); mastered = 0; showingBack = false; document.getElementById('c-cards').textContent = '0'; document.getElementById('fc-mastered').textContent = '0'; renderCard(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz (Session 5 + cumulative Sessions 3 & 4 recall) ---------- */
+  var S1_URL = 'https://claude.ai/code/artifact/0be37ed6-a1c8-45fd-8ee5-5a3c3ae20fc4';
+  var S2_URL = 'https://claude.ai/code/artifact/30ccbd16-95e4-44dd-a1c5-51b73db038fb';
+  var S3_URL = 'https://claude.ai/code/artifact/ace0fd4f-3bf7-4d09-9625-84b1527c543d';
+  var S4_URL = 'https://claude.ai/code/artifact/015de950-d8e0-4448-8ec7-960e72e19465';
+  var QUIZ = [
+    { q: 'Why open a file with a with block instead of a bare open()?', o: ['It closes the file for you automatically, even if the code errors', 'It makes the file load faster', 'It converts the text to numbers', 'It prevents the file from ever being edited'], c: 0,
+      e: 'A with block is a context manager: it guarantees the file is closed when the block ends, so you never leak a resource or lose unwritten data, even on a crash.', part: { id: 'concept-a', label: 'A. Opening a file the safe way' } },
+    { q: 'You open a file with mode "w" and write to it. What happens to the text that was already in the file?', o: ['It is erased first, "w" starts the file empty', 'It is kept, your text is added to the end', 'It is moved to a backup file', 'Nothing, "w" is read-only'], c: 0,
+      e: '"w" (write) truncates the file to empty before writing. To keep the old contents and add on, use "a" (append) instead.', part: { id: 'concept-c', label: 'C. Writing: "w" overwrites, "a" appends' } },
+    { q: 'You read the cell "42" from a CSV and want to add 8 to it. What must you do first?', o: ['Convert it with int() or float(); CSV cells arrive as strings', 'Nothing, "42" is already a number', 'Wrap it in a list', 'Open the file in "a" mode'], c: 0,
+      e: 'Every CSV cell comes in as text, so "42" + 8 would error and "42" + "8" would give "428". Convert with int()/float() before doing math. This is the session\'s big trap.', part: { id: 'concept-e', label: 'E. The string trap' } },
+    { q: 'Which reads each CSV row as a dict keyed by the header row (e.g. {"name": "Move"})?', o: ['csv.DictReader', 'csv.reader', 'csv.writer', 'open("f.csv", "d")'], c: 0,
+      e: 'csv.DictReader uses the first row as headers and returns each later row as a dict. csv.reader would give a plain list of strings instead.', part: { id: 'concept-d', label: 'D. CSV: rows in, rows out' } },
+    { q: 'Recall (Session 4): a function uses print but has no return statement. What does the caller get back?', o: ['None', 'The printed text', '0', 'An error'], c: 0,
+      e: 'print only displays; with no return the function hands back None. To reuse a computed value (like a total you will write to a file) you must return it.', part: { url: S4_URL, label: 'Session 4 - return vs print' } },
+    { q: 'Recall (Session 3): for a dict d = {"name": "Ada"}, what does d.get("age", 0) return?', o: ['0', 'None', 'An error (KeyError)', '"age"'], c: 0,
+      e: '.get(key, default) looks up a key but returns the fallback (here 0) instead of crashing when the key is missing, handy for CSV rows with gaps. "age" is not in d, so you get 0.', part: { url: S3_URL, label: 'Session 3 - dict .get with a default' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">' + (item.part && item.part.url ? 'recall' : 'check') + '</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // cumulative question: source lives in an earlier workbook, open it in a new tab
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener">&#8599; Review in ' + esc(item.part.label) + '</a>';
+            } else {
+              // this-session question: scroll in-page (a raw #hash would reload the sandboxed iframe)
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Strong. Tick S05 on your Hub and ask for Session 6.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', initDeck);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); initDeck();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

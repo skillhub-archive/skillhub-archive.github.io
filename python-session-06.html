@@ -1,0 +1,853 @@
+<style>
+  :root {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+      --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+      --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+    --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+    --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (Cascadia Code otherwise draws != as a glyph, >= as, -> as, etc.) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 60ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 20px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 68ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .err { color: var(--bad); }
+  .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
+  .filebox .fl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px; }
+  .filebox pre { margin: 0; background: none; border: none; padding: 0; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .pt:hover { text-decoration: underline; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  .parsons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: 1fr; } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 8ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 46ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 06 // Level 3 &middot; Errors &amp; packages</div>
+      <a class="hublink" href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Errors, environments &amp; packages</h1>
+    <p class="goal">Real programs meet bad data, missing files, and the unexpected, and by default Python answers by crashing. This session is about staying in control: reading the crash report Python hands you, catching the errors you can see coming so your script keeps running, and then reaching past the standard library into the huge world of third-party packages with a virtual environment and pip. This is the session where your scripts stop being fragile.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Make a script fail gracefully, then install and use a third-party package.</span>
+
+    <div class="howto">
+      <span class="ic">&gt;_</span>
+      <p><b>Open VS Code and a terminal before you start.</b> Same six-part rhythm, each part hands you less scaffolding than the last. Two ideas carry today: <b>try / except</b> (which turns a crash into something you handle) and the fact that <b>venv and pip are terminal commands, not Python</b>, so you type them at the shell prompt, not inside a <code>.py</code> file. When you meet a traceback, do not panic: read it <b>bottom-up</b>.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/11</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Do each task in VS Code before moving on, check the box when it runs. For the last concept you will also need a terminal open.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. When it crashes: reading a traceback</h3>
+      <p>When Python hits a problem it cannot handle, it stops the program and prints a <b>traceback</b>: a report of what went wrong and where. The word "traceback" is literal, it traces the chain of calls backward from the point of failure. An <b>exception</b> is Python's name for one of these errors (a "ValueError", a "FileNotFoundError", and so on), and an <b>uncaught</b> exception, one you did nothing to handle, crashes the whole program on the spot. Here is what that looks like when a script <code>prices.py</code> tries to turn some bad text into a number:</p>
+<pre><code><span class="cm"># prices.py</span>
+total = int("12x")         <span class="cm"># "12x" is not a whole number, so int() cannot parse it</span>
+print(total)               <span class="cm"># this line never runs; the program already crashed above</span></code></pre>
+      <p>Run it and Python prints (your exact file path and line number will differ, that part is machine-specific):</p>
+<pre><code><span class="err">Traceback (most recent call last):
+  File "prices.py", line 2, in &lt;module&gt;
+    total = int("12x")
+ValueError: invalid literal for int() with base 10: '12x'</span></code></pre>
+      <p>The trick is to <b>read a traceback bottom-up</b>. Beginners stare at the top and freeze, but the top lines are just the trail of where Python was. The <b>last line is the one that matters</b>: it names the <b>ExceptionType</b> (here <code>ValueError</code>) and a <b>message</b> explaining it (<code>invalid literal for int()...</code>). The lines just above it show the exact file and line where it blew up. So your habit becomes: jump to the bottom, read the error type and message, then look one or two lines up for the location.</p>
+      <p>You will keep meeting the same handful of built-in exception types, so it pays to recognize each by the operation that triggers it:</p>
+      <ul class="pts">
+        <li><code>ValueError</code>, a value is the wrong kind, e.g. <code>int("12x")</code> on text that is not a number.</li>
+        <li><code>ZeroDivisionError</code>, dividing by zero, e.g. <code>1 / 0</code>.</li>
+        <li><code>KeyError</code>, asking a dict for a key it does not have, e.g. <code>{}["k"]</code> (dicts were Session 3).</li>
+        <li><code>IndexError</code>, asking a list for a position past its end, e.g. <code>[1, 2, 3][99]</code> (only indexes 0, 1, 2 exist).</li>
+        <li><code>FileNotFoundError</code>, opening a file that is not there, e.g. <code>open("missing.txt")</code>.</li>
+      </ul>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Cause a crash on purpose</div>
+        <p>In a new file, write a single line that you know will fail, for example <code>int("hello")</code> or <code>1 / 0</code>. Run it, then read the traceback <b>from the bottom</b>. Say out loud the exception type and the message. Getting comfortable reading these now means they stop being scary later.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>print(1 / 0)               <span class="cm"># dividing by zero is undefined, so this raises an error</span>
+<span class="cm"># the last line of the traceback reads: ZeroDivisionError: division by zero</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I ran this and read the traceback</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Catching it: <code>try</code> / <code>except</code></h3>
+      <p>You do not have to let an exception crash the program. The <code>try</code> / <code>except</code> statement lets you <b>attempt</b> risky code and <b>catch</b> the error if it happens, so the script keeps running. Put the line that might fail inside the <code>try</code> block; put your response inside the <code>except</code> block. When the risky line raises an exception, Python abandons the rest of the <code>try</code> and jumps straight to <code>except</code>. Here is the exact same <code>int("12x")</code> from Concept A, first uncaught, then caught, so you can feel the difference:</p>
+<pre><code><span class="cm"># UNCAUGHT: this crashes and prints the full traceback, nothing after it runs</span>
+total = int("12x")
+print("done")              <span class="cm"># never reached</span>
+
+<span class="cm"># CAUGHT: the error is handled, so the program survives and continues</span>
+try:
+    total = int("12x")     <span class="cm"># the risky line goes in the try block</span>
+except ValueError:
+    print("that was not a number")   <span class="cm"># this runs instead of crashing -&gt;</span> <span class="out">that was not a number</span>
+print("done")              <span class="cm"># now this DOES run -&gt;</span> <span class="out">done</span></code></pre>
+      <p>That is the whole idea: an uncaught exception ends the program; the same exception wrapped in <code>try</code> / <code>except</code> becomes a fork in the road you control. The program does not crash, it does the sensible thing you told it to and carries on.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Turn a crash into a message</div>
+        <p>Take a line you know can fail, <code>int("oops")</code> is perfect, and wrap it in <code>try</code> / <code>except ValueError</code>. In the <code>except</code> block, print a friendly message instead of crashing. Add a <code>print("still running")</code> after the whole thing and confirm it prints, that line proves your program survived.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>try:
+    number = int("oops")            <span class="cm"># this raises ValueError</span>
+except ValueError:
+    print("could not read a number") <span class="cm"># handled, so no crash</span>
+print("still running")               <span class="cm"># proof the program kept going</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Catch the RIGHT error, plus <code>else</code> and <code>finally</code></h3>
+      <p>It is tempting to catch <i>everything</i> with a bare <code>except:</code> (or the barely-narrower <code>except Exception:</code>). Resist it. A catch-all swallows not just the error you expected but also <b>bugs you did not</b>, like a misspelled variable name, and hides them behind your friendly message so you never learn they exist. Watch how the clunky broad version quietly buries a real typo:</p>
+<pre><code><span class="cm"># BROAD and dangerous: this hides a genuine bug</span>
+try:
+    total = int("50")
+    print(totl)            <span class="cm"># TYPO: "totl" does not exist, this is a real bug (NameError)</span>
+except:                    <span class="cm"># catches EVERYTHING, including the typo</span>
+    print("something went wrong")   <span class="cm"># you get this and never see the typo -&gt;</span> <span class="out">something went wrong</span></code></pre>
+      <p>The fix is to name the <b>specific</b> exception you actually expect. Then an error you did <i>not</i> anticipate is left uncaught, and it surfaces loudly with a traceback, exactly what you want while developing:</p>
+<pre><code><span class="cm"># SPECIFIC and honest: only the expected error is caught</span>
+try:
+    total = int("50x")     <span class="cm"># the only failure we anticipate here is a bad number</span>
+except ValueError:         <span class="cm"># catch ONLY that; a typo would still crash and show itself</span>
+    print("that is not a valid number")</code></pre>
+      <p>Two more optional blocks round out the statement, and it helps to name what each is for. <code>else</code> runs <b>only if the try block raised no exception</b> (the "all clear" path). <code>finally</code> runs <b>no matter what</b>, error or not, which makes it the place for cleanup that must always happen. The full shape, in the order the blocks run:</p>
+<pre><code>try:
+    n = int("5")           <span class="cm"># this succeeds</span>
+except ValueError:
+    print("bad number")    <span class="cm"># skipped, because there was no error</span>
+else:
+    print("parsed", n)     <span class="cm"># runs because try succeeded -&gt;</span> <span class="out">parsed 5</span>
+finally:
+    print("all done")      <span class="cm"># always runs, error or not -&gt;</span> <span class="out">all done</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Specific catch with a finally</div>
+        <p>Write a <code>try</code> that runs <code>int("42")</code> (this one succeeds), an <code>except ValueError</code> with a message, an <code>else</code> that prints the parsed number, and a <code>finally</code> that prints <code>"finished"</code>. Run it and note which blocks fire. Then change <code>"42"</code> to <code>"42x"</code> and run again, watch the <code>except</code> replace the <code>else</code> while <code>finally</code> prints both times.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>try:
+    n = int("42")              <span class="cm"># change to "42x" to trip the except</span>
+except ValueError:
+    print("not a number")
+else:
+    print("got", n)            <span class="cm"># runs only when try succeeds</span>
+finally:
+    print("finished")          <span class="cm"># runs every time</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I ran this both ways</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Raising your own errors, and a word on logging</h3>
+      <p>Sometimes <i>you</i> are the one who should stop things, because the data is wrong in a way only your program understands (a negative price, an empty name). The <code>raise</code> statement lets you throw an exception yourself, on purpose, with a message that explains the problem. You pick an exception type that fits, <code>ValueError</code> is the usual choice for a bad value, and pass it a message:</p>
+<pre><code>def set_price(amount):
+    if amount &lt; 0:
+        raise ValueError("price cannot be negative")   <span class="cm"># stop here with a clear reason</span>
+    return amount
+
+set_price(-5)              <span class="cm"># raises the error; the caller can try/except it, or it crashes with your message</span></code></pre>
+      <p>Raising is the flip side of catching: <code>raise</code> creates an exception, <code>except</code> handles one. Code that calls <code>set_price</code> can wrap it in <code>try</code> / <code>except ValueError</code> and read your message off the caught exception. To do that you grab the object itself with <code>except ValueError as e</code> (the <code>as e</code> part names the caught exception <code>e</code>). That object carries two useful things: <code>print(e)</code> shows its <b>message</b> (the text after the colon on a traceback's last line), and <code>type(e).__name__</code> gives its <b>type name</b> as a string, e.g. <code>"ValueError"</code>. The type name is handy when you have caught broadly with <code>except Exception as e</code> and want to see which exception you actually got.</p>
+      <p>Finally, a light touch of <b>logging</b>. When you want to <i>note</i> that something odd happened without stopping, the beginner reflex is <code>print()</code>. That works, but the standard library's <code>logging</code> module is better for real scripts: messages carry a severity level (INFO, WARNING, ERROR) and can be silenced or redirected to a file without deleting the lines. The easiest entry point is <code>logging.warning()</code> and <code>logging.error()</code>, drop-in upgrades from <code>print</code> for anything that is a problem rather than normal output:</p>
+<pre><code>import logging               <span class="cm"># the logging module ships with Python</span>
+logging.warning("could not parse row 3")   <span class="cm"># prints a WARNING line to the screen -&gt;</span> <span class="out">WARNING:root:could not parse row 3</span></code></pre>
+      <p>You do not need to configure anything to start: <code>logging.warning(...)</code> works out of the box, and the <code>WARNING:root:</code> prefix tells you the severity and where it came from. Reach for it instead of <code>print</code> when you are recording that something went wrong.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Raise, then catch your own error</div>
+        <p>Write a function <code>charge(amount)</code> that <code>raise</code>s a <code>ValueError("amount cannot be negative")</code> when <code>amount</code> is below zero, and otherwise returns <code>amount</code>. Then call <code>charge(-10)</code> inside a <code>try</code> / <code>except ValueError as e</code> and print the message with <code>print("Error:", e)</code>.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>def charge(amount):
+    if amount &lt; 0:
+        raise ValueError("amount cannot be negative")   <span class="cm"># you decide it is invalid</span>
+    return amount
+
+try:
+    print(charge(-10))
+except ValueError as e:        <span class="cm"># "as e" names the caught exception</span>
+    print("Error:", e)         <span class="cm"># read your message off it -&gt;</span> <span class="out">Error: amount cannot be negative</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I ran this and saw the message</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Virtual environments &amp; pip, then your milestone</h3>
+      <p>Everything so far was Python code. This last piece is different: <b>venv</b> and <b>pip</b> are commands you type in your <b>terminal</b> (the shell), not inside a <code>.py</code> file. They are how you use <b>third-party packages</b>: the huge library of code other people wrote and published on <b>PyPI</b> (the Python Package Index) for you to install rather than write yourself. And <b>pip</b> itself is Python's <b>package installer</b>, the tool that fetches a package from PyPI and drops it into your project (the name is a self-referential joke, "pip installs packages"). It ships with Python, so you already have it.</p>
+      <p>The problem they solve: if you <code>pip install</code> everything into one system-wide Python, two projects that need different versions of the same package collide. A <b>virtual environment</b> (venv) fixes this by giving each project its own private folder of packages. A mental model that keeps the two straight: <b>venv is the isolated room</b>, and <b>pip is the tool that puts packages into that room</b>. The workflow, shown as an honest terminal transcript (what you type, and what you see back):</p>
+<pre><code><span class="cm"># 1. create a virtual environment named venv, in your project folder</span>
+python -m venv venv         <span class="cm"># -m runs the built-in venv module; the 2nd venv is the folder name</span>
+
+<span class="cm"># 2. activate it. On Windows PowerShell (Patrick's setup):</span>
+venv\Scripts\Activate.ps1
+<span class="cm">#    (on Mac/Linux it is instead:  source venv/bin/activate)</span>
+<span class="cm">#    once active, your prompt shows the env name in front:</span>
+<span class="out">(venv) PS C:\projects\myapp&gt;</span>
+
+<span class="cm"># 3. install a package from PyPI into THIS environment</span>
+pip install requests
+<span class="out">Successfully installed requests-2.32.3</span>
+
+<span class="cm"># 4. record your exact versions so anyone can rebuild the setup</span>
+pip freeze &gt; requirements.txt      <span class="cm"># writes a list of installed packages+versions to a file</span>
+
+<span class="cm"># later, on another machine, recreate everything with:</span>
+pip install -r requirements.txt</code></pre>
+      <p>A few pieces in that transcript are worth naming, because they are new. In <code>python -m venv venv</code>, the <code>-m</code> flag means <b>"run a module"</b>: it tells Python to find a module that ships inside it (here the built-in <code>venv</code>) and run that, instead of looking for a file. The word right after <code>-m</code> is the module's name; the last word is just the <b>folder name you are creating</b>, conventionally also called <code>venv</code>. (You will see the same <code>-m</code> pattern again, e.g. <code>python -m pip ...</code>.) Step 2's <code>Activate.ps1</code> is not something you write: it lives <b>inside the folder you just made</b> (under <code>venv\Scripts\</code> on Windows, <code>venv/bin/</code> on Mac/Linux), generated for you by that first command.</p>
+      <p>In step 4, <code>pip freeze</code> <b>prints</b> your installed packages with their exact version numbers, and the <code>&gt;</code> beside it is a <b>shell redirect</b> that saves that printout into the file instead of showing it on screen ("freeze" is the metaphor: it locks the exact versions in place so the setup is reproducible). The mirror command <code>pip install -r requirements.txt</code> uses the <code>-r</code> flag, short for <b>"read from this requirements file"</b>, to reinstall everything the file lists. So one command writes the list of versions down, the other reads it back, and like <code>-m</code>, both <code>-r</code> and <code>&gt;</code> are just short options that change what the command does.</p>
+      <p>Three habits worth locking in: <b>make a venv per project</b> and activate it before you work; <b>pip install</b> the packages you need into it; and <b>pip freeze into a requirements.txt</b> so the setup is reproducible. Your version number after <code>requests-</code> may differ, and that is fine.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: fail gracefully + install and use a package</div>
+        <p>This is your Session 6 milestone, done in two halves. <b>First, in your terminal:</b> create a venv, activate it, and run <code>pip install requests</code> (the HTTP package you will use for real in Session 7). <b>Then write a script that:</b> (1) <code>import</code>s <code>requests</code>; (2) loops over the cells <code>["300", "N/A", "120"]</code>, trying to <code>int()</code> each into a running total but catching <code>ValueError</code> so a bad cell prints a friendly "skipping" note instead of crashing (this is the S5 string trap: a CSV-style cell like <code>"N/A"</code> is text and <code>int()</code> refuses it); (3) prints the total; and (4) prints <code>requests.__version__</code> to prove the package really imported. Build it before peeking, this is graceful failure and the package ecosystem in one script.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import requests             <span class="cm"># the third-party package you just pip-installed</span>
+
+cells = ["300", "N/A", "120"]
+total = 0
+for cell in cells:
+    try:
+        total += int(cell)                  <span class="cm"># "N/A" is text, so int() raises ValueError</span>
+    except ValueError:
+        print(f"skipping bad cell: {cell}")  <span class="cm"># fail gracefully, keep looping -&gt;</span> <span class="out">skipping bad cell: N/A</span>
+
+print("Total:", total)                       <span class="cm"># the good cells only -&gt;</span> <span class="out">Total: 420</span>
+print("requests version:", requests.__version__)  <span class="cm"># proof the import worked (version varies)</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I built and ran this myself</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each snippet and <b>work out what it prints in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model, don't run it first. These are all pure Python <b>control flow</b> (no files, no pip), so the "watch it run" links step through them live. Predict the <b>printed lines</b> or the <b>exception type name</b>, not a full traceback. When a snippet prints on two lines, type both parts separated by a space (e.g. <code>caught</code> then <code>cleanup</code>). They get harder toward the end.</p>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it from scratch. First reassemble scrambled programs (mind the indentation, it decides which lines sit inside the <code>try</code>, the <code>except</code>, or the <code>def</code>), then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the program (Parsons)</h3>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write it yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the code in the box, reveal the reference to compare, then run yours in VS Code. The workbook can't run Python, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours runs correctly, or <b>Needs another pass</b> to drop your cursor back in the editor and keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> this session mixes in 2 questions from earlier sessions (one from <b>Session 5</b>, one from <b>Session 4</b>, marked <i>recall</i>). Pulling old material back up on a delay is exactly what moves it into long-term memory.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 06 of 10 &middot; Hit the fail-gracefully + install-a-package milestone unassisted, then tick <b>S06</b> on your <a href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">Hub</a>. &middot; Next: <b>Session 07, HTTP, JSON &amp; your first API call</b>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "py-s06-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // Python Tutor deep-link builder (correct encoding at runtime)
+  function ptLink(code) {
+    return "https://pythontutor.com/visualize.html#code=" + encodeURIComponent(code) +
+      "&cumulative=false&curInstr=0&heapPrimitives=nevernest&mode=display&origin=opt-frontend.js&py=3&rawInputLstJSON=%5B%5D&textReferences=false";
+  }
+  // wire any element carrying data-ptcode (decode the &#10; newlines we stored as literal \n)
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ptcode]'), function (a) {
+    a.setAttribute('href', ptLink(a.getAttribute('data-ptcode')));
+  });
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills (all pure control flow, no files) ---------- */
+  var DRILLS = [
+    { code: 'try:\n    print(int("x"))\nexcept ValueError:\n    print("bad number")', ans: 'bad number', why: 'int("x") cannot parse "x" into a number, so it raises ValueError. Python abandons the rest of the try and jumps to the matching except, which prints "bad number". No crash.' },
+    { code: 'try:\n    print({}["k"])\nexcept Exception as e:\n    print(type(e).__name__)', ans: 'KeyError', why: 'Looking up a key that is not in a dict raises KeyError (the empty dict {} has no "k"). type(e).__name__ gives the exception class name as a string: "KeyError".' },
+    { code: 'try:\n    print([1, 2, 3][99])\nexcept Exception as e:\n    print(type(e).__name__)', ans: 'IndexError', why: 'The list has indexes 0, 1, 2 (indexing from Session 3), so [99] is out of range and raises IndexError. type(e).__name__ prints the type name.' },
+    { code: 'try:\n    print(1 / 0)\nexcept Exception as e:\n    print(type(e).__name__)', ans: 'ZeroDivisionError', why: 'Dividing by zero is undefined, so Python raises ZeroDivisionError. type(e).__name__ prints the name of whatever exception was caught.' },
+    { code: 'try:\n    n = int("5")\nexcept ValueError:\n    print("bad")\nelse:\n    print("ok", n)', ans: 'ok 5', why: 'int("5") succeeds (n = 5), so no exception fires and the except is skipped. else runs ONLY when the try had no error, printing "ok 5".' },
+    { code: 'try:\n    print(int("x"))\nexcept ValueError:\n    print("caught")\nfinally:\n    print("cleanup")', ans: 'caught\ncleanup', why: 'int("x") raises ValueError, so except prints "caught". Then finally runs no matter what, printing "cleanup". Two lines, in that order.' },
+    { code: 'try:\n    print("try")\nexcept ValueError:\n    print("except")\nfinally:\n    print("finally")', ans: 'try\nfinally', why: 'The try block prints "try" and raises nothing, so the except is skipped entirely. finally always runs, printing "finally". The except line never appears.' },
+    { code: 'def parse(s):\n    try:\n        return int(s)\n    except ValueError:\n        return -1\nprint(parse("42"), parse("oops"))', ans: '42 -1', why: 'parse("42") converts cleanly and returns 42. parse("oops") raises ValueError inside the try, so the except returns -1 instead. print shows both, separated by a space: 42 -1.' },
+    { code: 'def f():\n    try:\n        return "A"\n    finally:\n        print("cleanup")\nprint(f())', ans: 'cleanup\nA', why: 'Even when try hits a return, finally still runs first, so "cleanup" prints before f() actually hands back "A". Then print(f()) prints "A". Order: cleanup, then A.' },
+    { code: 'try:\n    int("abc")\nexcept ValueError as e:\n    print(e)', ans: "invalid literal for int() with base 10: 'abc'", why: 'int("abc") raises ValueError; "as e" captures the exception object, and print(e) shows its MESSAGE (the text after the colon in a traceback), not the type. That message is: invalid literal for int() with base 10: \'abc\'.' },
+    { code: 'def withdraw(amount):\n    if amount < 0:\n        raise ValueError("no negatives")\n    return amount\ntry:\n    withdraw(-5)\nexcept ValueError as e:\n    print("stopped:", e)', ans: 'stopped: no negatives', why: 'withdraw(-5) hits the if and RAISES your own ValueError with the message "no negatives". The caller catches it, and print("stopped:", e) shows the label plus the message: stopped: no negatives.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="What does it print?" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<p style="margin:10px 0 0"><a class="pt" href="' + ptLink(d.code) + '" target="_blank" rel="noopener">&#9654; watch it run</a></p>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct output</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function check() {
+        if (el.dataset.done) return; el.dataset.done = '1';
+        var ok = norm(input.value) === norm(d.ans);
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+        refreshCounters();
+      }
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'Convert a CSV-style cell to a number, catching the error and using 0 instead.',
+      lines: ['cell = "oops"', 'try:', '    number = int(cell)', 'except ValueError:', '    number = 0', 'print(number)'] },
+    { prompt: 'Define a function that rejects a negative age by raising your own error, then call it.',
+      lines: ['def set_age(n):', '    if n < 0:', '        raise ValueError("age cannot be negative")', '    return n', 'print(set_age(30))'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your program (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (btn.disabled) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so a bad conversion is caught and the cleanup line always runs.',
+      code: 'try:\n    n = int("NaN")\nexcept %% as e:           # catch the specific error bad text triggers\n    print("skipping:", e)\n%%:                        # runs no matter what, error or not\n    print("done")', ans: ['ValueError', 'finally'] },
+    { prompt: 'Fill the blanks so the function signals its own error and the caller reads the message.',
+      code: 'def first_char(text):\n    if text == "":\n        %% ValueError("text is empty")   # signal the problem yourself\n    return text[0]\n\ntry:\n    print(first_char(""))\nexcept ValueError as e:\n    print("problem:", %%)               # show the message we raised', ans: ['raise', 'e'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Take the string cell = "12.5x". Try to convert it to a float and print it; if it fails, print "Not a valid number" instead of crashing. Catch the specific error float() raises on bad text.',
+      sol: 'cell = "12.5x"\ntry:\n    print(float(cell))\nexcept ValueError:\n    print("Not a valid number")   # float() raises ValueError on text it cannot parse' },
+    { task: 'Try to open a file "missing.txt" (which does not exist) and print its lines. Catch the missing-file error and print a friendly message instead. (Python raises FileNotFoundError when the file is not there.)',
+      sol: 'try:\n    with open("missing.txt") as f:      # from Session 5: with auto-closes\n        for line in f:\n            print(line.strip())\nexcept FileNotFoundError:\n    print("That file does not exist yet")' },
+    { task: 'Write a function charge(amount) that raises a ValueError with a helpful message when amount is negative, and otherwise returns amount. Then call charge(-10) inside a try/except that prints the error message.',
+      sol: 'def charge(amount):\n    if amount < 0:\n        raise ValueError("amount cannot be negative")\n    return amount\n\ntry:\n    print(charge(-10))\nexcept ValueError as e:\n    print("Error:", e)   # -> Error: amount cannot be negative' },
+    { task: 'The mini-milestone: loop over the cells ["10", "20", "oops", "5"]. Try to int() each and add it to a running total; if a cell is not a number, use logging.warning to note it (import logging first) and skip it. At the end print the total. This is the graceful-failure pattern on messy data.',
+      sol: 'import logging\n\ncells = ["10", "20", "oops", "5"]\ntotal = 0\nfor cell in cells:\n    try:\n        total += int(cell)\n    except ValueError:\n        logging.warning(f"skipping bad cell: {cell}")   # note it, keep going\nprint("Total:", total)   # -> Total: 35 (the three good cells)' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your code here, then run it in VS Code"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in VS Code:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Start a block that attempts risky code', b: 'try:' },
+    { f: 'Catch only the "bad value" error (from int(), float())', b: 'except ValueError:' },
+    { f: 'Catch the "file is not there" error', b: 'except FileNotFoundError:' },
+    { f: 'Catch an error AND grab it as a variable e', b: 'except ValueError as e:' },
+    { f: 'A block that runs only if the try had no error', b: 'else:' },
+    { f: 'A block that runs no matter what (cleanup)', b: 'finally:' },
+    { f: 'Signal your own error with a message', b: 'raise ValueError("msg")' },
+    { f: 'Log a warning instead of using print', b: 'logging.warning("msg")' },
+    { f: 'The error that 1 / 0 raises', b: 'ZeroDivisionError' },
+    { f: 'Create a virtual environment named venv (terminal)', b: 'python -m venv venv' },
+    { f: 'Install a package from PyPI (terminal)', b: 'pip install requests' },
+    { f: 'Save installed packages to a file (terminal)', b: 'pip freeze > requirements.txt' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() { pile = CARDS.map(function (c, i) { return i; }); mastered = 0; showingBack = false; document.getElementById('c-cards').textContent = '0'; document.getElementById('fc-mastered').textContent = '0'; renderCard(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz (Session 6 + cumulative Sessions 5 & 4 recall) ---------- */
+  var S1_URL = 'https://claude.ai/code/artifact/0be37ed6-a1c8-45fd-8ee5-5a3c3ae20fc4';
+  var S2_URL = 'https://claude.ai/code/artifact/30ccbd16-95e4-44dd-a1c5-51b73db038fb';
+  var S3_URL = 'https://claude.ai/code/artifact/ace0fd4f-3bf7-4d09-9625-84b1527c543d';
+  var S4_URL = 'https://claude.ai/code/artifact/015de950-d8e0-4448-8ec7-960e72e19465';
+  var S5_URL = 'https://claude.ai/code/artifact/f812334c-5352-4443-b42f-74a6caf32ca0';
+  var QUIZ = [
+    { q: 'A script crashes and prints a traceback several lines long. Where is the actual error type and message?', o: ['On the very last line, read a traceback bottom-up', 'On the very first line', 'In the middle, next to the file name', 'A traceback never shows the error type'], c: 0,
+      e: 'Read a traceback bottom-up: the lines above are the trail of where Python was, but the final line names the real ExceptionType and its message (e.g. ValueError: ...). That last line is what to fix first.', part: { id: 'concept-a', label: 'A. Reading a traceback' } },
+    { q: 'You wrap a risky line in try/except and that line raises an error. What happens?', o: ['Python jumps to the except block and the program keeps running', 'The program still crashes with a full traceback', 'The risky line is skipped silently with no chance to react', 'The computer restarts the script'], c: 0,
+      e: 'That is the whole point of try/except: instead of crashing, control jumps to the matching except block so you can respond (use a default, log it, print a message) and carry on.', part: { id: 'concept-b', label: 'B. try / except' } },
+    { q: 'Why catch a specific error like except ValueError: instead of a bare except:?', o: ['A bare except also swallows unrelated bugs (like a misspelled variable), hiding them', 'A bare except is a syntax error', 'A specific catch runs faster', 'There is no real difference'], c: 0,
+      e: 'A bare except (or except Exception) catches everything, including bugs you did not anticipate such as a typo’d name (NameError). Catching the specific exception lets real bugs surface loudly instead of being silently swallowed.', part: { id: 'concept-c', label: 'C. Catch the right error' } },
+    { q: 'What does python -m venv venv do, typed in your terminal (not inside Python)?', o: ['Creates an isolated virtual environment to hold this project’s packages', 'Installs the requests package', 'Runs your script', 'Deletes your system Python'], c: 0,
+      e: 'python -m venv venv creates a self-contained environment folder so each project gets its own package versions. You then activate it and pip install into it, keeping the system Python clean.', part: { id: 'concept-e', label: 'E. Virtual environments & pip' } },
+    { q: 'Recall (Session 5): you read the cell "42" from a CSV. What type is it, and what does int("N/A") do if a cell holds "N/A"?', o: ['It is a string; int("N/A") raises ValueError', 'It is already an int; nothing special happens', 'It is a float; int("N/A") returns 0', 'CSV cells arrive as numbers by default'], c: 0,
+      e: 'Every CSV cell arrives as text (Session 5), so "42" is a string and int("N/A") cannot parse it, raising ValueError. That is exactly why this session wraps such conversions in try/except.', part: { url: S5_URL, label: 'Session 5 - the string trap' } },
+    { q: 'Recall (Session 4): given def total(price, rate=0.1), what does calling total(300) use for rate?', o: ['0.1, the default value', '300', 'Nothing, it errors on the missing argument', 'None'], c: 0,
+      e: 'rate has a default of 0.1, so total(300) leaves rate at 0.1. Default arguments (Session 4) let you call a function with fewer arguments when the usual value is known.', part: { url: S4_URL, label: 'Session 4 - default arguments' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">' + (item.part && item.part.url ? 'recall' : 'check') + '</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // cumulative question: source lives in an earlier workbook, open it in a new tab
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener">&#8599; Review in ' + esc(item.part.label) + '</a>';
+            } else {
+              // this-session question: scroll in-page (a raw #hash would reload the sandboxed iframe)
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Strong. Tick S06 on your Hub and ask for Session 7.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', initDeck);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); initDeck();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

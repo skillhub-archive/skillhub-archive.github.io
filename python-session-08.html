@@ -1,0 +1,850 @@
+<style>
+  :root {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+      --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+      --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+    --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+    --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (Cascadia Code otherwise draws != as a glyph, >= as, -> as, etc.) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 60ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 20px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 68ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .err { color: var(--bad); }
+  .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
+  .filebox .fl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px; }
+  .filebox pre { margin: 0; background: none; border: none; padding: 0; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .pt:hover { text-decoration: underline; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 8ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 46ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 08 // Level 4 &middot; APIs &amp; integration</div>
+      <a class="hublink" href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Real integrations: auth, POST &amp; pagination</h1>
+    <p class="goal">Session 7 called open APIs that let anyone read. Real integrations are not open: they want to know who you are, they often expect you to send data, and they hand back big results one page at a time. Today you close that gap. You will prove your identity with a real credential, keep that secret out of your code, send data with POST, and write the loop that pulls every last page instead of silently stopping at page one. By the end you will authenticate against GitHub with your own token and pull your entire repo list.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Authenticate with a real key and pull every page of results.</span>
+
+    <div class="howto">
+      <span class="ic">&gt;_</span>
+      <p><b>Open VS Code and a terminal before you start.</b> Same six-part rhythm, each part hands you less scaffolding. Two habits carry today: <b>keep secrets out of your code</b> (read your token from the environment, never paste it in), and <b>one request is usually just page 1</b> (loop until a page comes back short). This session assumes <code>requests</code> is still installed from Sessions 6 and 7; if you are in a fresh virtual environment, run <code>pip install requests</code> again.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/11</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Do each task in VS Code before moving on, check the box when it runs. Tasks 3, 4 and 5 make real network calls, so keep your terminal handy, and Task 1 sends you to GitHub to make a token you will use for the rest of the session.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. Why APIs require authentication, and the three common shapes</h3>
+      <p>Session 7's APIs were <b>open</b>: anyone could read a ZIP code or a public profile. Most real APIs are not, because they guard private data, cost money per call, or limit how much any one user can pull. So before they answer, they need to know who is asking. <b>Authentication</b> is proving your identity to the server so it can decide what you are allowed to do, and you do it by attaching a <b>credential</b> (a secret that identifies you) to each request. A credential rides along in one of three common shapes, and it helps to name all three because you will meet each in the wild:</p>
+      <ul class="pts">
+        <li><b>An API key in a query parameter.</b> The key goes on the URL as a <code>?api_key=...</code> query parameter, the same <code>params=</code> dict you used in Session 7. Simplest to send, but the weakest: the key sits in the URL, which gets logged and shows up in browser history.</li>
+        <li><b>An API key in a custom header.</b> A <b>header</b> is a piece of metadata sent alongside the request (not part of the URL or the body). Here the key travels in a header the API names, often something like <code>X-API-Key</code>, keeping it out of the visible URL.</li>
+        <li><b>A bearer token in the <code>Authorization</code> header.</b> The most common shape today, and what GitHub uses. You send a header named <code>Authorization</code> whose value is the word <code>Bearer</code>, a space, then your token: <code>Authorization: Bearer &lt;token&gt;</code>. "Bearer" means exactly what it says, whoever <i>bears</i> (holds) this token is treated as authorized, which is also why leaking one is dangerous.</li>
+      </ul>
+      <p>When your credential is missing or wrong, the server refuses, and it tells you with a status code you already know how to read from Session 7. Two 4xx codes matter here: <b>401 Unauthorized</b> means "I do not know who you are, your credential is missing or invalid," and <b>403 Forbidden</b> means "I know who you are, but you are not allowed to do this." Both are 4xx, so both are your side to fix (a bad key for 401, insufficient permissions for 403). Checking for them is just the Session 7 discipline, look at the status before you trust the body, applied to auth.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Set up GitHub and create a token</div>
+        <p>We have not touched GitHub in earlier sessions (it is not Python-specific), so sort out your account first, then make the token you will use for the rest of today.</p>
+        <p><b>If you already have a GitHub account:</b> sign in, then jump to the token steps below.</p>
+        <p><b>If you do not have one yet:</b> create a free account first at <code>github.com/signup</code> (an email, a password, a username, no cost, about a minute). You do not need to add any repositories: an empty account is fine, the milestone will simply report a repo count of zero, which still proves your token authenticated and the round trip worked. If you would rather see real names come back, click <b>New</b> on your GitHub home and make a repo or two, but that is optional.</p>
+        <p><b>Then create the token:</b> in your browser go to <b>GitHub &rarr; Settings &rarr; Developer settings &rarr; Personal access tokens &rarr; Tokens (classic) &rarr; Generate new token</b>. You do not need to tick any <b>scopes</b> (permission checkboxes) to read your own <i>public</i> repos; only add the <code>repo</code> scope if you also want your private ones. Generate it, then <b>copy the token once</b> (it starts with <code>ghp_</code> and GitHub will not show it again). Keep the tab open and do not paste it into any file yet, the next concept shows where it belongs.</p>
+        <label class="did"><input type="checkbox" data-task="1"> I have a GitHub account and generated a token</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Headers, secrets, and never hardcoding a key</h3>
+      <p>Sending a header from Python mirrors the <code>params=</code> dict exactly: you pass a <code>headers=</code> dict, and <code>requests</code> attaches each key/value to the request. So a bearer token looks like <code>requests.get(url, headers={"Authorization": "Bearer ghp_xxx"})</code>. Now the important part, where the token comes from.</p>
+      <p>The tempting move is to paste the token straight into your script as a string. Do not:</p>
+<pre><code>token = "ghp_abc123realtoken"    <span class="cm"># DON'T: a live secret, now sitting in your source code</span></code></pre>
+      <p>A <b>secret</b> is any value that would let someone act as you, and a token is exactly that. The moment that file is committed to git and pushed, especially to a public repo, your secret is public: anyone can read it in the code or the git history and use it as you. This is a real security incident, not a hypothetical. GitHub actively scans public commits and will <b>auto-revoke</b> a token it detects, and by then it may already have been used. The fix is to keep the secret out of the file entirely and read it in at runtime from an <b>environment variable</b>, a named value that lives in your terminal or operating system rather than in your code. That happens in two steps: first you <b>set</b> the variable in your terminal, then your code <b>reads</b> it back.</p>
+      <p><b>Step 1, set it in your terminal.</b> Set it in the <b>same</b> terminal you will then run Python from, so the Python process inherits it. On Windows PowerShell (your setup):</p>
+<pre><code><span class="cm"># in PowerShell, this is a terminal transcript, not a Python file</span>
+PS C:\work&gt; $env:GITHUB_TOKEN = "ghp_xxxxxxxx"   <span class="cm"># set it for THIS terminal session</span>
+PS C:\work&gt; python check_token.py                <span class="cm"># now run python from that SAME terminal so it inherits the value</span></code></pre>
+      <p><code>setx GITHUB_TOKEN "ghp_xxxxxxxx"</code> saves it permanently for future terminals instead (it takes effect in new windows, not the current one), and on Mac or Linux the equivalent is <code>export GITHUB_TOKEN=ghp_xxxxxxxx</code>.</p>
+      <p><b>Step 2, read it in your code.</b> With the variable set, Python reaches it through the built-in <code>os</code> module:</p>
+<pre><code>import os                            <span class="cm"># the os module lets Python talk to the operating system</span>
+
+token = os.getenv("GITHUB_TOKEN")    <span class="cm"># read the env var named GITHUB_TOKEN, or None if it isn't set</span></code></pre>
+      <p><code>os.getenv("NAME")</code> returns the value of the environment variable <code>NAME</code>, or <code>None</code> if that variable does not exist. <code>None</code> is Python's built-in "nothing here" value, and it counts as <b>False</b> in an <code>if</code> test (the truthiness idea from Session 2), which is how you will check whether a token actually loaded. There is also <code>os.environ</code>, a dictionary of every environment variable: you can read one with <code>os.environ["NAME"]</code> or set one for the current program with <code>os.environ["NAME"] = "..."</code>. Because the secret now lives in the environment and never in the file, committing your code leaks nothing.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Store your token and read it back</div>
+        <p>In PowerShell, set <code>$env:GITHUB_TOKEN</code> to the token you copied in Task 1. Then write a short script that reads it with <code>os.getenv</code> and prints <i>whether</i> it loaded, without ever printing the token itself. Run <code>python</code> from that same terminal so it inherits the variable. Here is what the run looks like:</p>
+        <div class="filebox"><span class="fl">terminal</span>
+<pre><code>PS C:\work&gt; $env:GITHUB_TOKEN = "ghp_xxxxxxxx"
+PS C:\work&gt; python check_token.py
+<span class="out">token loaded: True</span></code></pre></div>
+        <details><summary>Show reference solution</summary>
+<pre><code>import os
+
+token = os.getenv("GITHUB_TOKEN")        <span class="cm"># read the secret from the environment</span>
+if token:                                <span class="cm"># a real token is truthy; None (unset) is falsy</span>
+    print("token loaded:", True)
+else:
+    print("no token found, set GITHUB_TOKEN first")</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I stored my token as an env var and read it with os.getenv</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Making the authenticated call</h3>
+      <p>Now put the pieces together: read the token, build the <code>Authorization</code> header, and send the GET. GitHub's <code>https://api.github.com/user/repos</code> endpoint lists the repositories of the <i>authenticated</i> user, and unlike Session 7's open <code>/users/&lt;name&gt;</code>, it <b>requires</b> a token. That makes it the perfect place to watch auth both succeed and fail. (Note you can import several modules on one line, comma-separated: <code>import requests, os</code>.)</p>
+<pre><code>import requests, os
+
+token = os.getenv("GITHUB_TOKEN")
+headers = {"Authorization": f"Bearer {token}"}    <span class="cm"># the bearer shape from Concept A, token filled in by the f-string</span>
+response = requests.get("https://api.github.com/user/repos", headers=headers)
+print(response.status_code)    <span class="cm"># 200 if the token is good; 401 if it is missing or wrong</span></code></pre>
+      <p>The <code>f"Bearer {token}"</code> is the f-string from Session 1, dropping the token's value into the header string. If the token is valid you get <code>200</code> and a JSON list of repos; if it is missing or wrong you get <code>401</code>, and you handle that the Session 7 way, check the status before trusting the body:</p>
+<pre><code>if response.status_code == 401:
+    print("check your token, GitHub says 401 Unauthorized")    <span class="cm"># a clear message beats a confusing crash later</span>
+elif response.ok:
+    data = response.json()     <span class="cm"># safe to parse now (2xx)</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make an authenticated request (and break it on purpose)</div>
+        <p>In VS Code, read your token with <code>os.getenv</code>, build the <code>headers</code> dict, and GET <code>https://api.github.com/user/repos</code>. Print the status code, and if <code>response.ok</code>, print how many repos came back on this first page with <code>len(response.json())</code>. Then deliberately break it once: unset or mistype the token and re-run, so you <b>see the 401</b> for yourself. Fix it back to 200.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import requests, os
+
+token = os.getenv("GITHUB_TOKEN")
+headers = {"Authorization": f"Bearer {token}"}
+response = requests.get("https://api.github.com/user/repos", headers=headers)
+print("status:", response.status_code)
+if response.ok:                                <span class="cm"># True for a 2xx success (Session 7)</span>
+    print("repos on page 1:", len(response.json()))   <span class="cm"># len counts the list of repo dicts</span>
+else:
+    print("request failed, check your token:", response.status_code)</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I made an authenticated request and saw both 200 and 401</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Sending data with POST</h3>
+      <p>Every call so far has been a <code>GET</code>, which <b>reads</b>. To <b>create</b> or send data you use <code>POST</code> (named in Session 7's methods list). With <code>requests</code> that is <code>requests.post(url, json={...})</code>. The <code>json=</code> keyword takes a Python dict and does two chores for you: it serializes the dict into a JSON string (the <code>json.dumps</code> step from Session 7) and it sets the request's content-type header to say "this body is JSON," so the server parses it correctly.</p>
+      <p>It is worth contrasting <code>json=</code> with its neighbor <code>data=</code>, because mixing them up is a classic first bug. <code>json={"a": 1}</code> sends a <b>JSON body</b> (what modern APIs expect), while <code>data={"a": 1}</code> sends the dict as old-style <b>HTML-form fields</b>, encoded like <code>a=1&amp;b=2</code>, the format an HTML form submit uses. Rule of thumb: a JSON API wants <code>json=</code>. And the reply to a successful create is usually <b>201 Created</b> rather than 200, still a 2xx (so <code>response.ok</code> is <code>True</code>), which you read exactly as before.</p>
+      <p>To practice safely we will POST to <code>https://httpbin.org/post</code>, a free testing endpoint that simply <b>echoes your request back</b> so you can confirm what you sent. It returns <code>200</code> and puts your parsed body under the <code>"json"</code> key:</p>
+<pre><code>import requests
+
+payload = {"title": "Buy dowels", "done": False}       <span class="cm"># the data we want to send</span>
+response = requests.post("https://httpbin.org/post", json=payload)   <span class="cm"># send it as a JSON body</span>
+print(response.status_code)          <span class="cm"># httpbin echoes back with -&gt; 200</span>
+print(response.json()["json"])       <span class="cm"># httpbin returns what we sent under "json" -&gt;</span> <span class="out">{'title': 'Buy dowels', 'done': False}</span></code></pre>
+      <p>Be honest about what you are seeing: httpbin is an echo service for testing, so it answers <code>200</code> and reflects your payload. A real create endpoint would answer <code>201</code> and return the record it created, but the mechanic you are practicing, <code>json=</code> sends a body and you read the result, is identical.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Send your first POST</div>
+        <p>In VS Code, POST a small dict of your own to <code>https://httpbin.org/post</code> using <code>json=</code>. Print the status code, then print the echoed body under the <code>"json"</code> key to prove your data made the round trip.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import requests
+
+payload = {"name": "Patrick", "learning": "python"}    <span class="cm"># any dict works</span>
+response = requests.post("https://httpbin.org/post", json=payload)
+print("status:", response.status_code)         <span class="cm"># -&gt; 200 from httpbin</span>
+print("echoed back:", response.json()["json"])  <span class="cm"># -&gt; {'name': 'Patrick', 'learning': 'python'}</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I sent a POST with a JSON body and saw it echoed back</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Pagination, rate limits, then your milestone</h3>
+      <p>Here is the trap that quietly costs people real data. Most endpoints that return a <i>list</i> do not hand you everything at once. To stay fast they <b>paginate</b>, splitting a big result into pages and capping how many items come back per request (GitHub returns 30 by default, up to 100 with <code>per_page</code>). So a single call gives you page 1, and if you stop there you have silently pulled only the first 30 (or 100) items while believing you got them all. Compare the naive call with the loop. Both reuse two names your milestone script sets up first: <code>url</code> (the endpoint string, <code>"https://api.github.com/user/repos"</code>) and <code>headers</code> (the bearer dict you built in Concept C), so only <code>params</code> is new here:</p>
+<pre><code><span class="cm"># NAIVE: one call, assumes it is everything. You silently get only the first page.</span>
+repos = requests.get(url, headers=headers).json()   <span class="cm"># just page 1</span>
+print(len(repos))                                    <span class="cm"># maybe 100, even if you actually have 250 repos</span></code></pre>
+<pre><code><span class="cm"># CAREFUL: keep asking for the next page until one comes back short</span>
+all_repos = []
+page = 1
+while True:                                       <span class="cm"># loop forever until we choose to break (Session 2)</span>
+    params = {"per_page": 100, "page": page}      <span class="cm"># ask for up to 100 items, one page at a time</span>
+    resp = requests.get(url, headers=headers, params=params)
+    batch = resp.json()                           <span class="cm"># this page's list of repos</span>
+    all_repos.extend(batch)                       <span class="cm"># add all of this page's items to the running list</span>
+    if len(batch) &lt; 100:                          <span class="cm"># a short (or empty) page means there is no more</span>
+        break                                     <span class="cm"># so stop the loop</span>
+    page = page + 1                               <span class="cm"># otherwise, go get the next page</span>
+print(len(all_repos))                             <span class="cm"># now this is the FULL count</span></code></pre>
+      <p>Two things to name here. <code>.extend(other)</code> is a list method that adds <b>every</b> item of another list onto this one, unlike <code>.append</code> from Session 3 which adds a single item. And the <b>stop condition</b> is the whole game: you keep going while each page arrives full (its length equals <code>per_page</code>, suggesting more may follow), and you stop the first time a page comes back with <b>fewer</b> items than you asked for, because a short or empty page is the last one. Get that wrong and you either miss data or loop forever.</p>
+      <p>Not every API counts pages this way. Some return a <b>cursor</b> or a <code>next</code> URL you follow until there is no "next", and GitHub also sends a <code>Link</code> header carrying the next page's URL. The signal differs but the idea is identical: keep going until the API tells you to stop. One more courtesy: if you request too fast, an API protects itself by replying <b>429 Too Many Requests</b> (a 4xx), often with a <code>Retry-After</code> header saying how many seconds to wait. A polite client slows down or waits that long instead of hammering in a tight loop.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: authenticate and pull every page</div>
+        <p>This is your Session 8 milestone, run for real in VS Code with your own token. Write a script that: (1) reads <code>GITHUB_TOKEN</code> with <code>os.getenv</code> and builds the bearer <code>headers</code>; (2) pages through <code>https://api.github.com/user/repos</code> with <code>params={"per_page": 100, "page": n}</code>, climbing the page number and collecting every repo; (3) stops when a page returns fewer than 100 items; (4) wraps the loop in <code>try</code>/<code>except requests.RequestException</code> (Sessions 6 and 7) so a dropped connection fails gracefully; (5) handles a <code>401</code> with a clear "check your token" message; and (6) prints the total repo count and the first few names. Build it before you peek, this is the full real-world pull.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import requests, os
+
+token = os.getenv("GITHUB_TOKEN")
+if not token:                                    <span class="cm"># None is falsy, so this catches a missing token early</span>
+    print("set GITHUB_TOKEN in your terminal first")
+else:
+    headers = {"Authorization": f"Bearer {token}"}
+    url = "https://api.github.com/user/repos"
+    all_repos = []
+    page = 1
+    try:
+        while True:
+            params = {"per_page": 100, "page": page}
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code == 401:
+                print("check your token, GitHub returned 401")
+                break
+            response.raise_for_status()          <span class="cm"># any other bad status becomes an exception</span>
+            batch = response.json()              <span class="cm"># this page as a list of repo dicts</span>
+            all_repos.extend(batch)              <span class="cm"># collect this page</span>
+            if len(batch) &lt; 100:                 <span class="cm"># short page means no more pages</span>
+                break
+            page = page + 1                      <span class="cm"># otherwise ask for the next page</span>
+    except requests.RequestException as e:       <span class="cm"># a network failure lands here instead of crashing</span>
+        print("network problem:", e)
+
+    print("pulled", len(all_repos), "repos")
+    for repo in all_repos[:5]:                   <span class="cm"># the first few names to eyeball (slice from Session 3)</span>
+        print("-", repo["name"])</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I authenticated and pulled every page of my repos</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each snippet and <b>work out what it prints in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model, don't run it first. These are all <b>deterministic, in-memory logic</b> (building headers, reading env vars you set (or deliberately leave unset) in the snippet, status branching, and the pagination loop run over fake in-memory pages), so the "watch it run" links step through them live. A real authenticated <code>requests.get</code> or <code>requests.post</code> can't run here (the sandbox blocks the network and a live API's numbers change anyway), so we drill the logic you wrap around every real call. Type the <b>printed output</b> exactly. They get harder toward the end.</p>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it from scratch. First reassemble scrambled programs (mind the indentation, it decides which lines sit inside the <code>if</code>), then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the program (Parsons)</h3>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write it yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the code in the box, reveal the reference to compare, then run yours in VS Code. The workbook can't run Python, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours runs correctly, or <b>Needs another pass</b> to drop your cursor back in the editor and keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> this session mixes in 2 questions from earlier sessions (one from <b>Session 7</b>, one from <b>Session 6</b>, marked <i>recall</i>). Pulling old material back up on a delay is exactly what moves it into long-term memory.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 08 of 10 &middot; Hit the authenticate-and-paginate milestone unassisted, then tick <b>S08</b> on your <a href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">Hub</a>. &middot; Next: <b>Session 09, pandas essentials (Level 5)</b>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "py-s08-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // Python Tutor deep-link builder (correct encoding at runtime)
+  function ptLink(code) {
+    return "https://pythontutor.com/visualize.html#code=" + encodeURIComponent(code) +
+      "&cumulative=false&curInstr=0&heapPrimitives=nevernest&mode=display&origin=opt-frontend.js&py=3&rawInputLstJSON=%5B%5D&textReferences=false";
+  }
+  // wire any element carrying data-ptcode (decode the &#10; newlines we stored as literal \n)
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ptcode]'), function (a) {
+    a.setAttribute('href', ptLink(a.getAttribute('data-ptcode')));
+  });
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills (all deterministic in-memory logic) ---------- */
+  var DRILLS = [
+    { code: 'headers = {"Authorization": "Bearer abc123"}\nprint(headers["Authorization"])', ans: 'Bearer abc123', why: 'A dict is looked up by key (Session 3). The key here is the string "Authorization", so headers["Authorization"] returns its value, Bearer abc123. This is how you read back a header you built.' },
+    { code: 'token = "xyz"\nheaders = {"Authorization": f"Bearer {token}"}\nprint(headers["Authorization"])', ans: 'Bearer xyz', why: 'The f-string (Session 1) fills {token} with the variable\'s value, xyz, so the header value becomes Bearer xyz. Building the Authorization value this way is how you insert a real token.' },
+    { code: 'import os\nos.environ["API_KEY"] = "secret42"\nprint(os.getenv("API_KEY"))', ans: 'secret42', why: 'os.environ is the dictionary of environment variables. Setting os.environ["API_KEY"] puts a value there for this running program, and os.getenv("API_KEY") reads it back, so you see secret42.' },
+    { code: 'import os\nprint(os.getenv("NOPE_UNSET_VAR"))', ans: 'None', why: 'os.getenv returns None (Python\'s "nothing here" value) when the named variable was never set. Printing None shows the text None. That is why you check whether the token loaded before using it.' },
+    { code: 'status = 401\nif status == 200:\n    print("ok")\nelif status == 401:\n    print("unauthorized")\nelse:\n    print("other")', ans: 'unauthorized', why: 'status is 401, so the first test (== 200) is False and the elif (== 401) is True, printing unauthorized (if / elif / else from Session 2). 401 is the "missing or bad credential" status.' },
+    { code: 'status = 429\nif status == 401:\n    print("check your token")\nelif status == 429:\n    print("slow down")\nelse:\n    print("fine")', ans: 'slow down', why: '429 fails the first test and matches the elif for 429, printing slow down. 429 Too Many Requests is the API asking you to back off, its rate limit.' },
+    { code: 'pages = [[1, 2, 3], [4, 5, 6], [7]]\ncollected = []\nfor page in pages:\n    collected.extend(page)\n    if len(page) < 3:\n        break\nprint(len(collected))', ans: '7', why: 'Each loop adds a page\'s items with .extend, then stops (break, Session 2) as soon as a page is shorter than 3. The pages are [1,2,3], [4,5,6], then [7]: the first two are full (length 3), the third has length 1 which is < 3, so after collecting all 7 items the loop breaks. len (Session 3) counts them: 7.' },
+    { code: 'pages = [["a", "b"], ["c", "d"]]\nnames = []\nfor page in pages:\n    names.extend(page)\nprint(names)', ans: "['a', 'b', 'c', 'd']", why: '.extend adds every item of one list onto another (unlike .append, which adds a single item). Both pages are merged in order, so names becomes [\'a\', \'b\', \'c\', \'d\']. There is no short-page check here, so the loop just finishes.' },
+    { code: 'import json\nbody = \'{"login": "torvalds", "public_repos": 8}\'\ndata = json.loads(body)\nprint(data["login"], data["public_repos"])', ans: 'torvalds 8', why: 'json.loads (Session 7) parses the string into a real dict. Then data["login"] and data["public_repos"] read two values, and print with two arguments joins them with a space, giving torvalds 8.' },
+    { code: 'import json\ndata = json.loads(\'{"per_page": "50"}\')\nprint(int(data["per_page"]) + 50)', ans: '100', why: 'In JSON, "50" is written as text (inside quotes), so after parsing data["per_page"] is the string "50", not a number. int() converts it to 50 (the Session 5 string trap), and 50 + 50 is 100.' },
+    { code: 'import json\nbody = \'[{"name": "dotfiles"}, {"name": "linux"}]\'\nrepos = json.loads(body)\nprint(repos[1]["name"])', ans: 'linux', why: 'The JSON here is an array, so json.loads returns a list of dicts. repos[1] takes the second item (indexes start at 0, so 1 is the second, Session 3), and ["name"] reads its value: linux. This is the exact shape a paginated repo list comes back in.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="What does it print?" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<p style="margin:10px 0 0"><a class="pt" href="' + ptLink(d.code) + '" target="_blank" rel="noopener">&#9654; watch it run</a></p>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct output</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function check() {
+        if (el.dataset.done) return; el.dataset.done = '1';
+        var ok = norm(input.value) === norm(d.ans);
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+        refreshCounters();
+      }
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'Read a token from the environment, build the bearer auth header, then print it.',
+      lines: ['import os', 'token = os.getenv("GITHUB_TOKEN")', 'headers = {"Authorization": f"Bearer {token}"}', 'print(headers["Authorization"])'] },
+    { prompt: 'Make an authenticated GET, then check for a 401 so a missing or bad token is caught.',
+      lines: ['import requests, os', 'token = os.getenv("GITHUB_TOKEN")', 'url = "https://api.github.com/user/repos"', 'headers = {"Authorization": f"Bearer {token}"}', 'response = requests.get(url, headers=headers)', 'if response.status_code == 401:', '    print("check your token")'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your program (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (btn.disabled) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks to read a secret from the environment and use it in a bearer header.',
+      code: 'import os\nos.environ["TOKEN"] = "t-42"           # place a secret in the environment for this demo\ntoken = os.%%("TOKEN")                # read it back out of the environment\nheaders = {"Authorization": f"Bearer {token}"}\nprint(headers[%%])                     # -> Bearer t-42', ans: ['getenv', '"Authorization"'] },
+    { prompt: 'Fill the blanks so the loop collects every page\'s items and prints the total.',
+      code: 'pages = [["a", "b"], ["c"]]\ncollected = []\nfor page in pages:\n    collected.%%(page)                 # add all items from this page to the running list\nprint(%%(collected))                   # how many items in total -> 3', ans: ['extend', 'len'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'You have a token in an environment variable named GITHUB_TOKEN. Read it with os.getenv (do NOT hardcode it), build a headers dict with an Authorization bearer header, and print the headers dict.',
+      sol: 'import os\n\ntoken = os.getenv("GITHUB_TOKEN")      # read the secret, never paste it into the code\nheaders = {"Authorization": f"Bearer {token}"}\nprint(headers)' },
+    { task: 'Given a variable status holding an HTTP status code (an int), print "ok" for 200, "check your token" for 401 or 403, "slow down" for 429, and "other" for anything else.',
+      sol: 'status = 401      # change this to 200, 403, 429, 500 to test each branch\n\nif status == 200:\n    print("ok")\nelif status == 401 or status == 403:\n    print("check your token")\nelif status == 429:\n    print("slow down")\nelse:\n    print("other")' },
+    { task: 'Send a POST to https://httpbin.org/post with a small JSON body using json=. Print the status code, then print the body httpbin echoes back under the "json" key to confirm your data made the trip. (httpbin is a free echo service for testing; it returns 200 and reflects what you sent.)',
+      sol: 'import requests\n\npayload = {"task": "learn POST", "done": True}\nresponse = requests.post("https://httpbin.org/post", json=payload)\nprint("status:", response.status_code)       # httpbin replies 200\nprint("echoed:", response.json()["json"])     # what httpbin received -> {\'task\': \'learn POST\', \'done\': True}' },
+    { task: 'The milestone. Read GITHUB_TOKEN from the environment and build the bearer header, then page through https://api.github.com/user/repos with params per_page=100 and a page number that climbs, collecting every repo. Stop when a page returns fewer than 100 items. Wrap the loop in try/except requests.RequestException, handle a 401 with a "check your token" message, and finish by printing the total repo count and the first few names.',
+      sol: 'import requests, os\n\ntoken = os.getenv("GITHUB_TOKEN")\nif not token:                                    # None is falsy, so this catches a missing token\n    print("set GITHUB_TOKEN in your terminal first")\nelse:\n    headers = {"Authorization": f"Bearer {token}"}\n    url = "https://api.github.com/user/repos"\n    all_repos = []\n    page = 1\n    try:\n        while True:\n            params = {"per_page": 100, "page": page}\n            response = requests.get(url, headers=headers, params=params)\n            if response.status_code == 401:\n                print("check your token, GitHub returned 401")\n                break\n            response.raise_for_status()          # any other bad status becomes an exception\n            batch = response.json()              # this page as a list of repo dicts\n            all_repos.extend(batch)              # collect this page\n            if len(batch) < 100:                 # short page means no more pages\n                break\n            page = page + 1                      # otherwise ask for the next page\n    except requests.RequestException as e:\n        print("network problem:", e)\n\n    print("pulled", len(all_repos), "repos")\n    for repo in all_repos[:5]:                   # a few names to eyeball\n        print("-", repo["name"])' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your code here, then run it in VS Code"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in VS Code:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Send a GET with a header dict', b: 'requests.get(url, headers={...})' },
+    { f: 'The header that carries a bearer token', b: 'Authorization: Bearer <token>' },
+    { f: 'Read a secret from an environment variable', b: 'os.getenv("NAME")' },
+    { f: 'Import the module for environment variables', b: 'import os' },
+    { f: 'Status code: missing or bad credential', b: '401 Unauthorized' },
+    { f: 'Status code: authenticated but not allowed', b: '403 Forbidden' },
+    { f: 'Send a POST with a JSON body', b: 'requests.post(url, json={...})' },
+    { f: 'Typical status code for a successful create', b: '201 Created' },
+    { f: 'Ask for one page of results', b: 'params={"per_page": 100, "page": n}' },
+    { f: 'Add every item of one list onto another', b: 'list.extend(other)' },
+    { f: 'The stop condition when paging', b: 'len(page) < per_page' },
+    { f: 'Status code: too many requests', b: '429 Too Many Requests' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() { pile = CARDS.map(function (c, i) { return i; }); mastered = 0; showingBack = false; document.getElementById('c-cards').textContent = '0'; document.getElementById('fc-mastered').textContent = '0'; renderCard(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz (Session 8 + cumulative Sessions 7 & 6 recall) ---------- */
+  var S1_URL = 'https://claude.ai/code/artifact/0be37ed6-a1c8-45fd-8ee5-5a3c3ae20fc4';
+  var S2_URL = 'https://claude.ai/code/artifact/30ccbd16-95e4-44dd-a1c5-51b73db038fb';
+  var S3_URL = 'https://claude.ai/code/artifact/ace0fd4f-3bf7-4d09-9625-84b1527c543d';
+  var S4_URL = 'https://claude.ai/code/artifact/015de950-d8e0-4448-8ec7-960e72e19465';
+  var S5_URL = 'https://claude.ai/code/artifact/f812334c-5352-4443-b42f-74a6caf32ca0';
+  var S6_URL = 'https://claude.ai/code/artifact/538ff8c0-7285-42ee-9cd2-b8eac483ce25';
+  var S7_URL = 'https://claude.ai/code/artifact/7026071c-9552-4256-8c91-c25f6034289f';
+  var QUIZ = [
+    { q: 'You send a request with no credential to an endpoint that requires one. Which status code do you expect back?', o: ['401 Unauthorized, a 4xx meaning your credential is missing or invalid (your side to fix)', '500, the server crashed', '201 Created', '200 OK'], c: 0,
+      e: 'A missing or invalid credential comes back as 401 Unauthorized. Like 404, it is a 4xx, meaning the problem is on your side (here, the token). 403 Forbidden is the sibling: it means you are known but not allowed. Both are the Session 7 status-check applied to auth.', part: { id: 'concept-a', label: 'A. Why APIs require authentication' } },
+    { q: 'Why read your token with os.getenv("GITHUB_TOKEN") instead of writing token = "ghp_..." directly in the script?', o: ['So the secret lives in the environment, not in your code, and cannot leak when the file is committed to git', 'os.getenv runs faster than reading a string literal', 'You are not allowed to put strings in variables', 'Bearer tokens must always come from the os module'], c: 0,
+      e: 'A hardcoded token is a live secret sitting in your source; the moment the file is pushed to git it is public, and GitHub will auto-revoke tokens it detects. Reading it from an environment variable with os.getenv keeps the secret out of the code entirely.', part: { id: 'concept-b', label: 'B. Headers, secrets, never hardcoding' } },
+    { q: 'You call requests.post(url, json={"title": "x"}). What does the json= keyword do for you?', o: ['Serializes the dict into a JSON body and sets the JSON content-type header', 'Sends the dict as old-style HTML-form key=value pairs', 'Only works on GET requests, not POST', 'Parses the response body into a dict'], c: 0,
+      e: 'json= takes a Python dict, turns it into a JSON string (the json.dumps step from Session 7), and sets the content-type header so the server reads it as JSON. Sending old-style form fields is what data= does instead; a JSON API wants json=.', part: { id: 'concept-d', label: 'D. Sending data with POST' } },
+    { q: 'Your loop requests pages of 100 with per_page=100. How do you know you have reached the last page?', o: ['A page comes back with fewer than 100 items (a short or empty page)', 'The status code changes to 429', 'response.json() starts raising an error', 'You cannot know; you must guess a page count up front'], c: 0,
+      e: 'The stop condition is a short page: while each page arrives full (length == per_page) there may be more, but the first page with fewer items than you asked for is the last, so you break. A 429 is a separate signal (rate limit), not the end of the data.', part: { id: 'concept-e', label: 'E. Pagination' } },
+    { q: 'Recall (Session 7): a request comes back with status 404, but you skip the check and call response.json() and index it anyway. What is the risk?', o: ['A 404 returns an error body, not your data, so you would parse and read the wrong thing; check the status first', 'None, response.json() only ever returns your real data', 'The request retries itself automatically', 'A 404 body is always empty, so nothing happens'], c: 0,
+      e: 'Getting a response object is not the same as getting your data (Session 7). A 404 or 500 still hands back a body, but it is an error message. Check response.ok or the status code (or call raise_for_status) before trusting the body. A 401 auth failure is the same story.', part: { url: S7_URL, label: 'Session 7 - check status before the body' } },
+    { q: 'Recall (Session 6): why wrap your paginating request loop in try / except requests.RequestException?', o: ['So a dropped connection or network error jumps to except instead of crashing the whole script', 'To make each request run faster', 'Because every for-loop must be inside a try', 'To authenticate the request automatically'], c: 0,
+      e: 'try / except (Session 6) catches an error instead of crashing: if the network drops mid-pull, control jumps to the except block and you print a message or recover, rather than losing the whole run with a traceback. requests.RequestException is the base type for its network errors.', part: { url: S6_URL, label: 'Session 6 - try / except' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">' + (item.part && item.part.url ? 'recall' : 'check') + '</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // cumulative question: source lives in an earlier workbook, open it in a new tab
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener">&#8599; Review in ' + esc(item.part.label) + '</a>';
+            } else {
+              // this-session question: scroll in-page (a raw #hash would reload the sandboxed iframe)
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Strong. Tick S08 on your Hub and ask for Session 9.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', initDeck);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); initDeck();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

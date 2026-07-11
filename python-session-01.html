@@ -1,0 +1,809 @@
+<style>
+  :root {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+      --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+      --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+    --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+    --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (Cascadia Code otherwise draws != as a glyph, >= as, -> as, etc.) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 60ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 20px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 68ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .pt:hover { text-decoration: underline; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  .parsons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: 1fr; } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 8ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 46ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 01 // Level 1 &middot; Foundations</div>
+      <a class="hublink" href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Setup &amp; the building blocks</h1>
+    <p class="goal">Every Python program is built from four things: variables, types, numbers &amp; strings, and getting data in and out. This session you don't just read them, you write them.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Write and run your own script that takes input and formats output, unassisted.</span>
+
+    <div class="howto">
+      <span class="ic">&gt;_</span>
+      <p><b>Open VS Code before you start.</b> This is a workbook, not a reading. You'll predict output, reassemble code, fill blanks, and write from scratch, each part hands you less scaffolding than the last. Reading Python is like hearing an order; <b>producing it is writing the order down</b>, that's what makes it stick.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/11</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Do each task in VS Code before moving on, check the box when it runs.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. Get Python running</h3>
+      <ul class="pts">
+        <li>Install Python from <code>python.org/downloads</code>. On Windows, <b>tick "Add python.exe to PATH"</b> in the installer, this lets you type <code>python</code> anywhere.</li>
+        <li>Install <b>VS Code</b>, then its <b>Python extension</b> (search "Python" by Microsoft in Extensions).</li>
+        <li>Verify: open VS Code's terminal (<code>Ctrl + `</code>) and run <code>python --version</code>. You should see a version number.</li>
+      </ul>
+      <p>A script is just a file ending in <code>.py</code>. Type code into it and run it. Here's the smallest possible one:</p>
+<pre><code><span class="cm"># hello.py</span>
+print("Hello from my first script!")   <span class="out"># Hello from my first script!</span></code></pre>
+      <p><b>Two ways to run it, and they do the exact same thing:</b></p>
+      <ul class="pts">
+        <li><b>Easiest:</b> click the <b>&#9655; Run button</b> in the top-right of the editor, or press <code>Ctrl + F5</code>. VS Code runs the file and shows the output in the terminal.</li>
+        <li><b>By hand:</b> in the terminal, type <code>python hello.py</code>. This is literally what the Run button types for you, worth knowing so the button is never a mystery when something breaks.</li>
+      </ul>
+      <p>For quick experiments there's also the <b>REPL</b>: type <code>python</code> in the terminal and enter one line at a time. Nothing is saved, it's a scratchpad for testing an idea.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Hello, script</div>
+        <p>Create a file <code>hello.py</code>, print your name, and run it with the <b>&#9655; Run button</b> (or <code>Ctrl + F5</code>).</p>
+        <details><summary>Show reference solution</summary>
+<pre><code><span class="cm"># hello.py</span>
+print("Patrick")   <span class="out"># Patrick</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Variables are labels you can move</h3>
+      <p>A variable is a <b>name pointing at a value</b>, created with <code>=</code>. You can re-point it anytime. Names use <code>snake_case</code>, must start with a letter or <code>_</code>, and are case-sensitive.</p>
+<pre><code>first_name = "Sam"     <span class="cm"># create</span>
+age = 30
+age = age + 1          <span class="cm"># re-point age at 31</span>
+print(first_name, age) <span class="out"># Sam 31</span></code></pre>
+      <p>One subtlety worth locking in early: assignment is a <b>snapshot</b>, not a live link. If you write <code>b = a + 1</code>, that copies <code>a</code>'s value <i>at that moment</i> into <code>b</code>; re-pointing <code>a</code> later does not reach back and change <code>b</code>.</p>
+      <p><b>Heads-up on <code>print</code>:</b> when you give it several things separated by commas, it prints them with a <b>space</b> between, not a comma. So <code>print(first_name, age)</code> shows <code>Sam 31</code>, the commas in your code are just separators. To actually show a comma, put it in yourself: <code>print(f"{first_name}, {age}")</code>.</p>
+      <p><a class="pt" data-ptcode='first_name = "Sam"&#10;age = 30&#10;age = age + 1&#10;print(first_name, age)' target="_blank" rel="noopener">&#9654; watch this run step-by-step in Python Tutor</a></p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Track a score</div>
+        <p>Make <code>score = 10</code>. Add 5 to it and print. Then re-point it to the string <code>"done"</code> and print again, prove a variable can change type.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>score = 10
+score = score + 5
+print(score)     <span class="out"># 15</span>
+score = "done"
+print(score)     <span class="out"># done</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Numbers &amp; math operators</h3>
+      <p>Two number types: <code>int</code> (whole, <code>42</code>) and <code>float</code> (decimal, <code>3.14</code>). You can ask any value what type it is with the built-in <code>type()</code> function: <code>type(42)</code> reports <code>&lt;class 'int'&gt;</code>, and <code>type(3.14)</code> reports <code>&lt;class 'float'&gt;</code>. The operators:</p>
+      <ul class="pts">
+        <li><code>+ - *</code> add, subtract, multiply</li>
+        <li><code>/</code> divide, <b>always a float</b>: <code>10 / 2</code> is <code>5.0</code></li>
+        <li><code>//</code> floor divide, drops remainder: <code>7 // 2</code> is <code>3</code></li>
+        <li><code>%</code> modulo, the remainder: <code>7 % 2</code> is <code>1</code></li>
+        <li><code>**</code> power: <code>2 ** 3</code> is <code>8</code></li>
+        <li>Normal precedence: <code>*</code> and <code>/</code> before <code>+</code> and <code>-</code>.</li>
+      </ul>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Minutes to hours</div>
+        <p>With <code>total_minutes = 145</code>, print the whole hours and leftover minutes using <code>//</code> and <code>%</code>.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>total_minutes = 145
+hours = total_minutes // 60
+mins = total_minutes % 60
+print(hours, "hours", mins, "minutes")  <span class="out"># 2 hours 25 minutes</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Strings &amp; f-strings</h3>
+      <p>A <b>string</b> is just text in quotes: <code>"hello"</code>. That's it. An <b>f-string</b> is the same thing with one superpower, you put <code>f</code> before the opening quote, and anything inside <code>{ }</code> gets swapped for its real value. So the difference is only about <i>whether you need to drop a variable or a calculation into the text</i>.</p>
+<pre><code>name = "Sam"
+age = 30
+
+<span class="cm"># Plain string: fixed text, nothing to insert</span>
+print("Please enter your details")
+
+<span class="cm"># Inserting a value the OLD way: concatenation (joining strings end to end with +)</span>
+print("Hi " + name + ", age " + str(age))   <span class="cm"># clunky, and you MUST str() the number</span>
+
+<span class="cm"># The f-string way: cleaner, and it converts for you</span>
+print(f"Hi {name}, age {age}")               <span class="out"># Hi Sam, age 30</span></code></pre>
+      <p><b>When to use which:</b> plain string when the text never changes; <b>f-string whenever you're building text out of data</b> (a variable, a total, a calculation). With <code>+</code> you have to glue pieces and manually <code>str()</code> every number, one missed conversion is an error. The f-string just works, so it's the modern default. Once you have f-strings you'll almost never reach for <code>+</code> to build a message.</p>
+      <p>Some characters can't just be typed inside a string, a line break, for example. An <b>escape</b> is a backslash <code>\</code> followed by a letter that stands in for one of them. The two you'll actually use: <code>\n</code> makes a <b>new line</b>, <code>\t</code> inserts a <b>tab</b>.</p>
+<pre><code>print("Line one\nLine two")
+<span class="out"># Line one</span>
+<span class="out"># Line two   &lt;- the \n split it onto two lines</span>
+print("Name:\tSam")
+<span class="out"># Name:   Sam   &lt;- the \t inserted a tab gap</span></code></pre>
+      <p>And a few string tools you'll use constantly. The comment explains what each one does:</p>
+<pre><code>len("python")        <span class="cm"># number of characters -&gt;</span> <span class="out">6</span>
+"sam".upper()        <span class="cm"># uppercase version -&gt;</span> <span class="out">"SAM"</span>
+"  hi  ".strip()     <span class="cm"># trim spaces off both ends -&gt;</span> <span class="out">"hi"</span>
+"a,b,c".split(",")   <span class="cm"># break into a list at each comma -&gt;</span> <span class="out">['a', 'b', 'c']</span>
+"cat" * 3            <span class="cm"># repeat the text 3 times -&gt;</span> <span class="out">"catcatcat"</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build a receipt line</div>
+        <p>Given <code>item = "Boxes"</code>, <code>price = 12</code>, <code>qty = 4</code>, use an f-string to print: <code>Boxes x4 = $48</code>.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>item = "Boxes"
+price = 12
+qty = 4
+print(f"{item} x{qty} = ${price * qty}")  <span class="out"># Boxes x4 = $48</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I ran this and saw the output</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Input, output &amp; conversion</h3>
+      <p><code>print()</code> sends text out; <code>input()</code> reads text in. <b>The text inside <code>input("...")</code> is the prompt</b>, the message shown on screen telling the user what to type. It is <i>not</i> a value you fill in, the value is <b>whatever the user types when the program runs</b>.</p>
+      <p><b>The #1 trap:</b> <code>input()</code> always hands back a <b>string</b>, even if the user types digits. Convert before doing math: <code>int()</code> for a whole number (<code>int("30")</code> gives <code>30</code>), <code>float()</code> for a decimal (<code>float("3.5")</code> gives <code>3.5</code>).</p>
+<pre><code>raw = input("Your age? ")   <span class="cm"># show "Your age? ", grab what's typed (as text)</span>
+age = int(raw)              <span class="cm"># convert that text into the number 30</span>
+print(f"Next year you're {age + 1}")</code></pre>
+      <p>Here is what that looks like <b>when it actually runs</b>. You type the <span class="out">30</span>; everything else is printed by the program:</p>
+<pre><code>Your age? <span class="out">30</span>          <span class="cm"># the code printed "Your age? "; you typed 30</span>
+Next year you're 31</code></pre>
+      <p>One more f-string trick you'll want for the milestone below, since it deals with money: put <code>:.2f</code> right after a value to show it with <b>2 decimal places</b>. So if <code>tip</code> is <code>10.0</code>, then <code>f"${tip:.2f}"</code> prints <code>$10.00</code> instead of <code>$10.0</code>, which is how dollars and cents should look.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone script</div>
+        <p>Write <code>tip.py</code>: ask for a bill amount, ask for a tip percent, print the tip and total. This is your Session 1 milestone, do it without peeking first.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code><span class="cm"># get each value as text, then convert it, the two-step pattern from above</span>
+raw_bill = input("Bill amount? ")   <span class="cm"># you type 50  ->  "50"</span>
+bill = float(raw_bill)              <span class="cm"># convert to a decimal number: 50.0</span>
+
+raw_pct = input("Tip percent? ")    <span class="cm"># you type 20  ->  "20"</span>
+pct = float(raw_pct)                <span class="cm"># 20.0</span>
+
+tip = bill * pct / 100              <span class="cm"># 50.0 * 20.0 / 100  =  10.0</span>
+print(f"Tip: ${tip:.2f}  |  Total: ${bill + tip:.2f}")
+
+<span class="cm"># :.2f means "show 2 decimal places", so 10.0 prints as 10.00 (looks like money)</span>
+<span class="out"># Tip: $10.00  |  Total: $60.00</span>
+<span class="cm"># once comfortable, you can combine each pair: bill = float(input("Bill amount? "))</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I built and ran this myself</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each snippet and <b>work out what it prints in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model, don't run it first. Each has a "watch it run" link to step through it in Python Tutor afterward. They get harder toward the end.</p>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it from scratch. First reassemble scrambled programs, then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the program (Parsons)</h3>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write it yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the code in the box, reveal the reference to compare, then run yours in VS Code. The workbook can't run Python, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours runs correctly, or <b>Needs another pass</b> to drop your cursor back in the editor and keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 5 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept in Part 1.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> from Session 2 on, this section also mixes in a couple of questions from earlier sessions, recalling old material on a delay is what makes it stick. Today it's all Session 1.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 01 of 10 &middot; Hit the milestone script unassisted, then tick <b>S01</b> on your <a href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">Hub</a>. &middot; Next: <b>Session 02, decisions &amp; loops</b>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "py-s01-workbook-v3";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // Python Tutor deep-link builder (correct encoding at runtime)
+  function ptLink(code) {
+    return "https://pythontutor.com/visualize.html#code=" + encodeURIComponent(code) +
+      "&cumulative=false&curInstr=0&heapPrimitives=nevernest&mode=display&origin=opt-frontend.js&py=3&rawInputLstJSON=%5B%5D&textReferences=false";
+  }
+  // wire any element carrying data-ptcode (decode the &#10; newlines we stored as literal \n)
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ptcode]'), function (a) {
+    a.setAttribute('href', ptLink(a.getAttribute('data-ptcode')));
+  });
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ---------- */
+  var DRILLS = [
+    { code: 'print(3 + 4 * 2)', ans: '11', why: 'Multiplication before addition: 4*2=8, then 3+8=11.' },
+    { code: 'print(10 / 2)', ans: '5.0', why: 'A single / always gives a float, so 5.0, not 5.' },
+    { code: 'print(7 // 2)', ans: '3', why: '// floor-divides then drops the remainder: 3.' },
+    { code: 'print(7 % 2)', ans: '1', why: '% is the remainder. 7 leaves 1 after dividing by 2.' },
+    { code: 'print("ab" * 3)', ans: 'ababab', why: 'string * int repeats the string. * means "repeat" here, not "multiply".' },
+    { code: 'print("Hi" + "There")', ans: 'HiThere', why: '+ joins strings with no space. You get HiThere.' },
+    { code: 'name = "Al"\nprint(f"Hi {name}, {2 + 3} boxes")', ans: 'Hi Al, 5 boxes', why: 'The f-string swaps {name} for Al and evaluates {2+3} to 5.' },
+    { code: 'print(len("python"))', ans: '6', why: 'len() counts characters. "python" has 6.' },
+    { code: 'print(int("12") + int("3"))', ans: '15', why: 'int() converts each string first, so real math: 12+3=15.' },
+    { code: 'x = 5\nx = x + 3\nprint(x)', ans: '8', why: 'x becomes 5, then re-pointed to 5+3=8.' },
+    { code: 'x = 10\ny = x + 5\nx = x * 2\nprint(x, y)', ans: '20 15', why: 'Two things at once. Spacing: the comma in print(x, y) just separates the two items, and print joins them with a SPACE, so the output is 20 15, not 20,15 (for a comma you would write print(f"{x}, {y}")). Values: y was set to 15 at that moment (10 + 5); re-pointing x to 20 later does NOT reach back and change y. Assignment is a snapshot, not a live link.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="What does it print?" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<p style="margin:10px 0 0"><a class="pt" href="' + ptLink(d.code) + '" target="_blank" rel="noopener">&#9654; watch it run</a></p>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct output</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function check() {
+        if (el.dataset.done) return; el.dataset.done = '1';
+        var ok = norm(input.value) === norm(d.ans);
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+        refreshCounters();
+      }
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* trace-it was merged into the predict drills above (it was the same activity) */
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'Ask for an age, convert it, and print next year’s age.',
+      lines: ['raw = input("Age? ")', 'age = int(raw)', 'next_age = age + 1', 'print(f"Next year: {next_age}")'] },
+    { prompt: 'Build a full name from two parts and print it uppercased.',
+      lines: ['first = "grace"', 'last = "hopper"', 'full = first + " " + last', 'print(full.upper())'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your program (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (btn.disabled) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so this greets the user by name.',
+      code: 'name = %%("Your name? ")\nprint(f"Hello, %%!")', ans: ['input', '{name}'] },
+    { prompt: 'Fill the operators so this splits minutes into hours + leftover.',
+      code: 'total = 145\nhours = total %% 60\nmins = total %% 60\nprint(hours, mins)', ans: ['//', '%'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Ask the user for their name, then greet them by name using an f-string.',
+      sol: 'name = input("Your name? ")\nprint(f"Hello, {name}!")' },
+    { task: 'Ask the user for a number, then print that number doubled. (input is text.)',
+      sol: 'raw = input("A number? ")\nn = int(raw)\nprint(n * 2)' },
+    { task: 'Ask for two numbers on separate prompts and print their sum as a real total.',
+      sol: 'a = int(input("First? "))\nb = int(input("Second? "))\nprint(f"Sum: {a + b}")' },
+    { task: 'Given full_name = "grace hopper", print it uppercased AND print its character count.',
+      sol: 'full_name = "grace hopper"\nprint(full_name.upper())   # GRACE HOPPER\nprint(len(full_name))      # 12 (the space counts)' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your code here, then run it in VS Code"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in VS Code:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Convert the string s to an integer', b: 'int(s)' },
+    { f: 'Read a line of text typed by the user', b: 'input("prompt")' },
+    { f: 'Insert variable name into text', b: 'f"...{name}..."' },
+    { f: 'Number of characters in string s', b: 'len(s)' },
+    { f: 'Floor division (whole-number result)', b: '//' },
+    { f: 'Remainder / modulo operator', b: '%' },
+    { f: 'Exponent (power) operator', b: '**' },
+    { f: 'Check the type of a value v', b: 'type(v)' },
+    { f: 'Strip leading/trailing whitespace from s', b: 's.strip()' },
+    { f: 'Uppercase version of string s', b: 's.upper()' },
+    { f: 'Split "a,b,c" on commas into a list', b: '"a,b,c".split(",")' },
+    { f: 'Start a comment on a line', b: '#' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() { pile = CARDS.map(function (c, i) { return i; }); mastered = 0; showingBack = false; document.getElementById('c-cards').textContent = '0'; document.getElementById('fc-mastered').textContent = '0'; renderCard(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz ---------- */
+  var QUIZ = [
+    { q: 'The user types 5. What does print(input("n? ") + 1) do?', o: ['Raises a TypeError', 'Prints 6', 'Prints 51', 'Prints 5'], c: 0,
+      e: 'input() returns "5"; "5" + 1 mixes str and int, which Python refuses. Convert with int() first.', part: { id: 'concept-e', label: 'E. Input, output & conversion' } },
+    { q: 'What does print("20" * 3) output?', o: ['202020', '60', '20 20 20', 'an error'], c: 0,
+      e: 'The value is a string, so * repeats it. int("20") * 3 would give 60.', part: { id: 'concept-d', label: 'D. Strings & f-strings' } },
+    { q: 'What is the type of the value 7.0?', o: ['float', 'int', 'str', 'bool'], c: 0,
+      e: 'The decimal point makes it a float, even though it equals seven.', part: { id: 'concept-c', label: 'C. Numbers & math operators' } },
+    { q: 'Which prints exactly: Hi Sam  (given name = "Sam")', o: ['print(f"Hi {name}")', 'print("Hi {name}")', 'print(f"Hi name")', 'print("Hi" name)'], c: 0,
+      e: 'An f-string needs both the f prefix and {braces}. Miss either and nothing is substituted.', part: { id: 'concept-d', label: 'D. Strings & f-strings' } },
+    { q: 'What does print(9 % 4) output?', o: ['1', '2', '2.25', '0'], c: 0,
+      e: '% is the remainder. 9 = 4+4+1, so 1 is left over.', part: { id: 'concept-c', label: 'C. Numbers & math operators' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 4
+              ? 'Quick check: ' + quizCorrect + '/5. Solid, tick S01 on your Hub and ask for Session 2.'
+              : 'Quick check: ' + quizCorrect + '/5. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', initDeck);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); initDeck();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

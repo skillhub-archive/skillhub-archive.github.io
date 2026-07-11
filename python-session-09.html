@@ -1,0 +1,839 @@
+<style>
+  :root {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+      --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+      --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
+    --ink-soft: #4A4F5C; --ink-faint: #8A8F9C; --border: #E1E4EA; --accent: #4B47D6;
+    --accent-soft: #EEEDFB; --gold: #B26E12; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1F8A5B; --good-soft: #E4F3EC; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
+    --ink-soft: #AEB4C0; --ink-faint: #6B7280; --border: #262B36; --accent: #8A85FF;
+    --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #14261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (Cascadia Code otherwise draws != as a glyph, >= as, -> as, etc.) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 60ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 20px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 68ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .err { color: var(--bad); }
+  .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
+  .filebox .fl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px; }
+  .filebox pre { margin: 0; background: none; border: none; padding: 0; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .pt:hover { text-decoration: underline; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 8ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 46ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 09 // Level 5 &middot; Data wrangling</div>
+      <a class="hublink" href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>pandas essentials</h1>
+    <p class="goal">Back in Session 5 you read a CSV row by row, looped over every record, and built up totals by hand. It worked, but it was a lot of code for a small job. This session hands you pandas, the library that turns a whole table into a single object you clean, filter, and summarize with one line each. This is the exact skill behind any data report or dashboard: load messy data, fix the gaps, group it, and write the answer out. By the end you will take a jobs file with a blank cell in it, clean it, total it per salesperson, and export a summary report.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Load messy data, clean it, and export a grouped summary report.</span>
+
+    <div class="howto">
+      <span class="ic">&gt;_</span>
+      <p><b>Open VS Code and a terminal before you start.</b> Same six-part rhythm, each part hands you less scaffolding. Two habits carry today: <b>let pandas operate on the whole column at once</b> instead of writing a loop, and <b>clean the data before you trust its type</b> (a blank cell becomes <code>NaN</code>, not zero). New this session: pandas is not installed yet, so Task 1 installs it with <code>pip</code>, the way you installed <code>requests</code> in Session 6.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/11</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Do each task in VS Code before moving on, check the box when it runs. Task 1 installs pandas, and Tasks 2 through 5 build straight toward the milestone, so keep the same file growing as you go.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. What pandas is, and its two core objects</h3>
+      <p>In Session 5 you read a CSV with <code>csv.DictReader</code>, which handed you a <b>list of dicts</b>, one dict per row, and then you wrote a <code>for</code> loop to total or filter it by hand. <b>pandas</b> is a data library that skips the loop: it loads the whole table into one object and lets you clean, filter, and summarize entire columns in a single line. It is the tool professionals reach for the moment data gets bigger than a handful of rows, and it is what sits underneath most data dashboards and report builders.</p>
+      <p>pandas gives you two objects, and every single thing today is built from them:</p>
+      <ul class="pts">
+        <li>A <b>Series</b> is a single column of data with a label, one-dimensional, like a list where every value also has a position (an <b>index</b>) attached. A single column pulled out of a table is a Series.</li>
+        <li>A <b>DataFrame</b> is a whole table: rows and columns, two-dimensional. You can think of it as many Series lined up side by side, all sharing the same row index. This is the object you will spend today working with.</li>
+      </ul>
+      <p>Because pandas is a third-party package (not part of Python, the same as <code>requests</code> was in Session 6), you install it once with <code>pip</code>, then import it. The community always imports it under the short alias <code>pd</code> using the <code>as</code> keyword, which renames the import so you can type <code>pd</code> everywhere instead of <code>pandas</code>. You will see <code>import pandas as pd</code> at the top of essentially every pandas script in the world, so use it too. You build a Series directly from a list with <code>pd.Series([...])</code>, and once you have one you can operate on the whole thing at once, for example add every value with <code>.sum()</code>:</p>
+<pre><code>import pandas as pd    <span class="cm"># "as pd" gives the pandas library the short nickname pd for the rest of the file</span>
+
+s = pd.Series([10, 20, 30])   <span class="cm"># build a Series straight from a list of values</span>
+print(s.sum())                <span class="cm"># a Series can add itself up in one call -&gt; 60</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Install pandas and import it</div>
+        <p>In your terminal, install pandas with <code>pip</code> (if you are in a virtual environment from Session 6, activate it first so pandas lands there). Then in a new file, import it under its alias and print the version to prove it loaded. Here is what the install and run look like:</p>
+        <div class="filebox"><span class="fl">terminal</span>
+<pre><code>PS C:\work&gt; pip install pandas
+PS C:\work&gt; python check_pandas.py
+<span class="out">pandas is ready: 3.0.3</span></code></pre></div>
+        <details><summary>Show reference solution</summary>
+<pre><code>import pandas as pd                 <span class="cm"># import the library under its standard alias</span>
+
+print("pandas is ready:", pd.__version__)   <span class="cm"># __version__ is the version string, proves the import worked</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I installed pandas and imported it as pd</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Getting data in, and looking at it</h3>
+      <p>There are two everyday ways to get a DataFrame. The first is to read a file. <code>pd.read_csv("jobs.csv")</code> reads a whole CSV into a DataFrame in one line, the pandas counterpart to Session 5's <code>csv.DictReader</code> plus its loop, and it figures out the columns and the types for you. The second is to build one from data you already have in code: <code>pd.DataFrame(...)</code> takes either a dict of columns, <code>{"name": [...], "amount": [...]}</code>, or a list of dicts, <code>[{"name": "A", "amount": 100}, ...]</code>, which is exactly the shape Session 7's <code>response.json()</code> handed back. Same table, two entry points:</p>
+<pre><code>import pandas as pd
+
+df = pd.read_csv("jobs.csv")                          <span class="cm"># read a CSV file into a DataFrame</span>
+df = pd.DataFrame({"name": ["A", "B"], "amount": [100, 200]})   <span class="cm"># or build one from a dict of columns</span></code></pre>
+      <p>Once you have a DataFrame, four quick tools tell you what you are holding before you do anything with it:</p>
+      <ul class="pts">
+        <li><code>df.head()</code> shows the first few rows (five by default), so you can eyeball the data without printing thousands of lines.</li>
+        <li><code>df.shape</code> is the size as a tuple <code>(rows, columns)</code>, for example <code>(5, 4)</code> means five rows and four columns. <code>len(df)</code> (the same <code>len</code> from Session 3) gives just the row count.</li>
+        <li><code>df.columns</code> lists the column names.</li>
+        <li><code>df["amount"].dtype</code> is the <b>dtype</b>, the data type pandas inferred for that column (for example a whole-number column reads in as <code>int64</code>, a decimal column as <code>float64</code>). This matters a lot in Concept D.</li>
+      </ul>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build a DataFrame and inspect it</div>
+        <p>In VS Code, build a small DataFrame from a dict of two columns (say <code>name</code> and <code>amount</code>, three rows). Print its <code>shape</code>, its <code>columns</code>, and the first few rows with <code>head()</code>, so you get used to looking before you leap.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import pandas as pd
+
+df = pd.DataFrame({"name": ["Sam", "Amy", "Lee"], "amount": [100, 200, 300]})
+print(df.shape)      <span class="cm"># -&gt; (3, 2): three rows, two columns</span>
+print(df.columns)    <span class="cm"># the column labels</span>
+print(df.head())     <span class="cm"># the first few rows as a table</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I built a DataFrame and inspected it with shape, columns and head</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Selecting columns and filtering rows</h3>
+      <p>Grabbing a column uses the same square brackets as a dict key from Session 3. Watch the single-versus-list distinction, because it changes what you get back:</p>
+      <ul class="pts">
+        <li><code>df["amount"]</code>, one name in the brackets, returns that single column as a <b>Series</b>.</li>
+        <li><code>df[["name", "amount"]]</code>, a <i>list</i> of names (note the double brackets), returns a smaller <b>DataFrame</b> with just those columns.</li>
+      </ul>
+      <p>Filtering rows is where pandas feels different from a loop. You build a <b>boolean mask</b>, a Series of True/False, one per row, by writing a comparison against a whole column at once, and then you index the DataFrame with it to keep only the True rows:</p>
+<pre><code>big = df[df["amount"] &gt; 100]     <span class="cm"># df["amount"] &gt; 100 is True/False per row; keep only the True rows</span></code></pre>
+      <p>Here is the gotcha that trips up everyone at first. To combine two conditions you do <b>not</b> use Python's <code>and</code> / <code>or</code> from Session 2. Those work on single True/False values, but a mask is a whole column of them, so pandas needs the <b>elementwise</b> operators <code>&amp;</code> (and) and <code>|</code> (or), which compare the columns position by position. Each condition must be wrapped in its own parentheses, because <code>&amp;</code> binds more tightly than the comparisons do:</p>
+<pre><code>hit = df[(df["amount"] &gt; 100) &amp; (df["status"] == "won")]   <span class="cm"># rows where BOTH are true; note the () around each side</span></code></pre>
+      <p>Writing plain <code>and</code> there raises an error, so reach for <code>&amp;</code> and <code>|</code> whenever a mask has more than one condition. There is also <code>df.loc[...]</code>, the <b>label-based</b> selector, for picking rows and columns by their labels at the same time (for example <code>df.loc[df["amount"] &gt; 100, "name"]</code> gives the names of the matching rows); you will see <code>.loc</code> often in pandas code, so it helps to recognize it.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Select a column and filter with a mask</div>
+        <p>Using the DataFrame from Task 2, pull out the <code>amount</code> column on its own, then build a filtered DataFrame of just the rows where <code>amount</code> is greater than 150. Print both and confirm the filter kept only the rows you expected.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import pandas as pd
+
+df = pd.DataFrame({"name": ["Sam", "Amy", "Lee"], "amount": [100, 200, 300]})
+print(df["amount"])                <span class="cm"># the single column, a Series</span>
+big = df[df["amount"] &gt; 150]        <span class="cm"># keep rows whose amount is over 150</span>
+print(big)                         <span class="cm"># -&gt; the Amy and Lee rows</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I selected a column and filtered rows with a boolean mask</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Cleaning messy data (the heart of the milestone)</h3>
+      <p>Real data has holes, and this is the concept that makes or breaks a report. When pandas reads a CSV and a cell is <b>empty</b>, it does not store an empty string <code>""</code> or a zero. It stores <code>NaN</code>, which stands for "not a number" and is a special <b>float</b> value meaning "missing." That has a consequence people hit constantly: a column of otherwise-whole numbers that has even one blank cell is read in as <code>float64</code> (decimals), not <code>int64</code>, because <code>NaN</code> itself is a float. So the values come back as <code>1200.0</code>, <code>800.0</code>, <code>NaN</code>, and so on.</p>
+      <p>Two tools deal with the missing values:</p>
+      <ul class="pts">
+        <li><code>df.dropna()</code> returns the DataFrame with every row that contains a missing value removed. Use it when a row with a hole is not worth keeping.</li>
+        <li><code>df.fillna(value)</code> returns the DataFrame with every missing value replaced by <code>value</code>, for example <code>df.fillna(0)</code>. Use it when a sensible default beats dropping the row.</li>
+      </ul>
+      <p>Once the holes are handled you often want to fix the type, and there are two ways. <code>df["amount"].astype(int)</code> converts a column to a given type (<code>int</code>, <code>float</code>, <code>str</code>), and <code>pd.to_numeric(df["amount"])</code> turns a text column into numbers. This is Session 5's "a CSV cell is text, convert it before you do math" lesson, now applied to a whole column at once.</p>
+      <p>Here is the trap, and the reason order matters. If you try to convert a column that still has a <code>NaN</code> in it straight to <code>int</code>, pandas cannot do it (there is no integer for "missing"), and it raises an error, pandas calls it an <code>IntCastingNaNError</code>:</p>
+<pre><code><span class="cm"># amount has a blank, so it read in as float64 with a NaN in it</span>
+df["amount"].astype(int)     <span class="err"># ERROR: cannot convert NaN to an integer</span></code></pre>
+      <p>So the fix is an <b>order</b> you will use every time: handle the missing values <b>first</b> with <code>dropna</code> or <code>fillna</code>, and only <b>then</b> convert the now-clean column with <code>astype</code>. Clean, then convert.</p>
+<pre><code>df = df.dropna()                          <span class="cm"># 1. remove the rows with a missing value</span>
+df["amount"] = df["amount"].astype(int)   <span class="cm"># 2. now the column is safe to turn into whole numbers</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Clean a column with a hole in it</div>
+        <p>Build a DataFrame with an <code>amount</code> column that includes one missing value (write <code>None</code> in the list to make a blank cell). Print its <code>dtype</code> and notice it is <code>float64</code>. Then drop the missing row and convert the column to <code>int</code>, printing it to confirm the clean-then-convert order worked.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>import pandas as pd
+
+df = pd.DataFrame({"amount": [100, None, 300]})   <span class="cm"># None becomes a NaN in the column</span>
+print(df["amount"].dtype)                  <span class="cm"># -&gt; float64, because of the NaN</span>
+df = df.dropna()                           <span class="cm"># drop the missing row first</span>
+df["amount"] = df["amount"].astype(int)    <span class="cm"># now safe to convert to whole numbers</span>
+print(df["amount"])                        <span class="cm"># -&gt; 100 and 300, as ints</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I cleaned missing values then converted the column type</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Group, summarize, export, and the loop-versus-pandas payoff</h3>
+      <p>The single most useful thing pandas does for reporting is <b>group and aggregate</b>. <code>df.groupby("salesperson")["amount"].sum()</code> reads as: split the rows into groups by <code>salesperson</code>, then within each group add up <code>amount</code>. This is the <b>split-apply-combine</b> idea: split into groups, apply a calculation to each, combine the answers into one result. Swap <code>.sum()</code> for <code>.mean()</code> (the average, which always comes back as a float, so a clean 4 prints as <code>4.0</code>) or <code>.count()</code> (how many non-missing values are in each group) to summarize differently. The result is a Series labeled by each group, so you can read one group back by its label, <code>totals["Sam"]</code>, just like a dict key.</p>
+      <p>Now the payoff, and why this whole level exists. Here is Session 5's manual way to total amounts per salesperson, next to the pandas way:</p>
+<pre><code><span class="cm"># THE LOOP WAY (Session 5 style): you write every step yourself</span>
+totals = {}                                  <span class="cm"># an empty dict to accumulate into</span>
+for row in rows:                             <span class="cm"># walk the list of dicts one row at a time</span>
+    person = row["salesperson"]              <span class="cm"># the group key for this row</span>
+    totals[person] = totals.get(person, 0) + int(row["amount"])   <span class="cm"># running total per person</span></code></pre>
+<pre><code><span class="cm"># THE VECTORIZED WAY (pandas): one line, no loop</span>
+totals = df.groupby("salesperson")["amount"].sum()   <span class="cm"># same per-person totals, computed on the whole column at once</span></code></pre>
+      <p>The pandas version is called <b>vectorized</b>: pandas applies the operation to the whole column at once, in fast internal code, instead of you writing a Python loop over the rows. Less code, fewer bugs, and much faster on big data. That single idea, operate on the column not the row, is the reason Level 5 is worth your time.</p>
+      <p>Finally, write your answer out. <code>df.to_csv("summary.csv")</code> saves a DataFrame back to a CSV file. By default it also writes pandas' automatic row numbers (0, 1, 2, ...) as an extra first column, which you usually do not want in a report, so pass <code>index=False</code> to leave them out. One wrinkle: a grouped result is a Series labeled by the group, so to get a clean flat table first call <code>.reset_index()</code>, which turns those group labels back into a normal column. Then export:</p>
+<pre><code>summary = df.groupby("salesperson")["amount"].sum().reset_index()   <span class="cm"># flat table: a salesperson column + an amount column</span>
+summary.to_csv("summary.csv", index=False)    <span class="cm"># write it out, without the extra 0,1,2 index column</span></code></pre>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: clean, group, and export a report</div>
+        <p>This is your Session 9 milestone, run for real in VS Code. Make a small messy jobs CSV (reuse the Session 5 jobs theme) with a <code>salesperson</code> column, an <code>amount</code> column, and <b>at least one blank amount cell</b>. Then write a script that: (1) reads it with <code>pd.read_csv</code>; (2) cleans it, drop the row(s) with the missing amount using <code>dropna</code>, then convert <code>amount</code> to a number with <code>astype</code>; (3) groups by <code>salesperson</code> and sums <code>amount</code>, then <code>reset_index()</code>; (4) writes the summary to <code>summary.csv</code> with <code>index=False</code>; and (5) prints the summary. Build it before you peek, this is the real data-wrangling payoff and the on-ramp to the Session 10 capstone.</p>
+        <div class="filebox"><span class="fl">jobs.csv (what your input file holds)</span>
+<pre><code>name,salesperson,status,amount
+Downtown move,Sam,won,1200
+Suburb move,Amy,lost,800
+Office move,Sam,won,2500
+Studio move,Amy,won,
+Garage cleanout,Sam,lost,600</code></pre></div>
+        <details><summary>Show reference solution</summary>
+<pre><code>import pandas as pd
+
+df = pd.read_csv("jobs.csv")                          <span class="cm"># read the messy file into a DataFrame</span>
+df = df.dropna()                                      <span class="cm"># drop the row whose amount was blank (the NaN)</span>
+df["amount"] = df["amount"].astype(int)               <span class="cm"># now safe to make amount whole numbers</span>
+summary = df.groupby("salesperson")["amount"].sum().reset_index()   <span class="cm"># total per salesperson, as a flat table</span>
+summary.to_csv("summary.csv", index=False)            <span class="cm"># write the report, no extra index column</span>
+print(summary)</code></pre>
+          <div class="filebox"><span class="fl">printed summary + summary.csv (what you get out)</span>
+<pre><code><span class="cm"># printed by print(summary):</span>
+  salesperson  amount
+0         Amy     800
+1         Sam    4300
+
+<span class="cm"># written to summary.csv (index=False, so no 0,1,2 column):</span>
+salesperson,amount
+Amy,800
+Sam,4300</code></pre></div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I cleaned, grouped, and exported a summary report</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each snippet and <b>work out what it prints in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model. Each one builds a tiny DataFrame or Series right there in the code and prints a single clean value (a total, an average, a count, a length, or one cell), so there is nothing to fetch and no file to load. Unlike earlier sessions there is no "watch it run" link here, the standard visualizer cannot run pandas, so the honest move is to <b>run these yourself in VS Code</b> to confirm. Type the <b>printed output</b> exactly.</p>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it from scratch. First reassemble scrambled programs (mind the order, you cannot filter a DataFrame before you have read it), then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the program (Parsons)</h3>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write it yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the code in the box, reveal the reference to compare, then run yours in VS Code. The workbook can't run Python, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours runs correctly, or <b>Needs another pass</b> to drop your cursor back in the editor and keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> this session mixes in 2 questions from earlier sessions (one from <b>Session 5</b>, one from <b>Session 7</b>, marked <i>recall</i>). Pulling old material back up on a delay is exactly what moves it into long-term memory.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 09 of 10 &middot; Hit the clean-group-export milestone unassisted, then tick <b>S09</b> on your <a href="https://claude.ai/code/artifact/d7f8bde9-fb62-4249-8bfa-98a8dee048c2" target="_blank" rel="noopener">Hub</a>. &middot; Next: <b>Session 10, the capstone plus the comprehensive final quiz (Level 5), the last session</b>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "py-s09-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills (all tiny, deterministic, in-memory pandas) ---------- */
+  var DRILLS = [
+    { code: 'import pandas as pd\ns = pd.Series([10, 20, 30])\nprint(s.sum())', ans: '60', why: 'A Series is a single labeled column. .sum() adds all its values, so 10 + 20 + 30 gives 60. This is pandas doing the total for you instead of a loop.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"amount": [100, 200, 300]})\nprint(df["amount"].sum())', ans: '600', why: 'df["amount"] pulls out the amount column as a Series (single name in the brackets), and .sum() totals it: 100 + 200 + 300 is 600. This is the whole-column total in one line.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"name": ["a", "b", "c"]})\nprint(len(df))', ans: '3', why: 'len(df) counts the rows of a DataFrame, the same len from Session 3 that counts items. There are three rows, so it prints 3.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"x": [1, 2, 3, 4], "y": [5, 6, 7, 8]})\nprint(df.shape[0])', ans: '4', why: 'df.shape is the tuple (rows, columns). Position 0 is the row count (indexing from Session 3), and there are four rows, so df.shape[0] is 4.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"score": [2, 4, 6]})\nprint(df["score"].mean())', ans: '4.0', why: '.mean() is the average of the column: (2 + 4 + 6) / 3 is 4. An average is always a float in pandas, so it prints 4.0, not 4.' },
+    { code: 'import pandas as pd\ns = pd.Series([1, 2, None])\nprint(s.count())', ans: '2', why: 'None becomes a NaN (missing) in the Series. .count() counts only the non-missing values, and there are two real numbers, so it prints 2. Note it did not count the NaN.' },
+    { code: 'import pandas as pd\ns = pd.Series(["1", "2", "3"])\nprint(s.astype(int).sum())', ans: '6', why: 'The values are text ("1", "2", "3"), the Session 5 string trap. .astype(int) converts the whole column to whole numbers, then .sum() adds them: 1 + 2 + 3 is 6.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"amount": [50, 150, 200]})\nbig = df[df["amount"] > 100]\nprint(len(big))', ans: '2', why: 'df["amount"] > 100 is a boolean mask: False, True, True. Indexing with it keeps the two True rows (150 and 200), so len(big) is 2.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"a": [1, 2, 3], "b": [10, 20, 30]})\nhit = df[(df["a"] > 1) & (df["b"] < 30)]\nprint(len(hit))', ans: '1', why: 'Two masks combined with & (elementwise and, each side in parentheses). a > 1 is False,True,True; b < 30 is True,True,False. Both true only in the middle row (a=2, b=20), so one row survives: 1.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"amount": [100, None, 300]})\nclean = df.dropna()\nprint(clean["amount"].sum())', ans: '400.0', why: 'The None makes the column float64 (a NaN is a float). dropna() removes the missing row, leaving 100.0 and 300.0, and .sum() is 400.0. It prints with the .0 because the column is floats, not ints.' },
+    { code: 'import pandas as pd\ndf = pd.DataFrame({"team": ["a", "b", "a"], "amt": [10, 5, 20]})\ntotals = df.groupby("team")["amt"].sum()\nprint(totals["a"])', ans: '30', why: 'groupby("team") splits the rows by team, and .sum() totals amt in each. Team a has 10 and 20, so its total is 30. The result is labeled by group, so totals["a"] reads that one group back like a dict key.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="What does it print?" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct output</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function check() {
+        if (el.dataset.done) return; el.dataset.done = '1';
+        var ok = norm(input.value) === norm(d.ans);
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+        refreshCounters();
+      }
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'Read a jobs CSV into a DataFrame, keep only the rows over 100, then print how many survived.',
+      lines: ['import pandas as pd', 'df = pd.read_csv("jobs.csv")', 'big = df[df["amount"] > 100]', 'print(len(big))'] },
+    { prompt: 'Read the CSV, drop rows with a missing value, total the amount per status, and print the result.',
+      lines: ['import pandas as pd', 'df = pd.read_csv("jobs.csv")', 'df = df.dropna()', 'totals = df.groupby("status")["amount"].sum()', 'print(totals)'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your program (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (btn.disabled) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so it selects the column and adds up its values. The DataFrame and the target output are your clues.',
+      code: 'import pandas as pd\ndf = pd.DataFrame({"amount": [100, 200, 300]})\nprint(df[%%].%%())     # -> 600', ans: ['"amount"', 'sum'] },
+    { prompt: 'Fill the blanks so the column is cleaned first, then safely turned into whole numbers.',
+      code: 'import pandas as pd\ndf = pd.DataFrame({"amount": [100, None, 300]})\ndf = df.%%()                       # remove the incomplete row before converting\ndf["amount"] = df["amount"].%%(int)   # safe to convert now the hole is gone\nprint(df["amount"].sum())          # -> 400', ans: ['dropna', 'astype'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var want = f.ans[i], ok;
+          if (/^["'].*["']$/.test(want)) {
+            // the answer is a quoted string key, so the learner must actually quote it
+            // (bare amount would be df[amount], a NameError); accept "amount" or 'amount'
+            var v = b.value.trim();
+            ok = (/^".*"$/.test(v) || /^'.*'$/.test(v)) && norm(v) === norm(want);
+          } else {
+            ok = norm(b.value) === norm(want);
+          }
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Build a DataFrame from a list of two dicts, each with a "name" and an "amount" key (this is the shape response.json() returns). Print the DataFrame’s shape.',
+      sol: 'import pandas as pd\n\njobs = [{"name": "A", "amount": 100}, {"name": "B", "amount": 200}]\ndf = pd.DataFrame(jobs)     # a list of dicts becomes rows\nprint(df.shape)             # -> (2, 2): two rows, two columns' },
+    { task: 'Given a DataFrame with a "salesperson" column and an "amount" column, keep only the rows where amount is greater than 150, and print how many rows are left.',
+      sol: 'import pandas as pd\n\ndf = pd.DataFrame({"salesperson": ["Sam", "Sam", "Amy"], "amount": [100, 250, 300]})\nbig = df[df["amount"] > 150]    # boolean mask keeps the over-150 rows\nprint(len(big))                 # -> 2' },
+    { task: 'You have a DataFrame with an "amount" column that contains one missing value (a None). Clean it and total it: drop the missing row, convert amount to int, then print the sum. (Order matters: clean first, then convert.)',
+      sol: 'import pandas as pd\n\ndf = pd.DataFrame({"status": ["won", "lost", "won"], "amount": [100, None, 300]})\ndf = df.dropna()                          # 1. drop the row with the missing amount\ndf["amount"] = df["amount"].astype(int)   # 2. now safe to convert to whole numbers\nprint(df["amount"].sum())                 # -> 400' },
+    { task: 'The milestone. Read jobs.csv (salesperson, amount, with one blank amount cell) with pd.read_csv, drop the missing row with dropna, convert amount with astype, group by salesperson and sum amount, reset_index, write the result to summary.csv with index=False, and print the summary.',
+      sol: 'import pandas as pd\n\ndf = pd.read_csv("jobs.csv")\ndf = df.dropna()                                      # drop the row whose amount was blank\ndf["amount"] = df["amount"].astype(int)               # clean, then convert\nsummary = df.groupby("salesperson")["amount"].sum().reset_index()   # total per salesperson\nsummary.to_csv("summary.csv", index=False)            # write the report, no index column\nprint(summary)' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your code here, then run it in VS Code"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in VS Code:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Import pandas with its standard alias', b: 'import pandas as pd' },
+    { f: 'Read a CSV file into a DataFrame', b: 'pd.read_csv("file.csv")' },
+    { f: 'Build a DataFrame from data in code', b: 'pd.DataFrame({...})' },
+    { f: 'Show the first few rows', b: 'df.head()' },
+    { f: 'The rows-and-columns size of a DataFrame', b: 'df.shape' },
+    { f: 'Select one column (returns a Series)', b: 'df["col"]' },
+    { f: 'Select several columns (returns a DataFrame)', b: 'df[["a", "b"]]' },
+    { f: 'Keep only rows where amount is over 100', b: 'df[df["amount"] > 100]' },
+    { f: 'Combine two filter conditions', b: 'df[(cond1) & (cond2)]' },
+    { f: 'Drop rows that have a missing value', b: 'df.dropna()' },
+    { f: 'Convert a column to whole numbers', b: 'df["col"].astype(int)' },
+    { f: 'Total a column within each group', b: 'df.groupby("col")["amount"].sum()' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() { pile = CARDS.map(function (c, i) { return i; }); mastered = 0; showingBack = false; document.getElementById('c-cards').textContent = '0'; document.getElementById('fc-mastered').textContent = '0'; renderCard(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz (Session 9 + cumulative Sessions 5 & 7 recall) ---------- */
+  var S1_URL = 'https://claude.ai/code/artifact/0be37ed6-a1c8-45fd-8ee5-5a3c3ae20fc4';
+  var S2_URL = 'https://claude.ai/code/artifact/30ccbd16-95e4-44dd-a1c5-51b73db038fb';
+  var S3_URL = 'https://claude.ai/code/artifact/ace0fd4f-3bf7-4d09-9625-84b1527c543d';
+  var S4_URL = 'https://claude.ai/code/artifact/015de950-d8e0-4448-8ec7-960e72e19465';
+  var S5_URL = 'https://claude.ai/code/artifact/f812334c-5352-4443-b42f-74a6caf32ca0';
+  var S6_URL = 'https://claude.ai/code/artifact/538ff8c0-7285-42ee-9cd2-b8eac483ce25';
+  var S7_URL = 'https://claude.ai/code/artifact/7026071c-9552-4256-8c91-c25f6034289f';
+  var QUIZ = [
+    { q: 'What is the main reason to reach for pandas instead of the Session 5 approach of looping over rows and totaling by hand?', o: ['pandas operates on a whole column at once (vectorized), so one line replaces the loop, with less code and fewer bugs', 'pandas is the only way to open a CSV file in Python', 'pandas makes your loops run, it just renames them', 'pandas removes the need to ever clean data'], c: 0,
+      e: 'The payoff of Level 5 is vectorization: pandas applies an operation to the entire column at once in fast internal code, so df.groupby("x")["y"].sum() replaces a whole hand-written loop. You can still open CSVs the Session 5 way; pandas is about operating on columns, not rows.', part: { id: 'concept-e', label: 'E. Group, summarize, and the loop-vs-pandas payoff' } },
+    { q: 'To keep rows where amount is over 100 AND status equals "won", why write df[(df["amount"] > 100) & (df["status"] == "won")] instead of using Python’s and?', o: ['A mask is a whole column of True/False, so you need the elementwise & (with each condition in its own parentheses); plain and works on single values and raises an error here', 'and is banned in Level 5', '& is just a faster way to type and, they behave identically', 'You must always use .loc, & never works'], c: 0,
+      e: 'A boolean mask is a Series of True/False, one per row, so combining two of them needs the elementwise operators & (and) and | (or), each side wrapped in parentheses. Python’s and expects single True/False values and raises an error on a whole column.', part: { id: 'concept-c', label: 'C. Selecting columns and filtering rows' } },
+    { q: 'You read a CSV where one amount cell was blank. df["amount"].astype(int) raises an error. Why, and what is the fix?', o: ['The blank became NaN (a float), so the column is float64 and astype(int) cannot turn NaN into a whole number; dropna or fillna first, then convert', 'astype only works on text columns, never numbers', 'The CSV is corrupt and must be re-downloaded', 'You must restart Python before converting a type'], c: 0,
+      e: 'An empty cell reads in as NaN, a special float meaning "missing," which forces the whole column to float64. astype(int) has no integer for NaN, so it raises the error. The fix is the clean-then-convert order: dropna or fillna to handle the hole first, then astype.', part: { id: 'concept-d', label: 'D. Cleaning messy data' } },
+    { q: 'df.groupby("status")["amount"].sum() gives you what, and how would you save it to a file without the extra row-number column?', o: ['A total of amount within each status group; save it with to_csv, passing index=False to skip the automatic 0,1,2 index column', 'A single grand total; save it with print()', 'The first five rows; save it with head()', 'Nothing until you write a for loop over the groups'], c: 0,
+      e: 'groupby splits the rows by status, then .sum() totals amount in each group (split-apply-combine). You write it out with df.to_csv("file.csv", index=False); index=False leaves off pandas’ automatic 0,1,2 row numbers that you usually do not want in a report.', part: { id: 'concept-e', label: 'E. Group, summarize, and export' } },
+    { q: 'Recall (Session 5): you read numbers from a CSV and the code "42" + "8" gives "428" instead of 50. Why, and how does that connect to pandas?', o: ['CSV cells come in as text (strings), so + joins them; you convert with int() or float() first, and pandas has the same issue, which is why you use astype / to_numeric on a column', 'Because 42 + 8 really is 428 in Python', 'Because the CSV file was saved wrong', 'Because strings can never be added in Python'], c: 0,
+      e: 'Every value read from a CSV arrives as a string, so "42" + "8" concatenates to "428"; you convert with int() or float() before doing math (Session 5). pandas faces the exact same reality on a whole column, which is why you clean types with astype or pd.to_numeric.', part: { url: S5_URL, label: 'Session 5 - a CSV cell is text, convert it' } },
+    { q: 'Recall (Session 7): calling response.json() on a list endpoint hands back a Python list of dicts. Why is that a handy shape here?', o: ['pd.DataFrame(list_of_dicts) turns exactly that shape into a table (one row per dict), so an API response drops straight into pandas', 'It is not useful; you must save it to a CSV first', 'response.json() returns a DataFrame directly, so pandas is unnecessary', 'A list of dicts cannot be used by pandas at all'], c: 0,
+      e: 'response.json() parses a JSON array of objects into a Python list of dicts (Session 7). That is one of the two shapes pd.DataFrame() accepts, so you can build a table from an API response in a single line, which is exactly what the Session 10 capstone will do.', part: { url: S7_URL, label: 'Session 7 - response.json() gives a list of dicts' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">' + (item.part && item.part.url ? 'recall' : 'check') + '</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // cumulative question: source lives in an earlier workbook, open it in a new tab
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener">&#8599; Review in ' + esc(item.part.label) + '</a>';
+            } else {
+              // this-session question: scroll in-page (a raw #hash would reload the sandboxed iframe)
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Strong. Tick S09 on your Hub and ask for Session 10, the capstone.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', initDeck);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); initDeck();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>
