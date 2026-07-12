@@ -847,7 +847,7 @@ print(names)                     <span class="out"># ['Move', 'Pack', 'Storage']
       var out = {};
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
-        if (k && k.indexOf('py-') === 0) { out[k] = localStorage.getItem(k); }
+        if (k) { out[k] = localStorage.getItem(k); }
       }
       return out;
     }
@@ -872,7 +872,7 @@ print(names)                     <span class="out"># ['Move', 'Pack', 'Storage']
         try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
         if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
         var n = 0;
-        for (var k in data) { if (k.indexOf('py-') === 0) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} } }
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
         if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
         setTimeout(function () { location.reload(); }, 700);
       };
