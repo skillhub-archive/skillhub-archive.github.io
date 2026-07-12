@@ -120,9 +120,10 @@
   textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
-  .btn:hover { border-color: var(--accent); }
+  .btn:hover:not(:disabled) { border-color: var(--accent); }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.05); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
   .btn.sm { padding: 7px 12px; font-size: 12.5px; }
   .btn.good { border-color: var(--good); color: var(--good); }
   .btn.bad { border-color: var(--bad); color: var(--bad); }
@@ -660,7 +661,9 @@ print(names)                     <span class="out"># ['Move', 'Pack', 'Storage']
         grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
         grades[0].classList.toggle('on', done);
       }
-      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      btn.addEventListener('click', function () { if (btn.disabled) return; rev.classList.add('show'); btn.disabled = true; });
       grades[0].addEventListener('click', function () {
         state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
       });
