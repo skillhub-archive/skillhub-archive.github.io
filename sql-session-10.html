@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Sprint &middot; Session 10: Capstone, schema to query to report</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128452;</text></svg>">
+<style>
+  :root {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+      --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+      --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+    --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+    --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (SQL and Python lean on <, >, >=, <=, !=, ->, ==, which Cascadia Code would otherwise draw as glyphs) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and result grids all align (no two-column feel);
+     ~960px fills roughly half a 1920 monitor and shrinks fluidly when tiled */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 18px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .bad-out { color: var(--bad); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 110px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  /* single full-width column: bank stacks above the solution so long lines fit without a per-line scrollbar */
+  .parsons { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 9ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .warn { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border-radius: 9px; padding: 12px 15px; margin: 0 0 14px; border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent); }
+  .warn b { color: var(--bad); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 10 // Level 5 &middot; Capstone</div>
+      <a class="hublink" href="sql-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Capstone: schema to query to report</h1>
+    <p class="goal">This is the last session, and you now own the whole pipeline. You can model a schema, load and change data safely, query it with filters, joins, aggregates, subqueries, CTEs and set operations, tune it with an index, and drive it all from Python. Today you walk that full arc on <code>shop.db</code> to produce one real per-city sales report, then reproduce it from a short Python script.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Produce the per-city sales report as one SQL query, then reproduce it from a Python script that prints the fetched rows and loads the same report into a pandas DataFrame.</span>
+
+    <div class="howto">
+      <span class="ic">sql&gt;</span>
+      <p><b>You still have <code>shop.db</code> with <code>customers</code> (ten rows), <code>orders</code> (thirteen rows), and <code>products</code> (five rows)</b> from the earlier sessions. The SQL parts run in DB Browser as before; the Python part (D and the milestone) runs <b>with Python</b> in VS Code or at the <code>python</code> prompt. Do each task and check the box once you see the result. The workbook cannot run anything for you, so every result shown here was produced in real SQLite and real Python and is yours to confirm.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/8</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">5</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">10</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">This capstone walks the full pipeline in five steps. Each step is a short recap of a tool you already know, then immediately your turn to use it on the report. Run the SQL steps in DB Browser and the Python step with Python, and check the box when you see the result.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. Frame the question and confirm the schema</h3>
+      <p>Every report starts with a question. Here is the one you will answer today, the kind a shop owner actually asks: <b>for each city, how many customers do we have, how many orders did they place, what is the total revenue, and what is the average order size?</b> One row per city, busiest cities first, and skip any city too small to matter.</p>
+      <p>You already have the schema to answer it. <code>shop.db</code> holds <b>three tables</b>, and this report leans on the first two:</p>
+      <ul class="pts">
+        <li><b><code>customers</code></b> (ten rows): one row per customer, with <code>id</code>, <code>name</code>, <code>city</code>, <code>plan</code>, <code>monthly_fee</code>, <code>signup_year</code> and a nullable <code>referrer</code>.</li>
+        <li><b><code>orders</code></b> (thirteen rows): one row per order, with <code>id</code>, a <code>customer_id</code> that points at <code>customers.id</code> (the foreign key from Session 4), <code>amount</code> and <code>order_year</code>.</li>
+        <li><b><code>products</code></b> (five rows): the catalog you built in Session 7. The report does not use it, but it is still in the database.</li>
+      </ul>
+      <p>If you still have <code>shop.db</code> from the earlier sessions, you are ready. If you lost it, rebuild all three tables once from the script below (paste it into DB Browser and Write Changes), then carry on.</p>
+      <details style="margin:0 0 14px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:12.5px;color:var(--accent)">Starting fresh? Open the full setup script (rebuilds all three tables)</summary>
+<pre style="margin-top:10px"><code><span class="cm">-- start clean: build all three tables in one go (customers, orders, products)</span>
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS customers;
+CREATE TABLE customers (
+  id           INTEGER PRIMARY KEY,
+  name         TEXT,
+  city         TEXT,
+  plan         TEXT,
+  monthly_fee  INTEGER,
+  signup_year  INTEGER,
+  referrer     TEXT
+);
+INSERT INTO customers VALUES
+  (1,  'Amara',  'Austin', 'Pro',   40, 2021, NULL),
+  (2,  'Ben',    'Denver', 'Basic', 20, 2022, 'Amara'),
+  (3,  'Chen',   'Austin', 'Pro',   40, 2022, 'Amara'),
+  (4,  'Diego',  'Boston', 'Basic', 20, 2021, NULL),
+  (5,  'Esi',    'Denver', 'Pro',   40, 2023, 'Ben'),
+  (6,  'Fatima', 'Austin', 'Team',  60, 2023, 'Chen'),
+  (7,  'Gita',   'Boston', 'Pro',   40, 2022, NULL),
+  (8,  'Hiro',   'Denver', 'Team',  60, 2021, 'Esi'),
+  (9,  'Iris',   'Austin', 'Team',  60, 2023, 'Amara'),
+  (10, 'Jae',    'Reno',   'Team',  60, 2022, NULL);
+CREATE TABLE orders (
+  id           INTEGER PRIMARY KEY,
+  customer_id  INTEGER REFERENCES customers(id),
+  amount       INTEGER,
+  order_year   INTEGER
+);
+INSERT INTO orders (id, customer_id, amount, order_year) VALUES
+  (1,  1, 100, 2023),(2,  1, 200, 2024),(3,  2,  50, 2023),
+  (4,  3,  50, 2022),(5,  3, 100, 2023),(6,  3, 150, 2024),
+  (7,  5, 200, 2023),(8,  6, 100, 2022),(9,  6, 100, 2024),
+  (10, 7, 150, 2023),(11, 8,  50, 2022),(12, 8, 150, 2023),
+  (13, 9, 200, 2024);
+CREATE TABLE products (
+  id        INTEGER PRIMARY KEY,
+  sku       TEXT    NOT NULL UNIQUE,
+  name      TEXT    NOT NULL,
+  price     REAL    NOT NULL CHECK (price &gt; 0),
+  in_stock  INTEGER NOT NULL DEFAULT 1
+);
+INSERT INTO products (id, sku, name, price) VALUES
+  (1, 'BOX-S', 'Small box',    2.50),
+  (2, 'BOX-L', 'Large box',    4.00),
+  (3, 'TAPE',  'Packing tape', 3.25),
+  (4, 'WRAP',  'Bubble wrap',  6.75),
+  (5, 'LABEL', 'Label sheet',  1.20);</code></pre>
+      </details>
+      <p>The report reads from <code>customers</code> and <code>orders</code>, so here are both for reference. The order rows are grouped by customer so you can see who bought what:</p>
+      <div class="filebox">
+        <div class="fbh">customers &middot; 10 rows</div>
+<pre><code><span class="out">id  name    city    plan   monthly_fee  signup_year  referrer
+1   Amara   Austin  Pro    40           2021         NULL
+2   Ben     Denver  Basic  20           2022         Amara
+3   Chen    Austin  Pro    40           2022         Amara
+4   Diego   Boston  Basic  20           2021         NULL
+5   Esi     Denver  Pro    40           2023         Ben
+6   Fatima  Austin  Team   60           2023         Chen
+7   Gita    Boston  Pro    40           2022         NULL
+8   Hiro    Denver  Team   60           2021         Esi
+9   Iris    Austin  Team   60           2023         Amara
+10  Jae     Reno    Team   60           2022         NULL</span></code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">orders &middot; 13 rows</div>
+<pre><code><span class="out">id  customer_id  amount  order_year
+1   1            100     2023
+2   1            200     2024
+3   2            50      2023
+4   3            50      2022
+5   3            100     2023
+6   3            150     2024
+7   5            200     2023
+8   6            100     2022
+9   6            100     2024
+10  7            150     2023
+11  8            50      2022
+12  8            150     2023
+13  9            200     2024</span></code></pre>
+      </div>
+      <p>Two things worth noticing before you write anything: <b>Reno has one customer</b> (Jae), which is why the report will drop it as too small, and <b>Diego and Jae placed no orders at all</b>, which is why the choice of join in the next step matters.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Confirm the schema</div>
+        <p>Open <code>shop.db</code> in DB Browser (or rebuild it from the script above). Run <code>SELECT COUNT(*) FROM customers;</code> and <code>SELECT COUNT(*) FROM orders;</code> and confirm you get <code>10</code> and <code>13</code>. You are looking at the raw material for the report.</p>
+        <label class="did"><input type="checkbox" data-task="1"> I confirmed shop.db has 10 customers and 13 orders</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Build the core report query</h3>
+      <p>Now the heart of the session. You want one row per city, and every column of the report is a tool you already know. There is one new function to meet first. <b><code>ROUND(x, n)</code> rounds the number <code>x</code> to <code>n</code> decimal places</b>, so <code>ROUND(112.5, 2)</code> stays <code>112.5</code> and <code>ROUND(123.456, 2)</code> becomes <code>123.46</code>. An average like <code>AVG(o.amount)</code> can print a long trailing decimal, and wrapping it in <code>ROUND(AVG(o.amount), 2)</code> keeps the report readable. Here <code>x</code> and <code>n</code> are placeholders: you replace <code>x</code> with the value to round and <code>n</code> with how many decimals you want, you do not type the letters.</p>
+      <p>Here is the full report query, then a walk through every clause:</p>
+<pre><code><span class="cm">-- per-city sales summary: customers, orders, revenue, average order</span>
+SELECT c.city,
+       COUNT(DISTINCT c.id)    AS customers,
+       COUNT(o.id)             AS orders,
+       SUM(o.amount)           AS revenue,
+       ROUND(AVG(o.amount), 2) AS avg_order
+FROM customers AS c
+LEFT JOIN orders AS o ON o.customer_id = c.id
+GROUP BY c.city
+HAVING COUNT(DISTINCT c.id) &gt;= 2
+ORDER BY revenue DESC;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; 3 rows</div>
+<pre><code><span class="out">city    customers  orders  revenue  avg_order
+Austin  4          8       1000     125.0
+Denver  3          4       450      112.5
+Boston  2          1       150      150.0</span></code></pre>
+      </div>
+      <p>Walk it clause by clause, and notice how much of the sprint is packed into one query:</p>
+      <ul class="pts">
+        <li><b><code>LEFT JOIN</code> (Session 4)</b> keeps <i>every</i> customer, even Diego and Jae who never ordered, so they still count toward the <code>customers</code> column. An inner join would silently drop them.</li>
+        <li><b><code>COUNT(o.id)</code></b> counts orders, and because a customer with no orders is padded with a NULL <code>o.id</code> after the LEFT JOIN, <code>COUNT(o.id)</code> skips those NULLs (that is the Session 4 trap: <code>COUNT(*)</code> would have counted the padded row as 1).</li>
+        <li><b><code>COUNT(DISTINCT c.id)</code> (Session 3)</b> counts each customer once even though the join repeats a customer's row for every order they placed.</li>
+        <li><b><code>SUM</code> and <code>AVG</code> (Session 3)</b> add up and average the order amounts per group, and <code>ROUND</code> trims the average.</li>
+        <li><b><code>GROUP BY c.city</code> then <code>HAVING</code> (Session 3)</b> collapses to one row per city, then <code>HAVING COUNT(DISTINCT c.id) &gt;= 2</code> drops any city with fewer than two customers. That is why <b>Reno disappears</b>: it has only Jae.</li>
+        <li><b><code>ORDER BY revenue DESC</code> (Session 2)</b> puts the busiest city first. The revenues 1000, 450, 150 have no ties, so the order is unambiguous.</li>
+      </ul>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Run the report query</div>
+        <p>Type the report query above into DB Browser and run it. Confirm you get the three rows shown (Austin, Denver, Boston, in that order) and that Reno is absent. Then delete the <code>HAVING</code> line and re-run: Reno reappears with <code>0</code> orders and <code>NULL</code> revenue, which is exactly what the <code>HAVING</code> was there to hide.</p>
+        <label class="did"><input type="checkbox" data-task="2"> I ran the report query and saw the three-city result</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Sharpen it with a CTE and a comparison</h3>
+      <p>The report answers the shop's question, but a good analyst also brings the follow-ups. Two of them reuse tools from Level 3, and both read cleanly as a <b>CTE</b> (the <code>WITH name AS (...)</code> named result from Session 6).</p>
+      <p>First: <b>which customers spend more than the average customer?</b> This was the Session 5 and 6 milestone. Build a CTE of per-customer totals, take the average of those totals in a second CTE, then keep the customers above it:</p>
+<pre><code><span class="cm">-- top spenders: customers whose total spend beats the average customer total</span>
+WITH totals AS (
+  SELECT c.id, c.name, SUM(o.amount) AS total
+  FROM customers AS c
+  JOIN orders AS o ON o.customer_id = c.id
+  GROUP BY c.id, c.name
+),
+avg_total AS (
+  SELECT AVG(total) AS a FROM totals
+)
+SELECT name, total
+FROM totals
+WHERE total &gt; (SELECT a FROM avg_total)
+ORDER BY total DESC, name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; the average customer total is 200</div>
+<pre><code><span class="out">name   total
+Amara  300
+Chen   300</span></code></pre>
+      </div>
+      <p>Only customers with orders appear in <code>totals</code> (it uses an inner <code>JOIN</code>), the average of those eight totals is 200, and Amara and Chen are the two above it at 300 each.</p>
+      <p>Second, a data-quality check: <b>which customers placed no orders?</b> Back in Session 5 you saw there are three ways to ask this, and all three return the same two names, <b>Diego and Jae</b>:</p>
+<pre><code><span class="cm">-- 1) LEFT JOIN then keep the rows with no match (Session 4)</span>
+SELECT c.name FROM customers AS c
+LEFT JOIN orders AS o ON o.customer_id = c.id
+WHERE o.id IS NULL;
+
+<span class="cm">-- 2) NOT EXISTS: no matching order row exists (Session 5, the safe one)</span>
+SELECT c.name FROM customers AS c
+WHERE NOT EXISTS (SELECT 1 FROM orders AS o WHERE o.customer_id = c.id);
+
+<span class="cm">-- 3) NOT IN: works here, but fragile if the subquery can return a NULL (Session 5)</span>
+SELECT c.name FROM customers AS c
+WHERE c.id NOT IN (SELECT customer_id FROM orders);</code></pre>
+      <p>All three give Diego and Jae, because <code>orders.customer_id</code> has no NULLs. The <code>NOT IN</code> version is the fragile one: if that subquery column could contain a NULL, <code>NOT IN</code> would return <i>no rows at all</i> (the Session 5 trap). <code>NOT EXISTS</code> is the version that never surprises you.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Run the CTE and one no-orders query</div>
+        <p>Run the top-spenders CTE and confirm it returns Amara and Chen at 300 each. Then run any one of the three no-orders queries and confirm you get Diego and Jae.</p>
+        <label class="did"><input type="checkbox" data-task="3"> I ran the CTE and found the top spenders and the no-order customers</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Drive it from Python</h3>
+      <p>A report you have to open DB Browser and run by hand is not really automated. In Session 9 you learned to run this exact SQL from Python: <code>sqlite3.connect</code> to open the file, a <b>cursor</b> to <code>execute</code> and <code>fetchall</code>, and <code>pd.read_sql_query</code> to load a result straight into a <b>pandas DataFrame</b>. The report query is just a (multi-line) string you hand to both. Here it fetches the rows as tuples and prints each one:</p>
+<pre><code><span class="cm"># run the per-city report from Python and print each fetched row</span>
+import sqlite3
+conn = sqlite3.connect("shop.db")
+cur = conn.cursor()
+report = (
+    "SELECT c.city, COUNT(DISTINCT c.id) AS customers, "
+    "COUNT(o.id) AS orders, SUM(o.amount) AS revenue, "
+    "ROUND(AVG(o.amount), 2) AS avg_order "
+    "FROM customers AS c "
+    "LEFT JOIN orders AS o ON o.customer_id = c.id "
+    "GROUP BY c.city HAVING COUNT(DISTINCT c.id) >= 2 "
+    "ORDER BY revenue DESC"
+)
+cur.execute(report)
+for row in cur.fetchall():           <span class="cm"># each row is a tuple in SELECT order</span>
+    print(row)</code></pre>
+      <div class="filebox">
+        <div class="fbh">terminal &middot; python shop_report.py</div>
+<pre><code><span class="out">('Austin', 4, 8, 1000, 125.0)
+('Denver', 3, 4, 450, 112.5)
+('Boston', 2, 1, 150, 150.0)</span></code></pre>
+      </div>
+      <p>Same three rows as DB Browser, now as Python tuples. For analysis you usually want the friendlier table instead, so hand the very same <code>report</code> string to pandas:</p>
+<pre><code><span class="cm"># load the same report straight into a pandas DataFrame</span>
+import pandas as pd                   <span class="cm"># installed once with: pip install pandas</span>
+df = pd.read_sql_query(report, conn)
+print(df)
+conn.close()</code></pre>
+      <div class="filebox">
+        <div class="fbh">terminal &middot; the DataFrame, printed</div>
+<pre><code><span class="out">     city  customers  orders  revenue  avg_order
+0  Austin          4       8     1000      125.0
+1  Denver          3       4      450      112.5
+2  Boston          2       1      150      150.0</span></code></pre>
+      </div>
+      <p>The column names come from the SELECT list, and the leftmost <code>0 1 2</code> is the DataFrame's automatic <b>row index</b> (from Session 9), not a column your query asked for. That is the whole bridge: SQL does the narrowing and summarizing inside the database, pandas takes the result from there.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Run the report from Python</div>
+        <p>Make a file <code>shop_report.py</code> next to your <code>shop.db</code>, paste the fetch-and-print version above, and run it with <code>python shop_report.py</code>. Confirm you see the three tuples. Then add the pandas version and confirm the DataFrame shows the same three rows.</p>
+        <label class="did"><input type="checkbox" data-task="4"> I ran the report from Python and saw the tuples and the DataFrame</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. The milestone: one report, two ways</h3>
+      <p>Time to assemble the whole arc into one deliverable. The milestone is the per-city report from part B, produced as a <b>single SQL query</b> and then <b>reproduced from one Python script</b> that both prints the fetched rows and loads the report into a pandas DataFrame. That is the full pipeline in miniature: a modeled schema, a query that filters, joins, aggregates and orders, and Python driving it end to end.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The capstone report script</div>
+        <p><b>First</b>, in DB Browser, run the full report query from part B and confirm the three rows. <b>Then</b> write one script, <code>shop_report.py</code>, that opens <code>shop.db</code>, runs that same report query, prints each fetched row as a tuple, and finally loads the report into a DataFrame with <code>read_sql_query</code> and prints it. Run it with <code>python shop_report.py</code> and confirm the tuples and the DataFrame both show Austin 1000, Denver 450, Boston 150.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code><span class="cm"># the capstone: the per-city report, fetched as tuples and as a DataFrame</span>
+import sqlite3
+import pandas as pd
+
+report = (
+    "SELECT c.city, COUNT(DISTINCT c.id) AS customers, "
+    "COUNT(o.id) AS orders, SUM(o.amount) AS revenue, "
+    "ROUND(AVG(o.amount), 2) AS avg_order "
+    "FROM customers AS c "
+    "LEFT JOIN orders AS o ON o.customer_id = c.id "
+    "GROUP BY c.city HAVING COUNT(DISTINCT c.id) >= 2 "
+    "ORDER BY revenue DESC"
+)
+
+conn = sqlite3.connect("shop.db")
+cur = conn.cursor()
+
+<span class="cm"># 1) fetch and print each row as a tuple</span>
+cur.execute(report)
+for row in cur.fetchall():
+    print(row)
+
+<span class="cm"># 2) load the same report into a DataFrame</span>
+df = pd.read_sql_query(report, conn)
+print(df)
+
+conn.close()</code></pre>
+        </details>
+      </div>
+      <div class="filebox">
+        <div class="fbh">terminal &middot; python shop_report.py</div>
+<pre><code><span class="out">('Austin', 4, 8, 1000, 125.0)
+('Denver', 3, 4, 450, 112.5)
+('Boston', 2, 1, 150, 150.0)
+     city  customers  orders  revenue  avg_order
+0  Austin          4       8     1000      125.0
+1  Denver          3       4      450      112.5
+2  Boston          2       1      150      150.0</span></code></pre>
+      </div>
+      <div class="task" style="margin-top:14px">
+        <div class="th"><span class="k">Milestone check</span> Tick when your script prints both</div>
+        <p>Your <code>shop_report.py</code> should print the three tuples and then the three-row DataFrame. That is a real report, modeled, queried and generated by code: the capstone of the whole track.</p>
+        <label class="did"><input type="checkbox" data-task="5"> My script printed the report as tuples and as a DataFrame</label>
+      </div>
+      <p style="margin-top:16px"><b>Where to go next.</b> You have the whole toolkit now. The one topic this sprint named but did not teach is <b>window functions</b>, the <code>RANK() OVER (ORDER BY ...)</code> family from the Session 6 look-ahead aside. They let you rank and run totals <i>without</i> collapsing your rows the way <code>GROUP BY</code> does, and they are the natural next step if you want to keep going. Everything else here is yours to use.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">A whole-sprint sweep: these eight drills touch one tool from each level, from a JOIN read to a transaction to the flagship report. <b>Work out each result in your head</b>, type it, then check. Committing before you peek is what builds the memory, so don't run it first. Each drill says exactly what to answer: a single value, a count, a set of names (any order), or names in a specific order. They ramp toward the report.</p>
+    <div class="note"><b>Every drill starts from the original <code>shop.db</code></b> (customers 10, orders 13, products 5). Imagine a fresh database before each one, so a write in one drill does not carry into the next. The SQL runs in DB Browser; the last two drills lean on the report you just built.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading this code and writing it from scratch. First reassemble the scrambled report query and Python script, then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the script (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your script below, and tap it again to send it back. Order matters, so arrange the lines top to bottom before you check. The two lists stack full width to give every line room to read, even the long ones.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. These five build the report piece by piece, ending on the full flagship. Draft each in the box, reveal the reference to compare, then run yours (the SQL in DB Browser, the Python one with Python). The workbook can't run it for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asks, or <b>Needs another pass</b> to keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax and vocabulary you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">The comprehensive final, 10 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the session that taught it.</p>
+    <div class="note">&#127937; <b>The whole track:</b> one question per major topic across Sessions 1 through 9, from the relational model to SQL from Python, plus one that spans two topics. Every review link opens the matching earlier workbook in a <b>new tab</b>, so your progress here is kept. Pass with <b>8 of 10</b>.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 10 of 10, the finish line &middot; Run the milestone unassisted and pass the final, then tick <b>S10</b> on your <a href="sql-hub.html" target="_blank" rel="noopener">Hub</a> to mark the whole track complete. &middot; Now that you know the fundamentals, the Hub's <b>Where to next</b> points at the natural next climb (<b>window functions</b>) and where to get certified.
+  </footer>
+</div>
+
+<script>
+  var STORE = "sql-s10-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    // SQL keywords are case-insensitive, so grade case-insensitively
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens (names / values); commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ---------- */
+  var DRILLS = [
+    { type: 'seq', ask: "A JOIN read (Session 4). This lists the name behind every order of 200, ordered. List the three names in that order, separated by commas.", code: "SELECT c.name FROM customers AS c\nJOIN orders AS o ON o.customer_id = c.id\nWHERE o.amount = 200\nORDER BY c.name;", ans: "Amara, Esi, Iris", why: "The join links each order to its customer. Three orders are for 200: Amara's, Esi's and Iris's. ORDER BY c.name sorts those names alphabetically, so they come back as Amara, Esi, Iris." },
+    { type: 'value', ask: "An aggregate (Session 3). What single number does this return?", code: "SELECT SUM(amount) FROM orders;", ans: "1600", why: "SUM adds the amount column across all 13 orders. The amounts total 1600, returned as one number in one row." },
+    { type: 'count', ask: "A subquery (Session 5). What single number does this return?", code: "SELECT COUNT(*) FROM customers\nWHERE name NOT IN (SELECT referrer FROM customers);", ans: "0", why: "The subquery SELECT referrer FROM customers contains NULLs, since some customers have no referrer. NOT IN against a list that holds a NULL can never be true, so it matches no rows and COUNT(*) is 0. This is the Session 5 trap; guarding the subquery with WHERE referrer IS NOT NULL fixes it." },
+    { type: 'set', ask: "A set operation (Session 6). This intersects the Team-plan cities with the Pro-plan cities. List the cities it returns, any order, separated by commas.", code: "SELECT city FROM customers WHERE plan = 'Team'\nINTERSECT\nSELECT city FROM customers WHERE plan = 'Pro';", ans: "Austin, Denver", why: "Team-plan customers live in Austin, Denver and Reno; Pro-plan customers live in Austin, Denver and Boston. INTERSECT keeps only the cities in both lists: Austin and Denver." },
+    { type: 'value', ask: "A constraint outcome (Session 7). A product is inserted without giving in_stock. What does the final SELECT return?", code: "INSERT INTO products (sku, name, price)\nVALUES ('MARK', 'Marker', 1.5);\nSELECT in_stock FROM products WHERE sku = 'MARK';", ans: "1", why: "The products table declares in_stock with DEFAULT 1, and the INSERT gives no value for it, so SQLite fills in the default. The new row's in_stock is 1." },
+    { type: 'count', ask: "A transaction (Session 8). Every order is deleted, then the transaction is rolled back. What does the final count return?", code: "BEGIN;\nDELETE FROM orders;\nROLLBACK;\nSELECT COUNT(*) FROM orders;", ans: "13", why: "ROLLBACK undoes every change made since BEGIN, so the DELETE is thrown away and all 13 orders come back. The final COUNT(*) is 13, exactly as before the transaction." },
+    { type: 'value', ask: "A query plan (Session 8). After the index is created, the plan reports one keyword for how it reaches the rows. What is that one word?", code: "CREATE INDEX idx ON orders(customer_id);\nEXPLAIN QUERY PLAN\nSELECT * FROM orders WHERE customer_id = 3;", ans: "SEARCH", why: "With an index on customer_id, SQLite does not read every row (that would be a SCAN); it jumps to the matching rows through the index. The plan reports SEARCH orders USING INDEX idx (customer_id=?), so the keyword is SEARCH." },
+    { type: 'seq', ask: "The flagship report (this session). It returns one row per qualifying city, busiest first. List the cities in the order they appear, separated by commas.", code: "SELECT c.city, SUM(o.amount) AS revenue\nFROM customers AS c\nLEFT JOIN orders AS o ON o.customer_id = c.id\nGROUP BY c.city\nHAVING COUNT(DISTINCT c.id) >= 2\nORDER BY revenue DESC;", ans: "Austin, Denver, Boston", why: "HAVING COUNT(DISTINCT c.id) >= 2 drops Reno, which has only one customer. The remaining cities sort by revenue descending: Austin 1000, Denver 450, Boston 150." }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct result</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: "Arrange the lines into the flagship per-city report: select the columns, keep every customer with a LEFT JOIN onto orders, group by city, drop cities with fewer than two customers, and order by revenue, highest first.",
+      lines: ['SELECT c.city, COUNT(DISTINCT c.id) AS customers, COUNT(o.id) AS orders,', '       SUM(o.amount) AS revenue, ROUND(AVG(o.amount), 2) AS avg_order', 'FROM customers AS c', 'LEFT JOIN orders AS o ON o.customer_id = c.id', 'GROUP BY c.city', 'HAVING COUNT(DISTINCT c.id) >= 2', 'ORDER BY revenue DESC;'] },
+    { prompt: "Arrange the lines into a Python script that opens shop.db, loads a per-city customer count into a pandas DataFrame, prints it, and closes the connection.",
+      lines: ['import sqlite3', 'import pandas as pd', 'conn = sqlite3.connect("shop.db")', 'sql = "SELECT city, COUNT(*) AS n FROM customers GROUP BY city ORDER BY city"', 'df = pd.read_sql_query(sql, conn)', 'print(df)', 'conn.close()'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your script (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: "Fill the blanks so this keeps every city (even one with no orders) and counts each city's orders per group.",
+      code: 'SELECT c.city, %%(o.id) AS orders\nFROM customers AS c\n%% JOIN orders AS o ON o.customer_id = c.id\nGROUP BY c.%%;', ans: ['COUNT', 'LEFT', 'city'] },
+    { prompt: "Fill the blanks so each city's average order is rounded to two places and only cities with at least two customers are kept.",
+      code: 'SELECT c.city,\n       %%(AVG(o.amount), 2) AS avg_order,\n       COUNT(DISTINCT c.id) AS customers\nFROM customers AS c\nLEFT JOIN orders AS o ON o.customer_id = c.id\nGROUP BY c.city\nHAVING COUNT(DISTINCT c.id) %% 2;', ans: ['ROUND', '>='] },
+    { prompt: "Fill the blanks so the city value is passed safely as a parameter (not spliced into the SQL) and the count is read back.",
+      code: 'target = "Austin"\ncur.execute("SELECT COUNT(*) FROM customers WHERE city = %%", (%%,))\nprint(cur.fetchone()[0])', ans: ['?', 'target'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: "Write a query that returns each city with its total order revenue (columns city and revenue), highest revenue first. Use a plain JOIN, so a city with no orders drops out.",
+      sol: 'SELECT c.city, SUM(o.amount) AS revenue\nFROM customers AS c\nJOIN orders AS o ON o.customer_id = c.id\nGROUP BY c.city\nORDER BY revenue DESC;' },
+    { task: "Now use a LEFT JOIN and COUNT(o.id) so every city appears with its order count, including a city with zero orders. Order by the count, highest first, then by city name.",
+      sol: 'SELECT c.city, COUNT(o.id) AS orders\nFROM customers AS c\nLEFT JOIN orders AS o ON o.customer_id = c.id\nGROUP BY c.city\nORDER BY orders DESC, c.city;' },
+    { task: "With a CTE of per-customer totals, list the customers (name and total) whose total spend is above the average customer total, highest first.",
+      sol: 'WITH totals AS (\n  SELECT c.id, c.name, SUM(o.amount) AS total\n  FROM customers AS c\n  JOIN orders AS o ON o.customer_id = c.id\n  GROUP BY c.id, c.name\n)\nSELECT name, total FROM totals\nWHERE total > (SELECT AVG(total) FROM totals)\nORDER BY total DESC, name;' },
+    { task: "In Python, using a ? parameter for the city, fetch and print one city's total order spend. Try Austin, whose total is 1000.",
+      sol: 'city = "Austin"\ncur.execute(\n    "SELECT SUM(o.amount) FROM orders AS o "\n    "JOIN customers AS c ON o.customer_id = c.id "\n    "WHERE c.city = ?",\n    (city,)\n)\nprint(cur.fetchone()[0])' },
+    { task: "The whole thing: write the full flagship per-city report (city, customers, orders, revenue, and avg_order rounded to two places), keep only cities with two or more customers, and order by revenue descending.",
+      sol: 'SELECT c.city,\n       COUNT(DISTINCT c.id) AS customers,\n       COUNT(o.id) AS orders,\n       SUM(o.amount) AS revenue,\n       ROUND(AVG(o.amount), 2) AS avg_order\nFROM customers AS c\nLEFT JOIN orders AS o ON o.customer_id = c.id\nGROUP BY c.city\nHAVING COUNT(DISTINCT c.id) >= 2\nORDER BY revenue DESC;' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your code here, then run it with Python"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours with Python:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek, like the Check buttons)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Keep only the unique values in a result (Session 1)', b: 'SELECT DISTINCT' },
+    { f: 'Test whether a value is missing, the right way (Session 2)', b: 'IS NULL / IS NOT NULL, never = NULL' },
+    { f: 'Filter groups after aggregating, not individual rows (Session 3)', b: 'HAVING (WHERE filters rows first)' },
+    { f: 'Count each customer once even when a join repeats the row (Session 3)', b: 'COUNT(DISTINCT col)' },
+    { f: 'Keep every left-table row, padding non-matches with NULL (Session 4)', b: 'LEFT JOIN' },
+    { f: 'Check that at least one matching row exists (Session 5)', b: 'EXISTS / NOT EXISTS' },
+    { f: 'Name a temporary result you can read top to bottom (Session 6)', b: 'a CTE: WITH name AS (...)' },
+    { f: 'Stack two result sets and drop duplicate rows (Session 6)', b: 'UNION (UNION ALL keeps duplicates)' },
+    { f: 'Reject any row that breaks a rule you set on a column (Session 7)', b: 'a CHECK constraint' },
+    { f: 'Undo every change made since the transaction began (Session 8)', b: 'ROLLBACK' },
+    { f: 'Speed up lookups and joins on a column (Session 8)', b: 'CREATE INDEX ... ON table(col)' },
+    { f: 'Safely put a value into a query from Python (Session 9)', b: 'a ? placeholder plus a params tuple' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz ---------- */
+  var S1_URL = 'sql-session-01.html';
+  var S2_URL = 'sql-session-02.html';
+  var S3_URL = 'sql-session-03.html';
+  var S4_URL = 'sql-session-04.html';
+  var S5_URL = 'sql-session-05.html';
+  var S6_URL = 'sql-session-06.html';
+  var S7_URL = 'sql-session-07.html';
+  var S8_URL = 'sql-session-08.html';
+  var S9_URL = 'sql-session-09.html';
+  var QUIZ = [
+    { q: "Session 1. You run SELECT DISTINCT city FROM customers. What comes back?",
+      o: ["Each city that appears, listed once, with duplicates removed", "Every customer row, with cities repeated", "The number of distinct cities, as a single number", "The cities sorted alphabetically"], c: 0,
+      e: "SELECT DISTINCT returns the distinct values of the listed columns, collapsing duplicate rows, so here it is one row per city. It does not count the cities (that is COUNT) and it does not sort them (that is ORDER BY).",
+      part: { url: S1_URL, label: 'Session 1 · SELECT and DISTINCT' } },
+    { q: "Session 2. Some customers have a NULL referrer. Which WHERE clause finds exactly those customers?",
+      o: ["WHERE referrer IS NULL", "WHERE referrer = NULL", "WHERE referrer = 'NULL'", "WHERE NOT referrer"], c: 0,
+      e: "NULL means unknown, and nothing equals unknown, so referrer = NULL matches no rows. You test for a missing value with IS NULL (and IS NOT NULL for the opposite). The quoted 'NULL' would match the literal text NULL, not a missing value.",
+      part: { url: S2_URL, label: 'Session 2 · NULL and IS NULL' } },
+    { q: "Session 3. You want only the cities whose customer count is at least two. Where does that condition go?",
+      o: ["In HAVING, because it filters groups after COUNT is computed", "In WHERE, because WHERE can see COUNT(*)", "In ORDER BY", "Either WHERE or HAVING; they are interchangeable"], c: 0,
+      e: "WHERE filters individual rows before grouping, so it cannot see an aggregate like COUNT(*). HAVING filters the groups after aggregation, which is exactly where a condition on a count belongs. They are not interchangeable.",
+      part: { url: S3_URL, label: 'Session 3 · GROUP BY and HAVING' } },
+    { q: "Session 4. In the report, why is COUNT(o.id) used instead of COUNT(*) after the LEFT JOIN?",
+      o: ["A customer with no orders is padded with a NULL o.id, and COUNT(o.id) skips it while COUNT(*) would count that padded row as 1", "COUNT(*) is not allowed after a LEFT JOIN", "They always return the same number", "COUNT(o.id) counts customers and COUNT(*) counts cities"], c: 0,
+      e: "A LEFT JOIN keeps every customer; one with no orders gets a row padded with NULLs, so o.id is NULL there. COUNT(o.id) ignores NULLs and correctly reports zero orders, while COUNT(*) counts the padded row as 1. That is the Session 4 trap.",
+      part: { url: S4_URL, label: 'Session 4 · JOINs and the COUNT trap' } },
+    { q: "Session 5. SELECT name FROM customers WHERE name NOT IN (SELECT referrer FROM customers) surprisingly returns zero rows. Why?",
+      o: ["The referrer subquery contains a NULL, and NOT IN against a list holding a NULL can never be true", "There is a syntax error in the query", "Every customer really is a referrer", "NOT IN is not supported in SQLite"], c: 0,
+      e: "referrer has NULLs, and NOT IN compares against every value in the list including that NULL; a comparison with NULL is unknown, so NOT IN can never be true and the query yields nothing. Guarding the subquery with WHERE referrer IS NOT NULL, or using NOT EXISTS, avoids the trap.",
+      part: { url: S5_URL, label: 'Session 5 · the NOT IN and NULL trap' } },
+    { q: "Session 6. You have a CTE of buyers and a CTE of referrers and want the buyers who are not referrers. Which set operator does that?",
+      o: ["EXCEPT: the rows in the first result that are not in the second", "UNION: all rows from both", "INTERSECT: rows in both", "JOIN: columns side by side"], c: 0,
+      e: "EXCEPT returns the rows of the first SELECT that do not appear in the second, so buyers EXCEPT referrers gives the buyers who never referred anyone. UNION combines, INTERSECT keeps the overlap, and a JOIN glues columns rather than comparing row sets.",
+      part: { url: S6_URL, label: 'Session 6 · CTEs and set operations' } },
+    { q: "Session 7. products declares price REAL NOT NULL CHECK (price > 0). What happens if you INSERT a product with price -5?",
+      o: ["SQLite rejects the row: the CHECK constraint fails because price is not greater than 0", "The row is inserted with price 0", "The row is inserted and price becomes 5", "SQLite inserts it but warns you"], c: 0,
+      e: "A CHECK constraint is enforced on every insert and update. price -5 violates CHECK (price > 0), so SQLite refuses the row with a CHECK constraint failed error rather than silently fixing or inserting it.",
+      part: { url: S7_URL, label: 'Session 7 · constraints' } },
+    { q: "Session 8. Inside a transaction you run DELETE FROM orders with no WHERE, see the table empty, then run ROLLBACK. What is in orders now?",
+      o: ["All the original rows: ROLLBACK undoes every change made since the transaction began", "Nothing; the DELETE already happened", "Only the rows added after the DELETE", "SQLite raises an error at ROLLBACK"], c: 0,
+      e: "A DELETE with no WHERE empties the table, but inside a transaction nothing is permanent until COMMIT. ROLLBACK discards every change made since BEGIN, so all the original orders return. That is why wrapping risky writes in a transaction is a safety net.",
+      part: { url: S8_URL, label: 'Session 8 · transactions and ROLLBACK' } },
+    { q: "Session 9. In Python, why pass a value with cur.execute(sql, (value,)) and a ? placeholder instead of building the SQL with an f-string?",
+      o: ["The ? sends the value to SQLite as data, so a crafted string can never run as SQL; that stops injection", "The f-string version is slower", "An f-string cannot include a number", "There is no real difference"], c: 0,
+      e: "With a ? placeholder the value travels separately from the SQL text and is treated purely as data, so even a string full of SQL punctuation is just a value. Building the query with an f-string lets a crafted input change what the query does, which is SQL injection.",
+      part: { url: S9_URL, label: 'Session 9 · parameters and injection' } },
+    { q: "Spanning two topics. EXPLAIN QUERY PLAN on the report shows SCAN orders. You add an index on orders.customer_id, the column the LEFT JOIN matches on. What is the likely effect?",
+      o: ["The join can use the index, so the plan can switch from scanning orders to a faster SEARCH by customer_id, with the same rows returned", "Nothing; indexes never affect joins", "The report returns different rows", "The report can no longer use a LEFT JOIN"], c: 0,
+      e: "An index on the join column lets SQLite look matches up directly instead of scanning all of orders, so the plan can report SEARCH orders USING INDEX rather than SCAN. It does not change which rows come back, and indexes add a little cost to writes. This ties the join from Session 4 to indexes and query plans from Session 8.",
+      part: { url: S8_URL, label: 'Session 8 · indexes and query plans' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // recall question: open the earlier session's workbook in a new tab (keeps this progress)
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.part.label) + ' (opens in a new tab)</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 8
+              ? 'Final: ' + quizCorrect + '/' + QUIZ.length + '. You passed the comprehensive final and finished the whole SQL track. Tick S10 on your Hub to mark it complete, congratulations.'
+              : 'Final: ' + quizCorrect + '/' + QUIZ.length + '. You need 8 of 10 to pass. Use the review links above to revisit each miss, reset this part, and retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+
+  /* ---- Export / import ALL progress (shared across the whole site origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+</body>
+</html>

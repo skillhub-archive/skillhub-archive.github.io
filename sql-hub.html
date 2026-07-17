@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL 20-Hour Sprint</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128452;</text></svg>">
+<style>
+  :root {
+    --bg: #EDF3F4;
+    --surface: #FFFFFF;
+    --surface-2: #E2ECEC;
+    --ink: #13201F;
+    --ink-soft: #45524F;
+    --ink-faint: #7B8A87;
+    --border: #D3E0DE;
+    --accent: #0D7C88;
+    --accent-soft: #DAEFF0;
+    --gold: #A16A10;
+    --gold-bright: #B87A16;
+    --gold-soft: #F7EEDB;
+    --good: #1F8A5B;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1413;
+      --surface: #111C1C;
+      --surface-2: #172524;
+      --ink: #E8F1F0;
+      --ink-soft: #A6B4B1;
+      --ink-faint: #6E7D79;
+      --border: #21322F;
+      --accent: #17A093;
+      --accent-soft: #0E2B29;
+      --gold: #E6A94B;
+      --gold-bright: #E6A94B;
+      --gold-soft: #2A2213;
+      --good: #3FBE82;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+    --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+    --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Disable programming ligatures so any code shows the exact characters you type
+     (SQL leans on <>, >=, <=, !=, || which must render literally, not as glyphs) */
+  code, pre { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ---- Header ---- */
+  header.hero { padding: 56px 0 32px; border-bottom: 1px solid var(--border); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+  }
+  .trackback { display: inline-block; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; margin-bottom: 14px; }
+  .trackback:hover { color: var(--accent); }
+  h1 {
+    font-size: clamp(32px, 5vw, 52px); line-height: 1.05; margin: 14px 0 10px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .lede { font-size: 18px; color: var(--ink-soft); max-width: 64ch; margin: 0; }
+
+  /* ---- Progress panel ---- */
+  .progress-panel {
+    margin-top: 32px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 1fr auto; gap: 18px 32px; align-items: center;
+  }
+  .pp-stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .pp-stat .num {
+    font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .pp-stat .lbl {
+    font-size: 12px; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: .08em; margin-top: 6px;
+  }
+  .pp-stat .num.accent { color: var(--accent); }
+  .bar-wrap { grid-column: 1 / -1; }
+  .bar-track { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--gold-bright)); border-radius: 99px; transition: width .5s ease; }
+  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-faint); }
+  .reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--ink-faint);
+    font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 7px;
+    cursor: pointer; letter-spacing: .04em;
+  }
+  .reset-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  /* ---- Section headings ---- */
+  .sec { margin-top: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .sec-head h2 { font-size: 24px; margin: 0; letter-spacing: -.01em; font-weight: 750; }
+  .sec-kicker { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: .1em; }
+  .sec-sub { color: var(--ink-soft); margin: 0 0 26px; max-width: 70ch; }
+
+  /* ---- How it works strip ---- */
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .fact {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .fact .k { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); }
+  .fact .v { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* ---- Levels ---- */
+  .level { margin-top: 30px; }
+  .level-head {
+    display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px;
+    padding-left: 4px;
+  }
+  .level-badge {
+    flex: none; width: 52px; height: 52px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-family: var(--mono);
+    font-weight: 700; font-size: 16px; text-align: center; line-height: 1.1;
+    -webkit-text-stroke: 0.7px rgba(0, 0, 0, .5); paint-order: stroke fill;
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .level-badge small { display: block; font-size: 11px; letter-spacing: .1em; opacity: .8; }
+  .level-title { font-size: 19px; font-weight: 750; margin: 2px 0 4px; }
+  .level-milestone {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 15px;
+    color: var(--gold); background: var(--gold-soft); border-radius: 8px;
+    padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent);
+    font-weight: 600;
+  }
+  .level-milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; opacity: .85; text-transform: uppercase; }
+
+  .sessions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 20px 18px; box-shadow: var(--shadow); position: relative;
+    display: flex; flex-direction: column; transition: border-color .2s, transform .2s;
+  }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+  .card.done::after {
+    content: "\2713 done"; position: absolute; top: 16px; right: 16px;
+    font-family: var(--mono); font-size: 11px; color: var(--good); font-weight: 700;
+  }
+  .card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .snum {
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; letter-spacing: .03em;
+  }
+  .sdur { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
+  .card h3 { font-size: 17px; margin: 0 0 10px; letter-spacing: -.01em; line-height: 1.25; padding-right: 44px; }
+  .learn { margin: 0 0 12px; padding-left: 18px; }
+  .learn li { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .card-meta { margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .mrow { font-size: 12.5px; display: flex; gap: 8px; }
+  .mrow .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); flex: none; width: 62px; padding-top: 1px; }
+  .mrow .txt { color: var(--ink-soft); }
+  .mrow .txt b { color: var(--gold); font-weight: 600; }
+  .check {
+    margin-top: 14px; display: flex; align-items: center; gap: 9px; cursor: pointer;
+    font-size: 13px; color: var(--ink-soft); user-select: none;
+  }
+  .check input { width: 16px; height: 16px; accent-color: var(--good); cursor: pointer; }
+  .check:hover { color: var(--ink); }
+  .card-open { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: #fff; background: var(--accent); padding: 8px 14px; border-radius: 8px; text-decoration: none; }
+  .card-open:hover { filter: brightness(1.06); }
+  .card-pending { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); border: 1px dashed var(--border); padding: 7px 11px; border-radius: 8px; letter-spacing: .02em; }
+
+  /* ---- Resources ---- */
+  .res-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .res {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .res .rnum { font-family: var(--mono); font-size: 12px; color: var(--gold); font-weight: 700; }
+  .res h4 { margin: 6px 0 2px; font-size: 16px; }
+  .res .cost { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--good); margin-bottom: 8px; }
+  .res .cost.paid { color: var(--ink-faint); }
+  .res p { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 10px; }
+  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .res a { color: var(--accent); text-decoration: none; font-size: 12.5px; font-family: var(--mono); word-break: break-all; }
+  .res a:hover { text-decoration: underline; }
+
+  /* ---- callout ---- */
+  .callout {
+    margin-top: 40px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 12px; padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .callout h3 { margin: 0 0 8px; font-size: 16px; }
+  .callout p { margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; }
+  .callout code {
+    font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
+    padding: 2px 6px; border-radius: 5px; color: var(--ink);
+  }
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+
+  @media (max-width: 720px) {
+    .progress-panel { grid-template-columns: 1fr; }
+    .facts { grid-template-columns: 1fr 1fr; }
+    .sessions { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+  .trackback { display: inline-block; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; margin-bottom: 14px; }
+  .trackback:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <a class="trackback" href="index.html">&#8592; Learning Hub</a>
+    <div class="eyebrow">SQL // 20-Hour Sprint</div>
+    <h1>SQL, where your data lives</h1>
+    <p class="lede">A focused sprint from confident code-reader to someone who can query, join, aggregate, and model real data, then call it straight from Python. The companion to your Python track: pandas is what you do with data in memory; SQL is where that data actually lives. Ten two-hour sessions, five levels, a milestone at every step so you always know where you stand.</p>
+
+    <div class="progress-panel">
+      <div class="pp-stats">
+        <div class="pp-stat"><div class="num accent" id="stat-sessions">0/10</div><div class="lbl">Sessions done</div></div>
+        <div class="pp-stat"><div class="num" id="stat-level">Level 1</div><div class="lbl">Current level</div></div>
+        <div class="pp-stat"><div class="num" id="stat-hours">0h</div><div class="lbl">Hours invested</div></div>
+      </div>
+      <button class="reset-btn" id="reset">reset progress</button>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+        <div class="bar-caption"><span id="bar-label">Not started, tick a session when you finish it</span><span id="bar-pct">0%</span></div>
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the shape</span><h2>How this Sprint Works</h2></div>
+    <p class="sec-sub">Each session is ~1h45 of hands-on work plus a built-in 15-minute review. You run everything in real SQLite (it ships with Python, zero install) using the <code>sqlite3</code> shell or DB Browser for SQLite. The arc: get answers out of data, then combine and reshape it, then design and build it, and finally drive it from Python, the SQL half of the full-stack path your CTO named (SQL + Python + APIs + Git).</p>
+    <div class="facts">
+      <div class="fact"><div class="k">5</div><div class="v">Levels, beginner &rarr; advanced, each with a clear "you can now&hellip;" milestone.</div></div>
+      <div class="fact"><div class="k">10</div><div class="v">Two-hour hands-on workbooks you complete in SQLite, built on demand.</div></div>
+      <div class="fact"><div class="k">6</div><div class="v">Practice modes each session: learn-and-do, predict, arrange, fill, write, recall.</div></div>
+      <div class="fact"><div class="k">&sum;</div><div class="v">Cumulative review, later sessions re-test earlier ones (spaced practice).</div></div>
+    </div>
+  </section>
+
+  <!-- LEVELS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the path</span><h2>The Five Levels</h2></div>
+    <p class="sec-sub">All ten sessions are built. Open any one from its card below (it opens in a new tab, and each workbook links back here), and tick the box when you finish so this page tracks where you are.</p>
+
+    <!-- LEVEL 1 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>01</small></div>
+        <div>
+          <div class="level-title">Foundations: Getting Answers Out</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can query a single table and shape exactly the columns you want back.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="1" data-level="1">
+          <div class="card-top"><span class="snum">S01</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>The relational model &amp; SELECT</h3>
+          <ul class="learn">
+            <li>What a database, table, row, column and key actually are</li>
+            <li>Set up SQLite + DB Browser; load a sample database</li>
+            <li><code>SELECT</code> columns vs <code>*</code>, aliases (<code>AS</code>), <code>DISTINCT</code>, <code>LIMIT</code>, computed columns</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Pull and shape the exact columns you want out of one table.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">SQLBolt, Lessons 1&ndash;4 (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Re-run today's SELECTs from memory against the sample DB.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="1"> Mark session complete</label>
+          <a class="card-open" href="sql-session-01.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="2" data-level="1">
+          <div class="card-top"><span class="snum">S02</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Filtering &amp; sorting</h3>
+          <ul class="learn">
+            <li><code>WHERE</code> with comparisons, <code>AND</code>/<code>OR</code>/<code>NOT</code>, <code>BETWEEN</code>, <code>IN</code>, <code>LIKE</code></li>
+            <li>The NULL trap: <code>IS NULL</code> vs <code>= NULL</code>, three-valued logic</li>
+            <li><code>ORDER BY</code> (multi-key, ASC/DESC), <code>LIMIT</code>/<code>OFFSET</code></li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Answer a real question by filtering and sorting one table.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">SQLBolt, Lessons 5&ndash;8 (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Phrase 3 questions in words, then write the WHERE for each.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="2"> Mark session complete</label>
+          <a class="card-open" href="sql-session-02.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL 2 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>02</small></div>
+        <div>
+          <div class="level-title">Combining &amp; Summarizing</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can summarize data with aggregates and answer questions that span several related tables.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="3" data-level="2">
+          <div class="card-top"><span class="snum">S03</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Aggregation &amp; grouping</h3>
+          <ul class="learn">
+            <li><code>COUNT</code>, <code>SUM</code>, <code>AVG</code>, <code>MIN</code>, <code>MAX</code></li>
+            <li><code>GROUP BY</code>, and <code>HAVING</code> vs <code>WHERE</code></li>
+            <li><code>COUNT(*)</code> vs <code>COUNT(col)</code> and how NULLs are skipped</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Produce a grouped summary report, the SQL twin of a pandas groupby.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Mode SQL Tutorial, aggregate functions (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Reproduce a "count by category" report from memory.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="3"> Mark session complete</label>
+          <a class="card-open" href="sql-session-03.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="4" data-level="2">
+          <div class="card-top"><span class="snum">S04</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>JOINs</h3>
+          <ul class="learn">
+            <li>Why tables get split; primary keys &amp; foreign keys</li>
+            <li><code>INNER JOIN</code>, table aliases, the <code>ON</code> condition</li>
+            <li><code>LEFT JOIN</code> and where NULLs come from; the accidental cross join</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Join 2&ndash;3 tables to answer a question no single table can.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">SQLBolt Lessons 6&ndash;7 + Select Star SQL (joins)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Draw the two tables and the shared key, then write the join.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="4"> Mark session complete</label>
+          <a class="card-open" href="sql-session-04.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL 3 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>03</small></div>
+        <div>
+          <div class="level-title">Deeper Querying</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can nest queries and use CTEs to answer layered questions readably.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="5" data-level="3">
+          <div class="card-top"><span class="snum">S05</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Subqueries</h3>
+          <ul class="learn">
+            <li>Scalar subqueries; subqueries in <code>WHERE</code> with <code>IN</code> / <code>EXISTS</code></li>
+            <li>The <code>NOT IN</code> + NULL trap</li>
+            <li>Derived tables (a subquery in <code>FROM</code>); a first look at correlated subqueries</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Answer a question that needs a query inside a query.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Mode SQL Tutorial, subqueries (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Rewrite one earlier query using a subquery.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="5"> Mark session complete</label>
+          <a class="card-open" href="sql-session-05.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="6" data-level="3">
+          <div class="card-top"><span class="snum">S06</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>CTEs &amp; set operations</h3>
+          <ul class="learn">
+            <li><code>WITH</code> (common table expressions): named, readable subqueries</li>
+            <li>Chaining CTEs; CTE vs subquery</li>
+            <li><code>UNION</code> / <code>UNION ALL</code> / <code>INTERSECT</code> / <code>EXCEPT</code>, plus a window-functions aside</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Rewrite a gnarly nested query as a clean CTE chain.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">SQLite docs (WITH) + Mode SQL Tutorial</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Say out loud when you'd reach for a window function.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="6"> Mark session complete</label>
+          <a class="card-open" href="sql-session-06.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL 4 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>04</small></div>
+        <div>
+          <div class="level-title">Building &amp; Changing Data</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can design a small schema, create it, and change its data safely with an index in place.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="7" data-level="4">
+          <div class="card-top"><span class="snum">S07</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Data modeling &amp; DDL</h3>
+          <ul class="learn">
+            <li>Designing tables; data types &amp; SQLite's type affinity (vs strict Postgres/MySQL)</li>
+            <li><code>CREATE TABLE</code>, <code>INSERT</code>, and the rowid / <code>AUTOINCREMENT</code> story</li>
+            <li>Constraints: <code>PRIMARY KEY</code>, <code>NOT NULL</code>, <code>UNIQUE</code>, <code>DEFAULT</code>, <code>CHECK</code>, <code>FOREIGN KEY</code></li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Design and create a small multi-table schema, then populate it.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">SQLite docs: CREATE TABLE + datatypes (free)</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Model a spreadsheet you actually use into 2&ndash;3 tables.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="7"> Mark session complete</label>
+          <a class="card-open" href="sql-session-07.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="8" data-level="4">
+          <div class="card-top"><span class="snum">S08</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Changing data safely &amp; indexes</h3>
+          <ul class="learn">
+            <li><code>UPDATE</code> (and the missing-<code>WHERE</code> catastrophe), <code>DELETE</code>, <code>ALTER TABLE</code></li>
+            <li>Transactions: <code>BEGIN</code> / <code>COMMIT</code> / <code>ROLLBACK</code>; foreign-key enforcement</li>
+            <li>Indexes: <code>CREATE INDEX</code>, when they help, <code>EXPLAIN QUERY PLAN</code>, the write-cost tradeoff</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Change data inside a transaction, add an index, and confirm the planner uses it.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">SQLite docs (EXPLAIN QUERY PLAN) + Use The Index, Luke</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Add an index to a slow query and re-read the plan.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="8"> Mark session complete</label>
+          <a class="card-open" href="sql-session-08.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL 5 -->
+    <div class="level">
+      <div class="level-head">
+        <div class="level-badge">LVL<small>05</small></div>
+        <div>
+          <div class="level-title">SQL from Python &amp; Capstone</div>
+          <span class="level-milestone"><span class="flag">Milestone</span> You can drive a SQLite database from Python and hand results straight to pandas.</span>
+        </div>
+      </div>
+      <div class="sessions">
+        <div class="card" data-session="9" data-level="5">
+          <div class="card-top"><span class="snum">S09</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>SQL from Python with sqlite3</h3>
+          <ul class="learn">
+            <li><code>connect()</code>, cursors, <code>execute</code>, <code>fetchone</code>/<code>fetchall</code>, <code>commit</code></li>
+            <li>Parameterized queries (<code>?</code> placeholders) and why, the SQL-injection trap</li>
+            <li>The bridge: <code>pd.read_sql_query(sql, conn)</code> returns a DataFrame</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Query a SQLite database from Python and load the result into pandas.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Python sqlite3 docs + Real Python</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">Rewrite a pandas read_csv + groupby as a SQL query from Python.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="9"> Mark session complete</label>
+          <a class="card-open" href="sql-session-09.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+
+        <div class="card" data-session="10" data-level="5">
+          <div class="card-top"><span class="snum">S10</span><span class="sdur">1h45 + 15m review</span></div>
+          <h3>Capstone: schema &rarr; query &rarr; report</h3>
+          <ul class="learn">
+            <li>Thread it all: model data, load it, query it end-to-end, hand it to Python</li>
+            <li>Ship a small query-driven report tool; where to go next</li>
+            <li><b>Comprehensive final quiz</b> across all ten sessions</li>
+          </ul>
+          <div class="card-meta">
+            <div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>Ship a small tool that goes from a schema to a finished report.</b></span></div>
+            <div class="mrow"><span class="tag">Resource</span><span class="txt">Your own capstone + the final quiz artifact</span></div>
+            <div class="mrow"><span class="tag">Review</span><span class="txt">The comprehensive quiz is your review, aim for 8/10+.</span></div>
+          </div>
+          <label class="check"><input type="checkbox" data-check="10"> Mark session complete</label>
+          <a class="card-open" href="sql-session-10.html" target="_blank" rel="noopener">Open workbook &#8599;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="callout">
+    <h3>Using this Hub</h3>
+    <p>This Hub is your map. Each session card has an <b>Open workbook</b> link (it opens in a new tab, and every workbook links back here).</p>
+    <p>Tick a session's box when you finish it, the progress bar, level, and hours update automatically and are remembered on this device.</p>
+  </div>
+
+  <!-- RESOURCES -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// keep going</span><h2>Top 5 Resources</h2></div>
+    <p class="sec-sub">Curated for your goal, not a generic list. All five are free. Use the first three <b>during</b> the sprint for hands-on practice, and the last two as the authoritative references you'll keep returning to.</p>
+    <div class="res-grid">
+      <div class="res">
+        <div class="rnum">01</div>
+        <h4>SQLBolt</h4>
+        <div class="cost">Free</div>
+        <p>The smoothest interactive on-ramp there is: no signup, no install, you write real <code>SELECT</code> / <code>WHERE</code> / <code>JOIN</code> queries in the browser and it checks each one. Perfect second angle on Levels 1&ndash;2 fundamentals.</p>
+        <div class="when">Use: during, Levels 1&ndash;2</div>
+        <a href="https://sqlbolt.com">sqlbolt.com</a>
+      </div>
+      <div class="res">
+        <div class="rnum">02</div>
+        <h4>Mode SQL Tutorial</h4>
+        <div class="cost">Free</div>
+        <p>Analytics-focused, the closest thing to the real reporting work you're aiming at. Its aggregation, join, and subquery lessons run in a live query editor and mirror Levels 2&ndash;3 exactly.</p>
+        <div class="when">Use: during, Levels 2&ndash;3</div>
+        <a href="https://mode.com/sql-tutorial">mode.com/sql-tutorial</a>
+      </div>
+      <div class="res">
+        <div class="rnum">03</div>
+        <h4>Select Star SQL</h4>
+        <div class="cost">Free</div>
+        <p>A free interactive book that builds the <i>mental model</i> for writing SQL, not just the syntax, by working a real dataset. Read it alongside the sprint when you want the "why", especially for joins and aggregation.</p>
+        <div class="when">Use: during + after, Levels 2&ndash;3</div>
+        <a href="https://selectstarsql.com">selectstarsql.com</a>
+      </div>
+      <div class="res">
+        <div class="rnum">04</div>
+        <h4>SQLite Documentation</h4>
+        <div class="cost">Free</div>
+        <p>The canonical reference for the exact database you're running. The syntax diagrams, datatype / type-affinity, <code>CREATE INDEX</code> and <code>EXPLAIN QUERY PLAN</code> pages are the primary source for Levels 4&ndash;5. Learning to read them is itself a career skill.</p>
+        <div class="when">Use: reference, throughout (esp. Levels 4&ndash;5)</div>
+        <a href="https://sqlite.org/docs.html">sqlite.org/docs.html</a>
+      </div>
+      <div class="res">
+        <div class="rnum">05</div>
+        <h4>Python sqlite3 docs</h4>
+        <div class="cost">Free</div>
+        <p>The standard-library module you'll use to call SQL from Python in Level 5: connections, cursors, <code>?</code> placeholders, and row factories. The bridge between this track and your pandas work.</p>
+        <div class="when">Use: during, Level 5 + reference</div>
+        <a href="https://docs.python.org/3/library/sqlite3.html">docs.python.org/3/library/sqlite3</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WHERE TO NEXT (post-sprint send-off) ============ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// now that you know</span><h2>Where to next</h2></div>
+    <p class="sec-sub">You finished the whole track: you can model a schema, query it, change it safely, and drive it from Python. This is not another level to clear, it is the view from the top of the sprint, two honest ways to keep climbing.</p>
+
+    <div class="callout">
+      <h3>Try this: window functions</h3>
+      <p>The one topic this sprint named but did not teach (the aside back in Session 6). Window functions rank rows, run totals, and compare a row to its group <i>without collapsing the rows</i> the way <code>GROUP BY</code> does, exactly the moves that power real reporting. They build straight on the joins and aggregates you already know, which is why they are the natural next climb rather than a fresh start.</p>
+      <p><b>Optional bonus workbook:</b> there is now a hands-on window-functions session, a real workbook like the ten you just finished but deliberately outside the graded track, so opening it does not change your 10/10 completion. It teaches window functions on top of the joins, aggregates, CTEs and <code>ROUND</code> you already know.</p>
+      <a class="card-open" href="sql-session-bonus-windows.html" target="_blank" rel="noopener">Open the bonus workbook &#8599;</a>
+      <p style="margin-top:14px"><b>Reference reading:</b> the <a href="https://sqlite.org/windowfunctions.html" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">SQLite window-functions reference</a> is the canonical guide for the exact database you used, and the <a href="https://mode.com/sql-tutorial" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">Mode SQL Tutorial</a> (also in the resources above) covers them with runnable examples. Both use SQL you can run in the SQLite you already have.</p>
+      <!-- bonus window-functions workbook now linked above (artifact 1dbcdd88-5589-488b-8242-6c7c22927b6c); resources kept alongside. This is NOT a graded card and carries no data-check, so the 0/10 progress bar is unchanged. -->
+    </div>
+
+    <div style="margin-top:34px">
+      <div class="sec-head"><span class="sec-kicker">// prove it</span><h2 style="font-size:19px">Get it certified</h2></div>
+      <p class="sec-sub">These sprints cannot hand you a credential. If you want one that proves what you learned, here are the genuine, proctored exams (both are paid, and both were current as of 2026). Skip the "completion certificate" badges from course sites; these two are the real thing.</p>
+      <div class="res-grid">
+        <div class="res">
+          <div class="rnum">CERT &middot; best match</div>
+          <h4>Oracle Database SQL Certified Associate</h4>
+          <div class="cost paid">Paid &middot; exam 1Z0-071</div>
+          <p>The most on-target credential for this track: a pure-SQL exam covering <code>SELECT</code>, joins, subqueries, DDL and constraints, with no prerequisites. It is Oracle-flavored, but the core is the standard SQL you have been writing in SQLite all along.</p>
+          <div class="when">Closest to what you learned</div>
+          <a href="https://education.oracle.com/oracle-database-sql/pexam_1Z0-071" target="_blank" rel="noopener">education.oracle.com &middot; 1Z0-071</a>
+        </div>
+        <div class="res">
+          <div class="rnum">CERT &middot; broader</div>
+          <h4>Microsoft Certified: Azure Data Fundamentals</h4>
+          <div class="cost paid">Paid &middot; exam DP-900</div>
+          <p>Wider than pure SQL: core data concepts plus Azure data services at a beginner level, so it is lighter on hands-on querying. Worth it if you are heading toward cloud or Microsoft-stack data work rather than SQL depth.</p>
+          <div class="when">If you are cloud / Azure oriented</div>
+          <a href="https://learn.microsoft.com/en-us/credentials/certifications/azure-data-fundamentals/" target="_blank" rel="noopener">learn.microsoft.com &middot; DP-900</a>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--ink-faint);margin:14px 0 0">There is no single vendor-neutral "SQL certification" that carries broad weight, and SQLite itself has no exam (it is a library, not a product you certify on). The good news: the SQL you practiced here transfers to every one of these.</p>
+    </div>
+  </section>
+
+  <footer>
+    SQL 20-Hour Sprint &middot; the "where the data lives" companion to the Python track
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = "sql-sprint-progress-v1";
+    var HOURS_PER = 2;
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('input[data-check]'));
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+      catch (e) { return {}; }
+    }
+    function save(state) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    function currentLevel(doneCount) {
+      // level = 2 sessions each; current level is the one you're working through
+      var lvl = Math.floor(doneCount / 2) + 1;
+      return Math.min(lvl, 5);
+    }
+
+    function render(state) {
+      var done = 0;
+      boxes.forEach(function (b) {
+        var id = b.getAttribute('data-check');
+        var isDone = !!state[id];
+        b.checked = isDone;
+        var card = b.closest('.card');
+        if (card) card.classList.toggle('done', isDone);
+        if (isDone) done++;
+      });
+      var pct = Math.round((done / boxes.length) * 100);
+      document.getElementById('bar').style.width = pct + '%';
+      document.getElementById('bar-pct').textContent = pct + '%';
+      document.getElementById('stat-sessions').textContent = done + '/10';
+      document.getElementById('stat-hours').textContent = (done * HOURS_PER) + 'h';
+      document.getElementById('stat-level').textContent = 'Level ' + currentLevel(done);
+      var label = document.getElementById('bar-label');
+      if (done === 0) label.textContent = 'Not started, tick a session when you finish it';
+      else if (done === boxes.length) label.textContent = 'Sprint complete, you did the thing 🎉';
+      else label.textContent = 'On Level ' + currentLevel(done) + ', keep going';
+    }
+
+    var state = load();
+    render(state);
+
+    boxes.forEach(function (b) {
+      b.addEventListener('change', function () {
+        state[b.getAttribute('data-check')] = b.checked;
+        save(state);
+        render(state);
+      });
+    });
+
+    document.getElementById('reset').addEventListener('click', function () {
+      state = {};
+      save(state);
+      render(state);
+    });
+
+  })();
+
+  /* ---- Export / import ALL progress (shared across the whole site origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+</body>
+</html>

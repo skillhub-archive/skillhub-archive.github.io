@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Sprint &middot; Bonus &middot; Window Functions</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128452;</text></svg>">
+<style>
+  :root {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+      --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+      --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+    --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+    --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (SQL leans on <>, >=, <=, !=, || which Cascadia Code would otherwise draw as glyphs) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and result grids all align (no two-column feel);
+     ~960px fills roughly half a 1920 monitor and shrinks fluidly when tiled */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 18px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .bad-out { color: var(--bad); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 110px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  /* single full-width column: bank stacks above the solution so long clauses fit without a per-line scrollbar */
+  .parsons { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 9ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Bonus // beyond the sprint</div>
+      <a class="hublink" href="sql-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Window functions</h1>
+    <p class="goal">This one is <b>optional</b>. It sits outside the graded ten sessions and does not change your 10/10 completion. Session 6 named window functions in a one-paragraph aside but never taught them; here they are, for real, built on everything the sprint already gave you: <code>JOIN</code>, <code>GROUP BY</code>, CTEs and <code>ROUND</code>. The one-line idea: a window function computes across a set of rows <b>without collapsing them</b>, which is the one thing <code>GROUP BY</code> cannot do.</p>
+    <span class="milestone"><span class="flag">Milestone</span> In a single query, rank your customers by spend within each city and show each one's percentage share of their city total, stacking a CTE, a JOIN, PARTITION BY, RANK and an aggregate window with ROUND.</span>
+
+    <div class="howto">
+      <span class="ic">sql&gt;</span>
+      <p><b>You still have <code>shop.db</code> with <code>customers</code> (ten rows) and <code>orders</code> (thirteen rows) from earlier in the sprint.</b> There is no new data step today. Every example builds a small CTE of per-customer totals, so nothing to install, just new syntax to layer on. Run each query in DB Browser (or the sqlite3 shell) to see it for yourself, exactly as you have all sprint.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/8</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in DB Browser (or the sqlite3 shell) before moving on, and check the box when you see the result.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. The core idea: compute across rows without collapsing them</h3>
+      <p>First, make sure you still have both tables. If <code>shop.db</code> is open with <code>customers</code> and <code>orders</code>, you are set. If you lost them, run the full setup below once, then Write Changes.</p>
+      <details style="margin:0 0 14px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:12.5px;color:var(--accent)">Starting fresh, or lost your shop.db? Open the full setup script (rebuilds all three tables)</summary>
+<pre style="margin-top:10px"><code><span class="cm">-- start clean: build all three tables in one go (customers, orders, products)</span>
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS customers;
+CREATE TABLE customers (
+  id           INTEGER PRIMARY KEY,
+  name         TEXT,
+  city         TEXT,
+  plan         TEXT,
+  monthly_fee  INTEGER,
+  signup_year  INTEGER,
+  referrer     TEXT
+);
+INSERT INTO customers VALUES
+  (1,  'Amara',  'Austin', 'Pro',   40, 2021, NULL),
+  (2,  'Ben',    'Denver', 'Basic', 20, 2022, 'Amara'),
+  (3,  'Chen',   'Austin', 'Pro',   40, 2022, 'Amara'),
+  (4,  'Diego',  'Boston', 'Basic', 20, 2021, NULL),
+  (5,  'Esi',    'Denver', 'Pro',   40, 2023, 'Ben'),
+  (6,  'Fatima', 'Austin', 'Team',  60, 2023, 'Chen'),
+  (7,  'Gita',   'Boston', 'Pro',   40, 2022, NULL),
+  (8,  'Hiro',   'Denver', 'Team',  60, 2021, 'Esi'),
+  (9,  'Iris',   'Austin', 'Team',  60, 2023, 'Amara'),
+  (10, 'Jae',    'Reno',   'Team',  60, 2022, NULL);
+CREATE TABLE orders (
+  id           INTEGER PRIMARY KEY,
+  customer_id  INTEGER REFERENCES customers(id),
+  amount       INTEGER,
+  order_year   INTEGER
+);
+INSERT INTO orders (id, customer_id, amount, order_year) VALUES
+  (1,  1, 100, 2023),(2,  1, 200, 2024),(3,  2,  50, 2023),
+  (4,  3,  50, 2022),(5,  3, 100, 2023),(6,  3, 150, 2024),
+  (7,  5, 200, 2023),(8,  6, 100, 2022),(9,  6, 100, 2024),
+  (10, 7, 150, 2023),(11, 8,  50, 2022),(12, 8, 150, 2023),
+  (13, 9, 200, 2024);
+CREATE TABLE products (
+  id        INTEGER PRIMARY KEY,
+  sku       TEXT    NOT NULL UNIQUE,
+  name      TEXT    NOT NULL,
+  price     REAL    NOT NULL CHECK (price &gt; 0),
+  in_stock  INTEGER NOT NULL DEFAULT 1
+);
+INSERT INTO products (id, sku, name, price) VALUES
+  (1, 'BOX-S', 'Small box',    2.50),
+  (2, 'BOX-L', 'Large box',    4.00),
+  (3, 'TAPE',  'Packing tape', 3.25),
+  (4, 'WRAP',  'Bubble wrap',  6.75),
+  (5, 'LABEL', 'Label sheet',  1.20);</code></pre>
+      </details>
+      <p>Here are the two tables today's examples use:</p>
+      <div class="filebox">
+        <div class="fbh">customers &middot; 10 rows (relevant columns)</div>
+<pre><code><span class="out">id  name    city
+1   Amara   Austin
+2   Ben     Denver
+3   Chen    Austin
+4   Diego   Boston
+5   Esi     Denver
+6   Fatima  Austin
+7   Gita    Boston
+8   Hiro    Denver
+9   Iris    Austin
+10  Jae     Reno</span></code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">orders &middot; 13 rows (relevant columns)</div>
+<pre><code><span class="out">id  customer_id  amount
+1   1            100
+2   1            200
+3   2            50
+4   3            50
+5   3            100
+6   3            150
+7   5            200
+8   6            100
+9   6            100
+10  7            150
+11  8            50
+12  8            150
+13  9            200</span></code></pre>
+      </div>
+      <p>Everything today runs on top of one shared building block: a <b>CTE of per-customer totals</b>. It is exactly the pieces you already know, a CTE (Session 6) wrapping a <code>JOIN</code> (Session 4) and a <code>GROUP BY</code> (Session 3):</p>
+<pre><code><span class="cm">-- per-customer totals: one row per customer, with their summed order amounts</span>
+WITH cust AS (
+  SELECT c.name, c.city, SUM(o.amount) AS total
+  FROM customers c JOIN orders o ON o.customer_id = c.id
+  GROUP BY c.id, c.name, c.city
+)
+SELECT name, city, total FROM cust ORDER BY name;</code></pre>
+      <p>Because that inner <code>JOIN</code> only keeps customers who actually placed an order, <b>Diego and Jae drop out</b> (they never ordered), and since Jae was Reno's only customer, <b>Reno disappears too</b>. So this base has <b>eight rows, not ten</b>, and every result grid below shows eight. That is expected, not a bug:</p>
+      <div class="filebox">
+        <div class="fbh">the cust CTE &middot; 8 rows (the base for every example today)</div>
+<pre><code><span class="out">name    city    total
+Amara   Austin  300
+Ben     Denver  50
+Chen    Austin  300
+Esi     Denver  200
+Fatima  Austin  200
+Gita    Boston  150
+Hiro    Denver  200
+Iris    Austin  200</span></code></pre>
+      </div>
+      <p>Now the shift. When you <code>GROUP BY city</code> (Session 3), SQLite <b>collapses</b> each city down to a single summary row: three cities in, three rows out, and the individual customer rows are gone. A <b>window function</b> does the opposite. It computes an aggregate across a set of rows but <b>keeps every original row</b>, adding the answer as an extra column. You attach it with the keyword <code>OVER</code>, and the simplest window of all is written <code>OVER ()</code> with <b>empty parentheses</b>, which means "the whole result set is one window":</p>
+<pre><code><span class="cm">-- SUM over an empty window () = grand total of every row, placed on each row</span>
+SELECT name, total, SUM(total) OVER () AS all_customers
+FROM cust
+ORDER BY name;</code></pre>
+      <p>All eight customer rows survive, and each one carries the same grand total (300+50+300+200+200+150+200+50 = 1600) in a new column. No collapsing:</p>
+      <div class="filebox">
+        <div class="fbh">result &middot; every row kept, grand total added</div>
+<pre><code><span class="out">name    total  all_customers
+Amara   300    1600
+Ben     50     1600
+Chen    300    1600
+Esi     200    1600
+Fatima  200    1600
+Gita    150    1600
+Hiro    200    1600
+Iris    200    1600</span></code></pre>
+      </div>
+      <p>That is the whole mental model: <code>GROUP BY</code> squashes rows into groups; a window keeps the rows and reports alongside them. Everything else today is just choosing <i>which</i> rows each window covers.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Add a grand total to every row</div>
+        <p>Run the <code>cust</code> CTE with <code>SUM(total) OVER () AS all_customers</code> and confirm you get eight rows, each showing 1600 in the new column, with the individual totals still visible. Notice that no rows were collapsed, unlike a plain <code>GROUP BY</code>.</p>
+        <label class="did"><input type="checkbox" data-task="1"> I added a grand total with OVER () and kept every row</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. PARTITION BY: a window within each group</h3>
+      <p>An empty <code>OVER ()</code> treats every row as one big window. Add <b>PARTITION BY</b> and you split the rows into groups first, then compute the window <i>separately within each group</i>, still returning one row per input row. It is the group-awareness of <code>GROUP BY</code> without the collapse. To put each customer's <b>city</b> total beside them, partition the window by <code>city</code>:</p>
+<pre><code><span class="cm">-- sum total within each city, but keep every customer row</span>
+SELECT name, city, total, SUM(total) OVER (PARTITION BY city) AS city_total
+FROM cust
+ORDER BY city, total DESC, name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; each customer keeps their row, city total added</div>
+<pre><code><span class="out">name    city    total  city_total
+Amara   Austin  300    1000
+Chen    Austin  300    1000
+Fatima  Austin  200    1000
+Iris    Austin  200    1000
+Gita    Boston  150    150
+Esi     Denver  200    450
+Hiro    Denver  200    450
+Ben     Denver  50     450</span></code></pre>
+      </div>
+      <p>Every Austin customer shows 1000, every Denver customer 450, Boston's single customer 150, and all eight rows are still here. Compare that with the <code>GROUP BY</code> you already know, which answers the same "total per city" question by <b>collapsing</b> to one row each:</p>
+<pre><code><span class="cm">-- the Session 3 way: three cities in, three rows out (customers gone)</span>
+SELECT city, SUM(total) AS city_total
+FROM cust
+GROUP BY city
+ORDER BY city;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; GROUP BY collapses to one row per city</div>
+<pre><code><span class="out">city    city_total
+Austin  1000
+Boston  150
+Denver  450</span></code></pre>
+      </div>
+      <p>Same three totals, but <code>GROUP BY</code> gives you three rows and forgets who the customers were; <code>PARTITION BY</code> gives you all eight rows with the city total attached. Reach for the window when you want the group figure <i>and</i> the detail rows together.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Put each city's total beside its customers</div>
+        <p>Run the <code>PARTITION BY city</code> query and confirm eight rows, with 1000 next to every Austin customer, 450 next to every Denver customer, and 150 next to Gita. Then run the <code>GROUP BY city</code> version and see it collapse to three rows, so the difference is concrete.</p>
+        <label class="did"><input type="checkbox" data-task="2"> I saw PARTITION BY keep the rows while GROUP BY collapsed them</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Ranking rows: ROW_NUMBER, RANK, DENSE_RANK</h3>
+      <p>The most common thing to do inside a partition is <b>rank</b> the rows. Three ranking functions all take an <code>OVER (...)</code> with an <b>ORDER BY inside it</b> that says what to rank by (this ORDER BY lives <i>inside</i> the window and is separate from the query's final <code>ORDER BY</code>). To rank customers within each city by <code>total</code>, highest first, the window is <code>OVER (PARTITION BY city ORDER BY total DESC)</code>. Here are all three side by side:</p>
+<pre><code><span class="cm">-- three ways to number rows within each city, ranked by total (highest first)</span>
+SELECT name, city, total,
+  RANK()       OVER (PARTITION BY city ORDER BY total DESC)       AS rnk,
+  DENSE_RANK() OVER (PARTITION BY city ORDER BY total DESC)       AS drnk,
+  ROW_NUMBER() OVER (PARTITION BY city ORDER BY total DESC, name) AS rn
+FROM cust
+ORDER BY city, total DESC, name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; the three ranking functions compared</div>
+<pre><code><span class="out">name    city    total  rnk  drnk  rn
+Amara   Austin  300    1    1     1
+Chen    Austin  300    1    1     2
+Fatima  Austin  200    3    2     3
+Iris    Austin  200    3    2     4
+Gita    Boston  150    1    1     1
+Esi     Denver  200    1    1     1
+Hiro    Denver  200    1    1     2
+Ben     Denver  50     3    2     3</span></code></pre>
+      </div>
+      <p>Watch Austin, where <b>Amara and Chen tie</b> at 300. The three functions handle that tie differently:</p>
+      <ul class="pts">
+        <li><b>RANK()</b> gives tied rows the same rank, then <b>skips</b>: Amara and Chen are both 1, so the next customers jump to 3 (the sequence is 1, 1, 3).</li>
+        <li><b>DENSE_RANK()</b> gives tied rows the same rank but does <b>not</b> skip: 1, 1, 2. The next distinct total is always the next whole number.</li>
+        <li><b>ROW_NUMBER()</b> always hands out <b>distinct</b> numbers 1, 2, 3, 4 with no ties, so among equal totals it has to pick an order. That choice is <b>arbitrary</b> unless you make it deterministic, which is why this window adds <code>, name</code> as a tiebreaker (Amara before Chen). Without it, which of the two 300s gets rn 1 would be undefined, the same "no ORDER BY, no guaranteed order" caution from Session 1.</li>
+      </ul>
+      <p><b>One gotcha worth knowing now.</b> Say you want only the top spender per city. You cannot write <code>WHERE rnk = 1</code> in the same query, because <code>WHERE</code> runs <i>before</i> the window is computed, so the rank does not exist yet. The fix is to wrap the ranking query in a CTE (or subquery) and filter the rank on the <i>outside</i>:</p>
+<pre><code><span class="cm">-- top spender per city: rank inside a CTE, then filter the rank outside it</span>
+WITH ranked AS (
+  SELECT name, city,
+    RANK() OVER (PARTITION BY city ORDER BY total DESC) AS rnk
+  FROM cust
+)
+SELECT name, city FROM ranked WHERE rnk = 1 ORDER BY city, name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; the top-ranked customer(s) in each city</div>
+<pre><code><span class="out">name    city
+Amara   Austin
+Chen    Austin
+Gita    Boston
+Esi     Denver
+Hiro    Denver</span></code></pre>
+      </div>
+      <p>Austin and Denver each return two names because of the ties, which is often exactly what you want from <code>RANK</code>. Swap in <code>ROW_NUMBER</code> if you need precisely one per city.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Rank the three ways and read the ties</div>
+        <p>Run the three-function query and find Austin's tie (Amara and Chen at 300). Confirm <code>rnk</code> reads 1, 1, 3, 3 down Austin while <code>drnk</code> reads 1, 1, 2, 2. Then run the wrapped-in-a-CTE version and confirm you cannot instead put <code>WHERE rnk = 1</code> directly in the ranking query.</p>
+        <label class="did"><input type="checkbox" data-task="3"> I compared RANK, DENSE_RANK and ROW_NUMBER on a tie</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Ordered aggregate windows: running totals</h3>
+      <p>You have seen an aggregate over a whole window (<code>OVER ()</code>) and over a partition (<code>PARTITION BY</code>). Add an <b>ORDER BY inside the window</b> to an aggregate like <code>SUM</code> and something new happens: instead of one total for the whole window, each row shows a <b>running total</b>, the sum of itself and every row before it in that order. To accumulate customer totals from the biggest spender down:</p>
+<pre><code><span class="cm">-- running total: each row = its own total plus all rows above it in this order</span>
+SELECT name, total, SUM(total) OVER (ORDER BY total DESC, name) AS running
+FROM cust
+ORDER BY total DESC, name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; the running total climbs to the grand total</div>
+<pre><code><span class="out">name    total  running
+Amara   300    300
+Chen    300    600
+Esi     200    800
+Fatima  200    1000
+Hiro    200    1200
+Iris    200    1400
+Gita    150    1550
+Ben     50     1600</span></code></pre>
+      </div>
+      <p>Amara starts at 300, Chen adds 300 for 600, and it climbs row by row to the 1600 grand total you saw in concept A. The <code>ORDER BY total DESC, name</code> uses a <b>unique</b> ordering key (the <code>, name</code> breaks the ties), which keeps the running total unambiguous.</p>
+      <p><b>One aside on the frame, then we move on.</b> An ordered aggregate window has a default <b>frame</b> (the set of rows it sums): <code>RANGE</code> from the start of the window up to the current row. You can set the frame explicitly with a <code>ROWS BETWEEN ...</code> clause, which is how you would build moving averages and the like. The reason this example uses a <b>unique</b> ordering key matters here: with a non-unique key (say plain <code>ORDER BY total</code>), the default <code>RANGE</code> frame treats <b>tied rows as peers</b> and gives them all the <i>same</i> running total, which surprises people. Ordering by a unique key sidesteps that. We name <code>ROWS BETWEEN</code> so you recognize it; going deeper on frames is a topic for another day.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build a running total</div>
+        <p>Run the running-total query and confirm the <code>running</code> column climbs 300, 600, 800, 1000, ... and ends at 1600 on the last row. Change the inner <code>ORDER BY</code> to <code>total</code> alone (drop <code>, name</code>) and notice the tied rows now share a running total, the frame behavior described above.</p>
+        <label class="did"><input type="checkbox" data-task="4"> I built a running total with an ordered window</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. The milestone: rank and share, in one query</h3>
+      <p>Now combine the pieces into one report. For each city, rank the customers by spend <i>and</i> show what percentage of the city total each one represents. That needs the CTE (Session 6) over a JOIN (Session 4), a <code>RANK</code> window, a <code>SUM</code> partition window for the city total, and <code>ROUND</code> (Session 10) for a clean percentage:</p>
+<pre><code><span class="cm">-- per city: rank by spend, and each customer's share of the city total</span>
+WITH cust AS (
+  SELECT c.name, c.city, SUM(o.amount) AS total
+  FROM customers c JOIN orders o ON o.customer_id = c.id
+  GROUP BY c.id, c.name, c.city
+)
+SELECT name, city, total,
+  RANK() OVER (PARTITION BY city ORDER BY total DESC) AS city_rank,
+  ROUND(100.0 * total / SUM(total) OVER (PARTITION BY city), 1) AS pct_of_city
+FROM cust
+ORDER BY city, city_rank, name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; the finished report, 8 rows</div>
+<pre><code><span class="out">name    city    total  city_rank  pct_of_city
+Amara   Austin  300    1          30.0
+Chen    Austin  300    1          30.0
+Fatima  Austin  200    3          20.0
+Iris    Austin  200    3          20.0
+Gita    Boston  150    1          100.0
+Esi     Denver  200    1          44.4
+Hiro    Denver  200    1          44.4
+Ben     Denver  50     3          11.1</span></code></pre>
+      </div>
+      <p>Read one row: Ben is in Denver, ranked 3rd, and his 50 is 100.0 &times; 50 / 450 = 11.11..., which <code>ROUND(..., 1)</code> trims to 11.1. Notice the <b><code>100.0</code></b>, not <code>100</code>: writing <code>100.0 * total</code> forces <b>real</b> division, so the decimal survives. With all integers, <code>100 * total / 450</code> would do integer division (the multiply happens first, then the divide throws the fraction away), turning Ben's 11.1 into a bare 11 and Denver's 44.4 into 44. That truncation is the same integer-division trap from Session 1, where <code>7 / 2</code> gave 3, not 3.5.</p>
+      <p><b>Cross-database note, and where this travels.</b> Window functions are part of the SQL standard and work almost everywhere: SQLite 3.25+ (2018), PostgreSQL, MySQL 8+, SQL Server and Oracle all support <code>OVER</code>, <code>PARTITION BY</code> and the ranking functions with the same syntax. Learn them once here and the skill carries to every database you are likely to meet.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: rank and share in one query</div>
+        <p>Write and run the report above. Confirm eight rows, with Austin's two top spenders both ranked 1 at 30.0 percent, Gita alone in Boston at 100.0 percent, and Denver's Ben last at 11.1 percent. This one query stacks a CTE, a JOIN, a partitioned RANK, an aggregate window and ROUND, most of the sprint in a single statement. That is your bonus milestone.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code><span class="cm">-- per city: rank by spend, plus each customer's share of the city total</span>
+WITH cust AS (
+  SELECT c.name, c.city, SUM(o.amount) AS total
+  FROM customers c JOIN orders o ON o.customer_id = c.id
+  GROUP BY c.id, c.name, c.city
+)
+SELECT name, city, total,
+  RANK() OVER (PARTITION BY city ORDER BY total DESC) AS city_rank,
+  ROUND(100.0 * total / SUM(total) OVER (PARTITION BY city), 1) AS pct_of_city
+FROM cust
+ORDER BY city, city_rank, name;</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I built the per-city rank-and-share report in one query</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each query and <b>work out its result in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model, so don't run it first. Each drill says exactly what to answer: a single value, values in a specific order, or the number in one named row. After you check, run it yourself in DB Browser to confirm. They get harder toward the end.</p>
+    <div class="note"><b>Every drill builds on the same <code>cust</code> CTE (per-customer totals), 8 rows:</b>
+<pre style="margin:8px 0 0;background:none;border:none;padding:0"><code>name    city    total
+Amara   Austin  300      Ben     Denver  50
+Chen    Austin  300      Esi     Denver  200
+Fatima  Austin  200      Gita    Boston  150
+Iris    Austin  200      Hiro    Denver  200</code></pre></div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading SQL and writing it from scratch. First reassemble scrambled statements, then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the statement (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your statement below, and tap it again to send it back. Order matters, so arrange the lines top to bottom before you check. The two lists stack full width to give every line room to read, even the long ones.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the statement in the box, reveal the reference to compare, then run yours in DB Browser (or the sqlite3 shell). The workbook can't run SQL for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asks, or <b>Needs another pass</b> to keep tweaking. Each one uses the <code>cust</code> CTE from Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax and vocabulary you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> this check mixes 4 new window-function questions with 2 recall questions from earlier sessions (Sessions 3 and 6). The earlier-session review links open that workbook in a <b>new tab</b> (your progress here is kept); the window-function links scroll you up to the matching concept.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    A <b>bonus</b>, outside the graded ten. It does not change your 10/10 completion, so there is nothing to tick. Head back to the <a href="sql-hub.html" target="_blank" rel="noopener">Hub</a> and, when you want a real credential, use its <b>Where to next</b> section. &middot; You just layered window functions on top of the whole sprint.
+  </footer>
+</div>
+
+<script>
+  var STORE = "sql-bonus-windows-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    // SQL keywords are case-insensitive, so grade case-insensitively
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens (names / values); commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ---------- */
+  var DRILLS = [
+    { type: 'value', ask: "What single number appears in the all_customers column?", code: "SELECT name, total, SUM(total) OVER () AS all_customers\nFROM cust\nORDER BY name;", ans: "1600", why: "OVER () with empty parentheses makes the whole result set one window, so SUM(total) OVER () adds up all eight customer totals (300+50+300+200+200+150+200+50 = 1600) and puts that one grand total on every row, without collapsing the rows the way GROUP BY would." },
+    { type: 'value', ask: "In the row for Iris, what number is in the city_total column?", code: "SELECT name, city, total, SUM(total) OVER (PARTITION BY city) AS city_total\nFROM cust\nORDER BY city, total DESC, name;", ans: "1000", why: "PARTITION BY city splits the rows into one window per city and sums total inside each. Iris is in Austin, and Austin's four customers (Amara 300, Chen 300, Fatima 200, Iris 200) total 1000, so every Austin row, Iris included, shows 1000." },
+    { type: 'value', ask: "What value is in Fatima's rnk column?", code: "SELECT name, city, total,\n  RANK() OVER (PARTITION BY city ORDER BY total DESC) AS rnk\nFROM cust\nORDER BY city, total DESC, name;", ans: "3", why: "RANK() orders each city's customers by total, highest first. In Austin, Amara and Chen tie at 300 and are both rank 1; because RANK skips after a tie, the next customers (Fatima and Iris at 200) jump to rank 3, so Fatima is 3." },
+    { type: 'value', ask: "What value is in Fatima's drnk column?", code: "SELECT name, city, total,\n  DENSE_RANK() OVER (PARTITION BY city ORDER BY total DESC) AS drnk\nFROM cust\nORDER BY city, total DESC, name;", ans: "2", why: "DENSE_RANK() ranks the same way but does not skip after a tie. Amara and Chen are rank 1, and the next distinct total (200) is 2, not 3, so Fatima is 2. That skip-versus-no-skip is the only difference between RANK and DENSE_RANK." },
+    { type: 'seq', ask: "List the names this query returns, in the exact order, separated by commas.", code: "SELECT name, ROW_NUMBER() OVER (ORDER BY total DESC, name) AS rn\nFROM cust\nORDER BY rn\nLIMIT 3;", ans: "Amara, Chen, Esi", why: "ROW_NUMBER() with no PARTITION numbers all eight rows 1 to 8 in the window order total DESC, name. The two highest are Amara and Chen (both 300, name breaks the tie), then Esi (200, first alphabetically among the four 200s). LIMIT 3 keeps the first three: Amara, Chen, Esi." },
+    { type: 'value', ask: "In Fatima's row, what number is in the running column?", code: "SELECT name, total, SUM(total) OVER (ORDER BY total DESC, name) AS running\nFROM cust\nORDER BY total DESC, name;", ans: "1000", why: "Adding ORDER BY inside OVER turns the SUM into a running total. Ordered by total DESC then name, the rows run Amara 300, Chen 300, Esi 200, Fatima 200, so by Fatima the running sum is 300+300+200+200 = 1000." },
+    { type: 'value', ask: "In Ben's row, what number is in the pct_of_city column? Write it exactly as SQLite prints it.", code: "SELECT name, city, total,\n  ROUND(100.0 * total / SUM(total) OVER (PARTITION BY city), 1) AS pct_of_city\nFROM cust\nORDER BY city, total DESC, name;", ans: "11.1", why: "pct_of_city is a customer's total divided by their city window total, times 100. Ben is in Denver (window total 450), so his share is 100.0 * 50 / 450 = 11.11..., which ROUND(..., 1) trims to 11.1. The 100.0 (not 100) forces real division so the decimal survives; with all integers, 100 * 50 / 450 would do integer division and truncate to a bare 11, dropping the .1, the Session 1 integer-division trap." },
+    { type: 'seq', ask: "List the names this query returns, in the exact order, separated by commas.", code: "SELECT name, city,\n  RANK() OVER (PARTITION BY city ORDER BY total DESC) AS city_rank\nFROM cust\nWHERE city = 'Denver'\nORDER BY city_rank, name;", ans: "Esi, Hiro, Ben", why: "Filtering to Denver leaves Esi and Hiro (both 200, tied at rank 1) and Ben (50, rank 3). Ordering by city_rank then name lists the two rank-1 customers alphabetically (Esi, then Hiro) before Ben, giving Esi, Hiro, Ben. Filtering on city here is fine because city is a real column, not a window result." }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct result</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: "Arrange the lines so each customer's row also shows the total for their whole city beside it (one row per customer), built on the cust CTE.",
+      lines: ['WITH cust AS (SELECT c.name, c.city, SUM(o.amount) AS total', '  FROM customers c JOIN orders o ON o.customer_id = c.id GROUP BY c.id, c.name, c.city)', 'SELECT name, city, total, SUM(total) OVER (PARTITION BY city) AS city_total', 'FROM cust', 'ORDER BY city, total DESC, name;'] },
+    { prompt: "Arrange the lines to give each customer a 1-2-3 position by spend inside their city, highest first, built on the cust CTE.",
+      lines: ['WITH cust AS (SELECT c.name, c.city, SUM(o.amount) AS total', '  FROM customers c JOIN orders o ON o.customer_id = c.id GROUP BY c.id, c.name, c.city)', 'SELECT name, city, RANK() OVER (PARTITION BY city ORDER BY total DESC) AS city_rank', 'FROM cust', 'ORDER BY city, city_rank, name;'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your statement (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: "Fill the blanks so the grand total of every customer's total lands on each row, without collapsing the rows.",
+      code: "SELECT name, total, %%(total) %% () AS all_customers FROM cust ORDER BY name;", ans: ['SUM', 'OVER'] },
+    { prompt: "Fill the blanks so each customer's row also shows the total for just their own city.",
+      code: "SELECT name, city, total, SUM(total) OVER (%% %% city) AS city_total FROM cust;", ans: ['PARTITION', 'BY'] },
+    { prompt: "Fill the blanks so each customer gets a position by spend inside their city where two tied top spenders both come out 1 and the next then skips to 3.",
+      code: "SELECT name, city, %%() OVER (PARTITION BY city %% %% total DESC) AS city_rank FROM cust;", ans: ['RANK', 'ORDER', 'BY'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: "Using the cust CTE of per-customer totals, write a query showing each customer's name, city, total, and the total for their whole city beside it (one row per customer). Order by city, then total high to low, then name.",
+      sol: "WITH cust AS (\n  SELECT c.name, c.city, SUM(o.amount) AS total\n  FROM customers c JOIN orders o ON o.customer_id = c.id\n  GROUP BY c.id, c.name, c.city\n)\nSELECT name, city, total,\n       SUM(total) OVER (PARTITION BY city) AS city_total\nFROM cust\nORDER BY city, total DESC, name;" },
+    { task: "Write a query that ranks the customers within each city by total spent, highest first, using a ranking where ties share a spot and the next rank skips (so two top spenders are both 1 and the next is 3). Order by city, then rank, then name.",
+      sol: "WITH cust AS (\n  SELECT c.name, c.city, SUM(o.amount) AS total\n  FROM customers c JOIN orders o ON o.customer_id = c.id\n  GROUP BY c.id, c.name, c.city\n)\nSELECT name, city, total,\n       RANK() OVER (PARTITION BY city ORDER BY total DESC) AS city_rank\nFROM cust\nORDER BY city, city_rank, name;" },
+    { task: "Write a query listing every customer from highest total to lowest (break ties by name) with a running total that accumulates down that order.",
+      sol: "WITH cust AS (\n  SELECT c.name, c.city, SUM(o.amount) AS total\n  FROM customers c JOIN orders o ON o.customer_id = c.id\n  GROUP BY c.id, c.name, c.city\n)\nSELECT name, total,\n       SUM(total) OVER (ORDER BY total DESC, name) AS running\nFROM cust\nORDER BY total DESC, name;" },
+    { task: "The full milestone. Write one query that, per city, ranks customers by total (highest first) and also shows each customer's percentage share of their city total, rounded to one decimal. Order by city, then rank, then name.",
+      sol: "WITH cust AS (\n  SELECT c.name, c.city, SUM(o.amount) AS total\n  FROM customers c JOIN orders o ON o.customer_id = c.id\n  GROUP BY c.id, c.name, c.city\n)\nSELECT name, city, total,\n       RANK() OVER (PARTITION BY city ORDER BY total DESC) AS city_rank,\n       ROUND(100.0 * total / SUM(total) OVER (PARTITION BY city), 1) AS pct_of_city\nFROM cust\nORDER BY city, city_rank, name;" }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="-- write your statement here, then run it in DB Browser"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in DB Browser:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek, like the Check buttons)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'What OVER () with empty parentheses makes an aggregate compute over', b: 'the whole result set as one window (a grand total on every row)' },
+    { f: 'What PARTITION BY does inside a window', b: 'splits rows into groups and computes the window separately within each, one row still out per input row' },
+    { f: 'What adding ORDER BY inside OVER (...) does to an aggregate', b: 'orders the rows and makes the aggregate accumulate down that order' },
+    { f: 'What ROW_NUMBER() gives each row', b: 'a distinct sequential number 1, 2, 3 with no ties' },
+    { f: 'How RANK() treats a tie, and what it does after it', b: 'tied rows share a rank, then it skips (1, 1, 3)' },
+    { f: 'How DENSE_RANK() differs from RANK() after a tie', b: 'tied rows share a rank but it does not skip (1, 1, 2)' },
+    { f: 'What SUM(total) OVER (ORDER BY total DESC) produces', b: 'a running total: each row is the sum of itself and every row before it in that order' },
+    { f: 'What a ROWS BETWEEN clause sets on an ordered window', b: 'the frame: which rows around the current one the window covers' },
+    { f: 'The defining difference between a window function and GROUP BY', b: 'a window keeps every row and adds a column; GROUP BY collapses each group to one row' },
+    { f: 'Why you cannot put WHERE rnk = 1 in a ranking query, and the fix', b: 'WHERE runs before the window is computed; wrap it in a CTE or subquery and filter the rank there' },
+    { f: 'Which databases support window functions', b: 'standard almost everywhere: SQLite 3.25+, PostgreSQL, MySQL 8+, SQL Server, Oracle' },
+    { f: 'Why the milestone writes 100.0 * total, not 100 * total (Session 1)', b: '100.0 forces real division so the decimal survives; all-integer division would truncate it away (44.4 becomes 44)' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz ---------- */
+  var S3_URL = 'sql-session-03.html';
+  var S6_URL = 'sql-session-06.html';
+  var QUIZ = [
+    { q: "What is the defining difference between a window function and a GROUP BY?",
+      o: ["A window function keeps every input row and adds a computed column; GROUP BY collapses each group into a single summary row", "They are the same thing written two ways", "A window function can only be used with SUM, while GROUP BY works with any aggregate", "GROUP BY keeps every row, while a window function collapses them"], c: 0,
+      e: "The whole point of a window function is that it computes across rows without collapsing them: every original row survives and gains an extra column. GROUP BY does the opposite, squashing each group down to one summary row. That is why you reach for a window when you want the group figure and the detail rows together.",
+      part: { id: 'concept-a', label: 'A. Windows vs GROUP BY' } },
+    { q: "What does PARTITION BY city do inside an OVER (...) window?",
+      o: ["It computes the window separately within each city, still returning one row per customer", "It removes duplicate cities from the result", "It sorts the rows by city", "It collapses each city to a single row, like GROUP BY"], c: 0,
+      e: "PARTITION BY is the group-awareness of GROUP BY without the collapse: the rows are split into one window per city, the aggregate is computed inside each, and every input row is still returned with that group figure attached. Sorting is a separate job for ORDER BY.",
+      part: { id: 'concept-b', label: 'B. PARTITION BY' } },
+    { q: "Two customers tie for the top spot in a city. How do RANK(), DENSE_RANK() and ROW_NUMBER() number those two and the next customer?",
+      o: ["RANK gives 1, 1, 3; DENSE_RANK gives 1, 1, 2; ROW_NUMBER gives 1, 2, 3 and never ties", "All three give 1, 1, 2", "All three give 1, 2, 3", "RANK gives 1, 1, 2; DENSE_RANK gives 1, 1, 3; ROW_NUMBER gives 1, 1, 1"], c: 0,
+      e: "On a tie, RANK repeats the rank then skips (1, 1, 3), DENSE_RANK repeats without skipping (1, 1, 2), and ROW_NUMBER refuses to tie at all, handing out distinct 1, 2, 3 (so among equal values its order is arbitrary unless you add a tiebreaker to the window's ORDER BY).",
+      part: { id: 'concept-c', label: 'C. Ranking and ties' } },
+    { q: "You add ORDER BY total DESC inside SUM(total) OVER (...). What changes?",
+      o: ["The aggregate becomes cumulative: each row shows a running total of itself plus all earlier rows in that order", "It just sorts the final result, but the sum stays the grand total on every row", "It raises an error, because ORDER BY is not allowed inside OVER", "It removes the total column"], c: 0,
+      e: "An ORDER BY inside the window turns a plain aggregate into a running one: each row sums itself and everything before it in that order, climbing toward the grand total. That is different from the query's final ORDER BY, which only arranges the output rows.",
+      part: { id: 'concept-d', label: 'D. Running totals' } },
+    { q: "Recall from Session 3: what does GROUP BY city return for a table of ten customers spread across three cities?",
+      o: ["Three rows, one summary row per city, with the individual customer rows collapsed away", "Ten rows, one per customer, each with a city total added", "One row for the whole table", "Three rows, but every customer row is also kept"], c: 0,
+      e: "GROUP BY collapses each group to a single row, so three cities give three rows and the individual customers are gone. That collapse is exactly what a window function avoids: PARTITION BY city would attach the city total to all ten rows instead.",
+      part: { url: S3_URL, label: 'Session 3 · GROUP BY' } },
+    { q: "Recall from Session 6: what does WITH cust AS (SELECT ...) create, the base that every example here builds on?",
+      o: ["A CTE: a named, readable subquery you can SELECT from as if it were a table", "A new permanent table saved in the database", "An index on the customers table", "A copy of the customers table that must be dropped afterward"], c: 0,
+      e: "WITH name AS (...) defines a CTE, a named subquery that exists just for the query it leads. Here it packages the per-customer totals once so the window functions can read from cust as if it were a plain table, without repeating the JOIN and GROUP BY.",
+      part: { url: S6_URL, label: 'Session 6 · CTEs' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // recall question: open the earlier session's workbook in a new tab (keeps this progress)
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.part.label) + ' (opens in a new tab)</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. You have window functions down. This was a bonus, so there is nothing to tick, head back to the Hub.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+
+  /* ---- Export / import ALL progress (shared across the whole site origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+</body>
+</html>

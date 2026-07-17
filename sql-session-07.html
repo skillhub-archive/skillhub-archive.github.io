@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Sprint · Session 7: Data modeling &amp; DDL</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128452;</text></svg>">
+<style>
+  :root {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+      --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+      --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+    --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+    --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (SQL leans on <>, >=, <=, !=, || which Cascadia Code would otherwise draw as glyphs) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and result grids all align (no two-column feel);
+     ~960px fills roughly half a 1920 monitor and shrinks fluidly when tiled */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 18px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .bad-out { color: var(--bad); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 110px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  /* single full-width column: bank stacks above the solution so long clauses fit without a per-line scrollbar */
+  .parsons { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 9ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 07 // Level 4 &middot; Building &amp; Changing Data</div>
+      <a class="hublink" href="sql-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Data modeling &amp; DDL</h1>
+    <p class="goal">Every table so far was handed to you as a run-once setup script. Today you turn the tables: you decide the shape of the data and <b>build the table yourself</b>. You will meet DDL (the <code>CREATE</code> / <code>ALTER</code> / <code>DROP</code> statements that define structure), SQLite type affinity, and the constraints that make a table refuse bad data: <code>NOT NULL</code>, <code>UNIQUE</code>, <code>DEFAULT</code>, <code>CHECK</code>, <code>PRIMARY KEY</code> and <code>REFERENCES</code>.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Model and build the products catalog table from scratch with every constraint working, then prove it defends itself by watching three bad inserts each fail.</span>
+
+    <div class="howto">
+      <span class="ic">sql&gt;</span>
+      <p><b>You still have <code>shop.db</code> with <code>customers</code> (ten rows) and <code>orders</code> (thirteen rows) from earlier sessions.</b> Today you add a third table, <code>products</code>, but this time nobody hands you the script: you write the <code>CREATE TABLE</code> and the <code>INSERT</code> yourself, because building it <b>is</b> the lesson. Same rhythm as always: short concept, then your turn. <b>Run every statement yourself in DB Browser</b> (or the sqlite3 shell) and watch what the table accepts and rejects.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/11</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in DB Browser (or the sqlite3 shell) before moving on, and check the box when you see the result.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. From querying to building: DDL vs DML</h3>
+      <p>Back in Session 1 you pasted a setup script full of <code>CREATE TABLE</code> and <code>INSERT</code> lines and were told to just run it, that it would be explained later. This is later. Those <code>CREATE TABLE</code> statements are <b>DDL</b>, Data Definition Language: the commands that define and change the <i>structure</i> of your database (<code>CREATE</code> to build a table, <code>ALTER</code> to change one, <code>DROP</code> to delete one). Everything else you have done since (<code>SELECT</code>, <code>INSERT</code>, and later <code>UPDATE</code> and <code>DELETE</code>) is <b>DML</b>, Data Manipulation Language: commands that read and change the <i>data</i> inside those tables. DDL builds the container; DML fills and reads it.</p>
+      <p>Before you build a table, you <b>model</b> it: decide its shape. The guiding idea is <b>one fact in one place</b>. That is why back in Session 4 the shop was split into two tables: customer facts (name, city, plan) live once in <code>customers</code>, and each order lives in <code>orders</code> with a <code>customer_id</code> pointing back, rather than copying the customer name onto every order. Part of modeling is choosing a <b>primary key</b>: one column that uniquely and stably identifies each row. A plain integer <code>id</code> is the usual choice because it never changes and is guaranteed unique. Decide the shape before you build, then the <code>CREATE TABLE</code> just writes it down.</p>
+      <p>First, make sure you still have both tables from earlier. If <code>shop.db</code> is open with <code>customers</code> and <code>orders</code>, you are set. If you lost it, run the full setup below once, then Write Changes.</p>
+      <details style="margin:0 0 14px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:12.5px;color:var(--accent)">Lost your shop.db? Open the full setup script (rebuilds customers and orders)</summary>
+<pre style="margin-top:10px"><code><span class="cm">-- start clean: build both tables in one go (this is DDL + DML, the kind you write today)</span>
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS customers;
+CREATE TABLE customers (
+  id           INTEGER PRIMARY KEY,
+  name         TEXT,
+  city         TEXT,
+  plan         TEXT,
+  monthly_fee  INTEGER,
+  signup_year  INTEGER,
+  referrer     TEXT
+);
+INSERT INTO customers VALUES
+  (1,  'Amara',  'Austin', 'Pro',   40, 2021, NULL),
+  (2,  'Ben',    'Denver', 'Basic', 20, 2022, 'Amara'),
+  (3,  'Chen',   'Austin', 'Pro',   40, 2022, 'Amara'),
+  (4,  'Diego',  'Boston', 'Basic', 20, 2021, NULL),
+  (5,  'Esi',    'Denver', 'Pro',   40, 2023, 'Ben'),
+  (6,  'Fatima', 'Austin', 'Team',  60, 2023, 'Chen'),
+  (7,  'Gita',   'Boston', 'Pro',   40, 2022, NULL),
+  (8,  'Hiro',   'Denver', 'Team',  60, 2021, 'Esi'),
+  (9,  'Iris',   'Austin', 'Team',  60, 2023, 'Amara'),
+  (10, 'Jae',    'Reno',   'Team',  60, 2022, NULL);
+CREATE TABLE orders (
+  id           INTEGER PRIMARY KEY,
+  customer_id  INTEGER REFERENCES customers(id),
+  amount       INTEGER,
+  order_year   INTEGER
+);
+INSERT INTO orders (id, customer_id, amount, order_year) VALUES
+  (1,  1, 100, 2023),(2,  1, 200, 2024),(3,  2,  50, 2023),
+  (4,  3,  50, 2022),(5,  3, 100, 2023),(6,  3, 150, 2024),
+  (7,  5, 200, 2023),(8,  6, 100, 2022),(9,  6, 100, 2024),
+  (10, 7, 150, 2023),(11, 8,  50, 2022),(12, 8, 150, 2023),
+  (13, 9, 200, 2024);</code></pre>
+      </details>
+      <p>Here is what the two tables hold, for reference as you work:</p>
+      <div class="filebox">
+        <div class="fbh">customers &middot; 10 rows (unchanged since Session 4)</div>
+<pre><code><span class="out">id  name    city    plan   monthly_fee  signup_year  referrer
+1   Amara   Austin  Pro    40           2021         NULL
+2   Ben     Denver  Basic  20           2022         Amara
+3   Chen    Austin  Pro    40           2022         Amara
+4   Diego   Boston  Basic  20           2021         NULL
+5   Esi     Denver  Pro    40           2023         Ben
+6   Fatima  Austin  Team   60           2023         Chen
+7   Gita    Boston  Pro    40           2022         NULL
+8   Hiro    Denver  Team   60           2021         Esi
+9   Iris    Austin  Team   60           2023         Amara
+10  Jae     Reno    Team   60           2022         NULL</span></code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">orders &middot; 13 rows (unchanged since Session 4)</div>
+<pre><code><span class="out">id  customer_id  amount  order_year
+1   1            100     2023
+2   1            200     2024
+3   2            50      2023
+4   3            50      2022
+5   3            100     2023
+6   3            150     2024
+7   5            200     2023
+8   6            100     2022
+9   6            100     2024
+10  7            150     2023
+11  8            50      2022
+12  8            150     2023
+13  9            200     2024</span></code></pre>
+      </div>
+      <p>You do not have to take my word for which statements built these tables. SQLite keeps the exact DDL it ran in a hidden table called <code>sqlite_master</code>. Ask it for the <code>sql</code> column and you get your <code>CREATE TABLE</code> statements back verbatim:</p>
+<pre><code><span class="cm">-- read back the DDL that built every table in the database</span>
+SELECT sql FROM sqlite_master WHERE type = 'table' ORDER BY name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; the stored CREATE TABLE statements (one row per table)</div>
+<pre><code><span class="out">CREATE TABLE customers (
+  id           INTEGER PRIMARY KEY,
+  ...
+)
+CREATE TABLE orders (
+  id           INTEGER PRIMARY KEY,
+  customer_id  INTEGER REFERENCES customers(id),
+  ...
+)</span></code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> See the DDL that built your database</div>
+        <p>Run <code>SELECT sql FROM sqlite_master WHERE type = 'table' ORDER BY name;</code> and read the two <code>CREATE TABLE</code> statements it returns. These are DDL, the same kind of statement you will write from scratch in a moment. Notice each column is listed as a name, a type, and sometimes extra keywords like <code>PRIMARY KEY</code>.</p>
+        <label class="did"><input type="checkbox" data-task="1"> I read back the CREATE statements from sqlite_master</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Storage classes and type affinity</h3>
+      <p>When you write <code>price REAL</code> or <code>id INTEGER</code> in a <code>CREATE TABLE</code>, you are declaring a type. But SQLite handles types differently from most databases, and this trips people up, so it is worth meeting head-on. Under the hood SQLite has just five <b>storage classes</b> a value can actually be stored as: <code>NULL</code>, <code>INTEGER</code>, <code>REAL</code> (a decimal number), <code>TEXT</code>, and <code>BLOB</code> (raw bytes). The type you declare on a column is treated as an <b>affinity</b>: a preference for how to store values, not a strict rule that rejects mismatches.</p>
+      <p>To see what a value was actually stored as, use the <code>typeof()</code> function: you pass it a value or column and it returns the storage-class name (<code>'integer'</code>, <code>'text'</code>, and so on) as text. Watch what an <code>INTEGER</code> column does with four different inserts. Create a scratch table, put a value in, and ask <code>typeof</code>:</p>
+<pre><code><span class="cm">-- a throwaway table with one INTEGER column, to watch affinity in action</span>
+DROP TABLE IF EXISTS demo;   <span class="cm">-- clear any earlier demo so this runs cleanly</span>
+CREATE TABLE demo (label TEXT, q INTEGER);
+INSERT INTO demo VALUES ('the text 123',  '123');
+INSERT INTO demo VALUES ('the text hello','hello');
+INSERT INTO demo VALUES ('the number 4.0', 4.0);
+INSERT INTO demo VALUES ('the number 4.9', 4.9);
+SELECT label, q, typeof(q) FROM demo;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; what an INTEGER column actually stored (rows in insert order; the label names each)</div>
+<pre><code><span class="out">label           q      typeof(q)
+the text 123    123    integer
+the text hello  hello  text
+the number 4.0  4      integer
+the number 4.9  4.9    real</span></code></pre>
+      </div>
+      <p>Read those rows carefully, because they are the whole lesson. The text <code>'123'</code> could be read as a whole number, so the <code>INTEGER</code> affinity converted it and stored the integer <code>123</code>. The text <code>'hello'</code> could not be converted, so SQLite gave up and <b>stored it as text anyway</b>. The value <code>4.0</code> was a clean whole number, so it was narrowed to the integer <code>4</code>; <code>4.9</code> was not, so it stayed a real. That third and fourth rows are the classic trap: two very similar numbers land in two different storage classes. This is the answer to the puzzled question "why did my number come back as text?" or "why did my decimal lose its point?": affinity converted what it could and stored the rest as-is.</p>
+      <p><b>Cross-database note.</b> This store-anything behavior is specific to SQLite. PostgreSQL, MySQL and SQL Server are <b>strictly typed</b>: putting <code>'hello'</code> into an integer column raises an error instead of quietly storing text. If you want that strictness in SQLite, declare the table <code>STRICT</code> (write <code>CREATE TABLE ... STRICT</code>, available since SQLite 3.37), and it will reject any value it cannot store as the declared type. For this session we use ordinary (non-strict) tables, so keep <code>typeof()</code> in your back pocket.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Watch affinity convert and not convert</div>
+        <p>Run the <code>demo</code> block above and confirm the four rows: <code>'123'</code> becomes an integer, <code>'hello'</code> stays text, <code>4.0</code> becomes an integer, and <code>4.9</code> stays real. Then, if you like, run <code>DROP TABLE demo;</code> to clean up the scratch table (that is <code>DROP</code>, the DDL that deletes a table).</p>
+        <label class="did"><input type="checkbox" data-task="2"> I used typeof() to see how an INTEGER column stored each value</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Constraints: making a table defend itself</h3>
+      <p>Now the heart of the session. A <code>CREATE TABLE</code> takes a name and then, in parentheses, a <b>column-definition list</b>: one entry per column, separated by commas. In the general form <code>CREATE TABLE name (col TYPE, col TYPE, ...)</code>, the word <code>name</code> is a placeholder for the table name you choose, and each <code>col TYPE</code> is a placeholder for a real column name and its type (you do not literally type the words <code>name</code>, <code>col</code> or <code>TYPE</code>). After a column's type you can add <b>constraints</b>: rules the table will enforce on every row, refusing any insert that breaks them. Here are the five you need, each introduced before we use it:</p>
+      <ul class="pts">
+        <li><b>NOT NULL</b> means the column can never be empty; an insert that leaves it out (and gives no default) is refused.</li>
+        <li><b>UNIQUE</b> means no two rows may share that column's value.</li>
+        <li><b>DEFAULT value</b> supplies a value to use when the insert omits the column; here <code>value</code> is a placeholder for whatever default you want, such as <code>DEFAULT 1</code>.</li>
+        <li><b>CHECK (expr)</b> refuses any row where the condition is false; <code>expr</code> is a placeholder for any boolean condition, such as <code>CHECK (price &gt; 0)</code> or a range check like <code>CHECK (rating BETWEEN 1 AND 5)</code> (<code>BETWEEN</code> is from Session 2).</li>
+        <li><b>PRIMARY KEY</b> marks the row's unique identifier; on an <code>INTEGER PRIMARY KEY</code> column SQLite also auto-assigns an id if you do not supply one.</li>
+      </ul>
+      <p>Put them together and you can model the shop's <code>products</code> catalog so the table itself guarantees the data stays clean. Read the definition top to bottom: an integer primary key, a required and unique <code>sku</code>, a required <code>name</code>, a required <code>price</code> that must be positive, and an <code>in_stock</code> flag that defaults to 1 (in stock) when an insert does not mention it:</p>
+<pre><code><span class="cm">-- model the products catalog: every column carries the rules it should obey</span>
+CREATE TABLE products (
+  id        INTEGER PRIMARY KEY,
+  sku       TEXT    NOT NULL UNIQUE,
+  name      TEXT    NOT NULL,
+  price     REAL    NOT NULL CHECK (price &gt; 0),
+  in_stock  INTEGER NOT NULL DEFAULT 1
+);</code></pre>
+      <p>Now seed it with five products. Notice the insert lists only four columns and leaves <code>in_stock</code> out on purpose, to watch the <code>DEFAULT</code> fill in:</p>
+<pre><code><span class="cm">-- five starter products; in_stock is omitted so DEFAULT 1 fills it</span>
+INSERT INTO products (id, sku, name, price) VALUES
+  (1, 'BOX-S', 'Small box',    2.50),
+  (2, 'BOX-L', 'Large box',    4.00),
+  (3, 'TAPE',  'Packing tape', 3.25),
+  (4, 'WRAP',  'Bubble wrap',  6.75),
+  (5, 'LABEL', 'Label sheet',  1.20);</code></pre>
+      <p>Run <code>SELECT * FROM products ORDER BY id;</code> and here is what you get. Two things to notice: <code>in_stock</code> is <code>1</code> on every row even though you never typed it (the <code>DEFAULT</code> did that), and the prices you wrote as <code>2.50</code> and <code>4.00</code> print as <code>2.5</code> and <code>4.0</code> because they are stored as real numbers, not as the text you typed:</p>
+      <div class="filebox">
+        <div class="fbh">result &middot; SELECT * FROM products ORDER BY id</div>
+<pre><code><span class="out">id  sku    name          price  in_stock
+1   BOX-S  Small box     2.5    1
+2   BOX-L  Large box     4.0    1
+3   TAPE   Packing tape  3.25   1
+4   WRAP   Bubble wrap   6.75   1
+5   LABEL  Label sheet   1.2    1</span></code></pre>
+      </div>
+      <p>The table now defends itself. Try to insert a second product that reuses an existing <code>sku</code> and the <code>UNIQUE</code> rule refuses it, naming the column and table that failed:</p>
+<pre><code><span class="cm">-- BOX-S already exists, so the UNIQUE rule on sku rejects this</span>
+INSERT INTO products (id, sku, name, price)
+VALUES (6, 'BOX-S', 'Another small box', 5.00);
+<span class="bad-out">Error: UNIQUE constraint failed: products.sku</span></code></pre>
+      <p><b>Aside: auto-assigned ids.</b> Because <code>id</code> is <code>INTEGER PRIMARY KEY</code>, SQLite will hand out an id for you if you omit it, so you can insert with just <code>(sku, name, price)</code> and let the id fill itself. There is a stricter variant, <code>INTEGER PRIMARY KEY AUTOINCREMENT</code>, that guarantees an id is never reused even after deletes; it is slower and rarely needed, so plain <code>INTEGER PRIMARY KEY</code> is the everyday choice. Other databases spell auto-numbering differently: MySQL uses <code>AUTO_INCREMENT</code>, PostgreSQL uses <code>SERIAL</code> or <code>IDENTITY</code>, and SQL Server uses <code>IDENTITY</code>. The constraints themselves (<code>NOT NULL</code>, <code>UNIQUE</code>, <code>DEFAULT</code>, <code>CHECK</code>, <code>PRIMARY KEY</code>) are standard across all four.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build and seed the products table</div>
+        <p>Run the <code>CREATE TABLE products</code> statement, then the five-row <code>INSERT</code>, then <code>SELECT * FROM products ORDER BY id;</code>. Confirm every <code>in_stock</code> is 1 (the default filled it) and that the prices show as <code>2.5</code>, <code>4.0</code>, <code>3.25</code>, <code>6.75</code>, <code>1.2</code>. Then run <code>SELECT sku, typeof(price) FROM products;</code> and confirm every price is stored as <code>real</code>. Remember to Write Changes so the table sticks.</p>
+        <label class="did"><input type="checkbox" data-task="3"> I created products with constraints and seeded five rows</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Foreign keys in DDL, and turning them on</h3>
+      <p>Back in Session 4 you learned that <code>orders.customer_id</code> is a <b>foreign key</b>: it holds a value that must match an <code>id</code> in <code>customers</code>, linking each order to the customer who placed it. In DDL you declare that link right on the column with <code>REFERENCES</code>, as the setup script has done all along: <code>customer_id INTEGER REFERENCES customers(id)</code>. That one clause says "the value here should be an existing <code>customers.id</code>."</p>
+      <p>Here is the gotcha, first flagged in Session 4 and worth proving now: <b>SQLite does not enforce foreign keys unless you turn them on.</b> The enforcement is off by default for each new connection, so an insert with a nonexistent customer slips in silently. You switch it on per connection with a <code>PRAGMA</code> (a SQLite setting command):</p>
+<pre><code><span class="cm">-- turn on foreign-key enforcement for this connection (off by default)</span>
+PRAGMA foreign_keys = ON;
+
+<span class="cm">-- customers only go up to id 10, so customer 999 does not exist</span>
+INSERT INTO orders (id, customer_id, amount, order_year)
+VALUES (14, 999, 50, 2024);
+<span class="bad-out">Error: FOREIGN KEY constraint failed</span></code></pre>
+      <p>With the pragma <b>on</b>, that orphan insert is refused. With it <b>off</b> (the sqlite3 command-line default), the exact same insert succeeds and you end up with an order pointing at a customer who does not exist, which is how bad data quietly creeps in. The good news: <b>DB Browser for SQLite turns foreign keys on for you</b>, so if that is your tool you are already protected; in the sqlite3 shell or from code, run the pragma yourself once per connection.</p>
+      <p><b>Aside: what happens to children when a parent is deleted.</b> You can extend a foreign key with an action, for example <code>REFERENCES customers(id) ON DELETE CASCADE</code> (delete a customer and their orders go too) or <code>ON DELETE SET NULL</code> (the orders stay but their <code>customer_id</code> becomes <code>NULL</code>). These are handy but a topic of their own, so just know the phrases for now.</p>
+      <p><b>Cross-database note.</b> The <code>REFERENCES</code> syntax is standard, but the foreign-keys-off-by-default quirk is SQLite-only. PostgreSQL, MySQL (InnoDB) and SQL Server enforce declared foreign keys automatically; there is no pragma to remember.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Turn foreign keys on and watch an orphan fail</div>
+        <p>Run <code>PRAGMA foreign_keys = ON;</code>, then try the orphan insert above (<code>customer_id</code> 999). Confirm it fails with <code>FOREIGN KEY constraint failed</code>. If you are curious, run <code>PRAGMA foreign_keys = OFF;</code> and try again to see it slip through, then turn it back <code>ON</code> and delete the stray row so orders stays at 13.</p>
+        <label class="did"><input type="checkbox" data-task="4"> I enforced foreign keys and saw an orphan order rejected</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. The milestone: build it and prove it defends itself</h3>
+      <p>Put the whole session together. From a blank editor, model and build the <code>products</code> table with every constraint, seed the five rows, then deliberately attack it three ways and watch each attack bounce off a different rule. A table you can trust is one that refuses bad data on its own, and this proves yours does.</p>
+      <p>The three attacks: a duplicate <code>sku</code> (blocked by <code>UNIQUE</code>), a zero <code>price</code> (blocked by <code>CHECK</code>), and a missing <code>name</code> (blocked by <code>NOT NULL</code>). Each fails with its own specific message, telling you exactly which rule caught it. Try the whole thing yourself before peeking.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: model, build, and stress-test products</div>
+        <p>From scratch: write the <code>CREATE TABLE products</code> with all five constraints, insert the five seed rows, then run three inserts that each break one rule (a repeated <code>sku</code>, a <code>price</code> of 0, and a row with no <code>name</code>) and confirm each is rejected with its own error. This is your Session 7 milestone.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code><span class="cm">-- 1. model and build the table</span>
+CREATE TABLE products (
+  id        INTEGER PRIMARY KEY,
+  sku       TEXT    NOT NULL UNIQUE,
+  name      TEXT    NOT NULL,
+  price     REAL    NOT NULL CHECK (price &gt; 0),
+  in_stock  INTEGER NOT NULL DEFAULT 1
+);
+
+<span class="cm">-- 2. seed five rows (in_stock omitted, DEFAULT fills it to 1)</span>
+INSERT INTO products (id, sku, name, price) VALUES
+  (1, 'BOX-S', 'Small box',    2.50),
+  (2, 'BOX-L', 'Large box',    4.00),
+  (3, 'TAPE',  'Packing tape', 3.25),
+  (4, 'WRAP',  'Bubble wrap',  6.75),
+  (5, 'LABEL', 'Label sheet',  1.20);
+
+<span class="cm">-- 3. three attacks, three refusals (run them one at a time)</span>
+INSERT INTO products (id, sku, name, price) VALUES (6, 'BOX-S', 'Dup', 5.00);
+<span class="bad-out">Error: UNIQUE constraint failed: products.sku</span>
+INSERT INTO products (id, sku, name, price) VALUES (7, 'GIFT', 'Gift', 0);
+<span class="bad-out">Error: CHECK constraint failed: price &gt; 0</span>
+INSERT INTO products (id, sku, price)       VALUES (8, 'NONAME', 3.00);
+<span class="bad-out">Error: NOT NULL constraint failed: products.name</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I built products and watched all three bad inserts fail</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each statement and <b>work out its result in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model, so don't run it first. Each drill says exactly what to answer: a single value, a row count, the full set of values (any order), values in a specific order, or, for an insert, whether it is accepted or which column the table rejects. After you check, run it yourself in DB Browser to confirm. They get harder toward the end.</p>
+    <div class="note"><b>The products table you built in Part 1, for reference:</b><br>
+<pre style="margin:8px 0 0;background:none;border:none;padding:0"><code>products
+ id | sku   | name         | price | in_stock
+  1 | BOX-S | Small box    |  2.5  |    1
+  2 | BOX-L | Large box    |  4.0  |    1
+  3 | TAPE  | Packing tape |  3.25 |    1
+  4 | WRAP  | Bubble wrap  |  6.75 |    1
+  5 | LABEL | Label sheet  |  1.2  |    1
+
+ (customers has ids 1 to 10, orders has 13 rows, both unchanged; a few drills touch them)</code></pre></div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading SQL and writing it from scratch. First reassemble scrambled statements, then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the statement (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your statement below, and tap it again to send it back. Order matters, so arrange the lines top to bottom before you check. The two lists stack full width to give every line room to read, even the long ones.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the statement in the box, reveal the reference to compare, then run yours in DB Browser (or the sqlite3 shell). The workbook can't run SQL for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asks, or <b>Needs another pass</b> to keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax and vocabulary you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> this check mixes 4 new Session 7 questions with 2 recall questions from earlier sessions (Sessions 2 and 4). The earlier-session review links open that workbook in a <b>new tab</b> (your progress here is kept); the Session 7 links scroll you up to the matching concept.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 07 of 10 &middot; Run the milestone unassisted, then tick <b>S07</b> on your <a href="sql-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; Next: <b>Session 08, changing data safely &amp; indexes</b> (Level 4).
+  </footer>
+</div>
+
+<script>
+  var STORE = "sql-s07-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    // SQL keywords are case-insensitive, so grade case-insensitively
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens (names / values); commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ---------- */
+  var DRILLS = [
+    { type: 'set', ask: "This statement builds a table. List the names of the columns it defines, separated by commas (order does not matter).", code: "CREATE TABLE products (\n  id        INTEGER PRIMARY KEY,\n  sku       TEXT    NOT NULL UNIQUE,\n  name      TEXT    NOT NULL,\n  price     REAL    NOT NULL CHECK (price > 0),\n  in_stock  INTEGER NOT NULL DEFAULT 1\n);", ans: "id, sku, name, price, in_stock", why: "A CREATE TABLE lists one column per line: a name, then its type, then any constraints. Reading just the names down the list gives five columns: id, sku, name, price and in_stock. The keywords after each name (NOT NULL, CHECK, and so on) are rules, not columns." },
+    { type: 'value', ask: "Column q is declared INTEGER. After the insert below, what does typeof(q) return? Answer with one word.", code: "DROP TABLE IF EXISTS demo;\nCREATE TABLE demo (q INTEGER);\nINSERT INTO demo (q) VALUES ('123');\nSELECT typeof(q) FROM demo;", ans: "integer", why: "SQLite treats a declared type as an affinity, a preference rather than a strict rule. The text '123' can be read as a whole number, so the INTEGER affinity converts it and stores the integer 123. typeof then reports 'integer'." },
+    { type: 'value', ask: "Same INTEGER column q. After the insert below, what does typeof(q) return? Answer with one word.", code: "DROP TABLE IF EXISTS demo;\nCREATE TABLE demo (q INTEGER);\nINSERT INTO demo (q) VALUES ('hello');\nSELECT typeof(q) FROM demo;", ans: "text", why: "'hello' cannot be read as a number, so the INTEGER affinity gives up and stores the value exactly as it arrived: as text. This store-anything behavior is why a value can surprise you, and why typeof() is worth checking." },
+    { type: 'value', ask: "The insert below leaves in_stock out of the column list. What value does the new row end up holding for in_stock?", code: "INSERT INTO products (id, sku, name, price)\nVALUES (6, 'PEN', 'Pen', 1.00);\nSELECT in_stock FROM products WHERE id = 6;", ans: "1", why: "When an insert omits a column that has a DEFAULT, the table supplies that default value. in_stock was declared DEFAULT 1, so the new row gets 1 without you writing it." },
+    { type: 'count', ask: "How many rows does this query return?", code: "SELECT * FROM products WHERE price > 2;", ans: "4", why: "Four of the five seed products cost more than 2: Small box 2.5, Large box 4.0, Packing tape 3.25 and Bubble wrap 6.75. Only Label sheet at 1.2 is at or below 2, so 4 rows come back." },
+    { type: 'seq', ask: "List the sku values in the exact order returned, separated by commas.", code: "SELECT sku FROM products ORDER BY price;", ans: "LABEL, BOX-S, TAPE, BOX-L, WRAP", why: "ORDER BY price sorts ascending by price: Label sheet 1.2, Small box 2.5, Packing tape 3.25, Large box 4.0, Bubble wrap 6.75. Their skus in that order are LABEL, BOX-S, TAPE, BOX-L, WRAP." },
+    { type: 'set', ask: "List every sku with a price below 4, separated by commas (order does not matter).", code: "SELECT sku FROM products WHERE price < 4;", ans: "BOX-S, TAPE, LABEL", why: "Three products cost less than 4: Small box 2.5 (BOX-S), Packing tape 3.25 (TAPE) and Label sheet 1.2 (LABEL). With no ORDER BY the order is not guaranteed, so any arrangement of those three skus is correct." },
+    { type: 'value', ask: "products already has a row with sku 'BOX-S'. The insert below is rejected. Name the column whose value the table refuses.", code: "INSERT INTO products (id, sku, name, price)\nVALUES (6, 'BOX-S', 'Another small box', 5.00);", ans: "sku", why: "The sku column was declared UNIQUE, so no two rows may share a sku. 'BOX-S' already exists on row 1, so the second one is refused with 'UNIQUE constraint failed: products.sku'." },
+    { type: 'value', ask: "The insert below is rejected. Name the column whose value the table refuses.", code: "INSERT INTO products (id, sku, name, price)\nVALUES (6, 'GIFT', 'Gift card', 0);", ans: "price", why: "price was declared CHECK (price > 0), so a price of 0 fails the condition and the row is refused with 'CHECK constraint failed: price > 0'. Any positive price would have inserted fine." },
+    { type: 'value', ask: "You already ran PRAGMA foreign_keys = ON. customers holds ids 1 through 10 only. Does the insert below succeed, or fail? Answer with the single word succeeds or fails.", code: "INSERT INTO orders (id, customer_id, amount, order_year)\nVALUES (14, 999, 50, 2024);", ans: "fails", why: "customer_id REFERENCES customers(id), and with foreign keys enforced there is no customer 999 for it to point at, so the row is refused with 'FOREIGN KEY constraint failed'. With the pragma OFF (the sqlite3 default) the same orphan row would slip in silently." },
+    { type: 'seq', ask: "List the sku values in the exact order returned, separated by commas.", code: "SELECT sku FROM products ORDER BY name;", ans: "WRAP, LABEL, BOX-L, TAPE, BOX-S", why: "ORDER BY name sorts by product name alphabetically: Bubble wrap, Label sheet, Large box, Packing tape, Small box. Their skus in that order are WRAP, LABEL, BOX-L, TAPE, BOX-S." }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct result</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: "Arrange the lines to create the products table: an integer primary key id, a sku that is text, required and unique, a required text name, a required real price that must be positive, and an in_stock flag that defaults to 1.",
+      lines: ['CREATE TABLE products (', '  id        INTEGER PRIMARY KEY,', '  sku       TEXT    NOT NULL UNIQUE,', '  name      TEXT    NOT NULL,', '  price     REAL    NOT NULL CHECK (price > 0),', '  in_stock  INTEGER NOT NULL DEFAULT 1', ');'] },
+    { prompt: "Arrange the lines to list the sku and price of every product cheaper than 4.00, cheapest first.",
+      lines: ['SELECT sku, price', 'FROM products', 'WHERE price < 4.00', 'ORDER BY price;'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your statement (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: "Fill the blanks so sku must be different on every row, price must be greater than zero, and in_stock becomes 1 whenever an insert leaves it out.",
+      code: "CREATE TABLE products (\n  id        INTEGER PRIMARY KEY,\n  sku       TEXT    NOT NULL %%,\n  name      TEXT    NOT NULL,\n  price     REAL    NOT NULL %% (price > 0),\n  in_stock  INTEGER NOT NULL %% 1\n);", ans: ['UNIQUE', 'CHECK', 'DEFAULT'] },
+    { prompt: "Fill the blanks so each order points at a real customer id and its amount can never be empty.",
+      code: "CREATE TABLE orders (\n  id           INTEGER PRIMARY KEY,\n  customer_id  INTEGER %% customers(id),\n  amount       INTEGER %%\n);", ans: ['REFERENCES', 'NOT NULL'] },
+    { prompt: "Fill the blanks so q stores whole numbers and the last line reports the storage class the value was actually stored as.",
+      code: "DROP TABLE IF EXISTS demo;\nCREATE TABLE demo (q %%);\nINSERT INTO demo (q) VALUES ('123');\nSELECT %%(q) FROM demo;", ans: ['INTEGER', 'typeof'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: "Model and create the products catalog table. It needs: id as an integer primary key; sku, text, required and unique; name, text and required; price, a real number, required and greater than zero; and in_stock, an integer that is required and defaults to 1.",
+      sol: "CREATE TABLE products (\n  id        INTEGER PRIMARY KEY,\n  sku       TEXT    NOT NULL UNIQUE,\n  name      TEXT    NOT NULL,\n  price     REAL    NOT NULL CHECK (price > 0),\n  in_stock  INTEGER NOT NULL DEFAULT 1\n);" },
+    { task: "Insert the five seed products into your table, giving id, sku, name and price for each and letting in_stock take its default. The five are BOX-S Small box 2.50, BOX-L Large box 4.00, TAPE Packing tape 3.25, WRAP Bubble wrap 6.75, and LABEL Label sheet 1.20.",
+      sol: "INSERT INTO products (id, sku, name, price) VALUES\n  (1, 'BOX-S', 'Small box',    2.50),\n  (2, 'BOX-L', 'Large box',    4.00),\n  (3, 'TAPE',  'Packing tape', 3.25),\n  (4, 'WRAP',  'Bubble wrap',  6.75),\n  (5, 'LABEL', 'Label sheet',  1.20);" },
+    { task: "On your own, model a coupons table from scratch: id as an integer primary key; code, text, required and unique; percent_off, an integer that is required and must be between 1 and 100 (use a CHECK with BETWEEN); and active, an integer that is required and defaults to 1.",
+      sol: "CREATE TABLE coupons (\n  id           INTEGER PRIMARY KEY,\n  code         TEXT    NOT NULL UNIQUE,\n  percent_off  INTEGER NOT NULL CHECK (percent_off BETWEEN 1 AND 100),\n  active       INTEGER NOT NULL DEFAULT 1\n);" },
+    { task: "Model a reviews table that links to your products: id as an integer primary key; product_id, an integer that must reference an existing products id; stars, an integer that is required and that a CHECK keeps between 1 and 5; and comment, text that is optional. Add a comment line noting the command that makes SQLite actually enforce the reference.",
+      sol: "-- PRAGMA foreign_keys = ON;  -- run once per connection so REFERENCES is enforced\nCREATE TABLE reviews (\n  id          INTEGER PRIMARY KEY,\n  product_id  INTEGER NOT NULL REFERENCES products(id),\n  stars       INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),\n  comment     TEXT\n);" }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="-- write your statement here, then run it in DB Browser"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in DB Browser:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek, like the Check buttons)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'The category of SQL that defines and changes table structure (CREATE, ALTER, DROP)', b: 'DDL (Data Definition Language)' },
+    { f: 'The category of SQL that reads and changes the data in tables (SELECT, INSERT, UPDATE, DELETE)', b: 'DML (Data Manipulation Language)' },
+    { f: 'The statement that builds a new table', b: 'CREATE TABLE' },
+    { f: 'The five storage classes SQLite actually stores values as', b: 'NULL, INTEGER, REAL, TEXT, BLOB' },
+    { f: 'Why the text 123 in an INTEGER column comes back as the integer 123, but hello stays text', b: 'type affinity (SQLite converts when it can, else stores as-is)' },
+    { f: 'The function that returns the storage class of a stored value', b: 'typeof()' },
+    { f: 'Constraint: this column can never be empty', b: 'NOT NULL' },
+    { f: 'Constraint: no two rows may share this column value', b: 'UNIQUE' },
+    { f: 'Constraint: supply this value when an insert omits the column', b: 'DEFAULT value' },
+    { f: 'Constraint: refuse any row where a condition is false', b: 'CHECK (expr)' },
+    { f: 'The clause that ties a child column to a parent table primary key', b: 'REFERENCES (a foreign key)' },
+    { f: 'The command you must run so SQLite actually enforces foreign keys', b: 'PRAGMA foreign_keys = ON' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz ---------- */
+  var S2_URL = 'sql-session-02.html';
+  var S4_URL = 'sql-session-04.html';
+  var QUIZ = [
+    { q: 'What is the difference between DDL and DML?',
+      o: ['DDL defines and changes table structure (CREATE, ALTER, DROP); DML reads and changes the data inside tables (SELECT, INSERT, UPDATE, DELETE)', 'DDL is for SQLite and DML is for PostgreSQL', 'DDL runs faster than DML but does the same thing', 'DML defines tables and DDL queries them'], c: 0,
+      e: 'DDL (Data Definition Language) builds and alters the containers: CREATE, ALTER, DROP. DML (Data Manipulation Language) works on the data inside them: SELECT, INSERT, UPDATE, DELETE. The setup script you ran in Session 1 was DDL plus DML.',
+      part: { id: 'concept-a', label: 'A. DDL vs DML' } },
+    { q: 'You declare a column INTEGER and insert the text ‘123’. In ordinary (non-strict) SQLite, what happens?',
+      o: ['SQLite converts it to the integer 123, because a declared type is an affinity (a preference), not a strict rule', 'SQLite raises a type error and rejects the row', 'SQLite stores the text ‘123’ and leaves it as text', 'SQLite stores NULL because the types do not match'], c: 0,
+      e: 'A declared type in SQLite is an affinity. Text that can be read as a number is converted, so ‘123’ is stored as the integer 123. Text that cannot be converted (like ‘hello’) is stored as-is. Strictly-typed databases, or a STRICT table, would reject the mismatch instead.',
+      part: { id: 'concept-b', label: 'B. Type affinity' } },
+    { q: 'Which constraint makes an INSERT fail if it would create a second row with a sku that already exists?',
+      o: ['UNIQUE, because it forbids two rows from sharing that column value', 'NOT NULL, because the sku is present', 'DEFAULT, because it fills the column in', 'CHECK, because the sku is text'], c: 0,
+      e: 'UNIQUE means no two rows may share that column value, so a repeated sku is refused with UNIQUE constraint failed: products.sku. NOT NULL only guards against an empty value; DEFAULT supplies a missing one; CHECK tests a condition you write.',
+      part: { id: 'concept-c', label: 'C. Constraints' } },
+    { q: 'You declared customer_id INTEGER REFERENCES customers(id), yet an order with a nonexistent customer_id still inserts without error. Why?',
+      o: ['SQLite does not enforce foreign keys unless PRAGMA foreign_keys = ON is set for the connection (it is off by default)', 'REFERENCES is only a comment and never enforces anything', 'The order table is missing a primary key', 'Foreign keys only work on TEXT columns'], c: 0,
+      e: 'SQLite leaves foreign-key enforcement OFF by default on each connection, so orphan rows slip in silently until you run PRAGMA foreign_keys = ON. DB Browser turns it on for you; the sqlite3 shell and code connections do not.',
+      part: { id: 'concept-d', label: 'D. Foreign keys and the pragma' } },
+    { q: 'Recall from Session 4: what does a foreign key column such as orders.customer_id actually hold?',
+      o: ['A value that matches a row’s primary key in the parent table, linking the child row to its parent', 'A brand-new unique id for the child row', 'A copy of every column from the parent row', 'Always NULL until the parent is deleted'], c: 0,
+      e: 'A foreign key stores a value that points at an existing primary key in another table, so orders.customer_id holds a customers.id. This session you declared that link in DDL with REFERENCES and made SQLite enforce it.',
+      part: { url: S4_URL, label: 'Session 4 · keys and JOINs' } },
+    { q: 'Recall from Session 2: which condition correctly finds the customers whose referrer has no value?',
+      o: ['WHERE referrer IS NULL, because NULL is tested with IS, never with =', 'WHERE referrer = NULL, which returns those rows', 'WHERE referrer != ‘’, because NULL is an empty string', 'WHERE NOT referrer, because NULL is false'], c: 0,
+      e: 'NULL means unknown, so it is never equal to anything, not even NULL; WHERE referrer = NULL returns zero rows. You must use IS NULL (or IS NOT NULL). That is the read side of the same idea a NOT NULL constraint enforces on the write side: it forbids the empty value entirely.',
+      part: { url: S2_URL, label: 'Session 2 · NULL and IS NULL' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // recall question: open the earlier session's workbook in a new tab (keeps this progress)
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.part.label) + ' (opens in a new tab)</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid, tick S07 on your Hub and ask for Session 8.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+
+  /* ---- Export / import ALL progress (shared across the whole site origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+</body>
+</html>

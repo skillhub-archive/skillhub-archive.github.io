@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Sprint · Session 4: JOINs &amp; keys</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128452;</text></svg>">
+<style>
+  :root {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+      --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+      --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+    --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+    --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (SQL leans on <>, >=, <=, !=, || which Cascadia Code would otherwise draw as glyphs) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and result grids all align (no two-column feel);
+     ~960px fills roughly half a 1920 monitor and shrinks fluidly when tiled */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 18px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 110px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  /* single full-width column: bank stacks above the solution so long clauses fit without a per-line scrollbar */
+  .parsons { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 9ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 04 // Level 2 &middot; Combining &amp; Summarizing</div>
+      <a class="hublink" href="sql-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>JOINs &amp; keys</h1>
+    <p class="goal">Real databases split data across many tables so nothing is repeated, then stitch it back together on demand. Today you meet a second table, <code>orders</code>, learn the <b>keys</b> that link tables, and use <code>JOIN</code> to answer questions that span both, including the customers who have no orders at all.</p>
+    <span class="milestone"><span class="flag">Milestone</span> For each customer, show their name and how many orders they have placed (including zero), most orders first, in one query.</span>
+
+    <div class="howto">
+      <span class="ic">sql&gt;</span>
+      <p><b>You already have <code>shop.db</code> with the ten-row <code>customers</code> table from Session 3.</b> Step one below adds a second table, <code>orders</code>, linked to your customers by a key. Then you spend the session combining the two: matching rows across tables, keeping unmatched rows on purpose, and summarizing the joined result. Same rhythm as always: predict, reassemble, fill blanks, then write from scratch. <b>Run every query yourself in DB Browser</b> as you go; that is what makes it stick.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/11</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in DB Browser (or the sqlite3 shell) before moving on, and check the box when you see the result.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. Keys, and a second table to join to</h3>
+      <p>Until now everything lived in one table. Real databases spread data across <b>many</b> tables so a fact is stored once, not repeated on every row, then recombined when you query. Two ideas make that work:</p>
+      <ul class="pts">
+        <li>A <b>primary key</b> is the column that <b>uniquely identifies each row</b> of a table. Your <code>customers.id</code> has been the primary key since Session 1 (you declared it <code>INTEGER PRIMARY KEY</code>): no two customers share an <code>id</code>.</li>
+        <li>A <b>foreign key</b> is a column in one table that <b>points at another table's primary key</b>. It is how a row here says "I belong to that row over there."</li>
+      </ul>
+      <p>So instead of jamming order details onto the customer row, you keep a separate <code>orders</code> table where each order carries a <code>customer_id</code> foreign key naming which customer placed it. Paste and run this in the <b>Execute SQL</b> tab, then click <b>Write Changes</b>. (You will write <code>CREATE</code> and <code>INSERT</code> yourself in Level 4; for now, just run it.)</p>
+      <div class="filebox">
+        <div class="fbh">add-orders.sql &middot; run once against your shop.db</div>
+<pre><code><span class="cm">-- a second table; customer_id is a foreign key pointing at customers.id</span>
+CREATE TABLE orders (
+  id           INTEGER PRIMARY KEY,
+  customer_id  INTEGER REFERENCES customers(id),
+  amount       INTEGER,
+  order_year   INTEGER
+);
+INSERT INTO orders (id, customer_id, amount, order_year) VALUES
+  (1,  1, 100, 2023),
+  (2,  1, 200, 2024),
+  (3,  2,  50, 2023),
+  (4,  3,  50, 2022),
+  (5,  3, 100, 2023),
+  (6,  3, 150, 2024),
+  (7,  5, 200, 2023),
+  (8,  6, 100, 2022),
+  (9,  6, 100, 2024),
+  (10, 7, 150, 2023),
+  (11, 8,  50, 2022),
+  (12, 8, 150, 2023),
+  (13, 9, 200, 2024);</code></pre>
+      </div>
+      <details style="margin:0 0 14px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:12.5px;color:var(--accent)">Lost your shop.db? Open the full setup script (rebuilds both tables)</summary>
+<pre style="margin-top:10px"><code><span class="cm">-- start clean: build both tables in one go</span>
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS customers;
+CREATE TABLE customers (
+  id           INTEGER PRIMARY KEY,
+  name         TEXT,
+  city         TEXT,
+  plan         TEXT,
+  monthly_fee  INTEGER,
+  signup_year  INTEGER,
+  referrer     TEXT
+);
+INSERT INTO customers VALUES
+  (1,  'Amara',  'Austin', 'Pro',   40, 2021, NULL),
+  (2,  'Ben',    'Denver', 'Basic', 20, 2022, 'Amara'),
+  (3,  'Chen',   'Austin', 'Pro',   40, 2022, 'Amara'),
+  (4,  'Diego',  'Boston', 'Basic', 20, 2021, NULL),
+  (5,  'Esi',    'Denver', 'Pro',   40, 2023, 'Ben'),
+  (6,  'Fatima', 'Austin', 'Team',  60, 2023, 'Chen'),
+  (7,  'Gita',   'Boston', 'Pro',   40, 2022, NULL),
+  (8,  'Hiro',   'Denver', 'Team',  60, 2021, 'Esi'),
+  (9,  'Iris',   'Austin', 'Team',  60, 2023, 'Amara'),
+  (10, 'Jae',    'Reno',   'Team',  60, 2022, NULL);
+CREATE TABLE orders (
+  id           INTEGER PRIMARY KEY,
+  customer_id  INTEGER REFERENCES customers(id),
+  amount       INTEGER,
+  order_year   INTEGER
+);
+INSERT INTO orders (id, customer_id, amount, order_year) VALUES
+  (1,  1, 100, 2023),(2,  1, 200, 2024),(3,  2,  50, 2023),
+  (4,  3,  50, 2022),(5,  3, 100, 2023),(6,  3, 150, 2024),
+  (7,  5, 200, 2023),(8,  6, 100, 2022),(9,  6, 100, 2024),
+  (10, 7, 150, 2023),(11, 8,  50, 2022),(12, 8, 150, 2023),
+  (13, 9, 200, 2024);</code></pre>
+      </details>
+      <p>Run <code>SELECT * FROM orders;</code> and confirm you now have <b>thirteen</b> orders. Your <code>customers</code> table is unchanged from Session 3 (still ten rows). Here is how the two tables look now:</p>
+      <div class="filebox">
+        <div class="fbh">SELECT * FROM orders; &middot; the new table (13 rows)</div>
+<pre><code><span class="out">id  customer_id  amount  order_year
+1   1            100     2023
+2   1            200     2024
+3   2            50      2023
+4   3            50      2022
+5   3            100     2023
+6   3            150     2024
+7   5            200     2023
+8   6            100     2022
+9   6            100     2024
+10  7            150     2023
+11  8            50      2022
+12  8            150     2023
+13  9            200     2024</span></code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">SELECT * FROM customers; &middot; unchanged from Session 3 (10 rows)</div>
+<pre><code><span class="out">id  name    city    plan   monthly_fee  signup_year  referrer
+1   Amara   Austin  Pro    40           2021         NULL
+2   Ben     Denver  Basic  20           2022         Amara
+3   Chen    Austin  Pro    40           2022         Amara
+4   Diego   Boston  Basic  20           2021         NULL
+5   Esi     Denver  Pro    40           2023         Ben
+6   Fatima  Austin  Team   60           2023         Chen
+7   Gita    Boston  Pro    40           2022         NULL
+8   Hiro    Denver  Team   60           2021         Esi
+9   Iris    Austin  Team   60           2023         Amara
+10  Jae     Reno    Team   60           2022         NULL</span></code></pre>
+      </div>
+      <p>Scan the <code>customer_id</code> column: orders point at customers 1, 2, 3, 5, 6, 7, 8 and 9. Customers 4 (Diego) and 10 (Jae) are named by <b>no</b> order, so they have zero orders. Keep that in mind; it is the whole reason the two kinds of join later behave differently.</p>
+      <p><b>A SQLite gotcha worth knowing now.</b> Declaring <code>customer_id INTEGER REFERENCES customers(id)</code> documents the foreign key, but <b>SQLite does not actually enforce it unless you first run <code>PRAGMA foreign_keys = ON;</code></b> in your session. Without that, SQLite would happily let you insert an order pointing at a customer that does not exist. Most other databases (PostgreSQL, MySQL, SQL Server) enforce foreign keys by default. Our data is already consistent, so nothing breaks either way here.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Add the orders table</div>
+        <p>Run the <code>add-orders.sql</code> script above and Write Changes, then run <code>SELECT * FROM orders;</code> and confirm thirteen rows. Glance at the <code>customer_id</code> values and find the two customer ids (4 and 10) that never appear.</p>
+        <label class="did"><input type="checkbox" data-task="1"> I added the orders table and found the two customers with no orders</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. INNER JOIN: combine rows that match</h3>
+      <p>An order on its own only tells you <code>customer_id 6</code>, not who that is. To pull the name from <code>customers</code> and the amount from <code>orders</code> into one result, you <b>join</b> the tables on the key that links them, with <code>JOIN ... ON</code>. Before the first join query, meet the two bits of notation it leans on, so nothing in it is a surprise.</p>
+      <p><b>Table aliases and qualified columns.</b> In a join you give each table a short <b>alias</b> with <code>AS</code>: <code>customers AS c</code> and <code>orders AS o</code> (this is the same <code>AS</code> you used to rename result columns in Session 1, now naming a table). Here <code>c</code> and <code>o</code> are names <b>we chose</b>; you could spell the tables out in full or pick other letters. You then refer to a column as <code>alias.column</code>: <code>c.name</code> means "the <code>name</code> column of the table aliased <code>c</code>," and <code>o.amount</code> means the <code>amount</code> column of <code>o</code>. The general form is <code>table.column</code>. <b>Why bother?</b> Once two tables are in play, both might have a column with the same name (both could have an <code>id</code>), and a bare <code>id</code> would be <b>ambiguous</b>: the database would not know which table you meant. Qualifying every column with its table removes all doubt, and it makes a long query readable.</p>
+      <p>Now the join itself. <code>JOIN</code> names the second table and <code>ON</code> gives the condition to match rows on, here <code>c.id = o.customer_id</code> (a customer's primary key equals the order's foreign key):</p>
+<pre><code>SELECT c.name, o.amount, o.order_year
+FROM customers AS c
+JOIN orders AS o ON c.id = o.customer_id
+WHERE c.name = 'Amara'
+ORDER BY o.amount;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; Amara's rows, name joined to each of her orders</div>
+<pre><code><span class="out">name   amount  order_year
+Amara  100     2023
+Amara  200     2024</span></code></pre>
+      </div>
+      <p>Read the whole <code>FROM</code>/<code>JOIN</code>/<code>ON</code> as one thought: start from <code>customers</code>, attach <code>orders</code>, and keep every pair of rows where the keys match. Each matching pair becomes one combined row, so Amara's two orders come back with her name filled in on both. Because every column is qualified, there is never any doubt which table a value came from.</p>
+      <p>Plain <code>JOIN</code> is short for <b><code>INNER JOIN</code></b>: the two words mean exactly the same thing. An inner join keeps <b>only</b> rows that find a match on both sides. Join the whole tables and count the result:</p>
+<pre><code>SELECT COUNT(*) FROM customers AS c
+JOIN orders AS o ON c.id = o.customer_id;   <span class="cm">-- 13: one row per matched order</span></code></pre>
+      <p>Thirteen, exactly the number of orders, because every order matches exactly one customer. But Diego and Jae, who placed no orders, <b>do not appear at all</b> in an inner join: with nothing to match, an inner join drops them. Often that is what you want; sometimes it is not, which is the next concept.</p>
+      <p>One convenience across databases: if the joining columns had the <b>same name</b> in both tables (say both were called <code>customer_id</code>), you could shorten <code>ON c.customer_id = o.customer_id</code> to <code>USING (customer_id)</code>. Our key names differ (<code>id</code> vs <code>customer_id</code>), so we use the explicit <code>ON</code>. <code>USING</code> works the same in SQLite, PostgreSQL and MySQL.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Join the two tables</div>
+        <p>Run the Amara query above and confirm her two orders come back with her name attached. Then run the <code>COUNT(*)</code> of the full join and confirm it is 13. Try changing <code>'Amara'</code> to <code>'Diego'</code> and note you get <b>no rows</b>, because Diego has no matching orders.</p>
+        <label class="did"><input type="checkbox" data-task="2"> I joined customers to orders and saw why Diego returns nothing</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. LEFT JOIN: keep the unmatched rows too</h3>
+      <p>Sometimes the rows with <b>no</b> match are exactly the ones you care about, for example "which customers have never ordered?" An inner join can never answer that, because it already threw those customers away. A <b><code>LEFT JOIN</code></b> (full name <code>LEFT OUTER JOIN</code>) fixes this: it keeps <b>every row from the left table</b> (the one in <code>FROM</code>), matched or not. When a left row has no match, the right-side columns come back as <code>NULL</code>, the "missing value" marker you met in Session 2.</p>
+<pre><code>SELECT c.name, o.id AS order_id, o.amount
+FROM customers AS c
+LEFT JOIN orders AS o ON c.id = o.customer_id
+WHERE c.city = 'Boston'
+ORDER BY c.name, o.amount;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; Diego is kept, with NULLs where an order would be</div>
+<pre><code><span class="out">name   order_id  amount
+Diego  NULL      NULL
+Gita   10        150</span></code></pre>
+      </div>
+      <p>Diego stays in the result even though he has no order; his <code>order_id</code> and <code>amount</code> are <code>NULL</code> because there was nothing on the right to fill them. With a plain <code>JOIN</code>, Diego's row would be gone entirely. That is the whole difference: <b>INNER JOIN keeps only matches; LEFT JOIN keeps every left row and pads the misses with <code>NULL</code></b>. Count the two joins over the full tables and you can see it directly:</p>
+      <ul class="pts">
+        <li><code>JOIN</code> (inner): <b>13 rows</b>, one per order.</li>
+        <li><code>LEFT JOIN</code>: <b>15 rows</b>, the same 13 plus one <code>NULL</code>-padded row each for Diego and Jae.</li>
+      </ul>
+      <p>Because the misses are exactly the rows where the right side is <code>NULL</code>, you find the non-matches by testing the right table's key with <code>IS NULL</code> (recall from Session 2 that you test for a missing value with <code>IS NULL</code>, never <code>= NULL</code>):</p>
+<pre><code>SELECT c.name
+FROM customers AS c
+LEFT JOIN orders AS o ON c.id = o.customer_id
+WHERE o.id IS NULL
+ORDER BY c.name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; the customers with zero orders</div>
+<pre><code><span class="out">name
+Diego
+Jae</span></code></pre>
+      </div>
+      <p>This "LEFT JOIN then <code>WHERE right_key IS NULL</code>" is a standard pattern for "things on the left with nothing on the right," and worth memorizing.</p>
+      <p><b>A note on the other directions.</b> A <code>RIGHT JOIN</code> keeps every row from the <i>right</i> table instead, and a <code>FULL OUTER JOIN</code> keeps unmatched rows from <i>both</i> sides. SQLite only gained <code>RIGHT</code> and <code>FULL OUTER JOIN</code> in version 3.39 (mid-2022), and PostgreSQL and SQL Server have had both for years; MySQL has <code>RIGHT JOIN</code> but still has no <code>FULL OUTER JOIN</code> (there you emulate it by uniting a <code>LEFT JOIN</code> and a <code>RIGHT JOIN</code>). In practice you rarely need them, because any <code>RIGHT JOIN</code> can be rewritten as a <code>LEFT JOIN</code> by swapping the table order, so <code>LEFT JOIN</code> is the one to know cold.</p>
+      <p><b>Chaining more than two tables (a look ahead, not today's work).</b> You are not limited to two tables. If a third table shared a key, you would add another <code>JOIN ... ON</code> naming the next key, and the same matching rules apply to each join in turn:</p>
+<pre><code><span class="cm">-- shape only: we have no payments table, so there is no result to run here</span>
+SELECT c.name, o.amount, p.method
+FROM customers AS c
+JOIN orders AS o ON c.id = o.customer_id
+JOIN payments AS p ON o.id = p.order_id;   <span class="cm">-- each JOIN links on the next key</span></code></pre>
+      <p>That is the pattern for when you need it; you will chain joins like this in the capstone (Session 10). For now, two tables is plenty.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> See the difference for yourself</div>
+        <p>Run <code>SELECT COUNT(*)</code> once with a plain <code>JOIN</code> and once with a <code>LEFT JOIN</code> over the full tables, and confirm you get 13 then 15. Then run the <code>WHERE o.id IS NULL</code> query and confirm it lists Diego and Jae.</p>
+        <label class="did"><input type="checkbox" data-task="3"> I saw inner give 13, left give 15, and listed the zero-order customers</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Summarize across a join</h3>
+      <p>Everything from Session 3 (<code>COUNT</code>, <code>SUM</code>, <code>AVG</code>, <code>GROUP BY</code>) works on a joined result just as it did on one table: join first, then group and aggregate. To total each customer's spending and count their orders, group by the customer:</p>
+<pre><code>SELECT c.name, COUNT(*) AS orders, SUM(o.amount) AS spent
+FROM customers AS c
+JOIN orders AS o ON c.id = o.customer_id
+GROUP BY c.id, c.name
+ORDER BY c.name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; one row per customer who ordered (inner join, so 8 rows)</div>
+<pre><code><span class="out">name    orders  spent
+Amara   2       300
+Ben     1       50
+Chen    3       300
+Esi     1       200
+Fatima  2       200
+Gita    1       150
+Hiro    2       200
+Iris    1       200</span></code></pre>
+      </div>
+      <p>Only eight customers appear: it is an inner join, so Diego and Jae (no orders) are absent. Grouping by <code>c.id, c.name</code> rather than just <code>c.name</code> is a good habit, since <code>id</code> is the truly unique key and two customers could in principle share a name.</p>
+      <p><b>The <code>COUNT</code> trap after a LEFT JOIN.</b> Suppose you want <b>every</b> customer's order count, including the zeros. You reach for a <code>LEFT JOIN</code> to keep Diego and Jae, but now <b>which count you use matters</b>. Remember from Session 3 that <code>COUNT(*)</code> counts rows while <code>COUNT(col)</code> skips <code>NULL</code>s. After a LEFT JOIN, a no-match customer still occupies one row, filled with <code>NULL</code>s, so:</p>
+<pre><code>SELECT c.name, COUNT(*) AS with_star, COUNT(o.id) AS with_id
+FROM customers AS c
+LEFT JOIN orders AS o ON c.id = o.customer_id
+GROUP BY c.id, c.name
+ORDER BY c.name;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; look at Diego and Jae</div>
+<pre><code><span class="out">name    with_star  with_id
+Amara   2          2
+Ben     1          1
+Chen    3          3
+Diego   1          0
+Esi     1          1
+Fatima  2          2
+Gita    1          1
+Hiro    2          2
+Iris    1          1
+Jae     1          0</span></code></pre>
+      </div>
+      <p><code>COUNT(*)</code> reports <b>1</b> for Diego and Jae, counting the single <code>NULL</code>-filled row the LEFT JOIN produced, which is wrong for "how many orders." <code>COUNT(o.id)</code> reports <b>0</b>, because it skips that <code>NULL</code>. <b>So after a LEFT JOIN, count a real column from the right table (<code>COUNT(o.id)</code>), not <code>COUNT(*)</code>, whenever the zero-match rows must read as zero.</b> This is the same NULL-skipping rule from Session 3, biting in a new place.</p>
+      <p>Grouping works on any joined column, including one from the left table. Total revenue per city (inner join, so a city whose only customers never ordered simply will not appear):</p>
+<pre><code>SELECT c.city, SUM(o.amount) AS revenue
+FROM customers AS c
+JOIN orders AS o ON c.id = o.customer_id
+GROUP BY c.city
+ORDER BY revenue DESC;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; Reno is absent (its only customer, Jae, never ordered)</div>
+<pre><code><span class="out">city    revenue
+Austin  1000
+Denver  450
+Boston  150</span></code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Count and total across the join</div>
+        <p>Run the per-customer <code>orders</code>/<code>spent</code> query and confirm Chen shows 3 orders totalling 300. Then run the <code>with_star</code> vs <code>with_id</code> query and confirm Diego reads 1 then 0. That contrast is the point of the concept.</p>
+        <label class="did"><input type="checkbox" data-task="4"> I aggregated across the join and saw COUNT(*) vs COUNT(o.id) differ on the zero rows</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Put it together: the milestone</h3>
+      <p>Your milestone stacks the whole session into one query: keep every customer (LEFT JOIN), count each one's orders correctly including the zeros (<code>COUNT(o.id)</code>), one row per customer (<code>GROUP BY</code>), busiest first (<code>ORDER BY</code>). Because <code>ORDER BY</code> runs last it can sort by the aggregate alias you defined:</p>
+<pre><code>SELECT c.name, COUNT(o.id) AS orders
+FROM customers AS c
+LEFT JOIN orders AS o ON c.id = o.customer_id
+GROUP BY c.id, c.name
+ORDER BY orders DESC, c.name;   <span class="cm">-- most orders first, ties A to Z by name</span></code></pre>
+      <div class="filebox">
+        <div class="fbh">result &middot; all 10 customers, zero-order ones included at the bottom</div>
+<pre><code><span class="out">name    orders
+Chen    3
+Amara   2
+Fatima  2
+Hiro    2
+Ben     1
+Esi     1
+Gita    1
+Iris    1
+Diego   0
+Jae     0</span></code></pre>
+      </div>
+      <p>The <code>, c.name</code> second sort key breaks the ties (all the 2s and all the 1s) so the order is fully determined. Diego and Jae land at the bottom with 0, which is only possible because you used a LEFT JOIN and <code>COUNT(o.id)</code>. Write this one from a blank editor.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone query</div>
+        <p>From a blank editor, write one query that returns, <b>for each customer</b>, the <code>name</code> and their <b>number of orders</b> aliased <code>orders</code>, <b>including customers with zero orders</b>, sorted <b>most orders first</b> (break ties by name). This is your Session 4 milestone: LEFT JOIN plus GROUP BY, COUNT and ORDER BY in one query. Try it before peeking.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>SELECT c.name, COUNT(o.id) AS orders
+FROM customers AS c
+LEFT JOIN orders AS o ON c.id = o.customer_id
+GROUP BY c.id, c.name
+ORDER BY orders DESC, c.name;</code></pre>
+        <div class="filebox">
+          <div class="fbh">result</div>
+<pre><code><span class="out">name    orders
+Chen    3
+Amara   2
+Fatima  2
+Hiro    2
+Ben     1
+Esi     1
+Gita    1
+Iris    1
+Diego   0
+Jae     0</span></code></pre>
+        </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I wrote and ran this myself</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each query and <b>work out its result in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model, so don't run it first. Each drill says exactly what to answer: a single value, a row count, the full set of values (any order), or values in a specific order. After you check, run it yourself in DB Browser to confirm. They get harder toward the end.</p>
+    <div class="note"><b>The two tables these query, for reference:</b><br>
+<pre style="margin:8px 0 0;background:none;border:none;padding:0"><code>customers                                                      orders
+ id | name   | city   | plan  | monthly_fee | referrer          id | customer_id | amount | order_year
+  1 | Amara  | Austin | Pro   |     40      | NULL               1 |      1      |  100   |    2023
+  2 | Ben    | Denver | Basic |     20      | Amara              2 |      1      |  200   |    2024
+  3 | Chen   | Austin | Pro   |     40      | Amara              3 |      2      |   50   |    2023
+  4 | Diego  | Boston | Basic |     20      | NULL               4 |      3      |   50   |    2022
+  5 | Esi    | Denver | Pro   |     40      | Ben                5 |      3      |  100   |    2023
+  6 | Fatima | Austin | Team  |     60      | Chen               6 |      3      |  150   |    2024
+  7 | Gita   | Boston | Pro   |     40      | NULL               7 |      5      |  200   |    2023
+  8 | Hiro   | Denver | Team  |     60      | Esi                8 |      6      |  100   |    2022
+  9 | Iris   | Austin | Team  |     60      | Amara              9 |      6      |  100   |    2024
+ 10 | Jae    | Reno   | Team  |     60      | NULL              10 |      7      |  150   |    2023
+                                                                11 |      8      |   50   |    2022
+ (customers 4 and 10 are named by no order)                     12 |      8      |  150   |    2023
+                                                                13 |      9      |  200   |    2024</code></pre></div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading SQL and writing it from scratch. First reassemble scrambled queries, then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the query (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your query below, and tap it again to send it back. Order matters, so arrange the lines top to bottom before you check. The two lists stack full width to give every line room to read, even the long ones.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the query in the box, reveal the reference to compare, then run yours in DB Browser (or the sqlite3 shell). The workbook can't run SQL for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours returns the right result, or <b>Needs another pass</b> to keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax and vocabulary you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> this check mixes 4 new Session 4 questions with 2 recall questions from earlier sessions (Sessions 2 and 3). The earlier-session review links open that workbook in a <b>new tab</b> (your progress here is kept); the Session 4 links scroll you up to the matching concept.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 04 of 10 &middot; Run the milestone query unassisted, then tick <b>S04</b> on your <a href="sql-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; Next: <b>Session 05, subqueries &amp; derived tables</b> (Level 3).
+  </footer>
+</div>
+
+<script>
+  var STORE = "sql-s04-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    // SQL keywords are case-insensitive, so grade case-insensitively
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens (names / values); commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ---------- */
+  var DRILLS = [
+    { type: 'count', ask: 'How many ROWS does this query return?', code: 'SELECT c.name, o.amount\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id;', ans: '13', why: 'A plain JOIN is an inner join: it keeps only rows that match on both sides. Every one of the 13 orders matches exactly one customer, and the two customers with no orders are dropped, so the result has 13 rows.' },
+    { type: 'value', ask: 'What single name comes back?', code: 'SELECT c.name\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nWHERE o.id = 7;', ans: 'Esi', why: 'Order 7 has customer_id 5, and the ON condition pairs it with the customer whose id is 5, which is Esi. Qualifying with o.id and c.name keeps the two id columns straight.' },
+    { type: 'count', ask: 'How many ROWS does this query return?', code: 'SELECT c.name, o.amount\nFROM customers AS c\nLEFT JOIN orders AS o ON c.id = o.customer_id;', ans: '15', why: 'A LEFT JOIN keeps every one of the 10 customers. Eight of them account for the 13 matched order rows, and the two with no orders (Diego, Jae) each contribute one NULL-padded row, so 13 plus 2 is 15.' },
+    { type: 'set', ask: 'List every name in the result, separated by commas (order does not matter).', code: 'SELECT c.name\nFROM customers AS c\nLEFT JOIN orders AS o ON c.id = o.customer_id\nWHERE o.id IS NULL;', ans: 'Diego, Jae', why: 'The LEFT JOIN keeps unmatched customers with NULL on the right. Testing o.id IS NULL keeps exactly those unmatched rows, the customers who placed no orders: Diego and Jae.' },
+    { type: 'set', ask: 'List every name in the result, separated by commas (order does not matter).', code: "SELECT c.name\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nWHERE o.amount >= 200;", ans: 'Amara, Esi, Iris', why: 'The join pairs each order with its customer, then WHERE keeps only orders of 200 or more. Three orders qualify (all exactly 200), belonging to Amara, Esi and Iris.' },
+    { type: 'value', ask: 'What single number does this return?', code: "SELECT SUM(o.amount)\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nWHERE c.city = 'Austin';", ans: '1000', why: 'WHERE keeps only orders whose customer is in Austin (Amara, Chen, Fatima, Iris). SUM adds those order amounts: 100+200 + 50+100+150 + 100+100 + 200 = 1000.' },
+    { type: 'value', ask: 'The result has one row per city. What revenue does the Denver row show?', code: 'SELECT c.city, SUM(o.amount) AS revenue\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nGROUP BY c.city;', ans: '450', why: 'Grouping by city sums the order amounts of each city’s customers. Denver’s orders are Ben 50, Esi 200 and Hiro 50+150, which total 450.' },
+    { type: 'seq', ask: 'List the names in the exact order returned, separated by commas.', code: 'SELECT c.name, COUNT(*) AS n\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nGROUP BY c.id, c.name\nORDER BY n DESC, c.name\nLIMIT 3;', ans: 'Chen, Amara, Fatima', why: 'One row per customer who ordered, sorted by order count high to low then by name. Chen has 3; Amara, Fatima and Hiro all have 2, so name breaks the tie and the top 3 are Chen, Amara, Fatima.' },
+    { type: 'value', ask: 'This LEFT JOIN gives one row per customer. What order count does the Diego row show?', code: 'SELECT c.name, COUNT(o.id) AS orders\nFROM customers AS c\nLEFT JOIN orders AS o ON c.id = o.customer_id\nGROUP BY c.id, c.name;', ans: '0', why: 'Diego has no orders, so his LEFT JOIN row has a NULL o.id. COUNT(o.id) skips NULLs, so it counts 0. (COUNT(*) would have wrongly shown 1 by counting the padded row.)' },
+    { type: 'set', ask: 'List every city in the result, separated by commas (order does not matter).', code: 'SELECT c.city\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nGROUP BY c.city;', ans: 'Austin, Boston, Denver', why: 'A plain JOIN keeps only customers who ordered, then GROUP BY returns one row per remaining city. Reno drops out entirely because its only customer, Jae, never ordered, so three cities remain.' },
+    { type: 'seq', ask: 'List the cities in the exact order returned, separated by commas.', code: 'SELECT c.city, SUM(o.amount) AS revenue\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nGROUP BY c.city\nORDER BY revenue DESC;', ans: 'Austin, Denver, Boston', why: 'One row per city with matched orders, sorted by total revenue high to low: Austin 1000, Denver 450, Boston 150. The totals are all different, so ORDER BY fully fixes the order.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct result</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'List each customer name alongside each order amount they placed, sorted by name then amount.',
+      lines: ['SELECT c.name, o.amount', 'FROM customers AS c', 'JOIN orders AS o ON c.id = o.customer_id', 'ORDER BY c.name, o.amount;'] },
+    { prompt: 'For each customer, show the name and how many orders they placed, including customers with none, most orders first (ties by name).',
+      lines: ['SELECT c.name, COUNT(o.id) AS orders', 'FROM customers AS c', 'LEFT JOIN orders AS o ON c.id = o.customer_id', 'GROUP BY c.id, c.name', 'ORDER BY orders DESC, c.name;'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your query (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so this pairs each customer with each of their orders and shows the name and amount.',
+      code: "SELECT c.name, o.amount\nFROM customers AS c\n%% orders AS o %% c.id = o.customer_id;", ans: ['JOIN', 'ON'] },
+    { prompt: 'Fill the blanks so this keeps every customer and lists only those who placed no orders.',
+      code: 'SELECT c.name\nFROM customers AS c\nLEFT JOIN orders AS o ON c.id = o.customer_id\nWHERE o.id %% %%;', ans: ['IS', 'NULL'] },
+    { prompt: 'Fill the blanks so this counts each customer’s orders (zero-order customers included) as one row per customer.',
+      code: 'SELECT c.name, COUNT(%%) AS orders\nFROM customers AS c\nLEFT JOIN orders AS o ON c.id = o.customer_id\n%% %% c.id, c.name;', ans: ['o.id', 'GROUP', 'BY'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Write a query that shows each customer name next to the amount of each order they placed. Use an inner join, so customers with no orders are left out.',
+      sol: 'SELECT c.name, o.amount\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id;' },
+    { task: 'Write a query that lists the names of customers who have placed at least one order of 150 or more. Each qualifying customer should appear once.',
+      sol: "SELECT DISTINCT c.name\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nWHERE o.amount >= 150;" },
+    { task: 'Write a query that shows each city and its total order revenue (sum of amounts), one row per city, highest revenue first. Use an inner join.',
+      sol: 'SELECT c.city, SUM(o.amount) AS revenue\nFROM customers AS c\nJOIN orders AS o ON c.id = o.customer_id\nGROUP BY c.city\nORDER BY revenue DESC;' },
+    { task: 'Write a query that shows every customer name and their number of orders, including customers with zero orders, fewest orders first.',
+      sol: 'SELECT c.name, COUNT(o.id) AS orders\nFROM customers AS c\nLEFT JOIN orders AS o ON c.id = o.customer_id\nGROUP BY c.id, c.name\nORDER BY orders ASC, c.name;' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="-- write your query here, then run it in DB Browser"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in DB Browser:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek, like the Check buttons)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'The column that uniquely identifies each row of a table', b: 'primary key' },
+    { f: 'A column that points at another table’s primary key', b: 'foreign key' },
+    { f: 'Keyword that combines rows from two tables on a matching condition', b: 'JOIN' },
+    { f: 'The keyword that introduces a join’s matching condition (c.id = o.customer_id)', b: 'ON' },
+    { f: 'Join that keeps only rows with a match on both sides', b: 'INNER JOIN' },
+    { f: 'Join that keeps every row from the left table, padding misses with NULL', b: 'LEFT JOIN' },
+    { f: 'After a LEFT JOIN, an unmatched left row holds this on its right-side columns', b: 'NULL' },
+    { f: 'The WHERE test that lists left rows with no match', b: 'o.id IS NULL' },
+    { f: 'The short name given to a table after AS, used to qualify its columns', b: 'alias' },
+    { f: 'After a LEFT JOIN, which count reports 0 (not 1) for a no-match row?', b: 'COUNT(o.id)' },
+    { f: 'What SQLite needs before it will enforce foreign keys', b: 'PRAGMA foreign_keys = ON' },
+    { f: 'Shorthand for ON when the key column has the same name in both tables', b: 'USING (col)' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz ---------- */
+  var S2_URL = 'sql-session-02.html';
+  var S3_URL = 'sql-session-03.html';
+  var QUIZ = [
+    { q: 'An INNER JOIN of customers to orders returns 13 rows but a LEFT JOIN returns 15. Why the difference?',
+      o: ['LEFT JOIN also keeps the customers with no matching order, padding their right-side columns with NULL; INNER JOIN drops them', 'LEFT JOIN duplicates two rows at random', 'INNER JOIN counts every column twice', 'A LEFT JOIN always returns two more rows than an inner join'], c: 0,
+      e: 'An inner join keeps only matched rows (the 13 orders). A LEFT JOIN keeps every left-table row too, so the 2 customers with no orders each add one NULL-padded row: 13 + 2 = 15.',
+      part: { id: 'concept-c', label: 'C. LEFT JOIN vs INNER JOIN' } },
+    { q: 'Why do you write the join condition as c.id = o.customer_id, with the table aliases in front of each column?',
+      o: ['To say which table each column comes from; an unqualified id would be ambiguous across the two tables', 'Because SQL requires every column to start with a letter', 'The prefixes rename the columns permanently', 'It sorts the output by table name'], c: 0,
+      e: 'c and o are table aliases; c.id and o.customer_id spell out exactly which table each column belongs to. Without qualifying, a bare id could mean either table and the query is ambiguous.',
+      part: { id: 'concept-b', label: 'B. Qualifying columns in a join' } },
+    { q: 'After a LEFT JOIN, why count each customer’s orders with COUNT(o.id) rather than COUNT(*)?',
+      o: ['COUNT(*) counts the NULL-padded no-match row as 1, while COUNT(o.id) skips NULLs so zero-order customers correctly read 0', 'COUNT(*) is not allowed after a join', 'COUNT(o.id) runs faster but gives the same numbers', 'They differ only when there are duplicate ids'], c: 0,
+      e: 'A no-match customer still occupies one LEFT JOIN row, filled with NULLs. COUNT(*) counts that row as 1; COUNT(o.id) skips the NULL and reports the true count of 0. This is Session 3’s NULL-skipping rule again.',
+      part: { id: 'concept-d', label: 'D. COUNT(*) vs COUNT(o.id)' } },
+    { q: 'What is a foreign key?',
+      o: ['A column in one table that references another table’s primary key', 'A key that must be unique in every table', 'A password protecting the database', 'The first column of any table'], c: 0,
+      e: 'A foreign key is a column whose values point at another table’s primary key (here orders.customer_id references customers.id). It is how rows in one table link to rows in another.',
+      part: { id: 'concept-a', label: 'A. Primary and foreign keys' } },
+    { q: 'Recall from Session 3: you want only the groups whose COUNT(*) is 2 or more. Which clause filters on that, and why not WHERE?',
+      o: ['HAVING, because it runs after grouping and can see the aggregate; WHERE runs before groups exist', 'WHERE, because it can test COUNT(*) directly', 'ORDER BY, by sorting the small groups out', 'DISTINCT, to remove the extra groups'], c: 0,
+      e: 'WHERE filters rows before groups are formed, so it cannot see COUNT(*). HAVING runs after GROUP BY and is the clause for filtering whole groups by an aggregate.',
+      part: { url: S3_URL, label: 'Session 3 · HAVING vs WHERE' } },
+    { q: 'Recall from Session 2: how do you test whether a column has no value?',
+      o: ['With IS NULL (or IS NOT NULL); = NULL never matches, because NULL is not equal to anything', 'With = NULL', 'With == NULL', 'With NULL()'], c: 0,
+      e: 'NULL means missing, and it is not equal to anything, not even itself, so = NULL returns no rows. You test for it with IS NULL / IS NOT NULL, which is exactly how the LEFT JOIN non-match pattern finds its rows.',
+      part: { url: S2_URL, label: 'Session 2 · IS NULL' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            if (item.part.url) {
+              // recall question: open the earlier session's workbook in a new tab (keeps this progress)
+              bl.innerHTML = '<a class="pt" href="' + item.part.url + '" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.part.label) + ' (opens in a new tab)</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid, tick S04 on your Hub and ask for Session 5.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+
+  /* ---- Export / import ALL progress (shared across the whole site origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+</body>
+</html>

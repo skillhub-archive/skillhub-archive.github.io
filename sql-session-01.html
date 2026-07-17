@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Sprint · Session 1: The relational model &amp; SELECT</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128452;</text></svg>">
+<style>
+  :root {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+      --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+      --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
+    --ink-soft: #45524F; --ink-faint: #7B8A87; --border: #D3E0DE; --accent: #0D7C88;
+    --accent-soft: #DAEFF0; --gold: #A16A10; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
+    --good: #1F8A5B; --good-soft: #E2F2EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
+    --ink-soft: #A6B4B1; --ink-faint: #6E7D79; --border: #21322F; --accent: #17A093;
+    --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type
+     (SQL leans on <>, >=, <=, !=, || which Cascadia Code would otherwise draw as glyphs) */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and result grids all align (no two-column feel);
+     ~960px fills roughly half a 1920 monitor and shrinks fluidly when tiled */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 18px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  .out { color: var(--good); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 110px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: #fff; }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons */
+  /* single full-width column: bank stacks above the solution so long clauses fit without a per-line scrollbar */
+  .parsons { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 120px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); counter-increment: step; }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 9ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-faint); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 01 // Level 1 &middot; Foundations</div>
+      <a class="hublink" href="sql-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>The relational model &amp; SELECT</h1>
+    <p class="goal">Every question you ask a database starts with <code>SELECT</code>. Today you get SQLite running, meet tables, rows and columns, and write SELECT queries that pull and shape exactly the data you want. You don't just read them, you run them.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Write and run a SELECT that returns just the columns you want, computed and limited, unassisted.</span>
+
+    <div class="howto">
+      <span class="ic">sql&gt;</span>
+      <p><b>Step one below sets up a free tool to run SQL, no experience needed.</b> This is a workbook, not a reading. You'll predict results, reassemble queries, fill blanks, and write from scratch, each part hands you less scaffolding than the last. Reading SQL is like hearing a question answered; <b>writing the query yourself</b> is what makes it stick.</p>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/11</div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/12</div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">5</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in DB Browser (or the sqlite3 shell) before moving on, and check the box when you see the result.</p>
+
+    <div class="block" id="concept-a">
+      <h3>A. What a relational database is, and getting SQLite running</h3>
+      <p>A <b>database</b> is an organized collection of data. A <b>relational database</b> keeps that data in <b>tables</b>. A table is rows and columns, like a spreadsheet tab but with rules:</p>
+      <ul class="pts">
+        <li>A <b>row</b> (also called a <i>record</i>) is one thing: one customer, one order.</li>
+        <li>A <b>column</b> (also called a <i>field</i>) is one attribute: a name, a city. Every value in a column is the same kind of data.</li>
+        <li>A <b>primary key</b> is a column whose value is unique for each row (here, <code>id</code>), so you can point at exactly one row. Keys get real depth in Level 2 and Level 4; for now, just know <code>id</code> is what makes each row unique.</li>
+      </ul>
+      <p><b>SQL</b> is Structured Query Language, the language you use to ask a relational database questions (and later, to change it). A <b>query</b> is just a question you ask the database. "SQL" is said either "sequel" or "S-Q-L", both are fine.</p>
+      <p>We use <b>SQLite</b>: a tiny relational database that ships with Python, so the database engine itself needs nothing installed. A whole SQLite database is just a single file on your computer (for example <code>shop.db</code>). What you do need is a <b>tool to type SQL into and see the results</b>. You have not used one before, so let's set one up now, it is a one-time step for the whole sprint.</p>
+      <p><b>Recommended: DB Browser for SQLite.</b> It is a free desktop app that gives you a window into a database file, with a box to type SQL and a grid to show what comes back. It is the friendliest way to start:</p>
+      <ul class="pts">
+        <li>Go to <code>sqlitebrowser.org</code>, click <b>Download</b>, and get the Windows installer (the "standard installer" is fine). Install it, then open <b>DB Browser for SQLite</b>.</li>
+        <li>Click <b>New Database</b>, give it a name like <code>shop.db</code>, and save it somewhere you will find again. If an "Edit table definition" pop-up appears, click <b>Cancel</b>, we will create our table with SQL instead.</li>
+        <li>Click the <b>Execute SQL</b> tab. That is where you type or paste SQL. Run it with the blue &#9654; play button (or press <code>Ctrl+Enter</code>). Results from a SELECT show in a grid at the bottom.</li>
+        <li><b>One gotcha:</b> DB Browser does not save changes to the file until you click <b>Write Changes</b> in the top toolbar. Do that after you add or change data. Just reading with SELECT never needs it.</li>
+      </ul>
+      <p><b>Two other options</b>, named so you recognize them if you see them: the <code>sqlite3</code> <b>shell</b> is a command-line program (you type <code>sqlite3 shop.db</code> in a terminal to get a <code>sqlite&gt;</code> prompt); and because you already have VS Code with Python, you can run SQL from a short Python script using the built-in <code>sqlite3</code> module, which is exactly what Level 5 covers. For now, DB Browser is the simplest, stick with it.</p>
+      <p>SQL is a standard, but each database (SQLite, PostgreSQL, MySQL) has small differences. We use SQLite, and I'll flag where Postgres or MySQL do it differently. One thing you'll see below: <code>--</code> starts a <b>comment</b> in SQL (the rest of that line is a note for humans, ignored by the database).</p>
+      <p>Run this setup script once to build the sample table we'll use all session. You'll learn to <i>write</i> <code>CREATE</code> and <code>INSERT</code> yourself in Level 4, for now just paste and run it:</p>
+      <div class="filebox">
+        <div class="fbh">setup.sql &middot; run once to load the data</div>
+<pre><code><span class="cm">-- create the table (its columns and their types)</span>
+CREATE TABLE customers (
+  id           INTEGER PRIMARY KEY,
+  name         TEXT,
+  city         TEXT,
+  plan         TEXT,
+  monthly_fee  INTEGER,
+  signup_year  INTEGER
+);
+
+<span class="cm">-- put five rows of data into it</span>
+INSERT INTO customers VALUES
+  (1, 'Amara', 'Austin', 'Pro',   40, 2021),
+  (2, 'Ben',   'Denver', 'Basic', 20, 2022),
+  (3, 'Chen',  'Austin', 'Pro',   40, 2022),
+  (4, 'Diego', 'Boston', 'Basic', 20, 2021),
+  (5, 'Esi',   'Denver', 'Pro',   40, 2023);</code></pre>
+      </div>
+      <p>Now look at everything in it. <code>SELECT * FROM customers;</code> reads back every column of every row:</p>
+      <div class="filebox">
+        <div class="fbh">SELECT * FROM customers; &middot; the result grid</div>
+<pre><code><span class="out">id  name   city    plan   monthly_fee  signup_year
+1   Amara  Austin  Pro    40           2021
+2   Ben    Denver  Basic  20           2022
+3   Chen   Austin  Pro    40           2022
+4   Diego  Boston  Basic  20           2021
+5   Esi    Denver  Pro    40           2023</span></code></pre>
+      </div>
+      <p>The rows here appear in the order SQLite happened to return them. A database does not promise any particular row order unless you ask for one, so you'll take control of ordering with <code>ORDER BY</code> in Session 2. For now, don't read anything into which row comes first.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Set up your tool and load the data</div>
+        <p>Install and open DB Browser for SQLite, create a new database (<code>shop.db</code>), then in the <b>Execute SQL</b> tab paste and run the <code>setup.sql</code> script above (click <b>Write Changes</b> to save it). Then run <code>SELECT * FROM customers;</code> and confirm all 5 rows appear in the results grid.</p>
+        <label class="did"><input type="checkbox" data-task="1"> I set up the tool, loaded the data, and saw the 5 rows</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. SELECT ... FROM: asking for columns</h3>
+      <p>The core read query is <code>SELECT &lt;columns&gt; FROM &lt;table&gt;;</code>. <b><code>SELECT</code></b> lists what you want back; <b><code>FROM</code></b> says which table to read. The semicolon <code>;</code> ends the statement (the shell needs it; get in the habit everywhere).</p>
+      <p>The <code>*</code> is a shortcut meaning <b>every column</b>. Handy for a quick look, but in real queries you usually name the columns you actually want, comma-separated, in any order:</p>
+<pre><code>SELECT * FROM customers;          <span class="cm">-- every column of every row</span>
+SELECT name, city FROM customers; <span class="cm">-- just those two columns, in that order</span></code></pre>
+      <p>Keywords like <code>SELECT</code> and <code>FROM</code> are written in UPPERCASE by convention. They are <b>not case-sensitive</b> (<code>select</code> works too), but uppercase keywords with lowercase table and column names is the readable norm. The result of a SELECT is itself a little table of rows and columns, called a <b>result set</b>. Selecting only <i>reads</i>, it never changes the stored data.</p>
+      <p>Here is what asking for two columns gives back:</p>
+      <div class="filebox">
+        <div class="fbh">SELECT name, plan FROM customers; &middot; result</div>
+<pre><code><span class="out">name   plan
+Amara  Pro
+Ben    Basic
+Chen   Pro
+Diego  Basic
+Esi    Pro</span></code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Pick your columns</div>
+        <p>Run <code>SELECT name, plan FROM customers;</code>, then change it to return <code>name</code> and <code>city</code> instead. Notice the result has only the columns you named.</p>
+        <label class="did"><input type="checkbox" data-task="2"> I ran both and saw the columns change</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Aliases and computed columns</h3>
+      <p>You can rename a column <i>in the result</i> with <b><code>AS</code></b>. This is called an <b>alias</b>. The stored column keeps its real name; only the result's header changes:</p>
+<pre><code>SELECT name AS customer FROM customers;  <span class="cm">-- header reads "customer", data unchanged</span></code></pre>
+      <p>The SELECT list can hold <b>expressions</b>, not just plain columns. SQL does math with <code>+ - * /</code>, and it computes the expression once per row, producing a new output column:</p>
+<pre><code>SELECT name, monthly_fee * 12 AS yearly_fee FROM customers;</code></pre>
+      <div class="filebox">
+        <div class="fbh">result</div>
+<pre><code><span class="out">name   yearly_fee
+Amara  480
+Ben    240
+Chen   480
+Diego  240
+Esi    480</span></code></pre>
+      </div>
+      <p>You can even SELECT with no table at all, as a calculator. Normal math precedence applies (<code>*</code> and <code>/</code> before <code>+</code> and <code>-</code>):</p>
+<pre><code>SELECT 40 * 12;      <span class="cm">-- one value:</span> <span class="out">480</span>
+SELECT 20 + 5 * 2;   <span class="cm">-- 5*2 first, then +20:</span> <span class="out">30</span></code></pre>
+      <p><b>One trap to lock in now:</b> when both sides of <code>/</code> are whole numbers, SQLite divides as whole numbers and throws away the remainder. So <code>SELECT 7 / 2;</code> gives <code>3</code>, not <code>3.5</code>. To get a decimal, make one side a decimal: <code>SELECT 7.0 / 2;</code> gives <code>3.5</code>. (This is the same idea as Python's <code>//</code> floor division from the Python track.)</p>
+      <p>Expressions can build text too. The <code>||</code> operator glues strings together (concatenation): <code>SELECT name || ' from ' || city FROM customers;</code> produces values like <code>Amara from Austin</code>. (In MySQL you'd use <code>CONCAT(...)</code> instead; <code>||</code> is standard SQL and works in SQLite and Postgres.)</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Compute a column</div>
+        <p>Run <code>SELECT name, monthly_fee * 12 AS yearly_fee FROM customers;</code>. Then try <code>SELECT 100 / 8;</code> and predict its value before you run it (remember the integer-division trap).</p>
+        <details><summary>Show the answer to the second one</summary>
+<pre><code>SELECT 100 / 8;   <span class="cm">-- both whole numbers, remainder dropped:</span> <span class="out">12</span>
+SELECT 100.0 / 8; <span class="cm">-- one decimal side:</span> <span class="out">12.5</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I ran these and saw the computed columns</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. DISTINCT: each unique value once</h3>
+      <p>A column usually repeats values (several customers live in Austin). Put <b><code>DISTINCT</code></b> right after <code>SELECT</code> and the database collapses duplicate rows, returning each distinct value just once. Compare the two:</p>
+<pre><code>SELECT city FROM customers;           <span class="cm">-- 5 rows, one per customer (Austin and Denver repeat)</span>
+SELECT DISTINCT city FROM customers;  <span class="cm">-- 3 rows: Austin, Denver, Boston</span></code></pre>
+      <div class="filebox">
+        <div class="fbh">SELECT DISTINCT city FROM customers; &middot; result</div>
+<pre><code><span class="out">city
+Austin
+Denver
+Boston</span></code></pre>
+      </div>
+      <p><code>DISTINCT</code> looks at the <b>whole selected row</b>, not just one column. So <code>SELECT DISTINCT city, plan FROM customers;</code> keeps each unique <i>combination</i> of city and plan. (This is SQL's version of finding the unique values in a set, like the dedupe you did with a Python <code>set</code>.)</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Dedupe a column</div>
+        <p>Run <code>SELECT plan FROM customers;</code> and count the rows, then run <code>SELECT DISTINCT plan FROM customers;</code> and count again. Confirm the second returns fewer rows.</p>
+        <label class="did"><input type="checkbox" data-task="4"> I ran both and compared the row counts</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. LIMIT: capping how many rows come back</h3>
+      <p>Real tables can have millions of rows. <b><code>LIMIT n</code></b> returns at most the first <code>n</code> rows, which is perfect for a quick peek without dumping everything:</p>
+<pre><code>SELECT * FROM customers LIMIT 3;   <span class="cm">-- at most 3 rows come back</span></code></pre>
+      <p><b>An honest caveat:</b> without an <code>ORDER BY</code> (that's next session), the database may return rows in <i>any</i> order it likes. So "the first 3" is not guaranteed to be any particular 3 rows, only that you get at most 3. For a quick look that's fine; when order matters, you'll add <code>ORDER BY</code> in Session 2. (In SQL Server the keyword is <code>TOP</code> instead: <code>SELECT TOP 3 * FROM ...</code>; SQLite, Postgres and MySQL all use <code>LIMIT</code>.)</p>
+      <p>Now put the whole session together. The milestone query names its columns, computes one of them, gives it an alias, and caps the rows, everything from A to E in one statement:</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone query</div>
+        <p>From a blank editor, write one SELECT against <code>customers</code> that returns three columns, <code>name</code>, <code>city</code>, and <code>monthly_fee * 12</code> aliased as <code>yearly_fee</code>, for at most 3 rows. This is your Session 1 milestone, try it before peeking.</p>
+        <details><summary>Show reference solution</summary>
+<pre><code>SELECT name, city, monthly_fee * 12 AS yearly_fee
+FROM customers
+LIMIT 3;</code></pre>
+        <div class="filebox">
+          <div class="fbh">one valid result (your 3 rows may differ, order isn't guaranteed yet)</div>
+<pre><code><span class="out">name   city    yearly_fee
+Amara  Austin  480
+Ben    Denver  240
+Chen   Austin  480</span></code></pre>
+        </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I wrote and ran this myself</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Read each query and <b>work out its result in your head</b>, type your answer, then check. Committing before you peek is what builds the mental model, so don't run it first. Each drill asks for a single value, a row or column count, the full set of values returned (any order), or a result column's header. After you check, run it yourself in DB Browser to confirm. They get harder toward the end.</p>
+    <div class="note"><b>The table these query, for reference:</b><br>
+<pre style="margin:8px 0 0;background:none;border:none;padding:0"><code>customers
+ id | name  | city   | plan  | monthly_fee | signup_year
+  1 | Amara | Austin | Pro   |     40      |    2021
+  2 | Ben   | Denver | Basic |     20      |    2022
+  3 | Chen  | Austin | Pro   |     40      |    2022
+  4 | Diego | Boston | Basic |     20      |    2021
+  5 | Esi   | Denver | Pro   |     40      |    2023</code></pre></div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading SQL and writing it from scratch. First reassemble scrambled queries, then fill the blanks. This is where "I recognize it" becomes "I can build it."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the query (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your query below, and tap it again to send it back. Order matters, so arrange the lines top to bottom before you check. The two lists stack full width to give every line room to read, even the long ones.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the query in the box, reveal the reference to compare, then run yours in DB Browser (or the sqlite3 shell). The workbook can't run SQL for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours returns the right result, or <b>Needs another pass</b> to keep tweaking.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Syntax and vocabulary you should summon instantly. Say the answer out loud <i>before</i> flipping. "Review" sends a card to the back of the pile so you loop until it's automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/12</span>
+        <span>In pile <b id="fc-pile">12</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 5 questions, and the answer options are shuffled each time. If a wrong answer surprises you, use the review link that appears to jump straight back to the matching concept in Part 1.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> from Session 2 on, this section also mixes in a couple of questions from earlier sessions, recalling old material on a delay is what makes it stick. Today it's all Session 1.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 01 of 10 &middot; Run the milestone query unassisted, then tick <b>S01</b> on your <a href="sql-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; Next: <b>Session 02, filtering &amp; sorting</b>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "sql-s01-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function norm(s) {
+    // SQL keywords are case-insensitive, so grade case-insensitively
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens (values); commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ---------- */
+  var DRILLS = [
+    { ask: 'What single value does this return?', code: "SELECT 'S' || 'QL';", ans: 'SQL', why: 'The || operator joins strings end to end (concatenation), so the two pieces become SQL.' },
+    { ask: 'What single value does this return?', code: 'SELECT 20 + 5 * 2;', ans: '30', why: 'A SELECT with no table works as a calculator, and multiplication happens before addition: 5*2 = 10, then 20 + 10 = 30.' },
+    { ask: 'How many ROWS does the result have?', code: 'SELECT * FROM customers;', ans: '5', why: '* means every column and there is no filter, so you get every row: all 5.' },
+    { ask: 'How many COLUMNS does the result have?', code: 'SELECT name, city FROM customers;', ans: '2', why: 'You named two columns, so the result set has exactly 2 columns (across all 5 rows).' },
+    { type: 'set', ask: 'List every value the query returns, separated by commas (order does not matter).', code: 'SELECT DISTINCT plan FROM customers;', ans: 'Pro, Basic', why: 'DISTINCT collapses duplicates, so each plan appears once. Only two plans are used across the five customers: Pro and Basic.' },
+    { type: 'set', ask: 'List every value the query returns, separated by commas (order does not matter).', code: 'SELECT DISTINCT city FROM customers;', ans: 'Austin, Denver, Boston', why: 'DISTINCT keeps each city once. Austin and Denver each appear twice in the table but collapse to a single row, leaving Austin, Denver and Boston.' },
+    { ask: 'How many ROWS does the result have?', code: 'SELECT city FROM customers;', ans: '5', why: 'No DISTINCT here, so you get one row per customer including the repeats: 5 rows.' },
+    { ask: 'How many ROWS does the result have?', code: 'SELECT * FROM customers LIMIT 2;', ans: '2', why: 'LIMIT 2 caps the result at 2 rows. (Which 2 is not guaranteed without ORDER BY, but the count is.)' },
+    { ask: 'What is the header (name) of the result column?', code: 'SELECT name AS customer FROM customers LIMIT 1;', ans: 'customer', why: 'AS renames the result column, so its header reads "customer". The stored column is still called name.' },
+    { ask: 'How many ROWS does the result have?', code: 'SELECT DISTINCT city, plan FROM customers;', ans: '4', why: 'DISTINCT looks at the whole row. The unique city+plan pairs are Austin/Pro, Denver/Basic, Boston/Basic, Denver/Pro. The two Austin/Pro rows collapse into one: 4.' },
+    { ask: 'What single value does this return?', code: 'SELECT 7 / 2;', ans: '3', why: 'Both sides are whole numbers, so SQLite does integer division and drops the remainder: 3, not 3.5. Write 7.0 / 2 to get 3.5.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct result</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'Return the name and city columns for at most 2 customers.',
+      lines: ['SELECT name, city', 'FROM customers', 'LIMIT 2;'] },
+    { prompt: 'Return each city once, relabelled as location, for at most 2 rows.',
+      lines: ['SELECT DISTINCT city AS location', 'FROM customers', 'LIMIT 2;'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your query (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so this returns each city once, with no duplicates.',
+      code: 'SELECT %% city\nFROM %%;', ans: ['DISTINCT', 'customers'] },
+    { prompt: 'Fill the blanks so this shows each customer name plus their fee times 12 under the header yearly_fee, for at most 3 rows.',
+      code: 'SELECT name, monthly_fee %% 12 %% yearly_fee\nFROM customers\n%% 3;', ans: ['*', 'AS', 'LIMIT'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Write a query that returns every column of the customers table.',
+      sol: 'SELECT * FROM customers;' },
+    { task: 'Write a query that returns only the name and plan columns.',
+      sol: 'SELECT name, plan FROM customers;' },
+    { task: 'Write a query that lists each distinct city in the table, with no duplicates.',
+      sol: 'SELECT DISTINCT city FROM customers;' },
+    { task: 'Write a query that returns name and each customer’s fee times 12, with the computed column labelled yearly_fee. Cap it at the first 5 rows.',
+      sol: 'SELECT name, monthly_fee * 12 AS yearly_fee\nFROM customers\nLIMIT 5;' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="-- write your query here, then run it in DB Browser"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in DB Browser:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek, like the Check buttons)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Return every column of a table t', b: 'SELECT * FROM t;' },
+    { f: 'Return only columns a and b from table t', b: 'SELECT a, b FROM t;' },
+    { f: 'Keyword that removes duplicate rows from the result', b: 'DISTINCT' },
+    { f: 'Rename a result column to "total"', b: 'AS total' },
+    { f: 'Return at most 10 rows', b: 'LIMIT 10' },
+    { f: 'Keyword that says which table to read from', b: 'FROM' },
+    { f: 'Character that ends a SQL statement', b: ';' },
+    { f: 'Multiply a column by 12 inside a SELECT', b: 'fee * 12' },
+    { f: 'What SQL calls one record (a single entity)', b: 'a row' },
+    { f: 'What SQL calls one attribute / field', b: 'a column' },
+    { f: 'What the result of a SELECT is (rows + columns)', b: 'a result set' },
+    { f: 'What "SQL" stands for', b: 'Structured Query Language' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All 12 cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  initDeck();
+
+  /* ---------- Part 6: quiz ---------- */
+  var QUIZ = [
+    { q: 'Which query returns every column for all customers?', o: ['SELECT * FROM customers;', 'SELECT all FROM customers;', 'SELECT customers;', 'GET * FROM customers;'], c: 0,
+      e: 'The * means every column, and SELECT ... FROM names the table you read from.', part: { id: 'concept-b', label: 'B. SELECT ... FROM' } },
+    { q: 'customers has 5 rows, and only two plans appear (Pro and Basic). How many rows does SELECT DISTINCT plan FROM customers; return?', o: ['2', '5', '1', '4'], c: 0,
+      e: 'DISTINCT collapses duplicates so each distinct value appears once. Two distinct plans means 2 rows.', part: { id: 'concept-d', label: 'D. DISTINCT' } },
+    { q: 'What does AS do in SELECT monthly_fee * 12 AS yearly_fee?', o: ['Renames the result column header to yearly_fee', 'Adds a new column to the stored table', 'Multiplies the values', 'Sorts the result'], c: 0,
+      e: 'AS sets an alias: it only changes the header in the result. The stored table is untouched.', part: { id: 'concept-c', label: 'C. Aliases & computed columns' } },
+    { q: 'In SQLite, what does SELECT 7 / 2; return?', o: ['3', '3.5', '4', '1'], c: 0,
+      e: 'Two whole numbers divide as whole numbers and drop the remainder, giving 3. Use 7.0 / 2 to get 3.5.', part: { id: 'concept-c', label: 'C. Aliases & computed columns' } },
+    { q: 'You run SELECT * FROM customers LIMIT 3;. What is actually guaranteed?', o: ['You get at most 3 rows, but which 3 is not guaranteed without ORDER BY', 'You always get the rows with id 1, 2 and 3', 'You get the 3 newest customers', 'You get an error'], c: 0,
+      e: 'LIMIT caps the row count. Row order is undefined until you add ORDER BY (Session 2), so you cannot rely on which 3.', part: { id: 'concept-e', label: 'E. LIMIT' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 4
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid, tick S01 on your Hub and ask for Session 2.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+
+  /* ---- Export / import ALL progress (shared across the whole site origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+</body>
+</html>
