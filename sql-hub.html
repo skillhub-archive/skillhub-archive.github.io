@@ -80,6 +80,20 @@
   }
   .lede { font-size: 18px; color: var(--ink-soft); max-width: 64ch; margin: 0; }
 
+  /* Two-column hero: copy left, specimen right. Shared across the track family. */
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; }
+  @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; gap: 24px; } }
+
+  /* Hero specimen: the smallest honest example of what the learner will be able to
+     PRODUCE, in the subject's native display. For SQL that is a query and the result
+     set it returns. Static, because SQL's output is text. */
+  .specimen { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px; box-shadow: var(--shadow); }
+  .specimen-cmd { font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--border); line-height: 1.6; }
+  .specimen-cmd b { color: var(--ink); font-weight: 600; }
+  .specimen-out { margin: 0; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--ink-soft); }
+  .specimen-out .h { color: var(--gold); }
+  .specimen-note { margin-top: 11px; padding-top: 9px; border-top: 1px dashed var(--border); font-size: 12.5px; color: var(--ink-faint); }
+
   /* ---- Progress panel ---- */
   .progress-panel {
     margin-top: 32px; background: var(--surface); border: 1px solid var(--border);
@@ -230,9 +244,23 @@
 <div class="wrap">
   <header class="hero">
     <a class="trackback" href="index.html">&#8592; Learning Hub</a>
-    <div class="eyebrow">SQL // 20-Hour Sprint</div>
-    <h1>SQL, where your data lives</h1>
-    <p class="lede">A focused sprint from confident code-reader to someone who can query, join, aggregate, and model real data, then call it straight from Python. The companion to your Python track: pandas is what you do with data in memory; SQL is where that data actually lives. Ten two-hour sessions, five levels, a milestone at every step so you always know where you stand.</p>
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">SQL // 20-Hour Sprint</div>
+        <h1>SQL, where your data lives</h1>
+        <p class="lede">A focused sprint from confident code-reader to someone who can query, join, aggregate, and model real data, then call it straight from Python. The companion to your Python track: pandas is what you do with data in memory; SQL is where that data actually lives. Ten two-hour sessions, five levels, a milestone at every step so you always know where you stand.</p>
+      </div>
+
+      <div class="specimen">
+        <div class="specimen-cmd">sql&gt; <b>SELECT city, COUNT(*) AS moves FROM jobs<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GROUP BY city ORDER BY moves DESC LIMIT 3;</b></div>
+<pre class="specimen-out"><span class="h">city          moves</span>
+------------  -----
+Dallas           47
+Austin           31
+Fort Worth       18</pre>
+        <div class="specimen-note">One question, asked of your own data, answered in five lines. Level 3 gets you here.</div>
+      </div>
+    </div>
 
     <div class="progress-panel">
       <div class="pp-stats">
