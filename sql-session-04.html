@@ -928,15 +928,15 @@ Jae     0</span></code></pre>
   var S3_URL = 'sql-session-03.html';
   var QUIZ = [
     { q: 'An INNER JOIN of customers to orders returns 13 rows but a LEFT JOIN returns 15. Why the difference?',
-      o: ['LEFT JOIN also keeps the customers with no matching order, padding their right-side columns with NULL; INNER JOIN drops them', 'LEFT JOIN duplicates two rows at random', 'INNER JOIN counts every column twice', 'A LEFT JOIN always returns two more rows than an inner join'], c: 0,
+      o: ['LEFT JOIN keeps customers with no matching order, padded with NULL; INNER JOIN drops them', 'LEFT JOIN duplicates two rows at random', 'INNER JOIN counts every column twice', 'A LEFT JOIN always returns exactly two more rows than the equivalent INNER JOIN would return'], c: 0,
       e: 'An inner join keeps only matched rows (the 13 orders). A LEFT JOIN keeps every left-table row too, so the 2 customers with no orders each add one NULL-padded row: 13 + 2 = 15.',
       part: { id: 'concept-c', label: 'C. LEFT JOIN vs INNER JOIN' } },
     { q: 'Why do you write the join condition as c.id = o.customer_id, with the table aliases in front of each column?',
-      o: ['To say which table each column comes from; an unqualified id would be ambiguous across the two tables', 'Because SQL requires every column to start with a letter', 'The prefixes rename the columns permanently', 'It sorts the output by table name'], c: 0,
+      o: ['To say which table each column comes from; an unqualified id would be ambiguous', 'Because SQL requires every column reference to begin with a table letter prefix here', 'The prefixes rename the columns permanently', 'It sorts the output by table name'], c: 0,
       e: 'c and o are table aliases; c.id and o.customer_id spell out exactly which table each column belongs to. Without qualifying, a bare id could mean either table and the query is ambiguous.',
       part: { id: 'concept-b', label: 'B. Qualifying columns in a join' } },
     { q: 'After a LEFT JOIN, why count each customer’s orders with COUNT(o.id) rather than COUNT(*)?',
-      o: ['COUNT(*) counts the NULL-padded no-match row as 1, while COUNT(o.id) skips NULLs so zero-order customers correctly read 0', 'COUNT(*) is not allowed after a join', 'COUNT(o.id) runs faster but gives the same numbers', 'They differ only when there are duplicate ids'], c: 0,
+      o: ['COUNT(*) counts the NULL-padded row as 1; COUNT(o.id) skips NULLs so those customers read 0', 'COUNT(*) is not allowed after a join', 'COUNT(o.id) simply runs faster than COUNT(*) on a join but always gives back the same numbers', 'They differ only when there are duplicate ids'], c: 0,
       e: 'A no-match customer still occupies one LEFT JOIN row, filled with NULLs. COUNT(*) counts that row as 1; COUNT(o.id) skips the NULL and reports the true count of 0. This is Session 3’s NULL-skipping rule again.',
       part: { id: 'concept-d', label: 'D. COUNT(*) vs COUNT(o.id)' } },
     { q: 'What is a foreign key?',

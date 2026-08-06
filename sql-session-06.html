@@ -915,15 +915,15 @@ Iris</span></code></pre>
   var S5_URL = 'sql-session-05.html';
   var QUIZ = [
     { q: 'What does WITH order_counts AS (SELECT ...) do at the start of a query?',
-      o: ['It defines a named subquery (a CTE) that the main query below can then read from like a table', 'It creates a permanent new table called order_counts in the database', 'It sorts the orders before the main query runs', 'It is just a comment and has no effect'], c: 0,
+      o: ['It defines a named subquery (a CTE) that the main query below can then read from like a table', 'It creates a permanent new table called order_counts that stays in the database file afterwards', 'It sorts the orders before the main query runs', 'It is just a comment and has no effect'], c: 0,
       e: 'WITH name AS (SELECT ...) defines a common table expression: a subquery given a name. It is temporary (it exists only for this query, not saved to the database), and the main query reads from that name as if it were a table.',
       part: { id: 'concept-a', label: 'A. Meet the CTE' } },
     { q: 'Two queries each return a city column. Combined with UNION ALL they give 7 rows; with plain UNION they give 3. What accounts for the difference?',
-      o: ['UNION ALL keeps duplicate rows; plain UNION removes them, so the repeated cities collapse', 'UNION ALL is invalid and silently returns extra rows', 'Plain UNION sorts the rows, which deletes some', 'UNION ALL joins the tables side by side, adding columns'], c: 0,
+      o: ['UNION ALL keeps duplicate rows; plain UNION removes them, so the repeated cities collapse', 'UNION ALL is invalid and silently returns extra rows', 'Plain UNION sorts the rows, which deletes some', 'UNION ALL joins the two result sets side by side, adding all of their columns together instead'], c: 0,
       e: 'Both stack the rows of the two queries. UNION ALL keeps everything including repeats (7 rows here); plain UNION removes duplicate rows afterward (down to the 3 distinct cities).',
       part: { id: 'concept-c', label: 'C. UNION vs UNION ALL' } },
     { q: 'You have a query for Team-plan cities and a query for big-order cities. Which operator returns the Team cities that are NOT big-order cities?',
-      o: ['EXCEPT, with the Team query first, because it keeps rows in the first query that are not in the second', 'INTERSECT, because it keeps rows in both', 'UNION, because it combines both lists', 'EXCEPT, with the big-order query first'], c: 0,
+      o: ['EXCEPT, with the Team query first, because it keeps rows in the first that are not in the second', 'INTERSECT, because it keeps only the rows that appear in both of the two queries you have written', 'UNION, because it combines both lists', 'EXCEPT, with the big-order query first'], c: 0,
       e: 'EXCEPT keeps rows in the first SELECT that are absent from the second, so the Team query must come first. Order matters: putting the big-order query first would answer a different question.',
       part: { id: 'concept-d', label: 'D. INTERSECT and EXCEPT' } },
     { q: 'You are combining two SELECTs with UNION and want the whole result sorted by city. Where does the ORDER BY go?',

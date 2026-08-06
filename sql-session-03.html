@@ -841,15 +841,15 @@ Boston  2          30.0</span></code></pre>
   var S2_URL = 'sql-session-02.html';
   var QUIZ = [
     { q: 'Some customers have a NULL referrer. How do COUNT(*) and COUNT(referrer) differ on this table?',
-      o: ['COUNT(*) counts all rows; COUNT(referrer) skips NULLs, so it can be smaller', 'They are always equal', 'COUNT(referrer) counts NULLs as zero and adds them in', 'COUNT(*) errors unless every column is filled'], c: 0,
+      o: ['COUNT(*) counts all rows; COUNT(referrer) skips NULLs, so it can be smaller', 'They are always equal', 'COUNT(referrer) treats every NULL as a zero and adds them into the running total', 'COUNT(*) errors unless every column is filled'], c: 0,
       e: 'COUNT(*) counts rows regardless of content. COUNT(column) counts only rows where that column is not NULL, so with four missing referrers it returns 6 while COUNT(*) returns 10.',
       part: { id: 'concept-b', label: 'B. COUNT and NULLs' } },
     { q: 'You group by plan. Under the standard SELECT-list rule, which columns may appear un-aggregated in the SELECT list?',
-      o: ['Only the grouping column(s), such as plan; any other column must be inside an aggregate', 'Any column at all, SQL just picks a value', 'No columns; only aggregates are allowed', 'Only columns that come alphabetically before plan'], c: 0,
+      o: ['Only the grouping column(s), such as plan; any other column must be inside an aggregate', 'Any column at all, SQL just picks a value', 'No columns; only aggregates are allowed', 'Only the columns that come alphabetically before plan in the original CREATE TABLE statement'], c: 0,
       e: 'A grouped row stands for a whole group, so a plain column that varies within the group has no single value. Standard SQL requires each SELECT column to be a grouping column or wrapped in an aggregate. SQLite is lax here, but PostgreSQL, SQL Server and modern MySQL enforce it.',
       part: { id: 'concept-c', label: 'C. GROUP BY and the SELECT-list rule' } },
     { q: 'You want only the groups whose COUNT(*) is 3 or more. Which clause filters on that?',
-      o: ['HAVING, because it filters groups by an aggregate after grouping', 'WHERE, because it can test COUNT(*) directly', 'ORDER BY, by sorting out the small groups', 'DISTINCT, to drop the extra groups'], c: 0,
+      o: ['HAVING, because it filters groups by an aggregate after grouping', 'WHERE, because it can test COUNT(*) directly before the grouping happens', 'ORDER BY, by sorting out the small groups', 'DISTINCT, to drop the extra groups'], c: 0,
       e: 'WHERE runs before groups exist, so it cannot see COUNT(*) (SQLite reports misuse of aggregate). HAVING runs after grouping and is the clause for filtering groups by an aggregate.',
       part: { id: 'concept-d', label: 'D. HAVING vs WHERE' } },
     { q: 'In what order does SQL evaluate these clauses?',

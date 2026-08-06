@@ -919,15 +919,15 @@ Iris    Austin  200      Hiro    Denver  200</code></pre></div>
   var S6_URL = 'sql-session-06.html';
   var QUIZ = [
     { q: "What is the defining difference between a window function and a GROUP BY?",
-      o: ["A window function keeps every input row and adds a computed column; GROUP BY collapses each group into a single summary row", "They are the same thing written two ways", "A window function can only be used with SUM, while GROUP BY works with any aggregate", "GROUP BY keeps every row, while a window function collapses them"], c: 0,
+      o: ["A window function keeps every input row and adds a column; GROUP BY collapses each group into one row", "They are the same thing written two ways", "A window function can only ever be used with SUM, while GROUP BY works with any aggregate that you like", "GROUP BY keeps every row, while a window function collapses them"], c: 0,
       e: "The whole point of a window function is that it computes across rows without collapsing them: every original row survives and gains an extra column. GROUP BY does the opposite, squashing each group down to one summary row. That is why you reach for a window when you want the group figure and the detail rows together.",
       part: { id: 'concept-a', label: 'A. Windows vs GROUP BY' } },
     { q: "What does PARTITION BY city do inside an OVER (...) window?",
-      o: ["It computes the window separately within each city, still returning one row per customer", "It removes duplicate cities from the result", "It sorts the rows by city", "It collapses each city to a single row, like GROUP BY"], c: 0,
+      o: ["It computes the window separately within each city, still returning one row per customer", "It removes duplicate cities from the result", "It sorts the rows by city", "It collapses each city down to a single summary row, in exactly the way that GROUP BY does"], c: 0,
       e: "PARTITION BY is the group-awareness of GROUP BY without the collapse: the rows are split into one window per city, the aggregate is computed inside each, and every input row is still returned with that group figure attached. Sorting is a separate job for ORDER BY.",
       part: { id: 'concept-b', label: 'B. PARTITION BY' } },
     { q: "Two customers tie for the top spot in a city. How do RANK(), DENSE_RANK() and ROW_NUMBER() number those two and the next customer?",
-      o: ["RANK gives 1, 1, 3; DENSE_RANK gives 1, 1, 2; ROW_NUMBER gives 1, 2, 3 and never ties", "All three give 1, 1, 2", "All three give 1, 2, 3", "RANK gives 1, 1, 2; DENSE_RANK gives 1, 1, 3; ROW_NUMBER gives 1, 1, 1"], c: 0,
+      o: ["RANK gives 1, 1, 3; DENSE_RANK gives 1, 1, 2; ROW_NUMBER gives 1, 2, 3 and never ties", "All three give 1, 1, 2", "All three give 1, 2, 3", "RANK gives 1, 1, 2; DENSE_RANK gives 1, 1, 3; and ROW_NUMBER gives 1, 1, 1 and ties freely"], c: 0,
       e: "On a tie, RANK repeats the rank then skips (1, 1, 3), DENSE_RANK repeats without skipping (1, 1, 2), and ROW_NUMBER refuses to tie at all, handing out distinct 1, 2, 3 (so among equal values its order is arbitrary unless you add a tiebreaker to the window's ORDER BY).",
       part: { id: 'concept-c', label: 'C. Ranking and ties' } },
     { q: "You add ORDER BY total DESC inside SUM(total) OVER (...). What changes?",

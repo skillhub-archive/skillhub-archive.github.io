@@ -857,15 +857,15 @@ INSERT INTO products (id, sku, price)       VALUES (8, 'NONAME', 3.00);
   var S4_URL = 'sql-session-04.html';
   var QUIZ = [
     { q: 'What is the difference between DDL and DML?',
-      o: ['DDL defines and changes table structure (CREATE, ALTER, DROP); DML reads and changes the data inside tables (SELECT, INSERT, UPDATE, DELETE)', 'DDL is for SQLite and DML is for PostgreSQL', 'DDL runs faster than DML but does the same thing', 'DML defines tables and DDL queries them'], c: 0,
+      o: ['DDL defines table structure (CREATE, ALTER, DROP); DML changes the data inside them', 'DDL is for SQLite and DML is for PostgreSQL', 'DDL simply runs faster than DML but ultimately does exactly the same thing to the tables', 'DML defines tables and DDL queries them'], c: 0,
       e: 'DDL (Data Definition Language) builds and alters the containers: CREATE, ALTER, DROP. DML (Data Manipulation Language) works on the data inside them: SELECT, INSERT, UPDATE, DELETE. The setup script you ran in Session 1 was DDL plus DML.',
       part: { id: 'concept-a', label: 'A. DDL vs DML' } },
     { q: 'You declare a column INTEGER and insert the text ‘123’. In ordinary (non-strict) SQLite, what happens?',
-      o: ['SQLite converts it to the integer 123, because a declared type is an affinity (a preference), not a strict rule', 'SQLite raises a type error and rejects the row', 'SQLite stores the text ‘123’ and leaves it as text', 'SQLite stores NULL because the types do not match'], c: 0,
+      o: ['SQLite converts it to the integer 123, because a declared type is an affinity, not a strict rule', 'SQLite raises a type error and rejects the row', 'SQLite stores the text ‘123’ and leaves it as text', 'SQLite stores NULL instead, because the declared type and the inserted value do not match each other'], c: 0,
       e: 'A declared type in SQLite is an affinity. Text that can be read as a number is converted, so ‘123’ is stored as the integer 123. Text that cannot be converted (like ‘hello’) is stored as-is. Strictly-typed databases, or a STRICT table, would reject the mismatch instead.',
       part: { id: 'concept-b', label: 'B. Type affinity' } },
     { q: 'Which constraint makes an INSERT fail if it would create a second row with a sku that already exists?',
-      o: ['UNIQUE, because it forbids two rows from sharing that column value', 'NOT NULL, because the sku is present', 'DEFAULT, because it fills the column in', 'CHECK, because the sku is text'], c: 0,
+      o: ['UNIQUE, because it forbids two rows from sharing that column value', 'NOT NULL, because the sku is present', 'DEFAULT, because it fills the column in whenever a value is left missing', 'CHECK, because the sku is text'], c: 0,
       e: 'UNIQUE means no two rows may share that column value, so a repeated sku is refused with UNIQUE constraint failed: products.sku. NOT NULL only guards against an empty value; DEFAULT supplies a missing one; CHECK tests a condition you write.',
       part: { id: 'concept-c', label: 'C. Constraints' } },
     { q: 'You declared customer_id INTEGER REFERENCES customers(id), yet an order with a nonexistent customer_id still inserts without error. Why?',

@@ -940,15 +940,15 @@ Chen   300</span></code></pre>
   var S4_URL = 'sql-session-04.html';
   var QUIZ = [
     { q: 'In WHERE amount > (SELECT AVG(amount) FROM orders), what is the role of the parenthesized subquery?',
-      o: ['It runs first and produces a single value (the average), which each row’s amount is then compared against', 'It sorts the orders by amount before filtering', 'It runs once for every row, comparing each order to itself', 'It returns all order amounts, and WHERE keeps rows that match any of them'], c: 0,
+      o: ['It runs first and produces a single value (the average), which each row’s amount is then compared against', 'It sorts the orders by amount before filtering', 'It runs once for every row, comparing each order to itself', 'It returns the full list of every order amount, and WHERE then keeps any row that matches one of those values'], c: 0,
       e: 'It is a scalar subquery: it returns one value, the average of all amounts. The outer query computes it once, then compares each order’s amount to that single number.',
       part: { id: 'concept-a', label: 'A. Scalar subqueries' } },
     { q: 'SELECT name FROM customers WHERE name NOT IN (SELECT referrer FROM customers) returns zero rows. Why?',
-      o: ['The subquery includes NULL referrers, and NOT IN with a NULL in the list is never true for any row, so nothing comes back', 'NOT IN is not valid SQLite syntax', 'Every customer is someone’s referrer', 'NOT IN always returns zero rows'], c: 0,
+      o: ['The subquery includes NULLs, and NOT IN with a NULL in the list is never true', 'NOT IN is not valid SQLite syntax', 'Every customer is someone’s referrer', 'NOT IN always returns zero rows whenever the subquery reads from the same table'], c: 0,
       e: 'The subquery returns some NULLs (customers with no referrer). x NOT IN (..., NULL) includes x <> NULL, which is NULL (never true), so the whole condition is never true. Guarding with WHERE referrer IS NOT NULL fixes it. This is Session 2 three-valued logic.',
       part: { id: 'concept-c', label: 'C. The NOT IN NULL trap' } },
     { q: 'You want the customers with no orders, and orders.customer_id could in principle contain a NULL. Which approach is safe and clear?',
-      o: ['NOT EXISTS with a correlated subquery, because it tests for the absence of a matching row and is immune to the NOT IN NULL trap', 'NOT IN, because it is always safe', 'IN, because it keeps the unmatched rows', 'An inner join, which keeps the unmatched customers'], c: 0,
+      o: ['NOT EXISTS with a correlated subquery, because it is immune to the NOT IN NULL trap', 'NOT IN, because it is always safe', 'IN, because it keeps the unmatched rows', 'An inner join, which keeps the unmatched customers alongside all of the matched ones too'], c: 0,
       e: 'NOT EXISTS asks "is there no matching order?" per customer and is unaffected by NULLs. NOT IN would silently break if the subquery column held a NULL; an inner join drops unmatched customers entirely.',
       part: { id: 'concept-d', label: 'D. NOT EXISTS vs NOT IN' } },
     { q: 'Why can’t you write SELECT AVG(COUNT(*)) FROM orders GROUP BY customer_id to get the average orders per customer, and what do you do instead?',
