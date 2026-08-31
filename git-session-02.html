@@ -1,0 +1,1309 @@
+<title>Git Sprint &middot; Session 2: Reading history &amp; seeing changes</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     Git commands lean on -- and <> which Cascadia Code would otherwise redraw. */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three areas diagram */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* the HEAD pointer map: which commit each ref name lands on */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 32 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 12ch because the longest answer here is "oneline" (7 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 12ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 02 // Level 1 &middot; What Git Actually Is</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Reading history &amp; seeing changes</h1>
+    <p class="goal">Session 1 built history. This session reads it. You will shape <code>git log</code> to answer real questions, open a single commit with <code>git show</code>, and use <code>git diff</code> to see exactly what changed and where, so that opening any repository, even one you did not write, tells you what happened, when, and by whom.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Open any repository and say what changed, when, and by whom.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>You need the <code>git-sandbox</code> folder from Session 1.</b> Step one below reconnects you to it, and if it is gone there is a paste-and-run block that rebuilds it from scratch in under a minute. No account and no internet are needed for any of this session.</p>
+        <p>This is a workbook, not a reading. You will predict what a command prints, reassemble command sequences, fill blanks, and write from scratch, and each part hands you less scaffolding than the last. The goal is the same as Session 1: <b>read a Git command and know what it will tell you before you press enter.</b></p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. Three things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>9a0306d</code>), <b>file paths</b>, and <b>dates</b>. Everything else should match. One more from Session 1: if you create files in Git Bash rather than PowerShell, <code>git add</code> may print a harmless <code>warning: ... LF will be replaced by CRLF ...</code> line. That is the line-ending note from Session 1, nothing is wrong.</div>
+
+    <div class="block" id="concept-pager">
+      <h3>A. First, so it never scares you: the pager</h3>
+      <p>The moment you run <code>git log</code> or <code>git diff</code> on anything real, the output is longer than one screen, and Git hands it to a <b>pager</b>: a little full-screen reader called <code>less</code> that shows one screenful and waits. Your normal typing stops working, and to a newcomer that looks exactly like a freeze. It is not. Git is simply waiting for you to read.</p>
+      <ul class="pts">
+        <li>Press <code>q</code> to <b>quit</b> the pager and get your prompt back. This is the one you will use constantly.</li>
+        <li>Press the <b>space bar</b> or the <b>arrow keys</b> to scroll through the output.</li>
+        <li>If you would rather the output just print straight to the terminal with no pager at all, put <code>--no-pager</code> right after <code>git</code>, once: <code>git --no-pager log</code>. Good for a quick glance, or when you want to copy the text.</li>
+      </ul>
+      <p>That is the whole trick. Whenever a Git command seems to hang with a coloured bar or a <code>:</code> at the bottom of the screen, you are in the pager. Press <code>q</code>.</p>
+    </div>
+
+    <div class="block" id="concept-reconnect">
+      <h3>B. Reconnect to your sandbox</h3>
+      <p>Everything this session teaches, you will try in the <code>git-sandbox</code> repository you built in Session 1. Open your terminal and go back to it:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">Both shells</span><code>cd ~</code></div>
+        <div class="srow"><span class="sl">Both shells</span><code>cd git-sandbox</code></div>
+      </div>
+      <p>Here is the exact state Session 1 left it in, and what you should assume all the way through Part 1:</p>
+      <ul class="pts">
+        <li><b>Three commits</b>, newest first: <code>Add alpha</code>, then your second-line commit, then <code>Add notes.md</code>.</li>
+        <li><code>notes.md</code> and <code>alpha</code> are <b>tracked</b> (they are in commits).</li>
+        <li><code>beta</code> is still sitting there <b>untracked</b>. Session 1 left it that way on purpose, and this session finally puts it to use, so do not delete it.</li>
+      </ul>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Lost your sandbox? Rebuild it from zero (paste and run)</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">If <code>git-sandbox</code> is gone, this rebuilds the exact Session 1 end state: three commits, <code>alpha</code> tracked, <code>beta</code> left untracked. Paste the block for your shell.</p>
+          <div class="filebox">
+            <div class="fbh">PowerShell (Windows default)</div>
+<pre><code>cd ~
+mkdir git-sandbox
+cd git-sandbox
+git init
+Set-Content notes.md "Git sandbox"
+git add notes.md
+git commit -m "Add notes.md"
+Add-Content notes.md "A second line"
+git add notes.md
+git commit -m "Add a second line of notes"
+Set-Content alpha "a"
+Set-Content beta "b"
+git add alpha
+git commit -m "Add alpha"</code></pre>
+          </div>
+          <div class="filebox">
+            <div class="fbh">Git Bash / macOS / Linux</div>
+<pre><code>cd ~
+mkdir git-sandbox
+cd git-sandbox
+git init
+echo "Git sandbox" &gt; notes.md
+git add notes.md
+git commit -m "Add notes.md"
+echo "A second line" &gt;&gt; notes.md
+git add notes.md
+git commit -m "Add a second line of notes"
+echo "a" &gt; alpha
+echo "b" &gt; beta
+git add alpha
+git commit -m "Add alpha"</code></pre>
+          </div>
+        </div>
+      </details>
+      <p>Now confirm the state with the one-line history you learned last session:</p>
+      <div class="filebox">
+        <div class="fbh">git log --oneline &middot; your three commits</div>
+<pre><code><span class="cmd">&gt; git log --oneline</span>
+9a0306d (HEAD -&gt; main) Add alpha
+4f3a8d5 Add a second line of notes
+23ec62a Add notes.md</code></pre>
+      </div>
+      <p>Three lines, newest on top. If you see that (with your own hashes), you are ready. If <code>beta</code> also needs to be there, a quick <code>git status</code> should still report it under <code>Untracked files</code>.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Reconnect, and meet the pager</div>
+        <ol>
+          <li><code>cd</code> back into <code>git-sandbox</code> (or rebuild it from the block above).</li>
+          <li>Run <code>git log</code> (the full form, not <code>--oneline</code>). If it opens the pager and waits, good: scroll with the space bar, then press <code>q</code> to get out.</li>
+          <li>Run <code>git log --oneline</code> and confirm your three commits, newest on top.</li>
+          <li>Run <code>git status</code> and confirm <code>beta</code> is still listed as untracked.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> I am back in the sandbox, I got out of the pager with q, and I can see my three commits</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-head">
+      <h3>C. What HEAD actually points at</h3>
+      <p>Session 1 gave you a one-line placeholder for <code>HEAD</code> and promised the real explanation here. This is it, because everything else in this session refers to it.</p>
+      <p><b>HEAD is a reference to the commit you are currently on.</b> It does not usually point straight at a commit, though. It points at the current <b>branch</b> (<code>main</code>, for you), and the branch points at a commit. So the full chain is <code>HEAD &rarr; main &rarr; the newest commit</code>. That is exactly what the label <code>(HEAD -&gt; main)</code> in your log has been telling you all along: HEAD is here, by way of main. Branches are Session 3; for now, <code>HEAD</code> means "where I am standing right now", which in a fresh repository is the newest commit.</p>
+      <p>The useful part is that you can count backwards from HEAD without ever typing a hash:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">HEAD</span><span class="rd">the commit you are on: <b>9a0306d Add alpha</b></span></div>
+        <div class="refrow"><span class="rr">HEAD~1</span><span class="rd">one commit back (its parent): <b>4f3a8d5 Add a second line of notes</b></span></div>
+        <div class="refrow"><span class="rr">HEAD~2</span><span class="rd">two commits back: <b>23ec62a Add notes.md</b></span></div>
+        <div class="refrow"><span class="rr">HEAD^</span><span class="rd">the parent, identical to HEAD~1: <b>4f3a8d5 Add a second line of notes</b></span></div>
+      </div>
+      <p>So <code>HEAD~1</code> is "one step back along the parent pointer", <code>HEAD~2</code> is two steps, and so on. <code>HEAD^</code> (a caret) is an older way to write the parent and means the same thing as <code>HEAD~1</code>. You will meet both in tutorials, which is why both are named here. These names work anywhere a command wants a commit: you will feed them to <code>git show</code> and <code>git diff</code> in a moment.</p>
+      <p><b>And that quirk from Session 1, now that HEAD is the topic.</b> The <code>(HEAD -&gt; main)</code> label only appears when Git is printing to a terminal for a human to read. If you pipe <code>git log</code> into another command or redirect it into a file, Git strips the label so the output stays clean and machine-readable. Nothing broke: Git just decides the decoration is for humans, not for programs.</p>
+    </div>
+
+    <div class="block" id="concept-show">
+      <h3>D. Open one commit: git show</h3>
+      <p><code>git log</code> lists commits. <code>git show</code> opens a single one and shows you everything about it: who, when, the message, and the exact changes it made. Point it at any commit by hash, or by one of the HEAD names you just learned.</p>
+      <div class="filebox">
+        <div class="fbh">git show HEAD &middot; the newest commit, in full</div>
+<pre><code><span class="cmd">&gt; git show HEAD</span>
+commit 9a0306d97763b27e34b274cc3bdd8e1aad82f571 (HEAD -&gt; main)
+Author: Ada Lovelace &lt;ada@example.com&gt;
+Date:   Tue Jul 28 14:17:08 2026 -0500
+
+    Add alpha
+
+diff --git a/alpha b/alpha
+new file mode 100644
+index 0000000..7898192
+--- /dev/null
++++ b/alpha
+@@ -0,0 +1 @@
+<span class="dplus">+a</span></code></pre>
+      </div>
+      <p>The top half is the commit itself: its full hash, the author and date stamped on it, and the message. The bottom half, starting at <code>diff --git</code>, is what the commit changed. Here it created <code>alpha</code>, so Git shows the whole file as added: <code>--- /dev/null</code> means "there was no old version", and the <code>+a</code> line is the one line the file gained. You will read that diff shape properly in section F; for now, notice that <code>git show</code> hands you the change for free.</p>
+      <p>Two everyday variations. <code>git show HEAD~1</code> opens the commit one step back instead of the newest. And if you only want the summary, not every changed line, add <code>--stat</code>:</p>
+      <div class="filebox">
+        <div class="fbh">git show --stat HEAD &middot; just the summary of what changed</div>
+<pre><code><span class="cmd">&gt; git show --stat HEAD</span>
+commit 9a0306d97763b27e34b274cc3bdd8e1aad82f571 (HEAD -&gt; main)
+Author: Ada Lovelace &lt;ada@example.com&gt;
+Date:   Tue Jul 28 14:17:08 2026 -0500
+
+    Add alpha
+
+ alpha | 1 +
+ 1 file changed, 1 insertion(+)</code></pre>
+      </div>
+      <p>The <code>alpha | 1 +</code> line means "the file alpha, one line changed, and it was an addition". The little bar of <code>+</code> and <code>-</code> marks grows with the size of the change. This <code>--stat</code> summary is the same one you will see on <code>git log --stat</code> next.</p>
+    </div>
+
+    <div class="block" id="concept-log">
+      <h3>E. Shaping git log to answer a question</h3>
+      <p><code>git log --oneline</code> from Session 1 is the workhorse. The rest of <code>log</code> is a set of flags that each answer a different question about the history. You do not need them all memorised; you need to know they exist so you can reach for the right one.</p>
+      <p><b>How much to show.</b> <code>-n 2</code> (or just <code>-2</code>) limits the log to the newest 2 commits, however many the repository has:</p>
+      <div class="filebox">
+        <div class="fbh">git log -n 2 --oneline &middot; just the two newest</div>
+<pre><code><span class="cmd">&gt; git log -n 2 --oneline</span>
+9a0306d (HEAD -&gt; main) Add alpha
+4f3a8d5 Add a second line of notes</code></pre>
+      </div>
+      <p><b>What each commit changed.</b> <code>--stat</code> adds the changed-files summary to every commit; <code>-p</code> (short for <code>--patch</code>) goes further and shows the actual added and removed lines. Here is <code>-p</code> on just the newest commit:</p>
+      <div class="filebox">
+        <div class="fbh">git log -p -1 &middot; the newest commit, with its changes</div>
+<pre><code><span class="cmd">&gt; git log -p -1</span>
+commit 9a0306d97763b27e34b274cc3bdd8e1aad82f571 (HEAD -&gt; main)
+Author: Ada Lovelace &lt;ada@example.com&gt;
+Date:   Tue Jul 28 14:17:08 2026 -0500
+
+    Add alpha
+
+diff --git a/alpha b/alpha
+new file mode 100644
+index 0000000..7898192
+--- /dev/null
++++ b/alpha
+@@ -0,0 +1 @@
+<span class="dplus">+a</span></code></pre>
+      </div>
+      <p><b>The shape of the history.</b> <code>--graph</code> draws a text diagram down the left edge:</p>
+      <div class="filebox">
+        <div class="fbh">git log --oneline --graph</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph</span>
+* 9a0306d (HEAD -&gt; main) Add alpha
+* 4f3a8d5 Add a second line of notes
+* 23ec62a Add notes.md</code></pre>
+      </div>
+      <p>On a straight line of commits like yours it is just a column of dots, so it looks like a lot of nothing. Its value shows up once history splits and rejoins, which is branching and merging, Session 3 and Session 4. It is introduced here so you recognise it when it matters.</p>
+      <p><b>Filtering to what you care about.</b> Three filters do most of the work:</p>
+      <ul class="pts">
+        <li><code>--grep=notes</code> keeps only commits whose message contains that text. In your sandbox two messages mention notes, so two lines come back:
+<pre><code><span class="cmd">&gt; git log --grep=notes --oneline</span>
+4f3a8d5 Add a second line of notes
+23ec62a Add notes.md</code></pre></li>
+        <li><code>--author="Ada Lovelace"</code> keeps only commits by that person. Your sandbox has one author, so it returns all three; in a shared project this is how you see one person's work. Dates use <code>--since</code> and <code>--until</code>, for example <code>git log --since=2026-03-01 --until=2026-04-01</code>, which keeps commits made in that window. On a one-day-old sandbox they are not interesting, but you will use them for real on the multi-author repository in this session's milestone.</li>
+        <li><code>-- notes.md</code> keeps only commits that changed one file. The <code>--</code> is a <b>separator</b>: it tells Git that everything after it is a path (a file or folder name), not a branch or a flag. <code>alpha</code> was added in its own commit and never touched <code>notes.md</code>, so it drops out:
+<pre><code><span class="cmd">&gt; git log --oneline -- notes.md</span>
+4f3a8d5 Add a second line of notes
+23ec62a Add notes.md</code></pre></li>
+      </ul>
+      <p><b>One optional nicety.</b> If you want the who, when, and what all on one line, <code>--pretty=format</code> lets you lay it out. You do not need to memorise this; just recognise the pieces when you see it:</p>
+      <div class="filebox">
+        <div class="fbh">a custom one-line format: short hash, author, date, message</div>
+<pre><code><span class="cmd">&gt; git log --pretty=format:"%h  %an  %ad  %s" --date=short</span></code></pre>
+      </div>
+      <p><code>%h</code> is the short hash, <code>%an</code> the author name, <code>%ad</code> the date, and <code>%s</code> the message (its "subject"). <code>--date=short</code> trims the date to <code>YYYY-MM-DD</code>. The result is one tidy row per commit, which is a handy way to eyeball who did what and when.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read your history three ways</div>
+        <p>All in the sandbox. Before each command, say what you expect, then run it and check.</p>
+        <ol>
+          <li>Run <code>git show HEAD</code>, then <code>git show HEAD~1</code>. Confirm the second one is the commit before the first, and remember <code>HEAD^</code> would give you the same thing as <code>HEAD~1</code>.</li>
+          <li>Run <code>git log --stat</code>, then <code>git log -p</code>. Watch how <code>-p</code> shows the actual lines. Use <code>q</code> to leave the pager each time.</li>
+          <li>Run <code>git log --oneline --graph</code> and notice the dots down the side.</li>
+          <li>Run <code>git log --grep=notes --oneline</code> and <code>git log --oneline -- notes.md</code>. Notice they can return different commits, because one filters by message and the other by which file changed.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> I opened single commits with git show and shaped the log with --stat, -p, --graph, --grep and a path</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-diff">
+      <h3>F. Seeing changes: git diff across the three areas</h3>
+      <p>This is the heart of the session, and it maps exactly onto the three areas from Session 1: <b>working tree</b> (the files as you see them), <b>staging area</b> (what <code>git add</code> put on the shortlist), and <b>the last commit</b>. A <code>diff</code> is just a comparison of two of those, and which two you compare is set by how you call <code>git diff</code>:</p>
+      <div class="areas">
+        <div class="area"><div class="an">Working tree</div><div class="ad">Your files right now.</div></div>
+        <div class="arrow"><span class="ah">&harr;</span><code>git diff</code></div>
+        <div class="area"><div class="an">Staging area</div><div class="ad">What you have added.</div></div>
+        <div class="arrow"><span class="ah">&harr;</span><code>git diff --staged</code></div>
+        <div class="area"><div class="an">Last commit</div><div class="ad">HEAD.</div></div>
+      </div>
+      <ul class="pts">
+        <li><code>git diff</code> compares the <b>working tree against the staging area</b>: changes you have made but not yet staged.</li>
+        <li><code>git diff --staged</code> compares the <b>staging area against the last commit</b>: what you have staged and would commit next. (<code>--cached</code> is an older name for the exact same thing; you will see it in tutorials, so know they are identical.)</li>
+        <li><code>git diff HEAD</code> skips the staging area and compares the <b>working tree against the last commit</b>: everything that has changed since you committed, staged or not.</li>
+      </ul>
+      <p>These three genuinely differ, and the cleanest way to feel it is to set up a file with a staged change on one line and an unstaged change on a different line. Do this in your sandbox. First replace <code>notes.md</code> with three known lines and commit, so there is a clean starting point:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content notes.md "Git sandbox`nCreated while learning Git.`nSafe to delete."</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>printf 'Git sandbox\nCreated while learning Git.\nSafe to delete.\n' &gt; notes.md</code></div>
+      </div>
+      <p>Then <code>git add notes.md</code> and <code>git commit -m "Rewrite notes as three lines"</code>. Now make two changes: edit line 2 and <b>stage it</b>, then edit line 3 and <b>leave it unstaged</b>. (Edit in your editor, or reuse the write-the-whole-file commands above with the new text.) The staged line becomes <code>Created while learning Git, in session 2.</code> and the unstaged line becomes <code>Safe to delete anytime.</code> Here is what each diff then shows.</p>
+      <div class="filebox">
+        <div class="fbh">git diff &middot; working tree vs staging: only the UNSTAGED line 3</div>
+<pre><code><span class="cmd">&gt; git diff</span>
+diff --git a/notes.md b/notes.md
+index b332d6f..336ccf9 100644
+--- a/notes.md
++++ b/notes.md
+@@ -1,3 +1,3 @@
+ Git sandbox
+ Created while learning Git, in session 2.
+<span class="dmin">-Safe to delete.</span>
+<span class="dplus">+Safe to delete anytime.</span></code></pre>
+      </div>
+      <p><b>Now read that diff, because the shape is the same every time:</b></p>
+      <ul class="pts">
+        <li>The first two lines (<code>diff --git ...</code> and <code>index ...</code>) are Git's header naming the file. The two short codes on the <code>index</code> line are internal fingerprints; ignore them, and expect them to differ on your machine.</li>
+        <li><code>--- a/notes.md</code> is the <b>old</b> side of the comparison, <code>+++ b/notes.md</code> is the <b>new</b> side.</li>
+        <li><code>@@ -1,3 +1,3 @@</code> is the <b>hunk header</b>. It says this chunk covers lines 1 to 3 on the old side and lines 1 to 3 on the new side, so you know where in the file you are looking.</li>
+        <li>A line with a leading <b>space</b> is unchanged context, shown so you can see the surroundings. A line starting with <code>-</code> was <b>removed</b>, a line starting with <code>+</code> was <b>added</b>. Those are removed and added <i>lines</i>, not minus and plus in the arithmetic sense.</li>
+      </ul>
+      <p>So plain <code>git diff</code> shows only line 3, the change you did not stage. Compare the other two:</p>
+      <div class="filebox">
+        <div class="fbh">git diff --staged &middot; staging vs last commit: only the STAGED line 2</div>
+<pre><code><span class="cmd">&gt; git diff --staged</span>
+diff --git a/notes.md b/notes.md
+index 0a62d83..b332d6f 100644
+--- a/notes.md
++++ b/notes.md
+@@ -1,3 +1,3 @@
+ Git sandbox
+<span class="dmin">-Created while learning Git.</span>
+<span class="dplus">+Created while learning Git, in session 2.</span>
+ Safe to delete.</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">git diff HEAD &middot; working tree vs last commit: BOTH changes</div>
+<pre><code><span class="cmd">&gt; git diff HEAD</span>
+diff --git a/notes.md b/notes.md
+index 0a62d83..336ccf9 100644
+--- a/notes.md
++++ b/notes.md
+@@ -1,3 +1,3 @@
+ Git sandbox
+<span class="dmin">-Created while learning Git.</span>
+<span class="dmin">-Safe to delete.</span>
+<span class="dplus">+Created while learning Git, in session 2.</span>
+<span class="dplus">+Safe to delete anytime.</span></code></pre>
+      </div>
+      <p>Three calls, three answers, and now you can predict which is which: <code>git diff</code> is what is left to stage, <code>git diff --staged</code> is what is ready to commit, and <code>git diff HEAD</code> is the full picture since the last commit. This is the habit worth building: <b>run <code>git diff --staged</code> right before you commit</b>, so you always know exactly what you are about to record.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make the three diffs disagree</div>
+        <ol>
+          <li>Rewrite <code>notes.md</code> to the three known lines above, then <code>git add notes.md</code> and commit it.</li>
+          <li>Change line 2 and stage it with <code>git add notes.md</code>. Change line 3 and do <b>not</b> stage it.</li>
+          <li>Run <code>git diff</code>, <code>git diff --staged</code>, and <code>git diff HEAD</code>. Before each, say which change you expect to see. Confirm you get the unstaged line, the staged line, and both.</li>
+          <li>To finish with a clean tree, <code>git add notes.md</code> and commit both changes together.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I saw git diff, git diff --staged and git diff HEAD each show a different set of changes</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-gitignore">
+      <h3>G. .gitignore, and why it cannot hide what you already committed</h3>
+      <p>Session 1 warned that <code>git add .</code> can sweep up files you never meant to commit, and named <code>.gitignore</code> as the real fix. Here it is. <b><code>.gitignore</code> is a plain text file in the root of your repository</b>, listing the files and folders Git should pretend it cannot see. It is itself committed, so everyone who clones the project ignores the same things.</p>
+      <p>The rules are simple: <b>one pattern per line.</b></p>
+      <ul class="pts">
+        <li><code>*.log</code> ignores every file ending in <code>.log</code> (the <code>*</code> means "any name").</li>
+        <li><code>node_modules/</code> ignores a whole folder; the trailing <code>/</code> means "a directory".</li>
+        <li><code>!keep.log</code> un-ignores one thing; a leading <code>!</code> negates a pattern, carving out an exception to a broader rule above it.</li>
+      </ul>
+      <p>Watch it work in the sandbox. Create a throwaway log file, and notice <code>git status</code> lists it as untracked along with <code>beta</code>:</p>
+      <div class="filebox">
+        <div class="fbh">two untracked files cluttering status</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+Untracked files:
+  (use "git add &lt;file&gt;..." to include in what will be committed)
+	beta
+	debug.log
+
+nothing added to commit but untracked files present (use "git add" to track)</code></pre>
+      </div>
+      <p>Now create <code>.gitignore</code> with two lines, <code>*.log</code> and <code>beta</code> (that is what to do with the leftover <code>beta</code> from Session 1: tell Git you are deliberately not tracking it). Run <code>git status</code> again and both are gone, leaving only <code>.gitignore</code> itself to commit:</p>
+      <div class="filebox">
+        <div class="fbh">after adding .gitignore &middot; the ignored files vanish from status</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+Untracked files:
+  (use "git add &lt;file&gt;..." to include in what will be committed)
+	.gitignore
+
+nothing added to commit but untracked files present (use "git add" to track)</code></pre>
+      </div>
+      <p>Commit <code>.gitignore</code> (<code>git add .gitignore</code> then <code>git commit -m "Add .gitignore"</code>) and the tree is clean. So far so good. <b>Now the gotcha that catches everyone.</b></p>
+      <p><code>.gitignore</code> only affects files Git is <b>not already tracking</b>. A file that is already in a commit keeps being tracked no matter what you add to <code>.gitignore</code>. Prove it: <code>alpha</code> is already tracked. Add a line <code>alpha</code> to your <code>.gitignore</code>, then edit <code>alpha</code> and run <code>git status</code>:</p>
+      <div class="filebox">
+        <div class="fbh">alpha is in .gitignore, yet Git still tracks its changes</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+Changes not staged for commit:
+  (use "git add &lt;file&gt;..." to update what will be committed)
+  (use "git restore &lt;file&gt;..." to discard changes in working directory)
+	modified:   alpha
+
+no changes added to commit (use "git add" and/or "git commit -a")</code></pre>
+      </div>
+      <p>Git ignored the <code>.gitignore</code> line completely, because <code>alpha</code> was already tracked. To actually stop tracking it, you need the command you first saw as a hint in a Session 1 status message: <code>git rm --cached</code>.</p>
+      <div class="filebox">
+        <div class="fbh">git rm --cached &middot; stop tracking, but keep the file on disk</div>
+<pre><code><span class="cmd">&gt; git rm --cached alpha</span>
+rm 'alpha'
+<span class="cmd">&gt; git status</span>
+On branch main
+Changes to be committed:
+  (use "git restore --staged &lt;file&gt;..." to unstage)
+	deleted:    alpha</code></pre>
+      </div>
+      <p><b>Read that word carefully.</b> Git says <code>deleted: alpha</code>, but your file <code>alpha</code> is still sitting right there in the folder. <code>deleted</code> here means "removed from Git's tracking", not "removed from your disk". The <code>--cached</code> part is exactly what protects the file on disk: it removes only Git's copy in the staging area, not your working copy. Commit that and, combined with the <code>.gitignore</code> line, <code>alpha</code> is both untracked and ignored from now on. (For the rest of the session you want <code>alpha</code> back to normal, so you can skip committing this last step, or just re-add it; nothing here changed <code>notes.md</code>.)</p>
+    </div>
+
+    <div class="block" id="concept-secrets">
+      <h3>H. What must never be committed</h3>
+      <p>This is the one place a Git mistake can genuinely hurt you, so it gets its own section. <b>Never commit secrets:</b> passwords, API keys, access tokens, private certificates, or <code>.env</code> files that hold them. The reason is everything you learned about commits in Session 1.</p>
+      <p>A commit is a <b>permanent snapshot</b>. If a secret goes into a commit, it is in the history, and here is the part that burns people: <b>deleting it in a later commit does not remove it.</b> The later commit just records a new snapshot without it, while the old snapshot, secret and all, sits in the history forever, one <code>git show</code> away.</p>
+      <ul class="pts">
+        <li>Getting a secret out of history for real means <b>rewriting history</b>, which is advanced, disruptive, and covered in Session 8. It is not a quick fix.</li>
+        <li>And even after a rewrite, anyone who already pulled or saw the repository still has the secret. So the only response you can actually rely on is this: <b>if a secret is ever committed, treat it as compromised and rotate it.</b> Rotate means change it, revoke the old key and issue a new one, at the source.</li>
+      </ul>
+      <p><code>.gitignore</code> is the prevention: list <code>.env</code> and secret files there <b>before</b> you ever <code>git add</code>, so they never reach a commit. But be clear about what <code>.gitignore</code> does and does not do: it stops a file from being committed in the first place, and it does nothing to protect a secret you already committed. Prevention only.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Ignore, untrack, and reason about secrets</div>
+        <ol>
+          <li>In the sandbox, create <code>debug.log</code>, then a <code>.gitignore</code> containing <code>*.log</code> and <code>beta</code>. Run <code>git status</code> and confirm both disappear from the untracked list. Commit <code>.gitignore</code>.</li>
+          <li>Add a line <code>alpha</code> to <code>.gitignore</code>, edit <code>alpha</code>, and run <code>git status</code>. Confirm Git still reports <code>alpha</code> as modified: an already-tracked file is not affected by <code>.gitignore</code>.</li>
+          <li>Run <code>git rm --cached alpha</code> and read the status. Note that it says <code>deleted</code>, yet <code>alpha</code> is still in your folder.</li>
+          <li>No command needed for this one, just answer it in your head: you committed an API key yesterday and removed it in today's commit. Is the key safe? (No. It is still in yesterday's snapshot. You would rotate the key.)</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I ignored files, saw that .gitignore does not untrack alpha, used git rm --cached, and can explain why a removed secret is still exposed</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-milestone">
+      <h3>I. The milestone: investigate a repository you did not write</h3>
+      <p>Everything so far has been on a repository you built yourself. The real test of reading history is a repository you have <b>never seen</b>: a project a colleague hands you, or one you just downloaded. You cannot ask the files what happened; you ask the history.</p>
+      <p>Since cloning from the internet is Session 5, you will fabricate a small, realistic one locally. This block creates <code>inherited-repo</code> with three commits by two different people, back-dated across a month, so it looks exactly like a project that existed before you arrived. Paste the block for your shell and run it. (Do not worry about the parts you have not seen: <code>--author</code> stamps someone else's name on a commit, and the date lines set when it was made.)</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build the repository to investigate</div>
+<pre><code>cd ~
+mkdir inherited-repo
+cd inherited-repo
+git init
+Set-Content report.py 'print("name,revenue")'
+git add report.py
+$env:GIT_AUTHOR_DATE="2026-03-02T09:14:00-0600"; $env:GIT_COMMITTER_DATE="2026-03-02T09:14:00-0600"
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" -m "Add the report script"
+Set-Content report.py 'print("Name,Revenue")'
+git add report.py
+$env:GIT_AUTHOR_DATE="2026-03-11T16:02:00-0600"; $env:GIT_COMMITTER_DATE="2026-03-11T16:02:00-0600"
+git commit --author="Sam Iyer &lt;sam@example.com&gt;" -m "Fix the header row"
+Set-Content README.md 'Run it with: python report.py'
+git add README.md
+$env:GIT_AUTHOR_DATE="2026-04-01T11:30:00-0600"; $env:GIT_COMMITTER_DATE="2026-04-01T11:30:00-0600"
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" -m "Document how to run it"
+Remove-Item Env:\GIT_AUTHOR_DATE, Env:\GIT_COMMITTER_DATE  # stop back-dating your own commits</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build the repository to investigate</div>
+<pre><code>cd ~
+mkdir inherited-repo
+cd inherited-repo
+git init
+echo 'print("name,revenue")' &gt; report.py
+git add report.py
+GIT_AUTHOR_DATE="2026-03-02T09:14:00-0600" GIT_COMMITTER_DATE="2026-03-02T09:14:00-0600" \
+  git commit --author="Rae Okafor &lt;rae@example.com&gt;" -m "Add the report script"
+echo 'print("Name,Revenue")' &gt; report.py
+git add report.py
+GIT_AUTHOR_DATE="2026-03-11T16:02:00-0600" GIT_COMMITTER_DATE="2026-03-11T16:02:00-0600" \
+  git commit --author="Sam Iyer &lt;sam@example.com&gt;" -m "Fix the header row"
+echo 'Run it with: python report.py' &gt; README.md
+git add README.md
+GIT_AUTHOR_DATE="2026-04-01T11:30:00-0600" GIT_COMMITTER_DATE="2026-04-01T11:30:00-0600" \
+  git commit --author="Rae Okafor &lt;rae@example.com&gt;" -m "Document how to run it"</code></pre>
+      </div>
+      <p>The commit hashes you get will be your own, but the authors, dates, messages, and file names are the same for everyone, which is what makes the milestone something you can check yourself.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: read a stranger's history</div>
+        <p>Work only from the history, using the commands from this session. <b>Do not open the files to peek</b>; the whole point is that the history tells you the story. Answer, out loud or on paper:</p>
+        <ol>
+          <li>How many commits does <code>inherited-repo</code> have, and what is the newest one? (<code>git log --oneline</code>)</li>
+          <li>Who worked on it, and when? (<code>git log</code>, and try <code>git log --author="Rae Okafor"</code> and <code>git log --since=2026-03-15</code>)</li>
+          <li>What did the middle commit actually change? (<code>git show HEAD~1</code>)</li>
+          <li>Now write a <b>five-line summary</b> of the project: what it is, who contributed, over what span of time, and what the three commits did, in order.</li>
+        </ol>
+        <p>You have hit the milestone when your five lines are correct and you got every fact from Git commands, not from opening the files.</p>
+        <details><summary>What a complete summary covers</summary>
+          <div style="font-size:13px;color:var(--ink-soft);margin-top:10px">
+          <p style="margin:0 0 8px">Your wording will differ, but a correct summary contains these facts, all readable from the history:</p>
+          <ul class="pts" style="margin:0">
+            <li>It is a small project: a one-file Python report script (<code>report.py</code>) plus a short <code>README.md</code>.</li>
+            <li><b>Three commits</b>, by <b>two authors</b>: Rae Okafor (two commits) and Sam Iyer (one).</li>
+            <li>It spans early March to early April 2026 (2026-03-02 to 2026-04-01).</li>
+            <li>In order: Rae added the report script, Sam fixed the header row (a small edit to <code>report.py</code>, which <code>git show</code> reveals as changing the header text), and Rae added a README documenting how to run it.</li>
+          </ul>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I investigated inherited-repo from its history alone and wrote a correct five-line summary</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in your sandbox.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a normal repository with a few commits and a clean working tree. Where a drill needs something to have happened first, it is shown in the grey <i>already run</i> box.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: run these in the wrong order and Git either errors or shows you the wrong thing.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review starts now:</b> two of these six questions come from Session 1, because recalling older material on a delay is what makes it stick. Their review links open Session 1 in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 02 of 10 &middot; Hit the milestone unassisted, then tick <b>S02</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; Keep the <code>git-sandbox</code> and <code>inherited-repo</code> folders.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page, and from memory investigate a repository you did not create. If you still have <code>inherited-repo</code>, use it; otherwise any project folder with a history works. Write five lines on what it is, who worked on it, and what changed, using only <code>git log</code>, <code>git show</code> and <code>git diff</code>. &middot; Next: <b>Session 03, branches are just pointers</b> (Level 2).
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s02-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words (staged,
+     unstaged, deleted) and plain file names, where capitalisation is presentation
+     rather than the lesson. Marking "Unstaged" wrong would be an unfair grade.
+     Git command case-sensitivity is taught in prose and tested in Parts 3 and 4. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ---------- */
+  var DRILLS = [
+    { type: 'value',
+      scen: 'git log --oneline\n26f1c9a (HEAD -> main) Add tests\n7b3d004 Fix the parser\n0a1e552 Add the parser',
+      ask: 'Reading the log above, which commit message does HEAD~2 point to?',
+      code: 'git show HEAD~2', ans: 'Add the parser',
+      why: 'HEAD is the commit you are on, Add tests. The ~2 walks two steps back along the parent pointers: one step to Fix the parser, a second to Add the parser. So HEAD~2 lands on Add the parser.' },
+
+    { type: 'value',
+      scen: 'You edit report.py and stage that change with git add.\nThen you edit a DIFFERENT line of report.py and do NOT stage it.',
+      ask: 'Does plain git diff (no arguments) show the staged change or the unstaged change? Answer in one word: staged or unstaged.',
+      code: 'git diff', ans: 'unstaged',
+      why: 'Plain git diff compares your working tree against the staging area. The change you staged already matches the staging area, so it does not appear. Only the edit you have not yet staged shows up.' },
+
+    { type: 'value',
+      scen: 'Same situation: one staged change and one different unstaged\nchange, both in report.py.',
+      ask: 'Does git diff --staged show the staged change or the unstaged change? One word.',
+      code: 'git diff --staged', ans: 'staged',
+      why: 'git diff --staged compares the staging area against the last commit, so it shows exactly what you have staged and would record next. The unstaged edit is invisible to it. (--cached is the same command.)' },
+
+    { type: 'count',
+      scen: 'Same situation again: one staged change on one line, one\nunstaged change on a different line, both in report.py.',
+      ask: 'How many of your two changes does git diff HEAD show?',
+      code: 'git diff HEAD', ans: '2',
+      why: 'git diff HEAD compares your working tree against the last commit, ignoring the staging area entirely. So it reports every difference since you committed: the staged edit and the unstaged one, which is 2.' },
+
+    { type: 'count',
+      scen: '(a repository that has 5 commits)',
+      ask: 'How many commit lines does this print?',
+      code: 'git log -n 2 --oneline', ans: '2',
+      why: 'The -n 2 flag (you can also write it -2) caps the log at the 2 newest commits, no matter how many the repository holds. It is the quick way to glance at just the recent history.' },
+
+    { type: 'count',
+      scen: '(a repository with 3 commits. notes.md was changed in 2 of\n them; the third commit only added a different file, alpha)',
+      ask: 'How many commits does this print?',
+      code: 'git log --oneline -- notes.md', ans: '2',
+      why: 'Everything after -- is read as a path, so Git limits the log to commits that touched notes.md. Two commits changed it, so two lines print. The commit that only added alpha never touched notes.md, so it drops out.' },
+
+    { type: 'set',
+      scen: 'A single commit shows this summary:\n report.py | 2 +-\n README.md | 1 +\n 2 files changed, 2 insertions(+), 1 deletion(-)',
+      ask: 'List the file names this commit changed, separated by commas. Order does not matter.',
+      code: 'git show --stat HEAD', ans: 'report.py, README.md',
+      why: 'A --stat summary prints one line per changed file, then a totals line. Two files are listed, report.py and README.md, so those are the two this commit changed. The bars of + and - show how much each changed.' },
+
+    { type: 'set',
+      scen: 'Your folder holds four new, uncommitted files:\n app.js, debug.log, error.log, notes.txt.\nYour .gitignore contains a single line: *.log',
+      ask: 'Which of the four files does git status list under Untracked files? List them, separated by commas, any order.',
+      code: 'git status', ans: 'app.js, notes.txt',
+      why: 'The pattern *.log matches any name ending in .log, so debug.log and error.log are ignored and never listed. The other two match no pattern, so git status still shows app.js and notes.txt as untracked.' },
+
+    { type: 'seq',
+      scen: '(a repository whose commits were made in this order:\n first genesis, then sprout, then bloom)',
+      ask: 'Type the three one-word messages in the order git log --oneline prints them, top to bottom, separated by commas.',
+      code: 'git log --oneline', ans: 'bloom, sprout, genesis',
+      why: 'git log walks backwards from the newest commit along the parent pointers, so the newest prints first. The order made was genesis, sprout, bloom, so top to bottom you read bloom, sprout, genesis. Reading the log downward is reading back in time.' },
+
+    { type: 'seq',
+      scen: 'A colleague hands you a repository. You run:\n git log --pretty=format:"%ad  %s" --date=short\nand Git prints:\n 2025-11-20  Tidy up the README\n 2025-11-05  Add error handling\n 2025-10-12  First working version',
+      ask: 'Type the three dates in the order they appear, top to bottom, separated by commas. The format is YYYY-MM-DD.',
+      code: 'git log --pretty=format:"%ad  %s" --date=short', ans: '2025-11-20, 2025-11-05, 2025-10-12',
+      why: 'This custom format prints each commit as its date then its message, still newest first. Reading top to bottom gives 2025-11-20, then 2025-11-05, then 2025-10-12. The most recent work is always at the top.' },
+
+    { type: 'value',
+      scen: 'config.txt was committed earlier, so Git tracks it. You add\n the line config.txt to .gitignore, then run:\n git rm --cached config.txt',
+      ask: 'Which single word does git status now show next to config.txt under Changes to be committed?',
+      code: 'git status', ans: 'deleted',
+      why: 'git rm --cached stops Git tracking config.txt, and Git records that as a staged change worded deleted: config.txt. The word deleted means removed from Git tracking here, not removed from your disk: the file itself is still in your folder.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'You have dropped one file, plan.md, into a brand-new folder. Turn the folder into a repository, record plan.md in a commit, then display that commit in full with git show. Each step needs the one before it to have happened.',
+      lines: ['git init', 'git add plan.md', 'git commit -m "Add plan.md"', 'git show HEAD'] },
+    { prompt: 'You have edited report.py, which Git already tracks. Put the edit on the shortlist, display exactly what you are about to commit, record it, then confirm the working tree is clean. Reviewing the staged change before committing is the habit this session builds.',
+      lines: ['git add report.py', 'git diff --staged', 'git commit -m "Refine report.py"', 'git status'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so the first line shows one line per commit, the second shows only the commits a given person wrote, and the third narrows the history to the commits that changed one file.',
+      code: 'git log --%%                     # compress each commit to a single row\ngit log --%%="Sam Iyer"          # keep only the commits one person wrote\ngit log --oneline %% report.py   # limit the history to one file', ans: ['oneline', 'author', '--'] },
+    { prompt: 'Fill the blanks so the first line compares your working tree with the last commit, the second displays the commit one step before the newest, and the third stops Git tracking a file while leaving it on your disk.',
+      code: 'git diff %%              # working tree against the last commit\ngit show %%~1            # the commit one step before the newest\ngit %% --cached secrets.env   # stop tracking, keep the file on disk', ans: ['HEAD', 'HEAD', 'rm'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Show the three most recent commits in the sandbox as one line each, then display the single newest commit in full.',
+      sol: 'git log -3 --oneline\ngit show HEAD' },
+    { task: 'You have staged one change to report.py and made a second, different change that you have not staged. Write the three commands that show, in turn: only the unstaged change, only the staged change, and both changes at once.',
+      sol: 'git diff\ngit diff --staged\ngit diff HEAD' },
+    { task: 'Create a .gitignore in the current repository that makes Git ignore every file ending in .log and the whole node_modules folder, then commit the .gitignore.',
+      sol: '# create a file named .gitignore in the repository root,\n# containing these two lines:\n#   *.log\n#   node_modules/\n\ngit add .gitignore\ngit commit -m "Add .gitignore"' },
+    { task: 'You have been handed inherited-repo, a project you did not write. Using only Git commands, work out three things: how many commits it has, who the authors are, and what the newest commit changed. Write the commands you would run.',
+      sol: 'git log --oneline          # one line per commit: count them, read the messages\ngit log                    # full view: Author and Date on every commit\ngit show HEAD              # the newest commit in full, including what it changed' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Compress each commit to a single line', b: 'git log --oneline' },
+    { f: 'Show only the newest 3 commits', b: 'git log -3   (or git log -n 3)' },
+    { f: 'Show which files each commit changed, with + and - counts', b: 'git log --stat' },
+    { f: 'Show the actual added and removed lines (the patch)', b: 'git log -p' },
+    { f: 'Show only the commits written by one author', b: 'git log --author="Ada"' },
+    { f: 'Show only commits whose message contains a word', b: 'git log --grep=parser' },
+    { f: 'Limit the log to commits that changed one file', b: 'git log -- notes.md' },
+    { f: 'What the -- separator tells Git', b: 'what follows is a path, not a branch or a flag' },
+    { f: 'Display one commit in full, message and changes', b: 'git show HEAD   (or git show a hash)' },
+    { f: 'What HEAD points to', b: 'the commit you are on, reached through the current branch' },
+    { f: 'One and two commits back from HEAD, and the caret form', b: 'HEAD~1, HEAD~2   (HEAD^ means HEAD~1)' },
+    { f: 'The file that lists what Git should ignore, one pattern per line', b: '.gitignore' },
+    { f: 'What git diff (no arguments) compares', b: 'working tree vs staging area' },
+    { f: 'What git diff --staged compares', b: 'staging area vs last commit' },
+    { f: 'What git diff HEAD compares', b: 'working tree vs last commit' },
+    { f: 'Stop tracking a file but keep it on your disk', b: 'git rm --cached a-file' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  /* Four new Session-2 questions carry an in-page scrollIntoView backlink (part).
+     The two Session-1 recall questions carry an external new-tab link (ext),
+     since the concept they test lives in the Session 1 artifact, not this page. */
+  var S1_URL = 'git-session-01.html';
+  var QUIZ = [
+    { q: 'You staged one change to report.py, then made a second, different change you have NOT staged. Which command shows ONLY the change you already staged?',
+      o: ['git diff --staged',
+          'git diff',
+          'git diff HEAD',
+          'git show report.py'],
+      c: 0,
+      e: 'git diff --staged compares the staging area against the last commit, so it shows exactly what you have staged and nothing else. Plain git diff shows the opposite (the unstaged change), and git diff HEAD shows both at once.',
+      part: { id: 'concept-diff', label: 'F. git diff across the three areas' } },
+
+    { q: 'What does HEAD refer to?',
+      o: ['A reference to the commit you are currently on, reached through the current branch',
+          'The oldest commit in the repository, the very first one that every other commit descends from',
+          'The staging area',
+          'A backup copy of your files'],
+      c: 0,
+      e: 'HEAD is Git shorthand for the commit you are standing on, which it reaches by way of the current branch (main here). That is why git show HEAD shows your newest commit and HEAD~1 steps one commit back. It is not the root commit and it is not the staging area.',
+      part: { id: 'concept-head', label: 'C. What HEAD points at' } },
+
+    { q: 'You committed secrets.env last week. Today you add the line secrets.env to your .gitignore. What happens to the copy Git already tracks?',
+      o: ['Nothing changes; .gitignore does not untrack it. It stays tracked until you run git rm --cached secrets.env',
+          'Git removes it from every past commit',
+          'Git deletes the file from your disk',
+          'It becomes untracked immediately'],
+      c: 0,
+      e: '.gitignore only stops Git from picking up files it is not already tracking. A file that is already tracked keeps being tracked, edits and all, until you run git rm --cached to stop tracking it. .gitignore never edits history and never deletes your file.',
+      part: { id: 'concept-gitignore', label: 'G. .gitignore and git rm --cached' } },
+
+    { q: 'You accidentally commit an API key, notice right away, and remove it in the very next commit. Is the key safe?',
+      o: ['No; it is still sitting in the earlier commit in your history, so the only real fix is to rotate (replace) the key',
+          'Yes, the newer commit overwrote it',
+          'Yes, because it is no longer in the latest version',
+          'Yes, as long as you never send the repository anywhere'],
+      c: 0,
+      e: 'A commit is a permanent snapshot, so the key lives on in the earlier commit even after you remove it later. Deleting it going forward does not erase the past. Scrubbing it out means rewriting history (Session 8), and anyone who already saw it still has it, so the only reliable fix is to rotate the key.',
+      part: { id: 'concept-secrets', label: 'H. What must never be committed' } },
+
+    { q: 'Recall from Session 1: git add takes a snapshot of a file the moment you run it. You run git add notes.md, then edit notes.md again and save, then run git commit. Which version does the commit record?',
+      o: ['The version as it was when you ran git add',
+          'The latest version, including the edit you made after adding',
+          'Both versions, as two separate commits',
+          'Nothing, because the file changed after staging'],
+      c: 0,
+      e: 'git add copies the file as it is at that instant. The later edit was never staged, so the commit records the earlier version and the newer edit stays in your working tree. That leftover edit is exactly what plain git diff shows you this session.',
+      ext: { url: S1_URL, label: 'Session 1: git add is a snapshot (opens in a new tab)' } },
+
+    { q: 'Recall from Session 1: what does a single commit actually store?',
+      o: ['A complete snapshot of every tracked file, plus author, date, message, and a pointer to its parent',
+          'Only the lines that changed since the previous commit (a diff)',
+          'A copy of the whole .git folder',
+          'Just the commit message and the date'],
+      c: 0,
+      e: 'A commit stores a whole snapshot plus a parent pointer, not a diff. Because Git keeps snapshots, it can compute the difference between any two of them on demand, which is precisely what git diff and git show did throughout this session.',
+      ext: { url: S1_URL, label: 'Session 1: a commit is a snapshot, not a diff (opens in a new tab)' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open Session 1 in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S02 on your Hub and move on to Session 3.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

@@ -1,0 +1,1411 @@
+<title>Git Sprint &middot; Bonus &middot; Git under the hood</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session needs it as badly as the ones before it: Cascadia Code would
+     otherwise redraw the -> in (HEAD -> main) and in upstream/HEAD -> upstream/main,
+     the -- in --show-scope, --global and --date, and the ... in a truncated path. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code, .ptable
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  /* a refusal line, so the label stands out from the hint text around it */
+  .rej { color: var(--bad); font-weight: 700; }
+  /* the destructive-command warning banner */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the areas diagram: four boxes, carried forward from Session 7 */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .areas.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .areas.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; word-break: break-word; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas, .areas.plain, .areas.four { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* label / meaning rows: the reflog labels, the verbs, and the mistake-to-tool map */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the decision table: which of the four things each command moves */
+  .tscroll { overflow-x: auto; margin: 4px 0 14px; }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
+  .ptable th, .ptable td { border: 1px solid var(--border); padding: 9px 11px; text-align: left; background: var(--surface); }
+  .ptable thead th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 700; }
+  .ptable tbody th { font-size: 13px; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .ptable td.y { color: var(--good); font-weight: 700; }
+  .ptable td.n { color: var(--ink-faint); }
+  .ptable td.d { color: var(--bad); font-weight: 700; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 37 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 18ch, comfortably clear of this session longest answer, "reset" */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 18ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Bonus // beyond the sprint</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Git under the hood, and how to script it</h1>
+    <p class="goal">Every command in the ten sessions was built for a person. Git has a second set built for programs, and the two have names: <b>porcelain</b> and <b>plumbing</b>. This workbook is not a tour of Git's insides for their own sake. It is the interface Git offers to scripts, which means every section ends somewhere useful: a hash you can compute, an object you can read, a question about a repository you can answer without opening it.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Read a repository's object graph by hand, then write a script that answers a question about it.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>This one is a bonus, and it sits outside the graded ten.</b> There is no level number, no checkbox on the Hub, and nothing here changes your 10/10. The track is finished; this is the next thing to learn if you want it, and it assumes everything the ten sessions taught.</p>
+        <p><b>You do not need any folder from an earlier session.</b> Step one builds a small new repository called <code>plumbing-lab</code> from nothing, and it is disposable like the others. <b>No account and no network.</b></p>
+        <p>This is a workbook, not a reading. You will predict what a command prints before running it, reassemble sequences, fill blanks, and write scripts from scratch. The goal is the one the whole track was built on, aimed one layer lower: <b>read a plumbing command and know what it will tell you before you press enter.</b></p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself.<br><br><b>This session is unusual about what differs on your machine, and the difference is the lesson.</b> Most sessions told you that hashes vary. Here, some of them genuinely do not. <b>Blob and tree hashes are computed from content alone, so every hash below that names a blob or a tree will be identical on your machine</b>, character for character, provided you paste the lab block as written. <b>Commit and tag hashes will differ</b>, because they include the time you ran the command and your name and email. Section H is about exactly that difference. Where a transcript shows a commit hash, treat it as a shape rather than a value. Dates and paths differ as always.</div>
+
+    <div class="block" id="concept-porcelain">
+      <h3>A. Porcelain and plumbing</h3>
+      <p><b>These are Git's own two words for its own two command sets</b>, and once you know them, a lot of confusing documentation stops being confusing. The metaphor is a bathroom: the porcelain is the part you are meant to touch, and the plumbing is what runs behind the wall and makes it work.</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">porcelain</span><span class="rd">Built for <b>people</b>. <code>git status</code>, <code>git log</code>, <code>git commit</code>, <code>git merge</code>: everything from the ten sessions. Friendly output, colours, helpful hints, and <b>a format that is allowed to change between versions</b> because a human is reading it.</span></div>
+        <div class="refrow"><span class="rr">plumbing</span><span class="rd">Built for <b>programs</b>. <code>hash-object</code>, <code>cat-file</code>, <code>rev-parse</code>, <code>ls-tree</code>, <code>ls-files</code>, <code>for-each-ref</code>. Terse output, no colour, no hints, and <b>a format that is kept stable on purpose</b>, because scripts depend on it.</span></div>
+      </div>
+      <p><b>That last row is the whole reason this workbook is worth two hours.</b> Porcelain output is not a contract. Plumbing output is. If you write a script that parses <code>git status</code>, a future Git may reword it and quietly break you. If you write one that reads <code>git ls-files -s</code>, it will still work in ten years, because that is what the command is for.</p>
+      <p><b>You have already used plumbing once without being told.</b> Session 9 proved an annotated tag was a real object with <code>git cat-file -t</code>, and Session 3 had you open <code>.git/refs/heads/main</code> and read the hash inside. Both were plumbing. This workbook names the set and fills it in.</p>
+      <div class="note"><b>Out of scope, so you know where the edges are.</b> Packfiles and delta compression, beyond one sentence in section C. <code>git gc</code>, the commit-graph file, and SHA-256 repositories. And the <b>write half</b> of plumbing, meaning <code>update-index</code>, <code>write-tree</code>, <code>commit-tree</code> and <code>update-ref</code>, which build objects and move refs by hand. They exist, they are how porcelain is implemented, and <b>you do not need any of them in order to read a repository</b>, which is what this session is for.</div>
+    </div>
+
+    <div class="block" id="concept-lab">
+      <h3>B. Build the lab</h3>
+      <p><b>A small repository with a subfolder, two commits and one annotated tag.</b> It is small on purpose: you are about to read every object in it by hand, and that is only pleasant when there are ten of them rather than ten thousand.</p>
+      <p><b>Both blocks below produce identical blobs and identical trees</b>, which is why every blob and tree hash in this session will match yours exactly. Paste the one for your shell. The commit and tag objects will differ, for the reason section H gives, and nothing here depends on them.</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build plumbing-lab</div>
+<pre><code>cd ~
+mkdir plumbing-lab
+cd plumbing-lab
+git init -b main
+git config core.autocrlf true
+Set-Content hello.txt "hello"
+Set-Content rates.txt "rate table v1"
+New-Item -ItemType Directory docs
+Set-Content docs\guide.md "how to read the rates"
+git add .
+git commit -m "Add the first files"
+Set-Content rates.txt "rate table v2"
+git add rates.txt
+git commit -m "Update the rate table"
+git tag -a v1.0.0 -m "First release"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build plumbing-lab</div>
+<pre><code>cd ~
+mkdir plumbing-lab
+cd plumbing-lab
+git init -b main
+git config core.autocrlf true
+printf 'hello\r\n' &gt; hello.txt
+printf 'rate table v1\r\n' &gt; rates.txt
+mkdir docs
+printf 'how to read the rates\r\n' &gt; docs/guide.md
+git add .
+git commit -m "Add the first files"
+printf 'rate table v2\r\n' &gt; rates.txt
+git add rates.txt
+git commit -m "Update the rate table"
+git tag -a v1.0.0 -m "First release"</code></pre>
+      </div>
+      <div class="note"><b>Two lines in there look odd, and both are deliberate.</b><br><br><b>The <code>\r\n</code> in the Git Bash block.</b> PowerShell's <code>Set-Content</code> ends every line with a carriage return and a line feed, the pair usually written CRLF. A plain <code>printf 'hello\n'</code> writes only the line feed. Those two files are different sizes on disk, and <b>section D is entirely about that difference</b>, so the blocks are matched here to give both shells the same starting bytes.<br><br><b>The <code>git config core.autocrlf true</code>.</b> This setting decides what Git does with those line endings on the way in, and <b>it is the one setting every number in this session depends on</b>. The Git for Windows installer switches it on machine-wide, so on Windows this line changes nothing and merely makes the dependency visible. On macOS and Linux it is off by default, and without this line every blob and tree hash below would differ from the ones on this page. Setting it here, in one throwaway repository, is what makes the session reproducible on any machine. Section D is about what it actually does.</div>
+      <p>Confirm the starting point:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; two commits and a tag</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+0e0dcc4 (HEAD -&gt; main, tag: v1.0.0) Update the rate table
+8614be1 Add the first files</code></pre>
+      </div>
+      <p><b>Those two hashes are commit hashes, so yours will be different.</b> That is the last time this session will say so about a commit; from section C on, assume it.</p>
+    </div>
+
+    <div class="block" id="concept-objects">
+      <h3>C. The four object types</h3>
+      <p><b>A Git repository is a bag of objects and a handful of names pointing into it.</b> There are exactly four kinds of object, and every one of them is stored the same way: content in, hash out, filed under that hash. Nothing in <code>.git</code> is filed under a file name.</p>
+      <div class="areas four">
+        <div class="area"><div class="an">blob</div><div class="ad"><b>Content, with no name.</b> The bytes of one file and nothing else. No path, no permissions, no date.</div></div>
+        <div class="area"><div class="an">tree</div><div class="ad"><b>Names and modes.</b> A directory listing: which name maps to which blob or which other tree.</div></div>
+        <div class="area"><div class="an">commit</div><div class="ad"><b>One tree, plus history.</b> A pointer to a single tree, zero or more parents, an author, a committer and a message.</div></div>
+        <div class="area"><div class="an">tag</div><div class="ad"><b>A pointer with a note.</b> An annotated tag: which object it marks, who tagged it, when and why. Session 9's <code>-a</code> tags.</div></div>
+      </div>
+      <p><b>Read that list against what Session 1 told you and something clicks.</b> Session 1 said a commit is a snapshot of every tracked file plus a pointer to its parent. Now you can see the machinery: the snapshot is a <b>tree</b>, the tree names <b>blobs</b>, and the commit holds one tree hash and one parent hash. That is what "snapshot" was standing in for.</p>
+      <p><b>And it explains something Session 3 asserted.</b> A branch is not an object at all. It is a 41-byte file under <code>.git/refs/heads/</code> holding a commit hash and a newline. Objects are content; refs are names for objects. Two different things, which is why <code>git branch -d</code> deletes 41 bytes and no commits.</p>
+      <p><b>The chain runs one way</b>, and it is worth saying out loud before you start reading it, because every command in the rest of this session walks some part of it:</p>
+      <div class="filebox">
+        <div class="fbh">the chain, from a name down to file content</div>
+<pre><code>a ref  ->  a commit  ->  a tree  ->  a blob
+main       "Update"      the root    the bytes of
+                         directory   hello.txt</code></pre>
+      </div>
+      <p>Count what is actually in there. <code>git count-objects</code> is plumbing, and <code>-v</code> makes it verbose:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; how many objects</div>
+<pre><code><span class="cmd">&gt; git count-objects -v</span>
+count: 10
+size: 0
+in-pack: 0
+packs: 0
+size-pack: 0
+prune-packable: 0
+garbage: 0
+size-garbage: 0</code></pre>
+      </div>
+      <p><b>Ten objects for two commits and three files</b>, and the arithmetic is worth doing once: three blobs, plus the <code>docs</code> tree, plus a root tree, is five objects for the first commit. The second commit changes <code>rates.txt</code>, so it needs a new blob and a new root tree, and the <code>docs</code> tree and the two unchanged blobs are <b>reused, not copied</b>. That is two more. Then two commit objects and one tag object. Five, plus two, plus three, is ten.</p>
+      <p><b>Your count may be higher and that is fine</b>, because the number grows every time you stage something. <code>size: 0</code> is a total in kilobytes, rounded down, so ten tiny objects come to zero. <code>in-pack: 0</code> means nothing has been compressed into a packfile yet. Git eventually bundles loose objects into packfiles and stores similar ones as deltas against each other, which is how a repository with a long history stays small. <b>That is the one sentence this session spends on packfiles.</b></p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the lab and count what is in it</div>
+        <ol>
+          <li>Paste the block for your shell and run it. Confirm <code>git log --oneline --decorate=short</code> shows <b>two</b> commits with the tag on the newer one.</li>
+          <li>Run <code>git count-objects -v</code> and read the <code>count:</code> line.</li>
+          <li><b>Before reading on, account for the number out loud</b> using the arithmetic above: how many blobs, how many trees, how many commits, how many tags.</li>
+          <li>Run <code>git status</code> and confirm the working tree is clean. Every transcript from here assumes it.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> My lab has two commits, one tag, and I can account for the object count</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-hash">
+      <h3>D. <code>hash-object</code>, and what a hash is actually computed from</h3>
+      <p><b>Git names an object by hashing it, and the formula is short enough to do by hand.</b> For a blob it is:</p>
+      <div class="filebox">
+        <div class="fbh">the formula, for a blob</div>
+<pre><code>sha1( "blob " + &lt;length in bytes&gt; + &lt;a zero byte&gt; + &lt;the content&gt; )</code></pre>
+      </div>
+      <p><b>That is the whole thing.</b> The word <code>blob</code>, a space, how many bytes of content there are, a single zero byte as a separator, then the content. Hash all of that and you have the name Git files it under. <b>This is what "content addressed" means</b>: the name is derived from the content, so identical content anywhere in the world produces an identical name, and changed content produces a different one. There is no counter and no registry.</p>
+      <p><code>git hash-object</code> computes it for you:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; the hash of hello.txt</div>
+<pre><code><span class="cmd">&gt; git hash-object hello.txt</span>
+ce013625030ba8dba906f756967f9e9ca394464a</code></pre>
+      </div>
+      <p><b>Now the surprise, and it is the best thing in this session.</b> Ask your shell how big that file is, and then ask Git how big the object it stored is. They disagree.</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>(Get-Item hello.txt).Length</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>wc -c &lt; hello.txt</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; seven bytes on disk, six bytes stored</div>
+<pre><code><span class="cmd">&gt; (Get-Item hello.txt).Length</span>
+7
+
+<span class="cmd">&gt; git cat-file -s ce013625030ba8dba906f756967f9e9ca394464a</span>
+6</code></pre>
+      </div>
+      <p><b>The file is seven bytes and the blob is six.</b> The word <code>hello</code> is five characters, so the file on disk ends with a carriage return and a line feed, two bytes, and the stored object ends with a line feed, one byte. <b>Git changed the content on the way in.</b></p>
+      <p><b>This is <code>core.autocrlf</code>, and Session 1 warned you about it without explaining it.</b> On Git for Windows the installer turns it on machine-wide. It converts CRLF to LF when content goes into the repository and back again when files come out, so that a repository shared between Windows and everywhere else stays consistent. <b>Session 1 showed you the warning it prints; this is the mechanism underneath.</b></p>
+      <p><b><code>--no-filters</code> skips the conversion</b>, and hashing the same file both ways is the cleanest possible demonstration:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; the same file, two different hashes</div>
+<pre><code><span class="cmd">&gt; git hash-object hello.txt</span>
+ce013625030ba8dba906f756967f9e9ca394464a
+
+<span class="cmd">&gt; git hash-object --no-filters hello.txt</span>
+ef0493b275aa2080237f676d2ef6559246f56636</code></pre>
+      </div>
+      <p><b>Two hashes for one file, and the first one is the one Git actually uses.</b> Confirm that rather than taking it on trust, by asking the index what it recorded:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; which of the two Git stored</div>
+<pre><code><span class="cmd">&gt; git ls-files -s hello.txt</span>
+100644 ce013625030ba8dba906f756967f9e9ca394464a 0	hello.txt</code></pre>
+      </div>
+      <p><b>So the rule is: <code>hash-object</code> given a PATH applies the same filters a real <code>git add</code> would</b>, which is what makes it agree with Git. <code>--no-filters</code> and <code>--stdin</code> do not, because there is no path for Git to look up a filter rule against. That is a genuinely useful distinction the moment you script anything: <b>if your script compares a hash it computed against a hash Git stored, and the two disagree on a Windows machine, this is why.</b></p>
+      <p><b>Now do the arithmetic by hand and watch it match.</b> The stored content is six bytes, so the formula says hash the string <code>blob 6</code>, a zero byte, then <code>hello</code> and a line feed:</p>
+      <div class="filebox">
+        <div class="fbh">Git Bash / Linux &middot; the formula, by hand</div>
+<pre><code><span class="cmd">&gt; printf 'blob 6\0hello\n' | sha1sum</span>
+ce013625030ba8dba906f756967f9e9ca394464a *-</code></pre>
+      </div>
+      <p><b>Character for character, the hash Git gave you.</b> No Git involved in that command at all: just a string and a standard hashing tool. The <code>*</code> before the <code>-</code> is <code>sha1sum</code> noting that it read standard input in binary mode, and is not part of the hash. On macOS the tool is named <code>shasum</code> rather than <code>sha1sum</code>, and everything else is the same. That is the point at which content addressing stops being a phrase and becomes something you have done.</p>
+      <div class="note"><b>Two honest notes on that last command.</b> <b>One:</b> it needs <code>printf</code> and <code>sha1sum</code>, which Git Bash has and PowerShell does not, so it is shown in one shell only. PowerShell can do it, but the code is long enough to obscure the idea. <b>Two:</b> outside this lab, on a macOS or Linux machine, you would normally write <code>hello.txt</code> with a line feed alone and leave <code>core.autocrlf</code> off. Then the file would be six bytes on disk, <code>--no-filters</code> would agree with the plain form, and the two-hash demonstration above would show one hash twice. <b>Nothing would be wrong.</b> The gap between the file and the object is not a universal fact about Git: it is what happens when a filter is switched on, which is exactly why the lab block switched one on and wrote CRLF, so that every reader can watch it happen.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Compute a hash by hand, and find the byte that changed</div>
+        <ol>
+          <li>Run <code>git hash-object hello.txt</code>. Confirm you get <code>ce013625...</code>, the same as this page. <b>It is not a coincidence:</b> it is the content, and, as the next few steps show, what your machine decided the content was.</li>
+          <li>Ask your shell for the file size, then run <code>git cat-file -s</code> on the hash. <b>Say why the two numbers differ</b> before reading on.</li>
+          <li>Run <code>git hash-object --no-filters hello.txt</code> and confirm you get a second, different hash.</li>
+          <li>Run <code>git ls-files -s hello.txt</code> and work out which of the two hashes Git actually recorded.</li>
+          <li><b>If you have Git Bash</b>, run the <code>printf</code> and <code>sha1sum</code> line and watch it match. If you do not, read it and be able to say what the four pieces of the formula are.</li>
+          <li><b>Predict, then check:</b> what would <code>git hash-object</code> print for a file containing the same word but no line ending at all? Make one and find out. It is a third hash, because it is different content.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> I computed a blob hash by hand and can explain why the file and the object are different sizes</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-catfile">
+      <h3>E. <code>cat-file</code>, the object reader</h3>
+      <p><b>Objects are stored compressed, so you cannot read them with an ordinary text tool.</b> Prove it once, then never try again. A loose object lives under <code>.git/objects/</code>, in a folder named after the first two characters of its hash, in a file named after the other thirty-eight:</p>
+      <div class="filebox">
+        <div class="fbh">a loose object on disk</div>
+<pre><code>.git/objects/ce/013625030ba8dba906f756967f9e9ca394464a</code></pre>
+      </div>
+      <p><b>That file is zlib-compressed and read-only</b>, and opening it shows binary. <code>git cat-file</code> is the command that decompresses and prints, and it has three flags worth knowing:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">-t</span><span class="rd"><b>Type.</b> Prints one word: <code>blob</code>, <code>tree</code>, <code>commit</code> or <code>tag</code>. Session 9 used this to prove an annotated tag is its own object.</span></div>
+        <div class="refrow"><span class="rr">-s</span><span class="rd"><b>Size</b> in bytes, of the content Git stored.</span></div>
+        <div class="refrow"><span class="rr">-p</span><span class="rd"><b>Pretty print</b> the content, formatted for the object's type.</span></div>
+      </div>
+      <p><b>Point it at a commit and read what a commit is really made of:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; a commit, raw</div>
+<pre><code><span class="cmd">&gt; git cat-file -t HEAD</span>
+commit
+
+<span class="cmd">&gt; git cat-file -p HEAD</span>
+tree a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
+parent 8614be1bb23151ed06a5ed561a84e10ee5d88305
+author Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
+committer Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
+
+Update the rate table</code></pre>
+      </div>
+      <p><b>Six lines, and every one of them was promised by an earlier session.</b> One <code>tree</code>, which is the snapshot. One <code>parent</code>, which is Session 1's pointer backwards. An author and a committer. A blank line, then the message. <b>There is nothing else in a commit.</b> No file contents, no diff, no branch name: a commit does not know which branch it is on, which is why moving a branch pointer never touches the commits.</p>
+      <div class="note"><b>Those long numbers are timestamps, not corruption.</b> <code>1788109131</code> is Unix epoch seconds, the count since the start of 1970, and <code>-0500</code> is the timezone offset the commit was made in. Git stores time this way because it is unambiguous and sorts correctly. Every porcelain command you have used was reformatting this for you. <b>The tree hash on your machine will match the one above; the two timestamps and the parent hash will not.</b></div>
+      <p><b>Now the root commit, which is missing a line.</b> Session 1 called the first commit in a repository the root commit and said it has no parent. Here is that, as stored:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; the root commit has no parent line at all</div>
+<pre><code><span class="cmd">&gt; git cat-file -p HEAD~1</span>
+tree bfe40343cf529a54663a9b712ce92cf8ce3d03bf
+author Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
+committer Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
+
+Add the first files</code></pre>
+      </div>
+      <p><b>The <code>parent</code> line is not empty, it is absent.</b> That matters for scripting: code that assumes every commit has a parent line breaks on the one commit in every repository that does not.</p>
+      <p><b>And there is a batch form built for scripts</b>, which is the clearest signal that plumbing has a different audience. <code>--batch-check</code> reads names on standard input and prints hash, type and size for each, one line each:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; cat-file --batch-check</div>
+<pre><code><span class="cmd">&gt; "HEAD`nHEAD^{tree}`ndeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" | git cat-file --batch-check</span>
+0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026 commit 246
+a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794 tree 105
+deadbeefdeadbeefdeadbeefdeadbeefdeadbeef missing</code></pre>
+      </div>
+      <p><b>Three inputs, three lines, and an unknown object reports <code>missing</code> rather than failing.</b> That is deliberate: a script feeding a thousand names wants a thousand answers, not an error on the first bad one. <b>In Git Bash the same command uses <code>printf</code></b> to make the three lines rather than PowerShell's backtick-n.</p>
+      <div class="note"><b>The tree size of <code>105</code> is reproducible; the commit size of <code>246</code> is not.</b> A tree's size depends only on the names, modes and hashes inside it, all of which the lab block fixes. A commit's size includes your name and your email address, so yours will differ by however many characters your name differs by. <b>That is a small thing, and it is exactly the distinction this session keeps making.</b></div>
+    </div>
+
+    <div class="block" id="concept-revparse">
+      <h3>F. <code>rev-parse</code>, the command that makes everything else scriptable</h3>
+      <p><b>Every command so far needed a hash, and typing hashes is not a workflow.</b> <code>git rev-parse</code> turns a name into a hash. That is its whole job, and it is the piece that makes the rest scriptable: you write the name a person would use, and the script gets the hash Git needs.</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; the five forms worth knowing</div>
+<pre><code><span class="cmd">&gt; git rev-parse HEAD</span>
+0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026
+
+<span class="cmd">&gt; git rev-parse --short HEAD</span>
+0e0dcc4
+
+<span class="cmd">&gt; git rev-parse HEAD^{tree}</span>
+a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
+
+<span class="cmd">&gt; git rev-parse HEAD:hello.txt</span>
+ce013625030ba8dba906f756967f9e9ca394464a
+
+<span class="cmd">&gt; git rev-parse v1.0.0^{}</span>
+0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026</code></pre>
+      </div>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">HEAD</span><span class="rd">The commit you are standing on, in full. The form you will use most.</span></div>
+        <div class="refrow"><span class="rr">--short</span><span class="rd">The abbreviated form, which is what <code>git log --oneline</code> has been showing you since Session 1. <b>Git also accepts an abbreviation anywhere it wants a hash</b>, provided it is long enough to be unambiguous in that repository, so a short hash you read off one command can be pasted straight into the next one.</span></div>
+        <div class="refrow"><span class="rr">HEAD^{tree}</span><span class="rd"><b>The tree of that commit</b>, rather than the commit. The braces mean "the thing of this type that this resolves to".</span></div>
+        <div class="refrow"><span class="rr">HEAD:path</span><span class="rd"><b>The blob at that path, in that commit.</b> Note it is the blob as committed, which is not necessarily what is on your disk right now.</span></div>
+        <div class="refrow"><span class="rr">v1.0.0^{}</span><span class="rd"><b>The commit an annotated tag points at</b>, rather than the tag object itself. The empty braces mean "follow this until it is not a tag any more".</span></div>
+      </div>
+      <p><b>That last one has a trap in it worth meeting now</b>, because it costs an afternoon when you meet it in a script instead. An annotated tag is its own object, so a tag <i>name</i> resolves to two different hashes depending on how you ask:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; a tag name resolves two ways</div>
+<pre><code><span class="cmd">&gt; git rev-parse v1.0.0</span>
+1592c31ac94c7e42f4cda8a7b5ae3b539b5ca83b
+
+<span class="cmd">&gt; git rev-parse v1.0.0^{}</span>
+0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026
+
+<span class="cmd">&gt; git rev-parse HEAD</span>
+0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026</code></pre>
+      </div>
+      <p><b>Without the braces you get the tag object. With them you get the commit</b>, which is the same hash as <code>HEAD</code>. A script that checks "is the current commit the tagged release" and forgets the braces compares a tag hash against a commit hash, finds they differ, and reports that you are not on the release when you are. <b>Section G has the same trap in a second syntax.</b></p>
+      <p><b>Two more small ones, both useful and both plumbing:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; which branch, and how many commits</div>
+<pre><code><span class="cmd">&gt; git symbolic-ref HEAD</span>
+refs/heads/main
+
+<span class="cmd">&gt; git rev-list --count HEAD</span>
+2</code></pre>
+      </div>
+      <p><b><code>symbolic-ref</code> prints the ref name <code>HEAD</code> points at</b>, in full, which is the machine-readable version of "which branch am I on". It is what Session 10's deploy hook was comparing against. <b><code>rev-list --count</code> counts commits</b> reachable from a starting point, which is how a build number gets generated in about a hundred thousand projects.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read a commit, then walk it down to file content</div>
+        <ol>
+          <li>Run <code>git cat-file -p HEAD</code> and name all six parts of what it prints.</li>
+          <li>Run <code>git cat-file -p HEAD~1</code> and find the line that is missing. <b>Say why it is missing.</b></li>
+          <li>Run <code>git rev-parse HEAD^{tree}</code> and compare it against the <code>tree</code> line from step 1. They are the same hash reached two ways.</li>
+          <li>Run <code>git rev-parse HEAD:hello.txt</code>. <b>Predict the answer first</b>: you have already seen this hash twice in section D.</li>
+          <li>Run <code>git cat-file -p</code> on that blob hash and confirm the content is what you expect.</li>
+          <li>Run <code>git rev-parse v1.0.0</code> and <code>git rev-parse v1.0.0^{}</code>. <b>Say which one is the commit</b>, and check yourself with <code>git cat-file -t</code> on each.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I read a commit object and walked a ref all the way down to file content</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-listing">
+      <h3>G. Three commands that list things, and the difference that matters</h3>
+      <p><b>These three look interchangeable and are not.</b> The distinction is not about output format, it is about <b>which of Git's three areas each one reads</b>, which makes this section the plumbing payoff for Session 1:</p>
+      <div class="areas plain">
+        <div class="area"><div class="an">git ls-tree</div><div class="ad">Reads a <b>commit</b>. What the repository looked like at that point in history.</div></div>
+        <div class="area"><div class="an">git ls-files</div><div class="ad">Reads the <b>index</b>, the staging area. What would go into your next commit.</div></div>
+        <div class="area"><div class="an">git for-each-ref</div><div class="ad">Reads the <b>refs</b>. Branches and tags: the names, not the content.</div></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; ls-tree, one level and then recursive</div>
+<pre><code><span class="cmd">&gt; git ls-tree HEAD</span>
+040000 tree 61f703bb18f9514de9813103865f6fc37d03d3a3	docs
+100644 blob ce013625030ba8dba906f756967f9e9ca394464a	hello.txt
+100644 blob 2435b81334b7684dea1b11ba7972774595b35f1c	rates.txt
+
+<span class="cmd">&gt; git ls-tree -r HEAD</span>
+100644 blob ae3118094cf377e37babdf3201f6dbca903b2e84	docs/guide.md
+100644 blob ce013625030ba8dba906f756967f9e9ca394464a	hello.txt
+100644 blob 2435b81334b7684dea1b11ba7972774595b35f1c	rates.txt</code></pre>
+      </div>
+      <p><b>Read the plain form first, because it shows you the shape.</b> Three entries: <code>docs</code> is a <b>tree</b>, and the other two are <b>blobs</b>. That is a directory listing, exactly as section C described, and it is one level deep. <b><code>-r</code> recurses</b>, so the <code>docs</code> tree is replaced by what is inside it and every line is a blob with a full path.</p>
+      <p><b>The numbers on the left are modes</b>, and three of them cover almost everything you will see: <code>100644</code> for an ordinary file, <code>100755</code> for an executable one, and <code>040000</code> for a tree. <b>That is the entire permission model</b>: Git records whether a file is executable and nothing else. Two more exist and are worth knowing before you point a script at somebody else's repository, because a parser that assumes three modes will eventually meet them: <code>120000</code> is a symbolic link, and <code>160000</code> is a submodule, meaning a pointer to a commit in another repository entirely.</p>
+      <p><b>Now the good part.</b> Stage a change and watch two of these three commands disagree about the same file:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content rates.txt "rate table v3"
+git add rates.txt</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>printf 'rate table v3\r\n' &gt; rates.txt
+git add rates.txt</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; the index and the commit, disagreeing</div>
+<pre><code><span class="cmd">&gt; git ls-files -s rates.txt</span>
+100644 f8ee2c9240de6919d833159590cce66c5d62182b 0	rates.txt
+
+<span class="cmd">&gt; git ls-tree HEAD rates.txt</span>
+100644 blob 2435b81334b7684dea1b11ba7972774595b35f1c	rates.txt</code></pre>
+      </div>
+      <p><b>Same path, two different blob hashes.</b> The index holds the version you just staged and the commit holds the version you committed earlier, and they are genuinely different objects, both stored, both real. <b>This is Session 1's three areas, made concrete.</b> Session 1 drew them as boxes and asked you to trust the picture; here the difference between two of them is two hashes you can read.</p>
+      <p><b>The <code>0</code> in the <code>ls-files -s</code> output is the stage number</b>, and it is zero for every file that is not in conflict. During Session 4's merge conflict it would have been 1, 2 and 3 on the same path, for the merge base, your side and their side. <b>That is where "unmerged path" is actually stored.</b></p>
+      <p>Put the lab back before moving on, because section H assumes a clean tree:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>git restore --staged rates.txt
+Set-Content rates.txt "rate table v2"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>git restore --staged rates.txt
+printf 'rate table v2\r\n' &gt; rates.txt</code></div>
+      </div>
+      <p><b>Finally, <code>for-each-ref</code>, which is the scripting form of <code>git branch</code> and <code>git tag</code>.</b> Its whole point is <code>--format</code>: you say which fields you want and it prints exactly those, so nothing has to be parsed out of prose.</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; for-each-ref, and the star that matters</div>
+<pre><code><span class="cmd">&gt; git for-each-ref refs/tags --format="%(refname:short) %(objecttype) %(objectname:short) %(*objectname:short) %(*objecttype)"</span>
+v1.0.0 tag 1592c31 0e0dcc4 commit
+
+<span class="cmd">&gt; git rev-parse --short main</span>
+0e0dcc4</code></pre>
+      </div>
+      <p><b>Read the five fields across.</b> The ref is <code>v1.0.0</code>. Its object type is <code>tag</code>, because an annotated tag is its own object. <code>%(objectname)</code> is that tag object's hash. <b>And <code>%(*objectname)</code>, with a star, is the object the tag points at</b>, which is the commit, and which matches <code>main</code> exactly.</p>
+      <div class="danger"><b>This is the same trap as <code>v1.0.0^{}</code>, in a second syntax, and it is the one thing in this session most likely to bite you in a real script.</b> A release check that reads <code>%(objectname)</code> for an annotated tag and compares it against a commit hash <b>will never match</b>, and it will fail silently rather than erroring, because both values are perfectly valid hashes. <b>The star is the dereference.</b> Learn the pair together: <code>^{}</code> in <code>rev-parse</code>, and <code>*</code> in a <code>for-each-ref</code> format.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make the index and the commit disagree, on purpose</div>
+        <ol>
+          <li>Run <code>git ls-tree HEAD</code>. <b>Say which of the three entries is a tree</b> and how you can tell, using two different columns as evidence.</li>
+          <li>Run <code>git ls-tree -r HEAD</code> and describe in one sentence what <code>-r</code> changed.</li>
+          <li>Stage the <code>rate table v3</code> edit with the block above.</li>
+          <li>Run <code>git ls-files -s rates.txt</code> and <code>git ls-tree HEAD rates.txt</code>. <b>Confirm the hashes differ</b>, and say which command read which of Session 1's three areas.</li>
+          <li>Run <code>git hash-object rates.txt</code> and confirm it matches the one the <b>index</b> reported, not the one the commit reported.</li>
+          <li><b>Put the lab back</b> with the restore block above, and confirm <code>git status</code> is clean. Section H needs it.</li>
+          <li>Run the <code>for-each-ref</code> line. <b>Say which of the two hashes on that line is the commit</b>, then prove it with <code>git rev-parse --short main</code>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I saw the index and the commit hold two different blobs for one path, and I can dereference a tag</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-hashchange">
+      <h3>H. Why a commit hash changes, finally answered</h3>
+      <p><b>Session 8 told you that amending a commit produces a different hash and that a commit cannot be edited.</b> It gave the reason as "the hash is computed from everything the commit contains". That was true and it was not specific enough to act on. Now you can watch it happen, field by field.</p>
+      <p><b>Amend the message and nothing else</b>, then compare the commit hash and the tree hash across the change:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; before and after an amend</div>
+<pre><code><span class="cmd">&gt; git rev-parse HEAD</span>
+0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026
+
+<span class="cmd">&gt; git rev-parse HEAD^{tree}</span>
+a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
+
+<span class="cmd">&gt; git commit --amend -m "Update the published rate table"</span>
+[main 8a2a3cc] Update the published rate table
+ Date: Sat Aug 30 19:45:27 2026 -0500
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+<span class="cmd">&gt; git rev-parse HEAD</span>
+8a2a3cc1f4fabaf4ad7421c1dc074568d64830a1
+
+<span class="cmd">&gt; git rev-parse HEAD^{tree}</span>
+a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794</code></pre>
+      </div>
+      <p><b>The commit hash changed and the tree hash did not.</b> Not a similar tree: the identical tree, character for character. <b>No file changed, so no blob changed, so no tree changed</b>, and the new commit points at exactly the same snapshot the old one did. What Git built was a second commit object naming the same tree.</p>
+      <p>Read the new object and you can see which fields moved:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; the amended commit</div>
+<pre><code><span class="cmd">&gt; git cat-file -p HEAD</span>
+tree a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
+parent 8614be1bb23151ed06a5ed561a84e10ee5d88305
+author Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
+committer Patrick Burdette &lt;patrick@example.com&gt; 1788109141 -0500
+
+Update the published rate table</code></pre>
+      </div>
+      <p><b>Three things are the same and two are different.</b> Same tree, same parent, same author line including its timestamp. <b>The message changed, which you asked for. And the committer timestamp moved</b>, from <code>...131</code> to <code>...141</code>, ten seconds later, which you did not ask for and could not have prevented.</p>
+      <div class="note"><b>Author and committer are two different people, and Git has always tracked both.</b> The <b>author</b> is whoever wrote the change; the <b>committer</b> is whoever put it into the repository. They differ when somebody applies a patch on your behalf, and the <code>--author</code> flag you have seen in earlier lab blocks sets the first without touching the second. An amend keeps the original author date, because you did not rewrite the work, and updates the committer date, because the commit object was created just now.</div>
+      <p><b>This corrects an intuition Session 8 could have left you with.</b> Session 8 explained a cherry-picked commit getting a new hash by saying the parent changed, which is the usual reason and is true. <b>But it is not the only reason, and it is not even necessary</b>: the amend above kept the same parent and still produced a new hash, because the committer timestamp is part of the object. Two commits made a second apart with identical content, message, author and parent are still different objects.</p>
+      <p><b>So the rule, stated precisely enough to script against:</b></p>
+      <div class="tscroll">
+        <table class="ptable">
+          <thead>
+            <tr><th>object</th><th>computed from</th><th>same content, two machines?</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>blob</th><td>the content bytes only</td><td class="y">identical</td></tr>
+            <tr><th>tree</th><td>names, modes and the hashes inside it</td><td class="y">identical</td></tr>
+            <tr><th>commit</th><td>tree, parents, author, committer, message, <b>and two timestamps</b></td><td class="d">different</td></tr>
+            <tr><th>tag</th><td>target, tagger, message, <b>and a timestamp</b></td><td class="d">different</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>The top two rows are why this session could grade you on a blob hash</b> and why <code>ce013625...</code> appeared on your screen and on this page. The bottom two are why no session on this track has ever graded a commit hash, and why it never will.</p>
+      <p><b>Put the lab back before moving on</b>, because that amend left <code>main</code> pointing at a commit your tag does not. A second <code>--amend</code> will not undo it, since that would only build a third object. Move the branch back to the commit the tag names, which is a use for the dereferencing syntax section F just taught you:</p>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; undo the amend</div>
+<pre><code><span class="cmd">&gt; git reset --hard v1.0.0</span>
+HEAD is now at 0e0dcc4 Update the rate table</code></pre>
+      </div>
+      <p><b>Confirm it worked</b> with <code>git status</code>, which should report a clean tree, and by checking that <code>git rev-parse HEAD</code> and <code>git rev-parse v1.0.0^{}</code> now print the same hash. Everything after this point assumes the lab as the lab block built it.</p>
+    </div>
+
+    <div class="block" id="concept-milestone">
+      <h3>I. The milestone: read the graph, then script a question about it</h3>
+      <p><b>Two halves. Read the object graph by hand first</b>, walking a ref all the way down to file content with no porcelain at any step, <b>then write a script</b> that answers a question you cannot answer by eye.</p>
+      <p>The script below is the shape to aim for. It lists every file in the current commit with the number of bytes Git stored for it, largest first, which is the plumbing answer to "what is big in this repository":</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell &middot; every file in HEAD, by stored size</div>
+<pre><code>git ls-tree -r HEAD | ForEach-Object {
+  $mode, $type, $sha, $path = $_ -split '\s+', 4
+  [pscustomobject]@{ Bytes = [int](git cat-file -s $sha); Path = $path }
+} | Sort-Object Bytes -Descending | ForEach-Object { "{0,8}  {1}" -f $_.Bytes, $_.Path }</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; the same thing</div>
+<pre><code>git ls-tree -r HEAD | while read mode type sha path; do
+  printf '%8s  %s\n' "$(git cat-file -s $sha)" "$path"
+done | sort -rn</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in plumbing-lab &middot; what it prints</div>
+<pre><code>      22  docs/guide.md
+      14  rates.txt
+       6  hello.txt</code></pre>
+      </div>
+      <p><b>Read what that script is doing, because the shape generalises.</b> <code>ls-tree -r HEAD</code> produces four fields per line: mode, type, hash, path. The loop splits them, hands the <b>hash</b> to <code>cat-file -s</code> to get a size, and prints the size next to the path. <b>Every plumbing script you ever write is some version of this</b>: one command lists object names, another command asks something about each name.</p>
+      <div class="note"><b>Those three sizes are reproducible and worth checking against yours.</b> They are stored blob sizes, so they follow the top row of the table in section H. <code>hello.txt</code> is six bytes for the reason section D spent a page on, not five, and not the seven your file manager reports.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: walk the graph, then script it</div>
+        <p><b>Half one, by hand.</b> No porcelain: no <code>git log</code>, no <code>git show</code>, no <code>git status</code>. Write each answer down as you go.</p>
+        <ol>
+          <li>Ask which ref <code>HEAD</code> points at, and get the full <code>refs/heads/...</code> form.</li>
+          <li>Turn that into a commit hash.</li>
+          <li>Read that commit object and write down its tree hash and its parent hash.</li>
+          <li>List that tree. Write down which entry is a tree and which are blobs.</li>
+          <li>Get the blob hash for <code>hello.txt</code> out of the commit, two different ways: from the tree listing, and with a single <code>rev-parse</code>.</li>
+          <li>Print that blob's content and its size. <b>You have now gone from a branch name to file bytes without one porcelain command.</b></li>
+        </ol>
+        <p><b>Half two, scripted.</b> This is the graded half, and the reason the framing is a toolkit rather than a tour.</p>
+        <ol start="7">
+          <li>Run the size script above for your shell and confirm the three numbers match this page.</li>
+          <li><b>Now change it to answer a different question, of your choosing.</b> Something a person cannot answer by looking. Good candidates: how many blobs does the current commit contain; which paths under <code>docs</code> are bigger than ten bytes; which tags point at the commit you are standing on.</li>
+          <li><b>Write down which plumbing command supplies the list, and which one answers the question about each item.</b> If you cannot name both halves, the script is doing something you have not understood yet.</li>
+        </ol>
+        <p><b>You have hit the milestone</b> when half one is written down and correct, and your own script runs and answers a question you chose.</p>
+        <details><summary>Stuck on half one? The six commands, without their output</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Every one of these is in sections E, F or G. The point is the order, not the lookup.</p>
+<pre><code>git symbolic-ref HEAD
+git rev-parse HEAD
+git cat-file -p HEAD
+git ls-tree HEAD
+git rev-parse HEAD:hello.txt
+git cat-file -p HEAD:hello.txt
+git cat-file -s HEAD:hello.txt</code></pre>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I walked a ref down to file bytes with no porcelain, and wrote a script that answers my own question</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Work out what the command will print before you run it, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill names the shape of answer it wants: a single value, a count, an unordered set, or an ordered sequence.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume the <code>plumbing-lab</code> repository as the lab block built it</b>, with a clean working tree. <b>Some of these do grade a hash, which no earlier session did</b>, and only ever a blob or a tree hash, for the reason section H gives. No drill grades a commit hash, a tag hash or a date, because those are different on your machine than on this page.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading plumbing commands and writing them. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the pipeline."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: each step produces the name the next step needs.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> two of these six questions come from earlier sessions, because recalling older material on a delay is what makes it stick. Their review links open that session in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Bonus workbook &middot; outside the graded ten. &middot; <b>There is nothing to tick.</b> Your Hub still reads <b>10/10</b> and this workbook does not change it, because the track was already finished before you opened this. Back to the <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; <code>plumbing-lab</code> can go whenever you like.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, draw the four object types and the arrows between them, then write beside each one what its hash is computed from and whether two people with identical content would get the same hash. Underneath, write the chain from a branch name down to file bytes, naming the command for each hop. Then write the two syntaxes for dereferencing an annotated tag and one sentence on what breaks if you forget them. Check yourself in <code>plumbing-lab</code> by walking the graph again without notes.
+    <br><br>
+    <b>Where this goes next.</b> Pro Git chapter 10, "Git Internals", is the canonical treatment and it is free: it covers the write half this workbook deliberately skipped, packfiles properly, and the refspec machinery behind push and fetch. You now have the vocabulary to read it without it feeling like a different program.
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-bonus-plumbing-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words, verbs,
+     command words and yes/no words, where capitalisation is presentation rather
+     than the lesson. Marking "annotated" typed as "Annotated" wrong would be an
+     unfair grade. The per-item cs opt-out that Session 8 used for the -d against
+     -D flag letters still exists in gradeDrill and buildFaded, but NO item in
+     this session needs it: none of -u, -a or -t has a case-paired sibling.
+     See the FADED comment below. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+  /* ---------- Part 2: predict drills ----------
+     Eleven drills, ordered so that no two consecutive drills come from the same concept
+     block. Sources in order: C, G, D, E, D, G, F, H, C, A, G.
+     Answer-type spread: 7 value, 2 count, 1 seq, 1 set.
+     THIS SESSION GRADES SOME HASHES, which no earlier session did, and only ever a blob
+     hash. Blob and tree hashes are computed from content alone and were verified identical
+     across three independently built repositories. No drill grades a commit hash, a tag
+     hash or a date, because those embed timestamps and an author identity. */
+  var DRILLS = [
+    { type: 'count',
+      scen: '> git cat-file -p HEAD~1\ntree bfe40343cf529a54663a9b712ce92cf8ce3d03bf\nauthor Rae Okafor <rae@example.com> 1788109131 -0500\ncommitter Rae Okafor <rae@example.com> 1788109131 -0500\n\nAdd the first files',
+      ask: 'How many parent lines does this commit object have? Answer with a digit.',
+      code: 'git cat-file -p HEAD~1', ans: '0',
+      why: 'Zero, and the line is absent rather than empty. This is the root commit, the first one in the repository, which Session 1 described as the one commit with no parent. Every other commit in a normal history has exactly one, and a merge commit has two. The scripting consequence is worth keeping: code that assumes every commit object contains a parent line breaks on precisely one commit in every repository, which makes it a bug you will not hit until you run over a full history.' },
+
+    { type: 'value',
+      scen: '> git ls-tree HEAD\n040000 tree 61f703bb18f9514de9813103865f6fc37d03d3a3\tdocs\n100644 blob ce013625030ba8dba906f756967f9e9ca394464a\thello.txt\n100644 blob 2435b81334b7684dea1b11ba7972774595b35f1c\trates.txt',
+      ask: 'Which one of these three entries is a tree rather than a blob? Type the name at the end of the line.',
+      code: 'git ls-tree HEAD', ans: 'docs',
+      why: 'docs, and two separate columns tell you so. The type column says tree outright, and the mode column reads 040000 where the other two read 100644. Those three modes cover almost everything you will meet: 100644 for an ordinary file, 100755 for an executable one, and 040000 for a tree. A tree is a directory listing, so this line is saying that the name docs maps to another listing rather than to file content.' },
+
+    { type: 'value',
+      scen: 'A file holds the five characters of the word hello followed by a\nsingle line feed, so the content git stores is six bytes long.\nThe formula is: sha1 of the word blob, a space, the byte count,\na zero byte, then the content.',
+      ask: 'What blob hash does that produce? Type all 40 characters, or run git hash-object on the lab file and paste what it prints.',
+      code: 'git hash-object hello.txt', ans: 'ce013625030ba8dba906f756967f9e9ca394464a',
+      why: 'ce013625030ba8dba906f756967f9e9ca394464a, and the reason a workbook can grade this at all is the whole point of the session. A blob hash is computed from the content and nothing else: no file name, no date, no author. So identical content produces an identical hash on every machine on earth, which is what content addressed means. That is also why the same hash appears in your ls-tree output, in your index, and from a plain sha1 of the formula with no git involved.' },
+
+    { type: 'value',
+      scen: 'v1.0.0 was created with git tag -a and a message, which\nSession 9 called an annotated tag.',
+      ask: 'What single word does the command below print?',
+      code: 'git cat-file -t v1.0.0', ans: 'tag',
+      why: 'tag. An annotated tag is a real object in its own right, carrying who tagged it, when and why, and pointing at the commit. Session 9 used this exact command to prove it: a lightweight tag prints commit, because it is only a name pointing straight at one, while an annotated tag prints tag. That distinction is not cosmetic here, because it is the reason a tag name resolves to two different hashes depending on whether you dereference it.' },
+
+    { type: 'count',
+      scen: 'hello.txt was written with a carriage return and a line feed at\nthe end, so the file is 7 bytes on disk, and the repository has\ncore.autocrlf turned on, which the lab block set explicitly.',
+      ask: 'How many bytes does git report for the blob it stored? Answer with a digit.',
+      code: 'git cat-file -s ce013625030ba8dba906f756967f9e9ca394464a', ans: '6',
+      why: 'Six, one fewer than the file on disk. autocrlf converts the carriage return and line feed pair down to a single line feed on the way into the repository, so the stored object is one byte shorter than the file you can see. This is the mechanical version of the warning Session 1 showed you. It also explains why git hash-object given a path agrees with what git stored while --no-filters does not: the path form applies the same conversion a real git add would.' },
+
+    { type: 'value',
+      scen: 'Three commands that all list things, and each one reads a\ndifferent part of the repository.',
+      ask: 'Which of ls-tree, ls-files and for-each-ref reads the index, meaning the staging area? Type the command name without the git prefix.',
+      code: 'git ls-tree / git ls-files / git for-each-ref', ans: 'ls-files',
+      why: 'ls-files reads the index. ls-tree reads a commit, so it tells you what the repository looked like at a point in history, and for-each-ref reads the refs, meaning the branch and tag names rather than any content. The distinction is exactly Session 1 three areas seen from underneath, and you can watch two of them disagree: stage a change and ls-files reports one blob hash for a path while ls-tree HEAD reports a different one for the same path.' },
+
+    { type: 'value',
+      scen: '> git rev-parse v1.0.0\n1592c31ac94c7e42f4cda8a7b5ae3b539b5ca83b\n> git rev-parse HEAD\n0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026\n\nv1.0.0 is an annotated tag on the current commit, yet the two\nhashes above are not the same.',
+      ask: 'Which suffix, added to the tag name, makes rev-parse return the commit instead? Type just the suffix.',
+      code: 'git rev-parse v1.0.0___', ans: '^{}',
+      why: 'The empty braces, written as a caret then an opening and closing brace, which read as follow this until it is no longer a tag. Without them rev-parse hands you the tag object, because that is genuinely what the name points at. This is the single most likely thing here to break a real script: a release check that compares a tag name against a commit hash and forgets to dereference will never match, and it fails silently rather than erroring, because both values are perfectly valid hashes.' },
+
+    { type: 'value',
+      scen: 'You run git commit --amend and change only the message. No file\nwas edited, nothing was staged, and the parent is unchanged.',
+      ask: 'One of the commit hash and the tree hash changes and the other does not. Which one changes? Answer with one word: commit or tree.',
+      code: 'git commit --amend -m "A better message"', ans: 'commit',
+      why: 'The commit hash. No file changed, so no blob changed, so no tree changed, and the new commit points at a tree that is identical character for character. What differs is the message you asked for and the committer timestamp you did not, since the replacement object was created just now. That last part corrects an intuition Session 8 could have left you with: it explained a new hash by saying the parent changed, which is usually true, but here the parent is the same and the hash still moved.' },
+
+    { type: 'seq',
+      scen: 'Reading a repository means walking one chain, and every command\nin this session works on some hop along it.',
+      ask: 'Put these four in the order you walk them, starting from a name and ending at file content, separated by commas: blob, commit, ref, tree',
+      code: '# from a branch name down to file bytes', ans: 'ref, commit, tree, blob',
+      why: 'ref, commit, tree, blob. A ref such as refs/heads/main is a 41 byte file holding a commit hash. That commit names exactly one tree. That tree gives names and modes to blobs and to other trees. A blob is content with no name at all. Notice that the name of a file lives in the tree rather than in the blob, which is why renaming a file changes a tree and leaves the blob untouched, and why git can tell that two paths hold identical content.' },
+
+    { type: 'set',
+      scen: 'Some plumbing commands only read the repository. Others build\nobjects or move refs, which section A called the write half.',
+      ask: 'Which of these only READ, and are therefore safe to run anywhere? Answer using exactly these words, separated by commas: cat-file, ls-tree, commit-tree, update-ref',
+      code: 'git cat-file / git ls-tree / git commit-tree / git update-ref', ans: 'cat-file, ls-tree',
+      why: 'cat-file and ls-tree only read. commit-tree builds a new commit object and update-ref moves a branch or tag to point somewhere else, so both change the repository, and update-ref in particular can move a branch with none of the safety a porcelain command would give you. This session deliberately teaches only the reading half, which is enough to answer questions about any repository, including one belonging to somebody else that you would rather not disturb.' },
+
+    { type: 'value',
+      scen: '> git for-each-ref refs/tags --format="%(refname:short) %(objecttype) %(objectname:short) %(*objectname:short)"\nv1.0.0 tag 1592c31 0e0dcc4\n> git rev-parse --short main\n0e0dcc4',
+      ask: 'Which of the two objectname fields printed the commit rather than the tag object? Type it exactly as it appears in the format string above.',
+      code: 'git for-each-ref refs/tags --format=...', ans: '%(*objectname:short)',
+      why: 'The one with the star. In a for-each-ref format a star in front of a field name means dereference first, so %(objectname:short) gives the tag object and %(*objectname:short) gives the object the tag points at, which here is the commit and matches main exactly. The :short is only an abbreviation, exactly as in rev-parse --short, and the star is the part doing the work. It is the same trap as forgetting the empty braces in rev-parse, in a second syntax, and it is worth learning the two together because a script that gets it wrong compares two real hashes and quietly concludes they are different things.' }
+  ];
+
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both prompts narrate every step in order, and each tile answers exactly one narrated
+     step, so no second arrangement satisfies the description. Each step in P1 also produces
+     the name the next step consumes, which pins the order a second way. */
+  var PARSONS = [
+    { prompt: 'Walk from a branch name all the way down to file content, using no porcelain at any step. Start by asking which ref HEAD is pointing at, in its full refs form. Turn that position into a commit hash. Read the commit object itself, so you can see its tree line. List that tree, so you can see the names it holds. Ask for the blob hash of one named file in that commit. Finally print the content of that blob.',
+      lines: ['git symbolic-ref HEAD', 'git rev-parse HEAD', 'git cat-file -p HEAD', 'git ls-tree HEAD', 'git rev-parse HEAD:hello.txt', 'git cat-file -p HEAD:hello.txt'] },
+    { prompt: 'Work out why a file on disk and the object git stored for it are different sizes. First hash the file the way git itself would, with the filters applied. Then hash the very same file again, this time telling git to skip the filters, and notice you get a second answer. Ask the index which of those two hashes it actually recorded. Ask how many bytes that stored object contains. Last of all, print the stored content so you can see the line ending it really has.',
+      lines: ['git hash-object hello.txt', 'git hash-object --no-filters hello.txt', 'git ls-files -s hello.txt', 'git cat-file -s ce013625', 'git cat-file -p ce013625'] }
+  ];
+
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     No blank here is a case-paired flag letter: cat-file has no -T, -S or -P to distinguish
+     from -t, -s and -p, so no item opts out of caseFold through a cs array. Grading P against
+     p would be an unfair grade here rather than a lesson. Every comment describes what the
+     line DOES, never the token being blanked. */
+  var FADED = [
+    { prompt: 'Four ways to interrogate a single object. Fill the blanks so the first asks what kind of thing a name resolves to, the second asks how many bytes git stored for it, the third prints its content formatted for whatever type it turned out to be, and the fourth computes the hash git would file a working file under without storing anything.',
+      code: 'git cat-file -%% HEAD        # blob, tree, commit or tag?\ngit cat-file -%% HEAD        # how many bytes did git store\ngit cat-file -%% HEAD        # print it, formatted for its type\ngit %% hello.txt             # the hash git would file it under', ans: ['t', 's', 'p', 'hash-object'] },
+    { prompt: 'Four commands that each read a different part of the repository. Fill the blanks so the first lists what a commit says the folder held, the second lists what the staging area holds right now, the third walks every tag and prints only the fields you asked for, and the fourth resolves a name to the tree of that commit rather than to the commit itself.',
+      code: 'git %% HEAD                  # what the commit says the folder held\ngit %% -s                    # what the staging area holds right now\ngit %% refs/tags --format=   # every tag, in fields you choose\ngit rev-parse HEAD%%         # the tree of that commit, not the commit', ans: ['ls-tree', 'ls-files', 'for-each-ref', '^{tree}'] }
+  ];
+
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          // a cs-marked blank is a flag letter, where -d and -D are different commands
+          var ok = (f.cs && f.cs[i]) ? (b.value.trim() === f.ans[i]) : (norm(b.value) === norm(f.ans[i]));
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Build a throwaway repository of your own, somewhere outside plumbing-lab so you do not disturb it. Call it graph-lab, make main its first branch, put one file in it and make one commit. Then, using only plumbing, walk from the branch name down to the bytes of that file: find which ref HEAD points at, turn it into a commit hash, read the commit object, list its tree, and print the content of the one blob in it. Write down the tree hash and the blob hash as you go. Finally, say which of those two hashes another person building the same repository would also get, and which they would not.',
+      sol: 'cd ~\nmkdir graph-lab\ncd graph-lab\ngit init -b main\n# create notes.txt with Set-Content or printf, then:\ngit add notes.txt\ngit commit -m "First commit"\n\ngit symbolic-ref HEAD        # refs/heads/main\ngit rev-parse HEAD           # the commit hash\ngit cat-file -p HEAD         # tree, author, committer, message. NO parent: it is the root\ngit ls-tree HEAD             # one line: mode, type, blob hash, name\ngit rev-parse HEAD:notes.txt # the same blob hash, reached directly\ngit cat-file -p HEAD:notes.txt\n\n# The answer to write down:\n#   the BLOB hash, and the TREE hash, are both reproducible. Another\n#   person with the same file content, name and mode gets both exactly.\n#   the COMMIT hash is not, because it contains their name, their email\n#   and two timestamps. Same content, different commit.' },
+
+    { task: 'In plumbing-lab, prove to yourself what core.autocrlf has been doing since Session 1. Ask your shell how many bytes hello.txt takes on disk. Hash it the way git would. Hash it again telling git to skip the filters. Ask the index which of those two hashes it recorded, and ask git how many bytes the stored object holds. Then write two or three sentences, in your own words, explaining why the file and the object are different sizes and which of the two hashes a script of yours should compare against.',
+      sol: '# PowerShell\n(Get-Item hello.txt).Length              # 7\n# Git Bash\nwc -c < hello.txt                        # 7\n\ngit hash-object hello.txt                # ce013625...\ngit hash-object --no-filters hello.txt   # ef0493b2...\ngit ls-files -s hello.txt                # records ce013625...\ngit cat-file -s ce013625                 # 6\n\n# The explanation, in short:\n# The file on disk ends with a carriage return AND a line feed, two bytes.\n# core.autocrlf converts that pair to a single line feed on the way into\n# the repository, so the stored blob is one byte shorter. hash-object given\n# a PATH applies the same filters a real git add would, which is why it\n# agrees with the index. --no-filters and --stdin do not, because there is\n# no path for git to look up a filter rule against.\n#\n# A script should compare against the filtered form, the one hash-object\n# gives for a path, because that is what git actually stored.' },
+
+    { task: 'Still in plumbing-lab, make the index and the newest commit disagree about one path, then prove it two ways. Stage a change to rates.txt without committing it. Ask the index what blob it now holds for that path, and ask the newest commit what blob IT holds for the same path, and confirm the two hashes differ. Then confirm which of the two matches a fresh hash of the file on disk. Say which of Session 1 three areas each of your commands read. Finish by putting the lab back to a clean tree, because you will want it clean afterwards.',
+      sol: '# stage a change without committing\n# PowerShell: Set-Content rates.txt "rate table v3"\n# Git Bash:   printf \'rate table v3\\r\\n\' > rates.txt\ngit add rates.txt\n\ngit ls-files -s rates.txt      # the INDEX: one blob hash\ngit ls-tree HEAD rates.txt     # the COMMIT: a different blob hash\ngit hash-object rates.txt      # matches the INDEX one\n\n# which area each command read:\n#   git ls-files  -> the index, the staging area\n#   git ls-tree   -> the commit, the repository\n#   hash-object   -> the working tree, the file on disk\n# All three of Session 1 areas, one command each.\n\n# put it back:\ngit restore --staged rates.txt\n# PowerShell: Set-Content rates.txt "rate table v2"\n# Git Bash:   printf \'rate table v2\\r\\n\' > rates.txt\ngit status                     # clean' },
+
+    { task: 'Write a script, in whichever shell you use, that answers a question about a repository that you cannot answer by looking. Start from the size script in section I and change it to answer something else. Good candidates: how many blobs the current commit contains, or which files in it are larger than some number of bytes, or which tags point at the commit you are standing on. Run it and check the answer by hand on the small lab. Then write down the two halves of it: which plumbing command produces the list, and which one answers the question about each item. If you cannot name both halves, you have not finished.',
+      sol: '# One worked answer: count the blobs in the current commit.\n\n# PowerShell\n(git ls-tree -r HEAD | Measure-Object -Line).Lines\n\n# Git Bash\ngit ls-tree -r HEAD | wc -l\n\n# Another: files bigger than 10 bytes, with their sizes.\n\n# PowerShell\ngit ls-tree -r HEAD | ForEach-Object {\n  $f = $_ -split \'\\s+\'\n  $n = [int](git cat-file -s $f[2])\n  if ($n -gt 10) { "{0,8}  {1}" -f $n, $f[3] }\n}\n\n# Git Bash\ngit ls-tree -r HEAD | while read mode type sha path; do\n  n=$(git cat-file -s $sha)\n  [ "$n" -gt 10 ] && printf \'%8s  %s\\n\' "$n" "$path"\ndone\n\n# Another: which tags point at the commit you are on.\ngit for-each-ref refs/tags --format="%(refname:short) %(*objectname)" \n# then keep the lines whose second field equals git rev-parse HEAD\n\n# The two halves, which is the graded part:\n#   THE LIST   comes from ls-tree -r HEAD, or ls-files, or for-each-ref.\n#   THE ANSWER about each item comes from cat-file -s, or cat-file -t,\n#   or a comparison against rev-parse HEAD.\n# Every plumbing script you write is some version of that pairing.' }
+  ];
+
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'The two command sets, and who each one is for', b: 'porcelain for people, plumbing for programs' },
+    { f: 'Why plumbing is the half you script against', b: 'its output format is kept stable on purpose; porcelain may be reworded' },
+    { f: 'The four object types', b: 'blob, tree, commit, tag' },
+    { f: 'What a blob holds', b: 'content only. No name, no date, no permissions' },
+    { f: 'What a tree holds', b: 'names and modes, mapping to blobs and to other trees' },
+    { f: 'What a commit holds', b: 'one tree, zero or more parents, author, committer, message' },
+    { f: 'The formula behind a blob hash', b: 'sha1 of: blob, a space, the byte count, a zero byte, then the content' },
+    { f: 'Which hashes are reproducible on any machine', b: 'blob and tree. Commit and tag embed timestamps, so they are not' },
+    { f: 'cat-file -t, -s and -p', b: 'the type, the stored size in bytes, and the content pretty printed' },
+    { f: 'hash-object on a PATH against --no-filters', b: 'the path form applies filters, so it agrees with what git stored' },
+    { f: 'What core.autocrlf does to a stored blob', b: 'converts CRLF to a single LF going in, so the object is shorter than the file' },
+    { f: 'What HEAD^{tree} resolves to', b: 'the tree of that commit, rather than the commit itself' },
+    { f: 'What HEAD:path resolves to', b: 'the blob at that path AS COMMITTED, not what is on your disk now' },
+    { f: 'The two ways to dereference an annotated tag', b: 'empty braces after it in rev-parse, and a star on the field in for-each-ref' },
+    { f: 'What ls-tree, ls-files and for-each-ref each read', b: 'a commit, the index, and the refs' },
+    { f: 'The one line a root commit object does not have', b: 'the parent line. It is absent rather than empty' }
+  ];
+
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four new questions on today material carry an in-page scrollIntoView backlink (part).
+     The two recall questions carry an external new-tab link (ext), since the concept they
+     test lives in the Session 8 and Session 10 artifacts rather than on this page. */
+  var S8_URL = 'git-session-08.html';
+  var S10_URL = 'git-session-10.html';
+  var QUIZ = [
+    { q: 'Why is plumbing the half of Git you should write a script against?',
+      o: ['Its output format is kept stable deliberately, so a script keeps working',
+          'It runs considerably faster, because it skips the checks porcelain makes',
+          'It is the only half that can read a repository you do not currently own',
+          'It returns proper exit codes, which the porcelain commands do not bother with'],
+      c: 0,
+      e: 'Plumbing exists to be consumed by programs, so its output is treated as a contract and kept stable between versions. Porcelain is written for a human reading a terminal, which means Git is free to reword it, recolour it or add a hint, and any script parsing it can break on an upgrade. The other three are wrong on the facts: speed is not the distinction, porcelain reads other repositories perfectly well, and both halves return meaningful exit codes.',
+      part: { id: 'concept-porcelain', label: 'A. Porcelain and plumbing' } },
+
+    { q: 'A blob object contains the content of one file. What else does it contain?',
+      o: ['Nothing else at all: no name, no path, no date and no permissions',
+          'The file name and its content, which is how git knows what to call it',
+          'The content plus the commit that introduced it, so history can be walked',
+          'The content and the mode, which records whether the file is executable'],
+      c: 0,
+      e: 'A blob is content and nothing else, which is why two files with identical bytes anywhere in a repository are one single blob. The name and the mode live in the TREE that points at the blob, which is exactly why renaming a file changes a tree while leaving the blob untouched. A blob also has no idea which commit introduced it: the arrows point from commits down to trees down to blobs, never back up.',
+      part: { id: 'concept-objects', label: 'C. The four object types' } },
+
+    { q: 'On Windows, hello.txt is 7 bytes on disk but git reports the blob it stored as 6. Why?',
+      o: ['autocrlf turned the CRLF line ending into a single LF on the way in',
+          'Git strips one trailing byte from every file it stores, to save space',
+          'The 7 counts the file name as well, and the 6 counts only the content',
+          'Git compressed the object, and 6 is its size after that compression'],
+      c: 0,
+      e: 'core.autocrlf, which Git for Windows turns on machine-wide, converts a carriage return and line feed pair to a single line feed as content enters the repository, and back again on checkout. So the stored object is one byte shorter than the file. Compression is a real thing and is not the answer here: cat-file -s reports the size of the content, not of the compressed file on disk. That is also why hash-object given a path agrees with the index while --no-filters does not.',
+      part: { id: 'concept-hash', label: 'D. hash-object, and what a hash is computed from' } },
+
+    { q: 'You stage an edit. Now git ls-files -s and git ls-tree HEAD report different blob hashes for the same path. What does that mean?',
+      o: ['Nothing is wrong: they read the index and the commit, which now differ',
+          'The repository is corrupt, and the index needs rebuilding from the commit',
+          'The staged version was never written, so the index is reporting a stale hash',
+          'The two commands disagree because one of them follows filters and one does not'],
+      c: 0,
+      e: 'They read two different areas, so of course they differ once you have staged something. ls-files reads the index, which now holds the version you staged, and ls-tree reads a commit, which still holds the version you committed. Both blobs genuinely exist and both hashes are real. This is Session 1 three areas seen from underneath, and it is the clearest possible demonstration that staging is a real place rather than a metaphor.',
+      part: { id: 'concept-listing', label: 'G. Three commands that list things' } },
+
+    { q: 'Recall from Session 8: which single fact decides whether you may rewrite a commit?',
+      o: ['Whether anybody else could already have it, rather than how bad it is',
+          'Whether it was made within the last day, since Git keeps a short window',
+          'Whether it has been tagged, because a tagged commit is frozen in place',
+          'Whether the branch it sits on has been merged into your main branch yet'],
+      c: 0,
+      e: 'The golden rule turns on one question: has anybody else got this commit? If not, rewriting is safe and normal, and amend, rebase and reset are all fair game. If they have, rewriting leaves your history and theirs disagreeing about what happened, and revert is the honest answer instead because it moves forward by adding a commit. Nothing about the age of the commit, its tags, or how embarrassing the mistake was enters into it.',
+      ext: { url: S8_URL, label: 'Session 8: the golden rule (opens in a new tab)' } },
+
+    { q: 'Recall from Session 10: a repository deploys from main. What does pushing a feature branch to it do?',
+      o: ['Nothing deploys: the trigger watches one ref, and this is not that ref',
+          'It deploys, because any push to the server is what starts a fresh build',
+          'It deploys only once the branch is merged, which the push does for you',
+          'It queues a build that runs after somebody approves the pull request'],
+      c: 0,
+      e: 'The trigger compares the incoming ref against one specific ref, so a feature branch and a tag both fail that comparison and neither releases anything. The push is an ordinary upload: stored, shareable, reviewable and not live. That asymmetry is what makes feature branches useful rather than merely tidy, and it is worth knowing here because symbolic-ref and for-each-ref are the plumbing commands that read exactly the ref names such a trigger compares.',
+      ext: { url: S10_URL, label: 'Session 10: a branch as a deploy trigger (opens in a new tab)' } }
+  ];
+
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed. There is nothing to tick: your Hub still reads 10 of 10, and it did before you opened this.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

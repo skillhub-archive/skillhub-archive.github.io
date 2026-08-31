@@ -1,0 +1,1554 @@
+<title>Git Sprint &middot; Session 7: Undo, safely</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session needs it badly: Cascadia Code would otherwise redraw the -> in
+     (HEAD -> main), and the -- in every one of --soft, --mixed, --hard and
+     --staged, which are the four flags the whole session turns on. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code, .ptable
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  /* a refusal line, so the label stands out from the hint text around it */
+  .rej { color: var(--bad); font-weight: 700; }
+  /* the destructive-command warning banner, used exactly twice in this session */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the areas diagram: three in S1, four once the branch pointer joins them */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .areas.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .areas.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; word-break: break-word; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas, .areas.plain, .areas.four { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* label / meaning rows: used for the status codes and the mistake-to-tool map */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the decision table: which of the four things each command moves */
+  .tscroll { overflow-x: auto; margin: 4px 0 14px; }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
+  .ptable th, .ptable td { border: 1px solid var(--border); padding: 9px 11px; text-align: left; background: var(--surface); }
+  .ptable thead th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 700; }
+  .ptable tbody th { font-size: 13px; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .ptable td.y { color: var(--good); font-weight: 700; }
+  .ptable td.n { color: var(--ink-faint); }
+  .ptable td.d { color: var(--bad); font-weight: 700; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 34 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 15ch because the longest answer here is "--staged" plus room to type */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 15ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 07 // Level 4 &middot; Undo, Recover, Rewrite</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Undo, safely</h1>
+    <p class="goal">"Undo" is not one operation in Git. It is six, and they differ in exactly one way that matters: <em>which part of your repository they change</em>. Session 1 gave you the three areas a change travels through, and Session 3 gave you the branch pointer. Those four things are the whole vocabulary of this session. Once you can name the thing you want changed, the command stops being something you look up and starts being something you derive.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Undo a local mistake and say exactly which area you changed.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>You do not need any folder from an earlier session.</b> Step one below builds a small new repository called <code>undo-lab</code> from nothing, in about twenty seconds. It gets its own folder because this session deliberately destroys things, and it is worth being able to say, at every point, that nothing at risk is anything you care about. Session 6 already told you that <code>remote-lab</code> was finished with; you can delete it whenever you like.</p>
+        <p><b>No account and no network.</b> Everything here is local. There is nothing to push and nothing to sign in to.</p>
+        <p>This is a workbook, not a reading. You will predict what a command does to your repository, reassemble command sequences, fill blanks, and write from scratch, and each part hands you less scaffolding than the last. The goal is the one this whole track is built on: <b>read a Git command and know what it will do before you press enter.</b></p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. Three things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>18eae98</code>), <b>dates</b>, and <b>paths</b>. Everything else should match, including the tab that Git puts in front of a file name inside a <code>git status</code> report.<br><br><b>Two things about this session in particular.</b> First, <b>several of these commands print absolutely nothing when they succeed</b>, and both of the <code>restore</code> commands are among them. Silence is the success message; it is not a sign that the command failed to run. Second, <b>your own hashes will change as you work through this</b>, not just differ from the ones printed here. Whenever you undo a commit and then make it again, the result is a brand new commit with a new hash even though the message and the change are identical. Notice that when it happens; Session 8 explains why.</div>
+
+    <div class="block" id="concept-frame">
+      <h3>A. Undo is not one command, it is four things you can move</h3>
+      <p><b>Every undo command in Git does the same kind of job: it changes one or more of four things.</b> Three of them are the areas from Session 1, and the fourth is the branch pointer from Session 3. Nothing else in this session is new, which is why it is worth writing the four down before you touch a command:</p>
+      <div class="areas four">
+        <div class="area"><div class="an">working tree</div><div class="ad">The files in your folder, as your editor sees them this second.</div></div>
+        <div class="area"><div class="an">staging area</div><div class="ad">The shortlist of what will go into the next commit.</div></div>
+        <div class="area"><div class="an">repository</div><div class="ad">Every commit ever made, stored inside the <code>.git</code> folder.</div></div>
+        <div class="area"><div class="an">branch pointer</div><div class="ad">The 41 bytes that say which commit the name <code>main</code> currently means.</div></div>
+      </div>
+      <p><b>That is the whole trick of this session.</b> You do not memorise six commands and hope you pick the right one. You ask yourself <em>what do I want changed</em>, you name it out of that list of four, and the command follows from the answer. By the end you will build that mapping yourself as a table, and the table is the milestone.</p>
+      <p><b>Two things separate the commands more than anything else.</b> The first is how many of the four they touch: some move exactly one, and one of them moves all four. The second is <b>direction</b>. Most of these commands move a branch pointer <em>backwards</em>, over commits you have already made. One of them, <code>revert</code>, moves it <em>forwards</em> by adding a new commit, and that difference turns out to decide which of them is safe to use on work other people already have.</p>
+      <div class="danger"><b>The honest warning, up front rather than buried.</b> The level you are starting says that almost nothing in Git is truly unrecoverable, and that is true. But "almost" is doing real work in that sentence, and a session that did not name the exceptions would be lying to you comfortably. <b>Exactly two things in this session destroy work with no way back</b>, and both of them do it to changes you have <b>not committed</b>: <code>git restore &lt;file&gt;</code> and <code>git reset --hard</code>. Both are flagged again in red where they appear. Everything else here can be undone, and Session 8 is where you learn how.</div>
+      <p><b>Out of scope today, so you know these exist and are not missing anything:</b> recovering a commit after you have thrown the branch pointer past it is Session 8, and it is genuinely the sequel to this session rather than an afterthought. So are <code>git commit --amend</code>, <code>git rebase</code> and force pushing. <code>git clean</code>, which deletes untracked files, gets one mention later and no more. And reverting a <em>merge</em> commit needs an extra flag, <code>-m</code>, because Git has to be told which of the two parents to treat as the mainline; it is fiddly, it is rare, and knowing the flag exists is enough for now.</p>
+    </div>
+
+    <div class="block" id="concept-setup">
+      <h3>B. Build the lab</h3>
+      <p><b>A brand new repository with three tiny commits in it.</b> Paste the block for your shell and run the whole thing. It creates a folder in your home directory called <code>undo-lab</code>, puts three files in it, and commits them one at a time so that there is a history to undo:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build undo-lab</div>
+<pre><code>cd ~
+mkdir undo-lab
+cd undo-lab
+git init -b main
+Set-Content a.txt "one"
+git add a.txt
+git commit -m "c1 add a"
+Set-Content b.txt "two"
+git add b.txt
+git commit -m "c2 add b"
+Set-Content c.txt "three"
+git add c.txt
+git commit -m "c3 add c"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build undo-lab</div>
+<pre><code>cd ~
+mkdir undo-lab
+cd undo-lab
+git init -b main
+echo "one" &gt; a.txt
+git add a.txt
+git commit -m "c1 add a"
+echo "two" &gt; b.txt
+git add b.txt
+git commit -m "c2 add b"
+echo "three" &gt; c.txt
+git add c.txt
+git commit -m "c3 add c"</code></pre>
+      </div>
+      <p><b><code>git init -b main</code> rather than a bare <code>git init</code></b>, for the reason Session 1 gave: the <code>-b</code> flag names the first branch outright, so this works the same on any machine no matter what that machine has configured as its default.</p>
+      <div class="note"><b>If you are on Git Bash on Windows, you will see a warning line after each <code>git add</code></b>, reading <code>warning: in the working copy of 'a.txt', LF will be replaced by CRLF the next time Git touches it</code>. That is Session 1's line-ending note doing its job: <code>echo</code> writes the file one way and Git stores it another, so Git tells you it will convert. <b>It is not an error and nothing is wrong.</b> Expect it again at every <code>git add</code> in this session, because every one of them follows another <code>echo</code>. PowerShell writes files in the form Git wants already, so it prints nothing, and none of the transcripts below show it. That difference comes from the <code>core.autocrlf</code> setting the Git for Windows installer puts in place; a Git without that setting does not print these lines at all.</div>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Already have an <code>undo-lab</code>, or something went wrong partway? Wipe it and start clean</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">This session deliberately breaks things, so starting over is a normal move rather than a failure. Delete the folder and run the build block above again. <b>Run this instead of the block above, not as well as it</b>, and check you are in your home directory first: it deletes a folder without asking.</p>
+          <div class="shells">
+            <div class="srow"><span class="sl">PowerShell</span><code>cd ~
+Remove-Item -Recurse -Force undo-lab</code></div>
+            <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ~
+rm -rf undo-lab</code></div>
+          </div>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Then paste the build block for your shell again. Everything after this point works identically.</p>
+        </div>
+      </details>
+      <p>Now confirm you have what everything below assumes, standing in <code>undo-lab</code>:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; the state everything below starts from</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+18eae98 (HEAD -&gt; main) c3 add c
+1c6b85c c2 add b
+10d0d15 c1 add a</code></pre>
+      </div>
+      <p><b>Three commits, and <code>(HEAD -&gt; main)</code> on the newest.</b> Session 2 taught that label: <code>HEAD</code> is where you are standing, the arrow says it is standing on a branch name, and <code>main</code> is that name. <b>Keep that arrow in mind, because the last section of this session is about what happens when it is not there.</b> Your three hashes will be different from these and from anybody else's.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the lab and read the starting point</div>
+        <ol>
+          <li>Run the build block for your shell. If it goes wrong halfway, use the wipe block and run it again; nothing here is precious.</li>
+          <li>Run <code>git log --oneline --decorate=short</code> and confirm you get <b>three</b> commits, newest at the top.</li>
+          <li>Run <code>git status</code> and confirm you get <code>nothing to commit, working tree clean</code>, which is Session 1's phrase for all three areas agreeing.</li>
+          <li><b>Say out loud which commit <code>HEAD~1</code> means here</b>, then check yourself with <code>git show HEAD~1 --stat</code> from Session 2. You will use that notation constantly from here on.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> My undo-lab has three commits and a clean tree</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-short">
+      <h3>C. Reading two areas in two characters</h3>
+      <p><b>Before undoing anything, you need to be able to see which area a change is sitting in</b>, and the full <code>git status</code> report is a slow way to do that. There is a short form, and you have met it once already:</p>
+      <p><b>Session 4 gave you <code>git status --short</code></b> for exactly one code, <code>UU</code>, on a conflicted file, and explained the two letters there as "unmerged, and there are two of them because there are two sides". <b>That reading is right for a conflict and it does not generalise</b>, so here is the actual rule, which is the one worth keeping:</p>
+      <div class="areas plain">
+        <div class="area"><div class="an">column one</div><div class="ad">The <b>staging area</b>. What would go into your next commit.</div></div>
+        <div class="area"><div class="an">column two</div><div class="ad">The <b>working tree</b>. The file as it sits on your disk.</div></div>
+        <div class="area"><div class="an">a space</div><div class="ad">Means "nothing to report in this column". Easy to miss, and it is half the answer.</div></div>
+      </div>
+      <p>The letters that fill those columns in this session are few:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">M</span><span class="rd"><b>Modified</b>: a file Git already knows about has been changed.</span></div>
+        <div class="refrow"><span class="rr">A</span><span class="rd"><b>Added</b>: a file Git did not know about is now on the staging shortlist.</span></div>
+        <div class="refrow"><span class="rr">??</span><span class="rd"><b>Untracked</b>: Git has never been told about this file at all, so neither column applies and it says so twice.</span></div>
+        <div class="refrow"><span class="rr">U</span><span class="rd"><b>Unmerged</b>: Session 4's conflict state. It appears in both columns because a conflict is unresolved on both sides.</span></div>
+      </div>
+      <p><b>So a two-character code is a sentence about two areas.</b> Try it. Edit <code>a.txt</code> without staging it:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Add-Content a.txt "edited by mistake"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "edited by mistake" &gt;&gt; a.txt</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; the same fact said two ways</div>
+<pre><code><span class="cmd">&gt; git status --short</span>
+ M a.txt
+
+<span class="cmd">&gt; git status</span>
+On branch main
+Changes not staged for commit:
+  (use "git add &lt;file&gt;..." to update what will be committed)
+  (use "git restore &lt;file&gt;..." to discard changes in working directory)
+	modified:   a.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")</code></pre>
+      </div>
+      <p><b>The short line begins with a space</b>, which is the whole message: column one is empty, so the staging area has nothing to say, and the <code>M</code> in column two says the working tree has a modification. Seven lines of report compressed into two characters. <b>If you look at only one thing on that line, look at whether the first character is a space.</b> (<code>cat</code> turns up in a moment: it prints a file to the screen, and it works the same in PowerShell, where it is another name for <code>Get-Content</code>, as it does in Git Bash.)</p>
+      <p>Now stage it and watch the letter change columns:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; the same change, one area further along</div>
+<pre><code><span class="cmd">&gt; git add a.txt</span>
+
+<span class="cmd">&gt; git status --short</span>
+M  a.txt</code></pre>
+      </div>
+      <p><b>The <code>M</code> moved from the second column to the first</b>, and a space now sits in column two where it used to be. The staging area holds the change, and the working tree holds nothing that the staging area does not already have. Nothing about the file on disk changed when you ran <code>git add</code>; what changed was which area Git is reporting the difference in.</p>
+    </div>
+
+    <div class="block" id="concept-restore">
+      <h3>D. "I did not mean to do that" and the two restores</h3>
+      <p><b>You are now sitting in a mistake, deliberately.</b> You edited <code>a.txt</code> when you did not mean to, and then staged it on top. There are two separate things to undo there, and Git has a separate command for each, which is exactly the point.</p>
+      <p><b><code>git restore --staged &lt;file&gt;</code> undoes the <code>git add</code>.</b> It puts the staging area back the way the last commit left it, and it does not touch the file on disk. One area moved:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; undo the add, keep the edit</div>
+<pre><code><span class="cmd">&gt; git restore --staged a.txt</span>
+
+<span class="cmd">&gt; git status --short</span>
+ M a.txt</code></pre>
+      </div>
+      <p><b>Printed nothing, and moved the <code>M</code> back to column two.</b> Your edit is still there; only the staging shortlist changed. This is the safe one: nothing you wrote has been thrown away, because everything you wrote is still in the working tree.</p>
+      <div class="danger"><b><code>git restore &lt;file&gt;</code>, with no flag, is the dangerous one, and it is the first of this session's two.</b> It overwrites the file on disk, and the edit that was there is gone. Not hidden, not recoverable with a later command, not in the <code>.git</code> folder anywhere: it was never committed, so Git never had a copy of it to give back. <b>Read the file name twice before you press enter on this one.</b> It is the first of this session's two unrecoverable commands, and neither of them warns you first: there is no confirmation prompt and no "are you sure".</div>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; throw the edit away</div>
+<pre><code><span class="cmd">&gt; git restore a.txt</span>
+
+<span class="cmd">&gt; git status --short</span>
+
+<span class="cmd">&gt; cat a.txt</span>
+one</code></pre>
+      </div>
+      <p><b>Silence, then an empty status, then the original line back.</b> An empty <code>git status --short</code> is what a clean tree looks like in the short form: no files to report, so no lines. The word "edited by mistake" no longer exists anywhere.</p>
+      <p><b>Now the precise version, which is worth having because it explains everything above in one sentence.</b> The two commands are the same command pointed at different areas, and each one copies from the area behind it:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">git restore &lt;file&gt;</span><span class="rd">Working tree <b>&lt;-</b> staging area. Makes the file on disk match what is staged.</span></div>
+        <div class="refrow"><span class="rr">git restore --staged &lt;file&gt;</span><span class="rd">Staging area <b>&lt;-</b> last commit. Makes the shortlist match what was last committed.</span></div>
+      </div>
+      <p><b>Read that first row again, because it says something surprising.</b> <code>git restore &lt;file&gt;</code> copies from the <em>staging area</em>, not from the last commit. Most of the time those are the same thing and you never notice. When they are not, the difference is visible, and you can cause it on purpose. Edit <code>a.txt</code>, stage it, then edit it again:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Add-Content a.txt "first"
+git add a.txt
+Add-Content a.txt "second"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "first" &gt;&gt; a.txt
+git add a.txt
+echo "second" &gt;&gt; a.txt</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; a change in both areas at once</div>
+<pre><code><span class="cmd">&gt; git status --short</span>
+MM a.txt
+
+<span class="cmd">&gt; git restore a.txt</span>
+
+<span class="cmd">&gt; git status --short</span>
+M  a.txt</code></pre>
+      </div>
+      <p><b><code>MM</code> means both columns have something to say</b>: one version of the file is staged, and a newer version is on disk. Running <code>git restore a.txt</code> threw away only the second edit, the one that was never staged, and left the staged version sitting on disk. That is the row above doing exactly what it says. <b>Undoing all of it takes both commands, in this order:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; back to clean, one area at a time</div>
+<pre><code><span class="cmd">&gt; git restore --staged a.txt</span>
+
+<span class="cmd">&gt; git status --short</span>
+ M a.txt
+
+<span class="cmd">&gt; git restore a.txt</span>
+
+<span class="cmd">&gt; git status --short</span>
+
+<span class="cmd">&gt; cat a.txt</span>
+one</code></pre>
+      </div>
+      <p><b>Unstage first, then discard.</b> Do it the other way round and the first <code>restore</code> only pulls the staged copy back onto disk, which is not what you wanted. The two-character code tells you when you are done: no line at all.</p>
+      <div class="note"><b>An older spelling you will meet in tutorials.</b> Before <code>restore</code> existed, unstaging was written <code>git reset a.txt</code>, with a file name after it, and that form still works today. It is the same old-way-against-new-way situation as Session 3's <code>git checkout</code> against <code>git switch</code>: <code>reset</code> does several unrelated jobs depending on what you put after it, and <code>restore</code> was added to do this one job under a name that says what it does. <b>Use <code>git restore --staged</code>.</b> Recognise <code>git reset &lt;file&gt;</code> when you see it in somebody else's notes, and know it is the same thing.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Produce every short-status state and undo each one</div>
+        <ol>
+          <li>With a clean tree, edit <code>b.txt</code> and run <code>git status --short</code>. <b>Say which column the letter is in before you look.</b></li>
+          <li><code>git add b.txt</code> and run it again. Confirm the letter changed columns.</li>
+          <li>Edit <code>b.txt</code> once more without staging, and confirm you get <code>MM</code>.</li>
+          <li>Undo the whole thing with the two restores in the right order, checking the short status after each one. Finish with <code>cat b.txt</code> and confirm it reads <code>two</code>.</li>
+          <li>Create a file Git has never heard of, run <code>git status --short</code>, and find the <b>third</b> code. Then delete the file yourself, because no command in this session removes it for you.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> I can read both columns and undo either one on purpose</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-soft">
+      <h3>E. "I committed too early" and <code>reset --soft</code></h3>
+      <p><b>This is the single most useful thing in the session</b>, so it goes first among the three resets. You committed, and a second later you realised you were not finished: a file was missing, or the message was wrong, or you meant the whole thing to be one commit rather than two.</p>
+      <p><b><code>git reset --soft</code> moves the branch pointer and stops.</b> That is the entire description. It does not touch your files, and it does not touch the staging area. Session 3 spent a whole session establishing that a branch is a movable pointer to a commit; this is the command that moves it deliberately:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; undo the last commit, keep everything else</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+18eae98 (HEAD -&gt; main) c3 add c
+1c6b85c c2 add b
+10d0d15 c1 add a
+
+<span class="cmd">&gt; git reset --soft HEAD~1</span>
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+1c6b85c (HEAD -&gt; main) c2 add b
+10d0d15 c1 add a</code></pre>
+      </div>
+      <p><b><code>HEAD~1</code> is Session 2's notation</b>, one commit back along the parent link, and Session 2 made the point that those names work anywhere a command wants a commit. Here it is naming where the branch pointer should be moved to. Two commits in the log instead of three, and the pointer sits on <code>c2 add b</code>. Now the interesting half:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; where the commit went</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+Changes to be committed:
+  (use "git restore --staged &lt;file&gt;..." to unstage)
+	new file:   c.txt
+
+<span class="cmd">&gt; git status --short</span>
+A  c.txt</code></pre>
+      </div>
+      <p><b><code>c.txt</code> is staged, and it is still sitting in your folder.</b> The commit is off the log and its contents are back on the shortlist, ready to be committed again whenever you like, with whatever else you want to include. That is precisely the fix for "I committed too early": undo the commit, add the thing you forgot, commit once.</p>
+      <p><b>Now the subtle part, and it is the part that makes the whole session work.</b> It is tempting to say that <code>--soft</code> changed the staging area, because the staging area now shows something it did not show a moment ago. <b>It did not.</b> The staging area holds exactly what it held before you ran the command. What moved was the branch pointer, and <code>git status</code> reports the staging area <em>by comparing it against the commit the pointer is on</em>. Move the pointer back one, and the same unchanged shortlist now differs from it by one file. <b>One thing moved, and two reports changed.</b> Keep that distinction: it is the difference between knowing the command and guessing at it.</p>
+      <p>Put the commit back so the lab is where it started:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; commit it again</div>
+<pre><code><span class="cmd">&gt; git commit -m "c3 add c"</span>
+[main 13d0e95] c3 add c
+ 1 file changed, 1 insertion(+)
+ create mode 100644 c.txt</code></pre>
+      </div>
+      <p><b>The hash is different from the one you started with</b>, even though the message and the change are identical. That is the second warning from the transcript note arriving on schedule. This is a new commit that happens to contain the same thing. Session 8 is built on that fact.</p>
+    </div>
+
+    <div class="block" id="concept-mixed">
+      <h3>F. <code>reset --mixed</code>, the one you get if you say nothing</h3>
+      <p><b><code>--mixed</code> moves the branch pointer and resets the staging area, and leaves the working tree alone.</b> It is what you get when you type <code>git reset</code> with no flag at all, which makes it the mode you are most likely to run by accident, so it is worth being able to predict.</p>
+      <p><b>Do the canonical case first: a commit that changed an existing file.</b> Make one, so there is something to undo:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Add-Content a.txt "a second line"
+git add a.txt
+git commit -m "c4 extend a"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "a second line" &gt;&gt; a.txt
+git add a.txt
+git commit -m "c4 extend a"</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; the default reset, on a modified file</div>
+<pre><code><span class="cmd">&gt; git reset HEAD~1</span>
+Unstaged changes after reset:
+M	a.txt
+
+<span class="cmd">&gt; git status</span>
+On branch main
+Changes not staged for commit:
+  (use "git add &lt;file&gt;..." to update what will be committed)
+  (use "git restore &lt;file&gt;..." to discard changes in working directory)
+	modified:   a.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")</code></pre>
+      </div>
+      <p><b>Compare that against section E and one line is different.</b> Under <code>--soft</code> the file came back <em>staged</em>; here it came back <em>unstaged</em>. Your second line of text is still in <code>a.txt</code> and nothing you wrote is at risk, but you would have to run <code>git add</code> again before you could commit it. That single difference is all <code>--mixed</code> is.</p>
+      <p><b><code>git reset</code> also volunteers a summary of what it left behind</b>, which <code>--soft</code> never does because <code>--soft</code> never leaves anything unstaged. <code>Unstaged changes after reset:</code> followed by <code>M</code> and a tab and the file name is the same <code>M</code> you learned in section C.</p>
+      <p>Throw that edit away with the command from section D, so the lab is back to three commits:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; discard it and check</div>
+<pre><code><span class="cmd">&gt; git restore a.txt</span>
+
+<span class="cmd">&gt; git status --short</span>
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+13d0e95 (HEAD -&gt; main) c3 add c
+1c6b85c c2 add b
+10d0d15 c1 add a</code></pre>
+      </div>
+      <p><b>Now the variation, because it looks like a different command and is not.</b> Run exactly the same reset, but on a commit that <em>created</em> a file rather than changing one:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; the identical command, on a commit that created a file</div>
+<pre><code><span class="cmd">&gt; git reset HEAD~1</span>
+
+<span class="cmd">&gt; git status</span>
+On branch main
+Untracked files:
+  (use "git add &lt;file&gt;..." to include in what will be committed)
+	c.txt
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+<span class="cmd">&gt; git status --short</span>
+?? c.txt</code></pre>
+      </div>
+      <p><b>Two things are different, and neither is a different command.</b> The reset printed <b>nothing at all</b> this time, and <code>c.txt</code> comes back as <b>untracked</b> rather than as a modification.</p>
+      <p><b>Both follow from one fact.</b> The undone commit is what first told Git that <code>c.txt</code> existed. Undo it, empty the staging area, and Git has no record of that file anywhere: not in the commit it is now pointing at, not on the shortlist. A file Git has no record of is untracked, by definition. And because nothing tracked was left unstaged, there was no "unstaged changes" summary to print. <b>The file itself never moved</b>, which is the promise <code>--mixed</code> makes and keeps in both cases.</p>
+      <p>Put it back, which now takes two commands rather than one, because Git has to be told about the file again:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; track it again, then commit</div>
+<pre><code><span class="cmd">&gt; git add c.txt</span>
+
+<span class="cmd">&gt; git commit -m "c3 add c"</span>
+[main 57fb3d0] c3 add c
+ 1 file changed, 1 insertion(+)
+ create mode 100644 c.txt</code></pre>
+      </div>
+    </div>
+
+    <div class="block" id="concept-hard">
+      <h3>G. <code>reset --hard</code>, which moves everything</h3>
+      <p><b><code>--hard</code> moves the branch pointer, resets the staging area, and overwrites the working tree to match.</b> All three, in one command, with one line of output. It is the mode people reach for when they want a repository to look like it did at some earlier moment and they do not care what is currently in it.</p>
+      <div class="danger"><b>This is the second and last of the session's two unrecoverable commands, and it is the more dangerous one.</b> <code>git reset --hard</code> throws away every uncommitted change in one go: staged, unstaged, across every file, with no list of what it destroyed and no confirmation prompt. <b>Anything you had committed can be recovered</b> and Session 8 shows how. <b>Anything you had not committed cannot be.</b> The habit worth building today is to run <code>git status --short</code> immediately before this command, every single time, so you know exactly what you are agreeing to lose.</div>
+      <p><b>Start with the form that does not move the pointer at all</b>, which is a distinct and very common use. Make a mess first:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Add-Content a.txt "junk I do not want"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "junk I do not want" &gt;&gt; a.txt</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; throw away everything uncommitted, keep the history</div>
+<pre><code><span class="cmd">&gt; git status --short</span>
+ M a.txt
+
+<span class="cmd">&gt; git reset --hard HEAD</span>
+HEAD is now at 57fb3d0 c3 add c
+
+<span class="cmd">&gt; git status</span>
+On branch main
+nothing to commit, working tree clean
+
+<span class="cmd">&gt; cat a.txt</span>
+one</code></pre>
+      </div>
+      <p><b><code>HEAD</code> with no <code>~1</code> means the commit you are already standing on</b>, so the pointer has nowhere to go and does not move. What the command does here is force the other two areas to match it, which is the shortest way to say "put this whole folder back the way my last commit had it". <b>That one status line was the only warning you got</b>, and it is why the habit above is worth having: the <code>M</code> was the entire inventory of what you were about to destroy.</p>
+      <div class="note"><b>One thing <code>--hard</code> does not touch.</b> Untracked files survive it, because Git has no committed version of them to reset to. If your folder is full of files Git has never been told about, a hard reset leaves every one of them exactly where it is. The command that deletes those is <code>git clean</code>, and this session is not going to teach it: it is the one command in Git that can destroy files Git has never had a copy of, so it deserves more room than a footnote.</div>
+      <p><b>Now the form that does move the pointer</b>, and the reason this session can show it to you safely. Note the hash of your newest commit first, from the log. <b>Yours will not be <code>57fb3d0</code>; use whatever your own log prints:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; throw a commit away, then take it back</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+57fb3d0 (HEAD -&gt; main) c3 add c
+1c6b85c c2 add b
+10d0d15 c1 add a
+
+<span class="cmd">&gt; git reset --hard HEAD~1</span>
+HEAD is now at 1c6b85c c2 add b
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+1c6b85c (HEAD -&gt; main) c2 add b
+10d0d15 c1 add a
+
+<span class="cmd">&gt; git reset --hard 57fb3d0</span>
+HEAD is now at 57fb3d0 c3 add c
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+57fb3d0 (HEAD -&gt; main) c3 add c
+1c6b85c c2 add b
+10d0d15 c1 add a</code></pre>
+      </div>
+      <p><b>Read what just happened there, because it is the most important paragraph in the session.</b> The commit came back. It came back because <b><code>reset</code> never deletes a commit</b>: it moves a pointer, and the commit carries on sitting in the repository with nothing aimed at it. Session 2 taught that a hash names a commit anywhere a command wants one, and that is what the last reset used. Both of these are just names for a commit, <code>HEAD~1</code> and <code>57fb3d0</code>; one counts backwards and one is absolute.</p>
+      <p><b>So the third area, the repository, is the one thing on this session's list that <code>reset</code> never changes.</b> That is the honest reason "almost nothing in Git is unrecoverable" is true, and it is also exactly why the two red boxes above are about <em>uncommitted</em> work: a commit is the moment Git starts keeping a copy for you.</p>
+      <p><b>And the obvious question is the one this session is going to leave with you.</b> That only worked because you wrote the hash down. If you had not, the commit would still be sitting in the repository, unreachable and invisible to <code>git log</code>, and you would have no name to call it by. <b>There is a command that gives you that name back, and it is the first thing in Session 8.</b></p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Run all three modes from the same starting point</div>
+        <ol>
+          <li>Edit <code>b.txt</code>, stage it, and commit it with the message <code>c5 change b</code>. Then <code>git reset --soft HEAD~1</code> and run <code>git status --short</code>. <b>Which column is the letter in?</b></li>
+          <li>Commit it again, which takes only <code>git commit -m "c5 change b"</code> because soft left it staged. Now <code>git reset HEAD~1</code> with no flag, and run <code>git status --short</code>. <b>Which column now?</b></li>
+          <li><b>Stage it again</b> and commit it a third time. That extra <code>git add</code> is the whole difference between the two modes, and skipping it is how you find out. <b>Write the short hash down somewhere outside the terminal.</b> Then <code>git reset --hard HEAD~1</code> and confirm with <code>git log --oneline</code> that the commit is gone and the file is back to its old contents.</li>
+          <li>Bring it back with <code>git reset --hard</code> and the hash you wrote down.</li>
+          <li><b>Say out loud, for each of the three, which of the four things from section A it moved.</b> That sentence is the milestone in miniature.</li>
+          <li><b>Now put the lab back.</b> Run <code>git reset --hard HEAD~1</code> once more to drop your <code>c5 change b</code> practice commit, then <code>git log --oneline --decorate=short</code> to confirm you are on three commits with <code>c3 add c</code> on top. <b>The transcripts in the next two sections assume exactly that</b>, and you have just used the command that guarantees it.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I ran all three modes and can name what each one moved</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-table">
+      <h3>H. The three modes, in three lines</h3>
+      <p><b>Worth memorising, because it is small and it is the whole of <code>reset</code>.</b> All three move the branch pointer to wherever you named. They differ only in how far the change follows:</p>
+      <div class="tscroll">
+        <table class="ptable">
+          <thead>
+            <tr><th></th><th>branch pointer</th><th>staging area</th><th>working tree</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>--soft</th><td class="y">moves</td><td class="n">left alone</td><td class="n">left alone</td></tr>
+            <tr><th>--mixed (default)</th><td class="y">moves</td><td class="y">reset</td><td class="n">left alone</td></tr>
+            <tr><th>--hard</th><td class="y">moves</td><td class="y">reset</td><td class="d">overwritten</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>The order is the point.</b> Soft, mixed, hard, in that order, is a ramp: each one reaches one area further than the last, and the danger goes up with it. If you can recite the ramp you can derive any of the three, and you will never reach for <code>--hard</code> when <code>--soft</code> was what you meant.</p>
+      <p><b>None of the three touches the repository.</b> Every commit you had before you ran any of them is still there afterwards. That is not a detail; it is the reason all three are survivable.</p>
+    </div>
+
+    <div class="block" id="concept-revert">
+      <h3>I. "It is already pushed" and <code>git revert</code></h3>
+      <p><b>Everything so far has moved a branch pointer backwards</b>, which quietly assumes that nobody else has the commits you are stepping over. The moment that assumption is wrong, all three resets become the wrong tool, and Git has a completely different answer.</p>
+      <p><b><code>git revert</code> does not remove anything. It writes a NEW commit that undoes an old one.</b> If the old commit added a line, the new one deletes that line. If the old commit created a file, the new one deletes that file. History gets longer, not shorter, and nothing anybody already has is disturbed:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; undo by adding, not by removing</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+57fb3d0 (HEAD -&gt; main) c3 add c
+1c6b85c c2 add b
+10d0d15 c1 add a
+
+<span class="cmd">&gt; git revert --no-edit HEAD</span>
+[main 2b95aec] Revert "c3 add c"
+ Date: Thu Aug 13 18:26:58 2026 -0500
+ 1 file changed, 1 deletion(-)
+ delete mode 100644 c.txt
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+2b95aec (HEAD -&gt; main) Revert "c3 add c"
+57fb3d0 c3 add c
+1c6b85c c2 add b
+10d0d15 c1 add a</code></pre>
+      </div>
+      <p><b>Four commits, not two.</b> Put that log beside the one in section E and the contrast is the clearest teaching in this session. <code>reset</code> left you with two commits and the third one unreachable. <code>revert</code> leaves you with four: the commit you did not want is still right there in the history, and a new one above it cancels its effect out. <code>c.txt</code> really is gone from your folder, but the record of it having existed is not.</p>
+      <p><b>Two small things in that output are worth naming.</b> Git wrote the message for you, <code>Revert "c3 add c"</code>, quoting the original. And there is a <code>Date:</code> line, which none of your commit outputs have had before: it appears when a commit's author date and its committer date are not the same, which is normal for a revert and means nothing is wrong.</p>
+      <div class="note"><b><code>--no-edit</code> is not optional decoration.</b> <code>git revert</code> builds a commit, a commit needs a message, and without that flag Git opens your text editor so you can edit the one it prepared. On Windows that is usually <code>vim</code> inside your terminal, which is exactly the situation Session 4 warned you about: it looks like the terminal has frozen, and it has not. If it happens, get out the way Session 4 taught, and check what will open on your machine with <code>git var GIT_EDITOR</code>. <b><code>--no-edit</code> accepts the prepared message and never opens anything</b>, which is what you want nine times out of ten.</div>
+      <p><b>So the rule that decides between reset and revert is a question about other people, not about Git:</b></p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">Nobody else has it</span><span class="rd"><b>reset.</b> The commit is yours alone, and moving your own pointer harms nobody.</span></div>
+        <div class="refrow"><span class="rr">Somebody else has it</span><span class="rd"><b>revert.</b> Adding a commit is something they can simply receive. Removing one from under them is not.</span></div>
+      </div>
+      <p><b><code>revert</code> is the only command in this session that is safe on shared history</b>, and that is worth carrying forward as a sentence rather than a feeling. <b>Session 8 turns it into an actual rule</b>, with the honest nuance about when rewriting is perfectly fine, and this is the half of it you already have.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Undo the same commit both ways and compare the logs</div>
+        <p><b>You have already run the revert, in the block just above.</b> Do not run it a second time: reverting a revert puts the change back, and Git will tell you so by writing <code>Reapply</code> instead of <code>Revert</code> in the message. This one is about reading what you did.</p>
+        <ol>
+          <li>Look back at the four lines <code>git revert --no-edit HEAD</code> printed and <b>say what each one tells you</b>: the branch and new hash, the date note, the size of the change, and what happened to <code>c.txt</code>.</li>
+          <li>Run <code>git log --oneline --decorate=short</code> and <b>count the commits before saying anything else</b>. Did the number go up or down?</li>
+          <li>Confirm with <code>git status</code> that the working tree is clean, and check that <code>c.txt</code> really has gone from the folder.</li>
+          <li><b>Without running it</b>, say what <code>git reset --hard HEAD~1</code> would have left in the log instead, and how many commits that would be.</li>
+          <li>Say in one sentence which of the two you would use on a commit your teammate already pulled, and why.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I can state the difference between reset and revert without looking</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-detached">
+      <h3>J. Detached HEAD, which is not an error</h3>
+      <p><b>Sooner or later Git will print a screenful of text at you that begins with the words "detached HEAD", and it will look like something has gone badly wrong.</b> Nothing has. It is worth meeting on purpose, in a lab, rather than for the first time on real work.</p>
+      <p><b>Ordinarily <code>HEAD</code> points at a branch name and the branch name points at a commit.</b> That is the <code>(HEAD -&gt; main)</code> label you have been reading since Session 2, and the arrow is the indirection. <b>A detached HEAD is what you get when <code>HEAD</code> points straight at a commit with no branch name in the middle.</b> You are standing on a commit rather than on a branch.</p>
+      <p><b>Getting there deliberately shows you something about <code>switch</code> first.</b> Session 3 taught that <code>git switch</code> exists because <code>git checkout</code> does several unrelated jobs, and here is one of the jobs it does not do:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; switch refuses, and says why</div>
+<pre><code><span class="cmd">&gt; git switch HEAD~2</span>
+<span class="rej">fatal: a branch is expected, got commit 'HEAD~2'</span>
+hint: If you want to detach HEAD at the commit, try again with the --detach option.</code></pre>
+      </div>
+      <p><b><code>switch</code> switches branches, and <code>HEAD~2</code> is not a branch</b>, so it stops and tells you the flag you would need. That refusal is the safety Session 3 promised. <code>git checkout</code> has no such scruples, and it is how nearly everybody lands here by accident:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; the message in full, because it is alarming unquoted</div>
+<pre><code><span class="cmd">&gt; git checkout HEAD~2</span>
+Note: switching to 'HEAD~2'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c &lt;new-branch-name&gt;
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+HEAD is now at 1c6b85c c2 add b</code></pre>
+      </div>
+      <p><b>Read it as what it is: a help page, not an error.</b> There is no <code>fatal</code>, no <code>error:</code>, and no <code>warning:</code> anywhere in it. Git is telling you where you are, what you can safely do, and two different ways out, one of which is a single command. <b>The reason it is so long is that it is the only warning you get</b>, and Git would rather over-explain once than let you lose a commit.</p>
+      <p><b>Now read the state from three different commands</b>, because each one says it differently and you should recognise all three:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab, detached &middot; three ways to notice</div>
+<pre><code><span class="cmd">&gt; git status</span>
+HEAD detached at 1c6b85c
+nothing to commit, working tree clean
+
+<span class="cmd">&gt; git branch --show-current</span>
+
+<span class="cmd">&gt; git branch</span>
+* (HEAD detached at 1c6b85c)
+  main
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+1c6b85c (HEAD) c2 add b
+10d0d15 c1 add a</code></pre>
+      </div>
+      <p><b><code>git branch --show-current</code> from Session 3 prints nothing at all</b>, and that is the cleanest single test there is: no current branch, because you are not on one. <code>git branch</code> puts the star beside a description rather than a name, for the same reason.</p>
+      <p><b>And the log line is the one to really look at.</b> It reads <code>(HEAD)</code> on its own, with no <code>-&gt; main</code> after it. Every session since Session 2 has shown you <code>(HEAD -&gt; main)</code>, and Session 3 explained the arrow as the pointer aiming at a name. <b>Here the arrow is missing because the thing it pointed at is missing.</b> That two-character absence is the whole state, and you can now spot it in any log without running another command. Note also that the log only goes back from where you stand: <code>c3 add c</code> and the revert are not listed, because <code>git log</code> shows what is reachable from HEAD, and from here they are ahead of you rather than behind.</p>
+      <p><b>Getting back is one command</b>, and it was the second one the advisory offered:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; back to where you were</div>
+<pre><code><span class="cmd">&gt; git switch -</span>
+Previous HEAD position was 1c6b85c c2 add b
+Switched to branch 'main'</code></pre>
+      </div>
+      <p><b><code>git switch -</code>, with a bare dash, means "the place I was before this".</b> It works between branches too, and it is worth adopting as a habit for that alone.</p>
+      <p><b>There is also a way to detach on purpose</b>, and it behaves noticeably differently:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; the deliberate form says almost nothing</div>
+<pre><code><span class="cmd">&gt; git switch --detach HEAD~2</span>
+HEAD is now at 1c6b85c c2 add b
+
+<span class="cmd">&gt; git status</span>
+HEAD detached at 1c6b85c
+nothing to commit, working tree clean</code></pre>
+      </div>
+      <p><b>Same state, one line of output instead of eighteen.</b> Git prints the long advisory when it thinks you might have arrived by accident, and skips it when you spelled out <code>--detach</code>, because you can hardly have typed that flag without meaning it. <b>Use <code>git switch --detach</code> when you mean it, and recognise the long message as what <code>git checkout</code> says when it suspects you did not.</b></p>
+      <p><b>Finally, the part that actually matters: what happens if you commit while you are here.</b> You are detached right now, so make one:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content o.txt "an experiment"
+git add o.txt
+git commit -m "Orphan commit"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "an experiment" &gt; o.txt
+git add o.txt
+git commit -m "Orphan commit"</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab, detached &middot; a commit with no branch on it</div>
+<pre><code>[detached HEAD e7f4199] Orphan commit
+ 1 file changed, 1 insertion(+)
+ create mode 100644 o.txt
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+e7f4199 (HEAD) Orphan commit
+1c6b85c c2 add b
+10d0d15 c1 add a</code></pre>
+      </div>
+      <p><b><code>[detached HEAD e7f4199]</code> instead of the <code>[main ...]</code> you have seen on every commit since Session 1.</b> Git puts the branch name in those brackets, and there is no branch name to put, so it says where you are instead. The commit itself is completely ordinary.</p>
+      <p><b>A perfectly ordinary commit, with nothing pointing at it but <code>HEAD</code>.</b> The moment you leave, nothing will point at it at all. Git knows this, and it will not let you go quietly:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; Git hands you the way back on your way out</div>
+<pre><code><span class="cmd">&gt; git switch main</span>
+Warning: you are leaving 1 commit behind, not connected to
+any of your branches:
+
+  e7f4199 Orphan commit
+
+If you want to keep it by creating a new branch, this may be a good time
+to do so with:
+
+ git branch &lt;new-branch-name&gt; e7f4199
+
+Switched to branch 'main'</code></pre>
+      </div>
+      <p><b>Git printed the hash and the exact command.</b> <code>git branch &lt;name&gt; &lt;hash&gt;</code> is new here, and it points a name at any commit you can name <em>without moving you there</em>, which is different from every branch command Session 3 gave you. It works for exactly the reason Session 3 established: a branch is only a movable pointer, so creating one costs nothing and moves nothing. The command to read it back is <code>git log</code> with a branch name after it, which shows that branch's history rather than the one you are standing on. Take Git up on the offer:</p>
+      <div class="filebox">
+        <div class="fbh">run in undo-lab &middot; rescue it, using the hash Git just gave you</div>
+<pre><code><span class="cmd">&gt; git branch rescued e7f4199</span>
+
+<span class="cmd">&gt; git log --oneline --decorate=short rescued</span>
+e7f4199 (rescued) Orphan commit
+1c6b85c c2 add b
+10d0d15 c1 add a</code></pre>
+      </div>
+      <p><b>Silence, and then the commit has a name.</b> You never left <code>main</code> to do it, which is what makes this the safest possible rescue. Session 3's whole thesis, doing something useful: you did not move a commit, you pointed a name at one.</p>
+      <p><b>And there is the same question again, sharper this time.</b> That worked because Git printed the hash and you were still looking at the terminal. <b>Close the window, and you have no name for that commit and no way to list it.</b> It is not gone; there is simply nothing to call it by. The command that answers this is the first thing in Session 8, and this is exactly why it goes there.</p>
+    </div>
+
+    <div class="block" id="concept-milestone">
+      <h3>K. The milestone: build the table yourself</h3>
+      <p><b>Here is the session in one grid.</b> Every row is a command from Part 1, and every column is one of the four things from section A. Read it once, then build your own from memory, which is the milestone:</p>
+      <div class="tscroll">
+        <table class="ptable">
+          <thead>
+            <tr><th>command</th><th>working tree</th><th>staging area</th><th>branch pointer</th><th>repository</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>git restore &lt;file&gt;</th><td class="d">overwritten</td><td class="n">no</td><td class="n">no</td><td class="n">no</td></tr>
+            <tr><th>git restore --staged</th><td class="n">no</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
+            <tr><th>git reset --soft</th><td class="n">no</td><td class="n">no</td><td class="y">back</td><td class="n">no</td></tr>
+            <tr><th>git reset --mixed</th><td class="n">no</td><td class="y">yes</td><td class="y">back</td><td class="n">no</td></tr>
+            <tr><th>git reset --hard</th><td class="d">overwritten</td><td class="y">yes</td><td class="y">back</td><td class="n">no</td></tr>
+            <tr><th>git revert</th><td class="y">yes</td><td class="y">yes</td><td class="y">forward</td><td class="y">adds one</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>Two things jump out of that grid once it is assembled.</b> The <code>repository</code> column is empty for everything except <code>revert</code>, which is the reason undoing is survivable: nothing here deletes a commit. And <code>revert</code> is the only row whose pointer goes <em>forward</em>, which is the reason it is the only one that is safe to use on work somebody else already has.</p>
+      <p><b>The same grid, read the other way round, is the thing you will actually use:</b></p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">I edited the wrong file</span><span class="rd"><b>git restore &lt;file&gt;</b>, and there is no way back, so check the name.</span></div>
+        <div class="refrow"><span class="rr">I staged the wrong file</span><span class="rd"><b>git restore --staged &lt;file&gt;</b>. Your edit is untouched.</span></div>
+        <div class="refrow"><span class="rr">I committed too early</span><span class="rd"><b>git reset --soft HEAD~1</b>. Everything comes back staged and ready.</span></div>
+        <div class="refrow"><span class="rr">Undo the commit and the add</span><span class="rd"><b>git reset HEAD~1</b>. The files stay; you stage them again yourself.</span></div>
+        <div class="refrow"><span class="rr">Put this folder back</span><span class="rd"><b>git reset --hard HEAD</b>. Check <code>git status --short</code> first, every time.</span></div>
+        <div class="refrow"><span class="rr">It is already pushed</span><span class="rd"><b>git revert --no-edit &lt;commit&gt;</b>. The only safe one on shared history.</span></div>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: make five mistakes, undo each, and name the area</div>
+        <p>Work in <code>undo-lab</code>. <b>Do not scroll back up.</b> For each mistake below: cause it deliberately, run <code>git status --short</code> and read it, undo it, then <b>say out loud which of the four things your undo command changed</b> before you move on. The naming is the graded part, not the typing.</p>
+        <ol>
+          <li><b>You edited <code>a.txt</code> and did not mean to.</b> Nothing is staged. Undo it.</li>
+          <li><b>You edited <code>b.txt</code> and then staged it</b>, and you want the staging undone but the edit kept. Undo it.</li>
+          <li><b>You committed a change to <code>b.txt</code> before adding a second file you meant to include.</b> Undo the commit so the change comes back staged, create the second file, add it, and commit once with a message covering both.</li>
+          <li><b>You committed something and want the commit gone, the shortlist emptied, and the file left on disk so you can rework it.</b> Undo it, and confirm from the short status which column the letter lands in. <b>Then get back to a clean tree</b>, either by staging and committing that change or by throwing it away; the next step needs one.</li>
+          <li><b>Pretend the commit on top of your history has already been pushed and a teammate has it.</b> Undo its effect the only way that is safe, and confirm the log got longer.</li>
+        </ol>
+        <p><b>If step 5 refuses</b> with <code>error: Your local changes to the following files would be overwritten by merge</code>, that is step 4 catching up with you: <code>revert</code> has to change a file on disk, and it will not do that on top of an edit you have not dealt with. Clean the tree and run it again. Refusing rather than overwriting is the same protectiveness you have seen all session.</p>
+        <p>Then, still in <code>undo-lab</code>, create a file called <code>undo-table.md</code> and write your own decision table into it: one row per mistake above, each naming <b>the command</b> and <b>which of the four things it changed</b>. Do it from memory. Commit it.</p>
+        <p>You have hit the milestone when all five undos worked, <code>undo-table.md</code> holds five rows in your own words, and you named the right areas without checking. <b>Then check yourself against section K and fix any row you got wrong</b>, because a table you corrected is worth more than one you copied.</p>
+        <details><summary>Stuck on the shape of it? The skeleton, without the answers</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">This is the order of operations only. Every command you need is one of the six in the table above, and the areas are yours to name.</p>
+<pre><code># 1. edit a.txt, then:
+git status --short          # read both columns before undoing
+# ...undo it, then say which of the four you changed
+
+# 2. edit b.txt, git add b.txt, then:
+git status --short
+# ...undo only the add
+
+# 3. edit b.txt, git add, git commit -m "..."
+# ...undo the commit but keep it staged
+# create the second file, git add it, commit once
+
+# 4. commit something, then undo the commit AND the staging,
+#    leaving the file alone. Check which column the letter is in.
+
+# 5. the top commit is "shared" now, so undo it the safe way
+
+# then write undo-table.md from memory, and:
+git add undo-table.md
+git commit -m "My undo decision table"</code></pre>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I undid five mistakes and named the area for every one</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in <code>undo-lab</code>.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a repository on <code>main</code> with three commits and a clean working tree. <b>Where a drill names the four things, it means the four from section A</b>: working tree, staging area, branch pointer, repository. <b>No drill grades a hash, a date or a path</b>, since all three differ per machine.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: undo commands run in the wrong order will happily undo the wrong thing, and two of them will not give it back.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> two of these six questions come from earlier sessions, because recalling older material on a delay is what makes it stick. Their review links open that session in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 07 of 10 &middot; Hit the milestone unassisted, then tick <b>S07</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; <b>You are done with <code>undo-lab</code>.</b> Session 8 builds its own small repository from scratch, so nothing is lost if you delete the folder.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, draw four boxes and label them working tree, staging area, branch pointer, repository. Now write the six commands from section K down the side and, from memory, mark which boxes each one changes. Circle the two that destroy work with no way back, and write one sentence beside each saying what kind of work it destroys. Then, underneath, write the single question that decides between <code>reset</code> and <code>revert</code>. Check yourself in <code>undo-lab</code> by causing whichever mistake you are least sure of and undoing it without notes. &middot; Next: <b>Session 08, recovery &amp; rewriting history</b> (Level 4).
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s07-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words, area names,
+     command words and yes/no words, where capitalisation is presentation rather
+     than the lesson. Marking "unstaged" typed as "Unstaged" wrong would be an
+     unfair grade. Git command case-sensitivity is taught in prose and tested in
+     Parts 3 and 4. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 5 value, 3 set, 1 seq, 2 count. No drill grades a hash, a
+     date or a path. Every drill whose answer is a word or a label names the exact
+     vocabulary in the ask, so the grader has something exact to compare against and
+     a learner is never marked wrong for a synonym the session never asked for. */
+  var DRILLS = [
+    { type: 'value',
+      scen: '> git status --short\n M notes.md\n\n(the first character of that line is a space)',
+      ask: 'Is the change to notes.md staged, unstaged, or both? Answer with one of those three words.',
+      code: 'git status --short', ans: 'unstaged',
+      why: 'Column one is the staging area and column two is the working tree. Column one is a space, so the staging area has nothing to report, and the M sits in column two, so the working tree holds a modification. In the long form of the report this is the file listed under Changes not staged for commit.' },
+
+    { type: 'value',
+      scen: '> git status --short\nMM notes.md',
+      ask: 'Is the change to notes.md staged, unstaged, or both? Answer with one of those three words.',
+      code: 'git status --short', ans: 'both',
+      why: 'Two letters means both columns have something to say. One version of notes.md is on the staging shortlist, and a newer version, edited after the git add, is sitting on disk. Undoing all of it takes both restores, and the order matters: unstage first, then discard, because git restore on its own copies from the staging area rather than from the last commit.' },
+
+    { type: 'value',
+      scen: 'notes.md is committed and the tree is clean. Then, in order:\n  1. you edit notes.md\n  2. git add notes.md\n  3. you edit notes.md again\n  4. git restore --staged notes.md',
+      ask: 'Trace it. After step 4, is the change staged, unstaged, both, or gone? Answer with one word.',
+      code: '# what does git status --short print now?', ans: 'unstaged',
+      why: 'Steps 1 to 3 leave both columns occupied. Step 4 puts the staging area back the way the last commit left it, which empties column one, and it does not touch the file on disk, so everything you typed in steps 1 and 3 is still there in the working tree. Nothing was thrown away: restore --staged is the safe one of the pair, because your text survives in the working tree either way.' },
+
+    { type: 'set',
+      ask: 'Which of the four things does git reset --soft HEAD~1 change? Answer with one or more of these exact labels and nothing else, separated by commas: working tree, staging area, branch pointer, repository.',
+      code: 'git reset --soft HEAD~1', ans: 'branch pointer',
+      why: 'Only the branch pointer, which is what makes soft the gentlest of the three. It is tempting to say the staging area changed too, because status suddenly reports something staged, but the shortlist holds exactly what it held before. What moved is the commit that status compares the shortlist against. One thing moved and two reports changed, which is the distinction worth keeping.' },
+
+    { type: 'set',
+      ask: 'Which of the four does git reset --hard HEAD~1 change? Answer with one or more of these exact labels and nothing else, separated by commas: working tree, staging area, branch pointer, repository.',
+      code: 'git reset --hard HEAD~1', ans: 'working tree, staging area, branch pointer',
+      why: 'Two of the three areas, plus the pointer, which is why it is the most destructive command in the session. The repository is the third area, and it is the one reset always leaves alone: the commit you stepped over is still stored, with nothing aimed at it, which is exactly why it can be recovered. Anything that was never committed cannot be, because Git never had a copy of it.' },
+
+    { type: 'seq',
+      ask: 'Put the three reset modes in order, from the one that changes the fewest of those things to the one that changes the most. Type the three words in order, separated by commas: hard, mixed, soft.',
+      code: '# git reset --? ', ans: 'soft, mixed, hard',
+      why: 'Soft moves the pointer and stops. Mixed moves the pointer and resets the staging area. Hard moves the pointer and resets both the staging area and the working tree. Each one reaches exactly one area further than the last, and the danger rises with it, which is why the ramp is worth memorising in that order rather than alphabetically.' },
+
+    { type: 'count',
+      scen: 'A repository whose log lists three commits, on main,\nwith a clean working tree.',
+      ask: 'After git revert --no-edit HEAD, how many commits does git log --oneline list? Answer with a digit.',
+      code: 'git revert --no-edit HEAD', ans: '4',
+      why: 'Four, because revert adds rather than removes. It writes a new commit whose content is the opposite of the one you named, and the commit you were undoing stays exactly where it was. That is the whole difference from reset, which would have left you with two. History getting longer is the price of it being safe for other people to receive.' },
+
+    { type: 'count',
+      scen: 'The same three-commit repository, still clean.',
+      ask: 'After git reset --hard HEAD~1, how many commits does git log --oneline list? Answer with a digit.',
+      code: 'git reset --hard HEAD~1', ans: '2',
+      why: 'Two, because the branch pointer moved back one and git log only lists what is reachable from where you are standing. The third commit was not deleted, it is still stored in the repository with nothing pointing at it, which is why it can be brought back with git reset --hard and its hash. Put this beside the drill above and you have the whole contrast: one log gets longer, one gets shorter, and neither loses a commit.' },
+
+    { type: 'set',
+      ask: 'Which of these throw away work with no way back, if the work was never committed? Answer with one or more of these four words and nothing else, separated by commas: restore, soft, hard, revert.',
+      code: '# which ones cannot be undone', ans: 'restore, hard',
+      why: 'Exactly two, and the qualifier is doing the work: both destroy UNCOMMITTED changes. git restore on a file overwrites it on disk, and git reset --hard wipes every uncommitted change across every file at once. Neither is recoverable, because Git never had a copy of anything you had not committed. Soft never touches your files, and revert only ever adds a commit.' },
+
+    { type: 'value',
+      scen: '> git log --oneline --decorate=short\n1c6b85c (HEAD) c2 add b\n10d0d15 c1 add a',
+      ask: 'What does git branch --show-current print in this repository right now? Answer with one word: either the branch name it prints, or the word nothing.',
+      code: 'git branch --show-current', ans: 'nothing',
+      why: 'Nothing at all, because there is no current branch. The decoration on the top line reads (HEAD) on its own, with no arrow and no branch name after it, which is the signature of a detached HEAD: HEAD is pointing straight at a commit rather than at a branch that points at a commit. It is not an error, and git switch - takes you back to wherever you were before.' },
+
+    { type: 'value',
+      scen: 'You committed a change, pushed it, and a teammate has\nalready pulled it. Now you need its effect undone.',
+      ask: 'Which command is the safe one here? Answer with one of these three words: restore, reset, revert.',
+      code: '# your answer here', ans: 'revert',
+      why: 'Revert, because it is the only one of the three that moves the branch pointer forward by adding a commit. Your teammate can receive a new commit without any trouble. A reset would move the pointer backwards over a commit they already hold, which leaves the two of you disagreeing about what the history is. The question that decides it is never about Git, it is whether anybody else has the commit.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both prompts narrate their steps in order, and every tile answers exactly one
+     narrated step, so there is no second arrangement that matches the description. */
+  var PARSONS = [
+    { prompt: 'You committed, then realised you had forgotten to include a second file, and nothing has been pushed. Start by reading where your branch is standing. Then undo the commit while leaving every change exactly where it sits, staged and ready. Check what is sitting on the shortlist. Add the file you forgot. Finally make the commit again, with a message that covers both files.',
+      lines: ['git log --oneline --decorate=short', 'git reset --soft HEAD~1', 'git status', 'git add extra.txt', 'git commit -m "Add notes and extra"'] },
+    { prompt: 'Have a look at how the project stood two commits back, using the older command that is how people usually land in this state without meaning to. Then ask Git which branch you are on, and get an empty answer back. Read the history from where you are now standing. Go back to the branch you were on a moment ago, using the shorthand that means the place you came from. Finish by confirming in the short form that your working tree is clean.',
+      lines: ['git checkout HEAD~2', 'git branch --show-current', 'git log --oneline --decorate=short', 'git switch -', 'git status --short'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Every comment describes what the line DOES, never the token being blanked. */
+  var FADED = [
+    { prompt: 'You edited notes.md by mistake and then staged it on top, so there are two separate things to undo. Fill the blanks so the first line undoes the git add, the second throws the edit away for good, and the third undoes your last commit while leaving both other areas exactly as they are.',
+      code: 'git restore %% notes.md   # undo the git add, leave the file on disk alone\ngit %% notes.md           # make the file on disk match what is staged\ngit reset %% HEAD~1       # undo the last commit, leave both other areas alone', ans: ['--staged', 'restore', '--soft'] },
+    { prompt: 'Three more undos, and this time name every mode explicitly even where Git would have assumed it for you. Fill the blanks so the first empties the shortlist as well as undoing the commit, the second wipes out every uncommitted change without going back past anything, and the third leaves the history longer than it was.',
+      code: 'git reset %% HEAD~1       # undo the commit and empty the shortlist, keep the file\ngit reset %% HEAD         # wipe out everything uncommitted, going back nowhere\ngit %% --no-edit HEAD     # write a new commit that cancels the last one out', ans: ['--mixed', '--hard', 'revert'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Build a throwaway repository of your own, somewhere outside undo-lab so you do not disturb it. Call it status-lab, make main its first branch, and put one commit in it holding a file called notes.md. Then, without committing anything else, produce each of these four short-status readings in turn, using the short form of status every time: a clean tree, a change sitting in the working tree only, that same change on the shortlist instead, and a file Git has never been told about. Write down the two characters you saw at each of the four points, then delete that last file yourself so the folder is clean for the next task.',
+      sol: 'cd ~\nmkdir status-lab\ncd status-lab\ngit init -b main\n# create notes.md with Set-Content or echo, then:\ngit add notes.md\ngit commit -m "Add notes.md"\n\ngit status --short          # clean: prints nothing at all\n\n# edit notes.md, then:\ngit status --short          # a space, then M\n\ngit add notes.md\ngit status --short          # M, then a space\n\n# create a second file and do NOT add it, then:\ngit status --short          # two question marks\n\n# then delete that second file yourself: no command in this\n# session removes an untracked file for you' },
+
+    { task: 'In status-lab, get back to a clean tree, then commit a change to notes.md before you meant to. Undo that commit so the change comes back on the shortlist rather than being thrown away, create a second file you had forgotten, add it, and make one commit covering both. Prove with the log both before and after that the commit count went down by one and then back up by one. Finish by writing down which single one of the four things your undo command moved.',
+      sol: '# get clean first, in the two-step order:\ngit restore --staged notes.md\ngit restore notes.md\n\n# edit notes.md, then commit it too early:\ngit add notes.md\ngit commit -m "Update the notes"\ngit log --oneline           # note how many commits\n\ngit reset --soft HEAD~1     # moves the branch pointer, nothing else\ngit log --oneline           # one fewer\ngit status --short          # the change is still on the shortlist\n\n# create extra.txt, then:\ngit add extra.txt\ngit commit -m "Update the notes and add extra"\ngit log --oneline           # back up by one\n\n# the answer to write down: the branch pointer, and only that' },
+
+    { task: 'Still in status-lab, cause the default reset twice and account for the difference. First make a commit that MODIFIES an existing file and undo it with a plain reset, no flag. Then make a commit that CREATES a brand new file and undo it exactly the same way. Write down how the two status reports differ and why. Then note the short hash of your newest commit somewhere outside the terminal, throw that commit away with the most destructive reset there is, confirm it has gone from the log, and put it back using the hash you noted.',
+      sol: '# case one: a commit that modifies a file\n# edit notes.md, then:\ngit add notes.md\ngit commit -m "Modify the notes"\ngit reset HEAD~1            # prints an Unstaged changes summary\ngit status                  # Changes not staged for commit: modified\ngit restore notes.md        # discard it and get clean again\n\n# case two: a commit that creates a file\n# create fresh.txt, then:\ngit add fresh.txt\ngit commit -m "Add fresh.txt"\ngit reset HEAD~1            # prints nothing at all\ngit status                  # Untracked files: fresh.txt\n\n# why: the undone commit is what first told Git the file existed,\n# so after the reset Git has no record of it and it is untracked.\n\ngit add fresh.txt\ngit commit -m "Add fresh.txt"\ngit log --oneline           # write the top short hash down\n\ngit status --short          # check what you are about to lose: nothing\ngit reset --hard HEAD~1\ngit log --oneline           # the commit is gone from the list\ngit reset --hard <the hash you wrote down>\ngit log --oneline           # and it is back' },
+
+    { task: 'Two last things in status-lab. First, pretend the newest commit has already been pushed and two other people have pulled it, and undo its effect in the only way that is safe on shared history, without letting an editor open. Show that the log got longer rather than shorter. Second, go and look at the project as it stood two commits back without moving any branch, confirm from two different commands that you are not standing on a branch, and come back to where you were. Finish by writing down which of the four things your revert moved, and then, for the command that detached you, which of the four it moved and what it moved instead.',
+      sol: 'git log --oneline           # count the commits first\ngit revert --no-edit HEAD\ngit log --oneline           # one MORE, not one fewer\n\ngit checkout HEAD~2         # the long advisory appears; it is not an error\ngit status                  # HEAD detached at <hash>\ngit branch --show-current   # prints nothing: there is no current branch\ngit log --oneline --decorate=short   # the top line reads (HEAD) with no arrow\ngit switch -                # back to the branch you came from\n\n# the answers to write down:\n# revert   -> working tree, staging area, branch pointer (forward), repository\n# checkout -> of the four, only the working tree. No branch pointer moved\n#             at all: what moved was HEAD itself, straight onto a commit,\n#             which is the whole definition of detached.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'The four things any undo command can move', b: 'working tree, staging area, repository, and the branch pointer' },
+    { f: 'What column ONE of git status --short reports', b: 'the staging area' },
+    { f: 'What column TWO of git status --short reports', b: 'the working tree' },
+    { f: 'What a space in a short-status column means', b: 'nothing to report in that area' },
+    { f: 'What ?? means in a short status', b: 'untracked: Git has never been told about this file' },
+    { f: 'Undo a git add, and leave the file on disk alone', b: 'git restore --staged <file>' },
+    { f: 'Make the file on disk match what is staged', b: 'git restore <file>' },
+    { f: 'Which area git restore <file> copies FROM', b: 'the staging area, not the last commit' },
+    { f: 'The only two commands here that destroy work for good', b: 'git restore <file> and git reset --hard, on UNCOMMITTED changes' },
+    { f: 'Undo the last commit and leave everything staged', b: 'git reset --soft HEAD~1' },
+    { f: 'What plain git reset HEAD~1 does, with no flag', b: 'moves the pointer and empties the shortlist, keeps your files' },
+    { f: 'What git reset --hard HEAD does, with no ~1', b: 'wipes every uncommitted change; the pointer does not move' },
+    { f: 'The one thing no reset ever changes', b: 'the repository: the commits are all still stored' },
+    { f: 'Undo a commit other people already have', b: 'git revert --no-edit <commit>, which ADDS a commit' },
+    { f: 'What detached HEAD means', b: 'HEAD points straight at a commit, with no branch name in between' },
+    { f: 'The decoration that tells you that you are detached', b: '(HEAD) on its own, with no -> and no branch name' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  /* Four new Session-7 questions carry an in-page scrollIntoView backlink (part).
+     The two recall questions carry an external new-tab link (ext), since the
+     concept they test lives in the Session 1 and Session 3 artifacts, not here. */
+  var S1_URL = 'git-session-01.html';
+  var S3_URL = 'git-session-03.html';
+  var QUIZ = [
+    { q: 'You run git reset --soft HEAD~1. Which of the four things does it actually change?',
+      o: ['The branch pointer moves back one commit, and nothing else changes',
+          'The branch pointer and the staging area, but no file on your disk',
+          'The staging area only, since your files are all left where they were',
+          'The branch pointer and the repository, where the old commit was kept'],
+      c: 0,
+      e: 'Only the pointer. Your files are untouched and the shortlist holds exactly what it held a moment ago. It looks as though the staging area changed, because git status suddenly reports something waiting to be committed, but what really happened is that status compares the shortlist against the commit the pointer is on, and the pointer moved. One thing moved and two reports changed.',
+      part: { id: 'concept-soft', label: 'E. I committed too early and reset --soft' } },
+
+    { q: 'A commit is on the shared copy and a teammate has already pulled it. You need its effect gone. What separates revert from reset here?',
+      o: ['Revert adds a commit, so the history only ever grows for everybody',
+          'Revert deletes the commit, where reset merely hides it from the log view',
+          'Revert works on any commit, and reset can only undo the newest one',
+          'Revert asks the other person to confirm before it does anything'],
+      c: 0,
+      e: 'Revert writes a NEW commit whose content cancels the old one out, so the log gets longer and the commit you did not want is still sitting there. Reset moves your branch pointer backwards over commits your teammate already holds, which leaves the two of you disagreeing about what the history even is. Neither one deletes a commit from the repository. The question that decides it is whether anybody else has it.',
+      part: { id: 'concept-revert', label: 'I. It is already pushed, and git revert' } },
+
+    { q: 'Git says HEAD detached at 1c6b85c, and git log shows (HEAD) with no arrow after it. What does that mean?',
+      o: ['HEAD is pointing straight at a commit rather than at a branch name',
+          'The repository is damaged and HEAD has lost track of the commits',
+          'Your branch was deleted while you were standing on it, so HEAD has nothing left',
+          'Git is midway through an operation and HEAD is waiting for you to finish'],
+      c: 0,
+      e: 'It is a location, not a fault, and there is no fatal or error anywhere in the message. Normally HEAD points at a branch name and the name points at a commit, which is the (HEAD -> main) label you have read since Session 2. Detached simply removes the middle step. You can look around and even commit; the only catch is that a commit made here has no branch on it, which is why Git warns you on the way out.',
+      part: { id: 'concept-detached', label: 'J. Detached HEAD, which is not an error' } },
+
+    { q: 'Which of these genuinely cannot be undone by anything Git offers later?',
+      o: ['An edit thrown away by git restore before it had ever been committed',
+          'A commit you stepped over by running git reset --hard with HEAD~1',
+          'A commit whose effect you cancelled by running git revert on it',
+          'A branch name you deleted while its commits were merged somewhere else'],
+      c: 0,
+      e: 'Git can only give back what it once had a copy of, and it makes a copy when you commit. An uncommitted edit was never stored anywhere, so restore overwriting it is final. Everything else on that list survives: reset moves a pointer and leaves the commit stored with nothing aimed at it, revert never removed anything in the first place, and Session 3 showed that deleting a branch removes 41 bytes and no commits.',
+      part: { id: 'concept-restore', label: 'D. I did not mean to do that, and the two restores' } },
+
+    { q: 'Recall from Session 1: what are the three areas a change travels through, in order?',
+      o: ['Working tree, staging area, repository',
+          'Repository, working tree, staging area',
+          'Staging area, working tree, repository',
+          'Working tree, repository, staging area'],
+      c: 0,
+      e: 'You edit a file in the working tree, you put it on the shortlist with git add, and git commit records the shortlist into the repository inside the .git folder. That order is why every command in this session reads the way it does: the undo commands walk the same path backwards, one area at a time, and naming the area you want is what picks the command.',
+      ext: { url: S1_URL, label: 'Session 1: the three areas (opens in a new tab)' } },
+
+    { q: 'Recall from Session 3: what is a branch, exactly?',
+      o: ['A movable pointer to one commit, which is all it has ever been',
+          'A separate copy of your files, kept apart from other branches',
+          'A record of every commit that was made while you were standing on it',
+          'A folder inside .git holding the file versions only it has'],
+      c: 0,
+      e: 'It is a file of about 41 bytes holding one hash. Nothing is copied when you make one. That definition is what makes reset make sense at all: reset --soft does not delete a commit or move any file, it writes a different hash into that little file, and every commit carries on existing exactly as it did before.',
+      ext: { url: S3_URL, label: 'Session 3: a branch is a movable pointer (opens in a new tab)' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S07 on your Hub and move on to Session 8.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

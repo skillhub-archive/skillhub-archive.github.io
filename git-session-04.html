@@ -1,0 +1,1531 @@
+<title>Git Sprint &middot; Session 4: Real merges &amp; conflicts</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session is the one that needs it most: the conflict markers are runs of
+     < and > and =, which Cascadia Code would otherwise redraw into arrows. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code, .mk
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  /* the three conflict-marker lines. Gold, not red: a conflict is not an error, and
+     colouring it like one would fight the whole point of this session. Neither side
+     of a conflict gets a tint, because tinting one would imply it is the right one. */
+  .mk { color: var(--gold); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-input diagram: merge base, your side, their side */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* label / meaning rows: used for the marker legend and the editor escapes */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 31 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 15ch because the longest answer here is "--no-edit" plus room to type */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 15ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 04 // Level 2 &middot; Branching &amp; Merging</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Real merges &amp; conflicts</h1>
+    <p class="goal">A conflict is not an error and it is not a punishment. It is Git telling you that two people changed the same lines and it has no rule for choosing between them, so it hands you the decision. This session has you cause conflicts on purpose, read them, and resolve them, until the word stops being frightening and starts being a task.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Cause, read, and resolve a merge conflict calmly.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>You do not need <code>branch-lab</code> from Session 3.</b> Step one below builds a brand new repository called <code>merge-lab</code> from scratch, in under a minute. It has to be a new one: a conflict needs two branches that have each moved in a specific way, and <code>branch-lab</code> ended up as a straight line. No account and no internet are needed for any of this session.</p>
+        <p>This is a workbook, not a reading. You will predict what a command does to your repository, reassemble command sequences, fill blanks, and write from scratch, and each part hands you less scaffolding than the last. The goal is the one this whole track is built on: <b>read a Git command and know what it will do before you press enter.</b></p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. Four things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>eae0e4d</code>), <b>file paths</b>, <b>dates</b>, and, in the two transcripts in section F, <b>your own name and email address</b>, because those print the identity you set in Session 1. Everything else should match, including the odd-looking trailing spaces in the graph drawings. One more from Session 1: if you create files in Git Bash rather than PowerShell, <code>git add</code> may print a harmless <code>warning: ... LF will be replaced by CRLF ...</code> line. That is the line-ending note from Session 1, nothing is wrong.</div>
+
+    <div class="block" id="concept-setup">
+      <h3>A. Build a fresh lab</h3>
+      <p>This session needs a repository whose history forks: two branches that have each moved on from a shared starting point. That is the one shape Session 3 never produced, so you build it here from scratch, and everybody starts from the same place.</p>
+      <p>Everything in the block below is a command you already know from Sessions 1 and 3. <code>git init -b main</code> creates the repository and names the first branch <code>main</code> in one step, so it behaves the same on any machine regardless of that <code>init.defaultBranch</code> setting from Session 1.</p>
+      <p>One thing to notice as you paste: <b><code>plan.md</code> is deliberately three lines long.</b> That matters later. A one-line file would make a conflict look like the whole file exploded, and hide the fact that Git quietly merges everything that did not actually collide.</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build merge-lab</div>
+<pre><code>cd ~
+mkdir merge-lab
+cd merge-lab
+git init -b main
+Set-Content plan.md "title: report"
+Add-Content plan.md "owner: unassigned"
+Add-Content plan.md "status: draft"
+git add plan.md
+git commit -m "Add plan.md"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build merge-lab</div>
+<pre><code>cd ~
+mkdir merge-lab
+cd merge-lab
+git init -b main
+echo "title: report" &gt; plan.md
+echo "owner: unassigned" &gt;&gt; plan.md
+echo "status: draft" &gt;&gt; plan.md
+git add plan.md
+git commit -m "Add plan.md"</code></pre>
+      </div>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Already have a folder called merge-lab? Read this first</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">The <code>mkdir</code> line will fail if the folder already exists. The <code>cd</code> line after it will then succeed anyway and take you <b>into the folder you already had</b>, so the rest of the block runs against whatever is already in there instead of a clean start. The giveaway is the <code>git init -b main</code> line, which prints two lines instead of <code>Initialized empty Git repository</code>:</p>
+<pre style="font-size:12.5px"><code>warning: re-init: ignored --initial-branch=main
+Reinitialized existing Git repository in .../merge-lab/.git/</code></pre>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px"><b>Read that warning, because it matters more than it looks.</b> On an existing repository Git <b>ignores</b> the <code>-b main</code> part, so it does not rename anything. If that old repository happened to be on a branch called <code>master</code>, you stay on <code>master</code>, and every transcript below saying <code>On branch main</code> will not match what you see. That is the second reason to prefer a fresh folder. Two ways out.</p>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px"><b>The safe one:</b> pick another name. Replace <code>merge-lab</code> with <code>merge-lab-2</code> in the <code>mkdir</code> and <code>cd</code> lines and carry on. Everything else in the session is identical.</p>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px"><b>The other one:</b> delete the old folder first. This <b>permanently removes that folder and everything inside it</b>, so only run it if you are certain you do not need what is in there.</p>
+          <div class="shells">
+            <div class="srow"><span class="sl">PowerShell</span><code>cd ~
+Remove-Item -Recurse -Force merge-lab</code></div>
+            <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ~
+rm -rf merge-lab</code></div>
+          </div>
+        </div>
+      </details>
+      <p>Confirm the starting point. Three lines in the file, one commit, clean tree:</p>
+      <div class="filebox">
+        <div class="fbh">confirm the lab</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+eae0e4d (HEAD -&gt; main) Add plan.md
+
+<span class="cmd">&gt; git status</span>
+On branch main
+nothing to commit, working tree clean</code></pre>
+      </div>
+      <p>And the file itself, which you can read back with the command Session 3 gave you (<code>Get-Content</code> in PowerShell, <code>cat</code> everywhere else):</p>
+      <div class="filebox">
+        <div class="fbh">plan.md &middot; three lines, and the middle one is the interesting one</div>
+<pre><code><span class="cmd">&gt; Get-Content plan.md</span>
+title: report
+owner: unassigned
+status: draft</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the lab</div>
+        <ol>
+          <li>Paste the block for your shell and run it.</li>
+          <li>Run <code>git log --oneline --decorate=short</code> and confirm you see exactly one commit, labelled <code>(HEAD -&gt; main)</code>.</li>
+          <li>Read <code>plan.md</code> back and confirm it is three lines, with <code>owner: unassigned</code> in the middle.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> I built merge-lab and plan.md has three lines</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-fork">
+      <h3>B. When a merge cannot fast-forward</h3>
+      <p><b>Session 3 ended on a rule, and this section breaks it on purpose.</b> A fast-forward merge is possible precisely when the branch you are on has not moved since the other branch split off. Git had nothing to combine, so it slid a pointer forward and created no commit at all.</p>
+      <p>So now let <b>both</b> branches move. Make a branch, commit something on it, come back to <code>main</code>, and commit something different there. Each side changes a <b>different file</b>, which matters: for now there is nothing to argue about, and you will see that a real merge is normally silent.</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell &middot; move both branches</div>
+<pre><code>git switch -c topic
+Set-Content extra.md "Extra notes."
+git add extra.md
+git commit -m "Add extra.md"
+git switch main
+Set-Content readme.md "Read me first."
+git add readme.md
+git commit -m "Add readme.md"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; move both branches</div>
+<pre><code>git switch -c topic
+echo "Extra notes." &gt; extra.md
+git add extra.md
+git commit -m "Add extra.md"
+git switch main
+echo "Read me first." &gt; readme.md
+git add readme.md
+git commit -m "Add readme.md"</code></pre>
+      </div>
+      <p>Now draw the history with the command Session 3 told you to memorise. <b>This is the first genuinely forked graph in the whole track</b>, so read it slowly:</p>
+      <div class="filebox">
+        <div class="fbh">git log --oneline --graph --all --decorate=short &middot; a fork</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+* 98791fb (HEAD -&gt; main) Add readme.md
+| * 9df15a5 (topic) Add extra.md
+|/  
+* eae0e4d Add plan.md</code></pre>
+      </div>
+      <p>Reading it from the bottom up: one commit that both branches share, then the line <b>splits into two columns</b>. The left column carries <code>main</code>, the right column carries <code>topic</code>. The <code>|/</code> line is the split itself, drawn as the two columns joining as you read downward. Neither branch is an ancestor of the other any more: each has one commit the other does not.</p>
+      <p>That last sentence is the whole reason this session exists. <b>There is no pointer Git can slide.</b> Moving <code>main</code> up to <code>topic</code> would silently throw away <code>readme.md</code>, and moving it the other way would throw away <code>extra.md</code>. Git will not guess, so it has to genuinely combine the two.</p>
+      <p><b>The shared commit at the bottom has a name: the <em>merge base</em>.</b> It is the most recent commit that both branches can reach, in other words the last point at which the two sides agreed. Git can tell you which one it is:</p>
+      <div class="filebox">
+        <div class="fbh">git merge-base &middot; the last commit the two branches shared</div>
+<pre><code><span class="cmd">&gt; git merge-base main topic</span>
+eae0e4dd6d701130ade3e8b521ecfaad7b239c6b</code></pre>
+      </div>
+      <p>That is the full 40-character form of the hash Session 1 introduced, and it is the <code>Add plan.md</code> commit sitting at the bottom of the graph. You will rarely type <code>git merge-base</code> in real work; it is here so that "merge base" is a thing you can point at on a graph rather than a phrase from a manual.</p>
+    </div>
+
+    <div class="block" id="concept-threeway">
+      <h3>C. What a three-way merge actually is</h3>
+      <p>The name is literal. A merge like this one has <b>three inputs</b>, not two, and once you can name all three the rest of the session follows from it:</p>
+      <div class="areas">
+        <div class="area"><div class="an">the merge base</div><div class="ad">the last commit both branches shared. What the file looked like before either side touched it.</div></div>
+        <div class="arrow"><span class="ah">&#8594;</span></div>
+        <div class="area"><div class="an">your side</div><div class="ad">the tip of the branch you are standing on. Git calls this <b>ours</b>.</div></div>
+        <div class="arrow"><span class="ah">&#8594;</span></div>
+        <div class="area"><div class="an">their side</div><div class="ad">the tip of the branch you named in the merge command. Git calls this <b>theirs</b>.</div></div>
+      </div>
+      <p>Git compares each side <b>against the base</b>, which is what lets it work out not just that the two files differ but <b>who changed what</b>. If only one side changed a line, that side's version is obviously the one to keep, and Git takes it without asking. It only has to stop when <b>both</b> sides changed the same line, because then "who changed it" has two answers.</p>
+      <p>The result is a new commit, and it is a new kind of commit: <b>a merge commit, which has two parents instead of one.</b> Session 1 told you every commit records a pointer to its parent, and added that this stays true "until Session 4, where merging produces the one kind of commit with two". This is that. You will prove it with your own eyes in section F.</p>
+    </div>
+
+    <div class="block" id="concept-editor">
+      <h3>D. Before you merge: the editor, and how to get out of it</h3>
+      <p><b>Read this section before running any merge.</b> It is short, and skipping it is how people end up stuck in a program they did not ask for and cannot close.</p>
+      <p>Here is why it matters. A fast-forward creates no commit, so Session 3's merges never needed a message. <b>A real merge creates a commit, and a commit needs a message.</b> Git writes a perfectly good one for you (<code>Merge branch 'topic'</code>), but by default it then <b>opens an editor</b> to let you change it before it commits.</p>
+      <p>One word needs unpacking first, because this track has used it in a different sense. In Sessions 1 and 2, "your editor" meant the program you write files in, like Notepad or VS Code, and you opened it yourself. <b>Here, "the editor" means a program Git launches for you, usually right inside the terminal window</b>, with the prepared message already in it. You did not open it and there may be no obvious way to close it, which is exactly why it catches people.</p>
+      <p><b>So find out which one your Git will open, before it opens.</b> One command, and it only prints a name:</p>
+      <div class="filebox">
+        <div class="fbh">git var GIT_EDITOR &middot; which editor will Git launch?</div>
+<pre><code><span class="cmd">&gt; git var GIT_EDITOR</span>
+vim</code></pre>
+      </div>
+      <p><code>vim</code> is what a standard Git for Windows install answers when nothing has been configured, and it is the answer you are most likely to get. It is a perfectly good editor and a genuinely confusing one to meet by accident, because typing text into it does not work the way you expect. <b>You may get a different answer</b>, so find yours in this table and remember the escape:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">vim &middot; vi &middot; editor</span><span class="rd">Press <b>Esc</b>, then type <b>:wq</b> and press Enter. That means write and quit. To abandon it instead: <b>Esc</b>, then <b>:q!</b>, then Enter.</span></div>
+        <div class="refrow"><span class="rr">nano</span><span class="rd">Press <b>Ctrl+O</b> then Enter to write, then <b>Ctrl+X</b> to quit. Nano lists these at the bottom of the screen.</span></div>
+        <div class="refrow"><span class="rr">notepad</span><span class="rd">A normal Notepad window opens. <b>Ctrl+S</b> to save, then close the window.</span></div>
+        <div class="refrow"><span class="rr">code --wait</span><span class="rd">A tab opens in VS Code. <b>Ctrl+S</b> to save, then <b>close the tab</b>. Git waits until you close it, which is what <code>--wait</code> means.</span></div>
+      </div>
+      <p>The first row covers three answers because they are the same program or a pointer to it: <code>vi</code> is the usual answer on macOS and on Linux, and <code>editor</code> is what some Linux installations answer. <b>If your answer is not in this table at all, do not run the merge yet.</b> Search for "how to save and quit" plus the name you got, find the two key presses, and come back. Knowing the exit before you go in is the entire point of this section.</p>
+      <p><b>You do not have to deal with any of that right now, though.</b> <code>--no-edit</code> tells Git to accept the message it prepared and skip opening anything:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">Both shells</span><code>git merge --no-edit &lt;branch&gt;</code></div>
+      </div>
+      <p>As always, <code>&lt;branch&gt;</code> in angle brackets is a placeholder for a real branch name. You will use <code>--no-edit</code> for the next merge so that nothing unexpected opens, and then in section J you will leave it off <b>on purpose</b>, so that you meet the editor once, deliberately, knowing how to get out.</p>
+    </div>
+
+    <div class="block" id="concept-clean">
+      <h3>E. A clean three-way merge, with no conflict at all</h3>
+      <p><b>Before the conflicts, see the normal case</b>, because merging is not the same thing as conflicting and it would be easy to leave this session believing it is. Most real merges look like this one: you run a command and Git just does it.</p>
+      <p>You are on <code>main</code>. Bring in <code>topic</code>, which changed a different file:</p>
+      <div class="filebox">
+        <div class="fbh">git merge --no-edit topic &middot; run from main</div>
+<pre><code><span class="cmd">&gt; git merge --no-edit topic</span>
+Merge made by the 'ort' strategy.
+ extra.md | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 extra.md</code></pre>
+      </div>
+      <ul class="pts">
+        <li><b><code>Merge made by the 'ort' strategy.</code></b> replaces the word <code>Fast-forward</code> you were looking for in Session 3. It is Git telling you which kind of merge it did, and this one built a real commit.</li>
+        <li><b><code>ort</code> is just the name of Git's default merge algorithm.</b> You do not choose it, you will not need to change it, and it will appear in this line every time. It is mentioned here only so the word is not a mystery when you see it.</li>
+        <li>The last three lines are the same changed-files summary a commit prints, showing what arrived in your working tree.</li>
+      </ul>
+      <p>Now the graph, and it has a shape you have not seen:</p>
+      <div class="filebox">
+        <div class="fbh">the diamond</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+*   8eff447 (HEAD -&gt; main) Merge branch 'topic'
+|\  
+| * 9df15a5 (topic) Add extra.md
+* | 98791fb Add readme.md
+|/  
+* eae0e4d Add plan.md</code></pre>
+      </div>
+      <p>Read it bottom to top: one shared commit, the line splits (<code>|/</code>), the two sides run in parallel for one commit each (<code>* |</code> and <code>| *</code>), and then the line joins back together (<code>|\</code>) at a single new commit on top. <b>That new commit is the merge commit</b>, and the diamond is the picture of a three-way merge.</p>
+      <p>Two small things in that drawing, both of which are real and neither of which is a mistake. <b>A merge commit prints three spaces after its <code>*</code></b>, where an ordinary commit prints one, which is how Git makes room for the branching lines. And the <code>|\</code> and <code>|/</code> lines have <b>two trailing spaces</b> after them. You cannot see them, they do nothing, and they are only mentioned so that you do not think your output differs from this page when you compare the two.</p>
+      <p>And the thing worth noticing most: <b>both files are in your folder, and Git never asked you anything.</b></p>
+      <p>List the folder with the command Session 3 gave you for your shell:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Get-ChildItem -Name</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>ls -1</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">both sides arrived</div>
+<pre><code><span class="cmd">&gt; Get-ChildItem -Name</span>
+extra.md
+plan.md
+readme.md</code></pre>
+      </div>
+    </div>
+
+    <div class="block" id="concept-parents">
+      <h3>F. Two parents, proved</h3>
+      <p>Time to check the claim from section C rather than take it on trust. <b><code>git cat-file -p &lt;thing&gt;</code> prints the raw contents of an object in the repository</b>, which for a commit means the plain text Git actually stored. The <code>-p</code> means pretty-print. Point it at <code>HEAD</code>, which Session 2 taught is a reference to the commit you are standing on:</p>
+      <div class="filebox">
+        <div class="fbh">git cat-file -p HEAD &middot; the merge commit, raw</div>
+<pre><code><span class="cmd">&gt; git cat-file -p HEAD</span>
+tree a1d377526c1154cba5a311e05db83de9293569e1
+parent 98791fbb02627c142260992ce68bf44ef8a721db
+parent 9df15a5b2a64acbb578c4db8edc66f83e01ae058
+author Your Name &lt;you@example.com&gt; 1786048007 -0500
+committer Your Name &lt;you@example.com&gt; 1786048007 -0500
+
+Merge branch 'topic'</code></pre>
+      </div>
+      <p><b>Two <code>parent</code> lines.</b> That is the whole point, and it is the first commit in this track with more than one. The first parent is where <code>main</code> was, the second is where <code>topic</code> was, and the merge commit ties them together. Your own name and email will appear on the <code>author</code> and <code>committer</code> lines, because those come from the identity you set in Session 1, and the long numbers are timestamps.</p>
+      <p>Compare it against an ordinary commit and against the very first one, so the pattern is unmistakable:</p>
+      <div class="filebox">
+        <div class="fbh">an ordinary commit has one parent; the root commit has none</div>
+<pre><code><span class="cmd">&gt; git cat-file -p 98791fb</span>
+tree 9b1c5d69906b75ba917f940c9e2de6ab61fbba6b
+parent eae0e4dd6d701130ade3e8b521ecfaad7b239c6b
+author Your Name &lt;you@example.com&gt; 1786048007 -0500
+committer Your Name &lt;you@example.com&gt; 1786048007 -0500
+
+Add readme.md
+
+<span class="cmd">&gt; git cat-file -p eae0e4d</span>
+tree a2b3aaad7722338b42accdd05b52adab4bd446f5
+author Your Name &lt;you@example.com&gt; 1786048006 -0500
+committer Your Name &lt;you@example.com&gt; 1786048006 -0500
+
+Add plan.md</code></pre>
+      </div>
+      <p><b>The root commit has no <code>parent</code> line at all.</b> Session 1 called it the root commit and said it is the one with no parent; here is that fact as raw stored text. So the count runs zero, one, two: the first commit in a repository has none, every ordinary commit has one, and a merge commit has two.</p>
+      <p>One more command, because it extends the log-shaping vocabulary from Session 2. <b><code>--merges</code> filters the log down to merge commits only:</b></p>
+      <div class="filebox">
+        <div class="fbh">git log --merges &middot; show me only the merges</div>
+<pre><code><span class="cmd">&gt; git log --merges --oneline</span>
+8eff447 Merge branch 'topic'</code></pre>
+      </div>
+      <p>One merge so far. Keep that number in mind; it goes up.</p>
+      <p>Finally, tidy up the branch you are done with, exactly as Session 3 taught:</p>
+      <div class="filebox">
+        <div class="fbh">git branch -d topic</div>
+<pre><code><span class="cmd">&gt; git branch -d topic</span>
+Deleted branch topic (was 9df15a5).</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Fork the history and merge it back for real</div>
+        <ol>
+          <li>Run the "move both branches" block for your shell.</li>
+          <li>Draw the graph. <b>Confirm you see a fork</b>, with <code>main</code> and <code>topic</code> in two columns.</li>
+          <li>Run <code>git merge-base main topic</code> and check the hash it prints matches the commit at the bottom of your graph.</li>
+          <li><b>Predict out loud whether this can fast-forward, and why not.</b> Then run <code>git merge --no-edit topic</code> and confirm the output says <code>Merge made by the 'ort' strategy.</code></li>
+          <li>Draw the graph again and find the diamond.</li>
+          <li>Run <code>git cat-file -p HEAD</code> and <b>count the <code>parent</code> lines</b>. Then run it on an ordinary commit and on your first commit, and confirm you get one and none.</li>
+          <li>Run <code>git log --merges --oneline</code>, then <code>git branch -d topic</code>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> I made a real merge commit and saw its two parent lines with my own eyes</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-conflict">
+      <h3>G. Causing a conflict on purpose</h3>
+      <p>Everything so far merged silently because the two sides touched different files. <b>Now make them touch the same line of the same file.</b></p>
+      <p>Say this out loud before you run it, because the framing is the point of the session: <b>you are not about to make a mistake.</b> You are going to construct a situation Git cannot resolve alone, because that is the only way to practise resolving it. Nothing here is broken and nothing is at risk.</p>
+      <p>The plan: a branch called <code>rename-owner</code> sets the middle line of <code>plan.md</code> to <code>owner: Rae</code>, and meanwhile <code>main</code> sets that same line to <code>owner: Sam</code>. Both sides rewrite all three lines of the file, using only the <code>Set-Content</code> and <code>Add-Content</code> pattern from Session 1, so there is no new file-editing technique to learn here:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell &middot; two branches, one line, two answers</div>
+<pre><code>git switch -c rename-owner
+Set-Content plan.md "title: report"
+Add-Content plan.md "owner: Rae"
+Add-Content plan.md "status: draft"
+git add plan.md
+git commit -m "Set owner to Rae"
+git switch main
+Set-Content plan.md "title: report"
+Add-Content plan.md "owner: Sam"
+Add-Content plan.md "status: draft"
+git add plan.md
+git commit -m "Set owner to Sam"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; two branches, one line, two answers</div>
+<pre><code>git switch -c rename-owner
+echo "title: report" &gt; plan.md
+echo "owner: Rae" &gt;&gt; plan.md
+echo "status: draft" &gt;&gt; plan.md
+git add plan.md
+git commit -m "Set owner to Rae"
+git switch main
+echo "title: report" &gt; plan.md
+echo "owner: Sam" &gt;&gt; plan.md
+echo "status: draft" &gt;&gt; plan.md
+git add plan.md
+git commit -m "Set owner to Sam"</code></pre>
+      </div>
+      <p>The graph forks again, this time above the diamond you already made:</p>
+      <div class="filebox">
+        <div class="fbh">a second fork, sitting on top of the first merge</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+* 9266a96 (HEAD -&gt; main) Set owner to Sam
+| * 91afc99 (rename-owner) Set owner to Rae
+|/  
+*   8eff447 Merge branch 'topic'
+|\  
+| * 9df15a5 Add extra.md
+* | 98791fb Add readme.md
+|/  
+* eae0e4d Add plan.md</code></pre>
+      </div>
+      <p>Now merge, and <b>leave <code>--no-edit</code> off this time</b>. That is safe here for a reason worth knowing: a merge that hits a conflict <b>stops before it creates any commit</b>, so there is no message to write and no editor opens.</p>
+      <div class="filebox">
+        <div class="fbh">git merge rename-owner &middot; the conflict</div>
+<pre><code><span class="cmd">&gt; git merge rename-owner</span>
+Auto-merging plan.md
+CONFLICT (content): Merge conflict in plan.md
+Automatic merge failed; fix conflicts and then commit the result.</code></pre>
+      </div>
+      <p>Three lines, and each one is doing a job. <code>Auto-merging plan.md</code> says Git tried. <code>CONFLICT (content)</code> names the file it could not finish. And the last line is an instruction, not a telling-off: <b>fix conflicts and then commit the result.</b> That is the entire procedure, and the rest of this session is just carrying it out slowly.</p>
+      <p>One technical detail worth one sentence, because you will meet it eventually. This command finished with a <b>nonzero exit code</b>, which is the invisible number a program hands back to say "this did not fully succeed". It is how automated scripts notice a conflict. It does <b>not</b> mean you broke something.</p>
+    </div>
+
+    <div class="block" id="concept-read">
+      <h3>H. Reading the conflict, three ways</h3>
+      <p>You have the merge output already. There are two more places to look, and you should get in the habit of checking both.</p>
+      <p><b>First, <code>git status</code></b>, which you have used since Session 1 and which now has new vocabulary in it:</p>
+      <div class="filebox">
+        <div class="fbh">git status &middot; during a conflict</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+You have unmerged paths.
+  (fix conflicts and run "git commit")
+  (use "git merge --abort" to abort the merge)
+
+Unmerged paths:
+  (use "git add &lt;file&gt;..." to mark resolution)
+	both modified:   plan.md
+
+no changes added to commit (use "git add" and/or "git commit -a")</code></pre>
+      </div>
+      <ul class="pts">
+        <li><b><code>Unmerged paths</code></b> is a new heading, alongside the <code>Changes to be committed</code> and <code>Changes not staged for commit</code> from Session 1. A path is just a file here.</li>
+        <li><b><code>both modified:</code></b> is a new state word, alongside <code>new file:</code> and <code>modified:</code>. It says precisely what went wrong: both sides changed this file.</li>
+        <li><b>Git puts the way out in its own hint text</b>, on the fourth line. That is where you are about to get <code>git merge --abort</code> from.</li>
+      </ul>
+      <p>There is a short form of status too. <b><code>git status --short</code> prints one line per file with a two-letter code</b> instead of the full report, and it is what people actually use once they know the codes:</p>
+      <div class="filebox">
+        <div class="fbh">git status --short &middot; the two-letter form</div>
+<pre><code><span class="cmd">&gt; git status --short</span>
+UU plan.md</code></pre>
+      </div>
+      <p><b><code>UU</code> means unmerged, on both sides</b>: the U stands for unmerged, and there are two of them because there are two sides. If you remember one piece of shorthand from this session, make it this one, because <code>UU</code> is the fastest possible answer to "which files do I still have to deal with".</p>
+      <p><b>Second, and most importantly, the file itself.</b> Open <code>plan.md</code> and look at what Git did to it:</p>
+      <div class="filebox">
+        <div class="fbh">plan.md &middot; with the conflict written into it</div>
+<pre><code><span class="cmd">&gt; Get-Content plan.md</span>
+title: report
+<span class="mk">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span>
+owner: Sam
+<span class="mk">=======</span>
+owner: Rae
+<span class="mk">&gt;&gt;&gt;&gt;&gt;&gt;&gt; rename-owner</span>
+status: draft</code></pre>
+      </div>
+      <p>Those three gold lines are the <b>conflict markers</b>, and here is the single most important sentence in this session: <b>they are ordinary text that Git wrote into your file.</b> They are not a special mode, not a lock, and not a Git feature that has to be switched off. Git edited your file, the same way you would, and left a note in it. Here is what each one means:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span><span class="rd">Everything below this line, until the divider, is <b>your side</b>: what the branch you are standing on says. <code>HEAD</code> is that branch, which is <code>main</code> here.</span></div>
+        <div class="refrow"><span class="rr">=======</span><span class="rd">The divider. Nothing above or below it is more correct; it just separates the two versions.</span></div>
+        <div class="refrow"><span class="rr">&gt;&gt;&gt;&gt;&gt;&gt;&gt; rename-owner</span><span class="rd">Everything above this line, back to the divider, is <b>their side</b>: what the branch you are merging in says. Git labels it with that branch's name.</span></div>
+      </div>
+      <p><b>Now look at the lines that are not marked.</b> <code>title: report</code> at the top and <code>status: draft</code> at the bottom are sitting there untouched, exactly as they always were. Neither side changed them, so Git merged them silently and never mentioned them. <b>A conflict is confined to the lines that actually collided</b>, and it is worth seeing that in a three-line file, because in a three-hundred-line file it is the difference between a small decision and a panic.</p>
+      <p>One last place you could look, mentioned so that it does not ambush you. If you run <code>git diff</code> during a conflict, you get something that does not look like the diffs Session 2 taught you to read:</p>
+      <div class="filebox">
+        <div class="fbh">git diff during a conflict &middot; a different format</div>
+<pre><code><span class="cmd">&gt; git diff</span>
+diff --cc plan.md
+index eae5a08,021dc22..0000000
+--- a/plan.md
++++ b/plan.md
+@@@ -1,3 -1,3 +1,7 @@@
+  title: report
+++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+ +owner: Sam
+++=======
++ owner: Rae
+++&gt;&gt;&gt;&gt;&gt;&gt;&gt; rename-owner
+  status: draft</code></pre>
+      </div>
+      <p>The doubled <code>+</code> signs and the three-at-sign header are not a bug and you have not misread them. This is a <b>combined diff</b>, a special format Git uses when it has to show you a change against two parents at once. <b>It is named here only so that it is not a mystery, and you can safely ignore it for the whole of this session.</b> Read the file itself instead; it tells you everything the combined diff does, in a form you can act on. Nothing in this workbook will ask you about this format.</p>
+    </div>
+
+    <div class="block" id="concept-abort">
+      <h3>I. Backing out, before you ever need to</h3>
+      <p><b>You are going to learn the escape hatch before the thing you might need to escape from.</b> That ordering is deliberate. Reading conflict markers is a calm, ordinary job if you know you can undo the whole situation with one command, and a stressful one if you do not.</p>
+      <p><b><code>git merge --abort</code> puts everything back exactly as it was before you ran the merge.</b> The markers vanish, the file returns to your side's version, the merge is called off, and no commit is created:</p>
+      <div class="filebox">
+        <div class="fbh">git merge --abort &middot; and it prints nothing at all</div>
+<pre><code><span class="cmd">&gt; git merge --abort</span>
+
+<span class="cmd">&gt; git status</span>
+On branch main
+nothing to commit, working tree clean
+
+<span class="cmd">&gt; Get-Content plan.md</span>
+title: report
+owner: Sam
+status: draft</code></pre>
+      </div>
+      <p><b>It printed nothing</b>, which as ever means it worked. The tree is clean, and <code>plan.md</code> says <code>owner: Sam</code> again, which is what <code>main</code> said before you started. The <code>rename-owner</code> branch is untouched and still holds its own version. It is as if the merge never happened.</p>
+      <p>So the rule to carry out of this session: <b>if a conflict ever looks like more than you want to deal with, you are one command away from putting it back.</b> Nothing is committed until you commit it.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Cause a conflict, read it, then back out of it</div>
+        <ol>
+          <li>Run the "two branches, one line, two answers" block for your shell.</li>
+          <li>Draw the graph and confirm it forks again above the diamond.</li>
+          <li>Run <code>git merge rename-owner</code>. <b>Read all three output lines</b> rather than skimming them.</li>
+          <li>Run <code>git status</code> and find <code>both modified:</code>. Then run <code>git status --short</code> and confirm you get <code>UU plan.md</code>.</li>
+          <li>Read <code>plan.md</code>. <b>Find the three markers, and then find the two lines that merged silently.</b></li>
+          <li>Run <code>git merge --abort</code>. Confirm it prints nothing, that <code>git status</code> is clean, and that <code>plan.md</code> is back to <code>owner: Sam</code>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I caused a conflict, read it in all three places, and backed out of it cleanly</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-resolve">
+      <h3>J. Resolving it deliberately</h3>
+      <p>Do it again, and this time see it through. Run the same merge to get back to the conflicted state:</p>
+      <div class="filebox">
+        <div class="fbh">back into the conflict, on purpose</div>
+<pre><code><span class="cmd">&gt; git merge rename-owner</span>
+Auto-merging plan.md
+CONFLICT (content): Merge conflict in plan.md
+Automatic merge failed; fix conflicts and then commit the result.</code></pre>
+      </div>
+      <p><b>Step one: edit the file until it says what you want, and the markers are gone.</b> That is the whole of resolving. Open <code>plan.md</code> in whatever you normally write files in (Notepad, VS Code, anything), and make it read like this. Notice that the answer here is neither side: both people are genuinely involved, so the honest resolution keeps both names.</p>
+      <div class="filebox">
+        <div class="fbh">plan.md &middot; resolved by hand</div>
+<pre><code>title: report
+owner: Rae and Sam
+status: draft</code></pre>
+      </div>
+      <p>Delete the three marker lines, delete or keep whichever of the two versions you like, type something new if that is the right answer. There is no command for this step and there is not meant to be. <b>You are the part of the process Git could not automate</b>, which is precisely why it stopped and asked.</p>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Would rather not leave the terminal? Rewrite the file instead</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Editing by hand is the honest version of this step and it is what you will do in real work. But if you would rather stay in the terminal for now, the Session 1 write-the-whole-file pattern produces exactly the same result, because the markers are only text and overwriting the file removes them along with everything else:</p>
+          <div class="shells">
+            <div class="srow"><span class="sl">PowerShell</span><code>Set-Content plan.md "title: report"
+Add-Content plan.md "owner: Rae and Sam"
+Add-Content plan.md "status: draft"</code></div>
+            <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "title: report" &gt; plan.md
+echo "owner: Rae and Sam" &gt;&gt; plan.md
+echo "status: draft" &gt;&gt; plan.md</code></div>
+          </div>
+        </div>
+      </details>
+      <p><b>Step two: tell Git you have resolved it, with <code>git add</code>.</b> This is a command you have known since Session 1 as "stage this file", and during a merge it quietly takes on <b>a second job</b>: it also means <b>"I have dealt with this conflict"</b>. Same command, extra meaning, and nothing on screen announces the difference. Watch what it does to the status:</p>
+      <div class="filebox">
+        <div class="fbh">git add &middot; which here means "resolved"</div>
+<pre><code><span class="cmd">&gt; git add plan.md</span>
+
+<span class="cmd">&gt; git status</span>
+On branch main
+All conflicts fixed but you are still merging.
+  (use "git commit" to conclude merge)
+
+Changes to be committed:
+	modified:   plan.md
+</code></pre>
+      </div>
+      <p><b><code>All conflicts fixed but you are still merging.</code></b> Stop and read that line properly, because it is the most reassuring sentence Git ever prints. It tells you the hard part is over and exactly one step remains. <code>both modified:</code> has become an ordinary <code>modified:</code>, and the file is no longer unmerged.</p>
+      <div class="note"><b>A real trap, and it is worth knowing now.</b> <code>git add</code> does <b>not</b> check whether you actually removed the markers. If you stage the file with <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> still in it, Git accepts it without a word and commits those marker lines into your project as if they were content. Nothing warns you. This is the single most common way a beginner's conflict goes wrong, and the guard against it costs nothing: <b>read the file once more before you stage it.</b></div>
+      <p><b>Step three: commit, and meet the editor.</b> You know what to expect from section D and you know how to get out, so run it without <code>-m</code> and without <code>--no-edit</code>, on purpose:</p>
+      <div class="filebox">
+        <div class="fbh">git commit &middot; the editor opens here</div>
+<pre><code><span class="cmd">&gt; git commit</span></code></pre>
+      </div>
+      <p>Your editor opens with a message already written in it. Everything starting with a <code>#</code> is a comment that Git strips out, so the actual message is just the first line:</p>
+      <div class="filebox">
+        <div class="fbh">what is in the editor when it opens</div>
+<pre><code>Merge branch 'rename-owner'
+
+# Conflicts:
+#	plan.md
+#
+# It looks like you may be committing a merge.
+# If this is not correct, please run
+#	git update-ref -d MERGE_HEAD
+# and try again.
+
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch main
+# All conflicts fixed but you are still merging.
+#
+# Changes to be committed:
+#	modified:   plan.md
+#</code></pre>
+      </div>
+      <p><b>You do not need to change any of it.</b> Save and quit the way section D described for your editor (in <code>vim</code>: <b>Esc</b>, then <b>:wq</b>, then Enter). Git then prints the commit line and you are done:</p>
+      <div class="filebox">
+        <div class="fbh">the merge commit is created</div>
+<pre><code>[main 611f64b] Merge branch 'rename-owner'</code></pre>
+      </div>
+      <p>Notice there is no changed-files summary under it, unlike an ordinary commit. Look at the graph, and at the merge count:</p>
+      <div class="filebox">
+        <div class="fbh">a second diamond, and a second merge commit</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+*   611f64b (HEAD -&gt; main) Merge branch 'rename-owner'
+|\  
+| * 91afc99 (rename-owner) Set owner to Rae
+* | 9266a96 Set owner to Sam
+|/  
+*   8eff447 Merge branch 'topic'
+|\  
+| * 9df15a5 Add extra.md
+* | 98791fb Add readme.md
+|/  
+* eae0e4d Add plan.md</code></pre>
+      </div>
+      <p><b>You resolved a merge conflict.</b> Both sides are in the history permanently, the merge commit records the decision you made, and <code>plan.md</code> says what you decided it should say.</p>
+      <p>One last thing to try, because it answers a question people always have. What if you merge a branch that is already in? Git checks, finds nothing to do, and says so:</p>
+      <div class="filebox">
+        <div class="fbh">nothing left to bring in</div>
+<pre><code><span class="cmd">&gt; git merge rename-owner</span>
+Already up to date.
+
+<span class="cmd">&gt; git branch -d rename-owner</span>
+Deleted branch rename-owner (was 91afc99).</code></pre>
+      </div>
+      <p><b><code>Already up to date.</code> is a completely safe message.</b> No commit was made, nothing changed, and it is Git's way of saying you have nothing to worry about.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Resolve it and conclude the merge</div>
+        <ol>
+          <li>Run <code>git merge rename-owner</code> again to get back into the conflict.</li>
+          <li>Edit <code>plan.md</code> so the middle line reads <code>owner: Rae and Sam</code> and <b>all three marker lines are gone</b>.</li>
+          <li><b>Read the file once more</b> to be sure no marker survived, then run <code>git add plan.md</code>.</li>
+          <li>Run <code>git status</code> and find the line <code>All conflicts fixed but you are still merging.</code></li>
+          <li>Run <code>git commit</code>. When the editor opens, <b>change nothing</b> and use the escape for your editor from section D.</li>
+          <li>Draw the graph and find your second diamond. Run <code>git log --merges --oneline</code> and confirm it now lists two.</li>
+          <li>Run <code>git merge rename-owner</code> once more to see <code>Already up to date.</code>, then delete the branch.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I resolved the conflict, got out of the editor, and made the merge commit</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-sides">
+      <h3>K. Taking one side wholesale (a footnote)</h3>
+      <p>Sometimes you know immediately that one side is simply right and you do not want to hand-edit anything. Two commands do that, and they are worth recognising rather than reaching for:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">your side</span><code>git checkout --ours &lt;file&gt;</code></div>
+        <div class="srow"><span class="sl">their side</span><code>git checkout --theirs &lt;file&gt;</code></div>
+      </div>
+      <p>Each replaces the whole conflicted file with one side's version, markers and all removed. You still have to <code>git add</code> the file afterwards, because taking a side is not the same as saying you are finished with it.</p>
+      <p><b>The honest warning, which is why this is a footnote and not a lesson.</b> "Ours" and "theirs" are genuinely confusing during a merge. They do not mean "mine" and "my colleague's"; they mean the branch you are standing on and the branch you named, and which is which flips depending on where you are standing when you run the merge. It is very easy to be certain and wrong. <b>The safe habit, and the one to build now, is to open the file and decide line by line.</b> These two exist so you recognise them in someone else's instructions.</p>
+      <p>Merge tools also exist, meaning graphical programs that show you the two sides in side-by-side panes. They are named here once so you know the category exists; you do not need one, and every conflict in this session is easier to understand as text.</p>
+      <p><b>Out of scope, so you know where the edges are.</b> Conflicts that arrive from someone else's copy of a repository are <b>Session 5</b>. <code>rebase</code>, the other way of combining branches, which rewrites history instead of merging it, is <b>Session 8</b>.</p>
+    </div>
+
+    <div class="block" id="concept-milestone">
+      <h3>L. The milestone: two conflicts, on purpose</h3>
+      <p>Section J walked you through one conflict with every output printed. The milestone is two more with the scaffolding removed, and they <b>differ in kind</b>, because real conflicts do:</p>
+      <ul class="pts">
+        <li><b>A trivial one</b>, where the two sides are just two different choices and the resolution is to <b>pick one</b> and delete the other.</li>
+        <li><b>A genuine one</b>, where both sides made a real change that deserves to survive, and the resolution is to <b>write a version that keeps both</b>.</li>
+      </ul>
+      <p>Knowing which kind you are looking at is most of the skill. Work in <code>merge-lab</code>, on <code>main</code>, with a clean tree. Do not scroll back up; if you get stuck, <code>git status</code> tells you where you are and what it wants next, which is the habit this whole session is really teaching.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: cause and resolve two conflicts</div>
+        <p><b>Conflict one, the trivial kind.</b></p>
+        <ol>
+          <li>Create a branch called <code>mark-final</code>, move onto it, and change the <code>status:</code> line of <code>plan.md</code> to <code>status: final</code>. Commit it with the message <code>Mark the plan final</code>.</li>
+          <li>Go back to <code>main</code> and change that same line to <code>status: review</code>. Commit it with the message <code>Mark the plan in review</code>.</li>
+          <li>Merge <code>mark-final</code> into <code>main</code>. <b>Predict before you press enter whether this will conflict, and say why.</b></li>
+          <li>Read the file and the short status. Then resolve it by <b>keeping <code>status: final</code> and deleting the other line</b>, along with all three markers.</li>
+          <li>Stage the resolution and conclude the merge. Delete the branch afterwards.</li>
+        </ol>
+        <p><b>Conflict two, the genuine kind.</b></p>
+        <ol start="6">
+          <li>Create a branch called <code>add-chart</code> and <b>add a fourth line</b> to <code>plan.md</code>: <code>note: needs a chart</code>. Commit it with the message <code>Note that a chart is needed</code>.</li>
+          <li>Go back to <code>main</code> and add a fourth line there instead: <code>note: needs a summary</code>. Commit it with the message <code>Note that a summary is needed</code>.</li>
+          <li>Merge <code>add-chart</code> into <code>main</code>. It will conflict, because both sides added a different line in the same place.</li>
+          <li>Resolve it by <b>keeping both note lines</b>, one after the other. Neither side is wrong here, and throwing one away would lose real information.</li>
+          <li>Stage, conclude the merge, delete the branch.</li>
+          <li>Finally, run <code>git log --merges --oneline</code> and confirm it lists <b>four</b> merge commits, and read <code>plan.md</code> one last time.</li>
+        </ol>
+        <p>You have hit the milestone when you did both conflicts without scrolling back, and you can say in one sentence why the second one needed a different resolution from the first.</p>
+        <details><summary>What you should have seen (your hashes will differ)</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">The trivial conflict. Two choices for one line, and you keep one:</p>
+<pre><code><span class="cmd">&gt; git merge mark-final</span>
+Auto-merging plan.md
+CONFLICT (content): Merge conflict in plan.md
+Automatic merge failed; fix conflicts and then commit the result.
+
+<span class="cmd">&gt; Get-Content plan.md</span>
+title: report
+owner: Rae and Sam
+<span class="mk">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span>
+status: review
+<span class="mk">=======</span>
+status: final
+<span class="mk">&gt;&gt;&gt;&gt;&gt;&gt;&gt; mark-final</span></code></pre>
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">The genuine one. Both sides added a real line, and the resolution keeps both:</p>
+<pre><code><span class="cmd">&gt; Get-Content plan.md</span>
+title: report
+owner: Rae and Sam
+status: final
+<span class="mk">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span>
+note: needs a summary
+<span class="mk">=======</span>
+note: needs a chart
+<span class="mk">&gt;&gt;&gt;&gt;&gt;&gt;&gt; add-chart</span></code></pre>
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">The finished file, and the count of everything you merged today. If you simply deleted the three marker lines you will have the two notes in this order; if you typed them the other way round that is equally correct, because you are the one deciding:</p>
+<pre><code><span class="cmd">&gt; Get-Content plan.md</span>
+title: report
+owner: Rae and Sam
+status: final
+note: needs a summary
+note: needs a chart
+
+<span class="cmd">&gt; git log --merges --oneline</span>
+87197b5 Merge branch 'add-chart'
+915c173 Merge branch 'mark-final'
+611f64b Merge branch 'rename-owner'
+8eff447 Merge branch 'topic'</code></pre>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I caused and resolved two conflicts of different kinds, without scrolling back up</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in <code>merge-lab</code>.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a normal repository with a few commits and a clean working tree. Where a drill needs something to have happened first, it is shown in the grey <i>already run</i> box.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: run these in the wrong order and Git either errors, refuses, or records the work in the wrong place.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> two of these six questions come from earlier sessions, because recalling older material on a delay is what makes it stick. Their review links open that session in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 04 of 10 &middot; Hit the milestone unassisted, then tick <b>S04</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; Session 5 builds its own practice repository from scratch, so you do not need to keep <code>merge-lab</code>.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, draw a fork: one shared commit, then two branches that each add one commit. Mark the merge base. Then write out, from memory, the three steps from "the merge conflicted" to "the merge commit exists", and the one command that cancels the whole thing. Check yourself by causing one more conflict in <code>merge-lab</code> and resolving it without notes. &middot; Next: <b>Session 05, remotes demystified</b> (Level 3).
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s04-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words, branch names,
+     plain file names and yes/no words, where capitalisation is presentation rather
+     than the lesson. Marking "UU" typed as "uu" wrong would be an unfair grade.
+     Git command case-sensitivity is taught in prose and tested in Parts 3 and 4. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   plan.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 5 value, 2 count, 2 set, 2 seq. No drill grades a hash, and
+     nothing here grades the combined-diff format, which Part 1 deliberately only names. */
+  var DRILLS = [
+    { type: 'value',
+      scen: '> git log --oneline --graph --all --decorate=short\n* 4c1a9e2 (HEAD -> main) Add the styles\n| * 77b0d31 (topic) Add the tests\n|/  \n* 1d8f5b0 Add the parser',
+      ask: 'You are on main and you run git merge topic. Will Git fast-forward, or build a merge commit? Answer fast-forward or merge commit.',
+      code: 'git merge topic', ans: 'merge commit',
+      why: 'Both branches have moved since they parted. main has Add the styles and topic has Add the tests, so neither is an ancestor of the other and there is no pointer for Git to slide forward. It has to combine the two sides and record the result, which is a merge commit with two parents.' },
+
+    { type: 'value',
+      scen: '> git log --oneline --graph --all --decorate=short\n* 4c1a9e2 (HEAD -> main) Add the styles\n| * 77b0d31 (topic) Add the tests\n|/  \n* 1d8f5b0 Add the parser',
+      ask: 'Which commit is the merge base of main and topic? Type its commit message.',
+      code: 'git merge-base main topic', ans: 'Add the parser',
+      why: 'The merge base is the most recent commit both branches can reach, which is where the two columns join at the bottom of the graph. Both sides grew from Add the parser, so that is the base. It is the third input to the three-way merge, alongside the tip of each branch.' },
+
+    { type: 'count',
+      scen: 'A repository with exactly one commit in it. You run:\n git cat-file -p HEAD\nand Git prints:\n tree a2b3aaad7722338b42accdd05b52adab4bd446f5\n author Ada <ada@example.com> 1786048006 -0500\n committer Ada <ada@example.com> 1786048006 -0500\n\n Add plan.md',
+      ask: 'How many parent lines does this commit have? Answer with a digit.',
+      code: 'git cat-file -p HEAD', ans: '0',
+      why: 'There is no parent line at all, so the answer is 0. This is the root commit, the very first one in the repository, which Session 1 described as the one with no parent. The count runs zero for the root commit, one for every ordinary commit, and two for a merge commit.' },
+
+    { type: 'count',
+      scen: "> git log --oneline --graph --all --decorate=short\n*   611f64b (HEAD -> main) Merge branch 'rename-owner'\n|\\  \n| * 91afc99 Set owner to Rae\n* | 9266a96 Set owner to Sam\n|/  \n*   8eff447 Merge branch 'topic'\n|\\  \n| * 9df15a5 Add extra.md\n* | 98791fb Add readme.md\n|/  \n* eae0e4d Add plan.md",
+      ask: 'How many commits does git log --merges list for this repository?',
+      code: 'git log --merges --oneline', ans: '2',
+      why: 'The --merges filter keeps only commits with more than one parent. Two rows here are merge commits, and you can spot them two ways: their subject begins with Merge branch, and their asterisk is followed by three spaces instead of one, which is how the graph makes room for the lines joining underneath. The other five are ordinary commits.' },
+
+    { type: 'set',
+      scen: 'plan.md after a conflicted merge looks like this:\n\n title: report\n <<<<<<< HEAD\n owner: Sam\n =======\n owner: Rae\n >>>>>>> rename-owner\n status: draft',
+      ask: 'Which lines of the file did Git merge with no conflict at all? Type them separated by commas, in any order.',
+      code: 'Get-Content plan.md      # PowerShell\ncat plan.md              # Git Bash / macOS / Linux', ans: 'title: report, status: draft',
+      why: 'Only the lines between the markers are in dispute. title: report and status: draft sit outside them, untouched, because neither branch changed those lines and so Git had nothing to ask about. A conflict is confined to the lines that actually collided, which is why the rest of even a very long file merges silently.' },
+
+    { type: 'set',
+      scen: 'You are on main. The branch topic added a file called extra.md\nand committed it. Meanwhile main added readme.md and committed\nthat. The repository already contained plan.md. You run:\n git merge --no-edit topic',
+      ask: 'Which files are in the folder afterwards? List the names separated by commas, any order.',
+      code: 'Get-ChildItem -Name      # PowerShell\nls -1                    # Git Bash / macOS / Linux', ans: 'plan.md, extra.md, readme.md',
+      why: 'The two sides changed different files, so there is nothing to argue about and Git combines both sets of changes without asking. That is the ordinary case for a real merge, and it is worth remembering: merging and conflicting are not the same thing. All three files end up present, and the merge commit records both parents.' },
+
+    { type: 'value',
+      scen: 'You are standing on main and you run:\n git merge rename-owner\nIt conflicts, and plan.md now contains:\n\n <<<<<<< HEAD\n owner: Sam\n =======\n owner: Rae\n >>>>>>> rename-owner',
+      ask: 'The line owner: Sam sits above the ======= divider. Which branch does that version come from? Type the branch name.',
+      code: 'Get-Content plan.md', ans: 'main',
+      why: 'The top section, between <<<<<<< HEAD and the divider, is always your side, meaning the branch you are standing on when you run the merge. You were on main, so owner: Sam is the main version. The bottom section belongs to the branch you named in the command, and Git labels it with that name on the closing marker: rename-owner.' },
+
+    { type: 'value',
+      scen: 'A merge has just conflicted on a single file called plan.md,\nand you have not touched anything yet.',
+      ask: 'What does git status --short print? Type the whole line.',
+      code: 'git status --short', ans: 'UU plan.md',
+      why: 'UU is the short-status code for an unmerged file: U for unmerged, twice, because both sides modified it. The long form of the same fact is the both modified: plan.md line under the Unmerged paths heading. Once you stage the resolved file, the code changes and the file is no longer unmerged.' },
+
+    { type: 'value',
+      scen: 'A merge conflicted, and you have decided you do not want to deal\nwith it at all right now. You want the repository exactly as it\nwas before you ran the merge, with no commit made.',
+      ask: 'Which command does that? Type the whole command.',
+      code: '# your answer here', ans: 'git merge --abort',
+      why: 'git merge --abort cancels the merge in progress and restores the working tree to its state beforehand. It prints nothing at all, which as ever means it worked. Git itself suggests it in the hint text of git status during a conflict, and knowing it exists before you need it is what makes reading conflict markers a calm job rather than a stressful one.' },
+
+    { type: 'seq',
+      scen: 'A merge has just conflicted on plan.md, so the file currently\ncontains conflict markers. You then run, in this order:\n 1. git add plan.md      (without editing the file at all)\n 2. git merge --abort',
+      ask: 'After each of the two numbered steps, does plan.md still contain conflict markers? Answer yes or no for each, in order, separated by a comma.',
+      code: 'Get-Content plan.md', ans: 'yes, no',
+      why: 'This is the trap worth remembering. git add does not inspect the file, so after step 1 the markers are still sitting in it, now staged as if they were ordinary content. Git would commit them without a word of warning. Step 2 abandons the merge entirely and restores the file to your side version, so the markers are gone. Always read the file before you stage it.' },
+
+    { type: 'seq',
+      scen: 'A brand new repository. You run these three things in order:\n 1. create a file and make the first commit on main\n 2. branch off, commit once there, switch back to main and merge\n    (main had not moved, so this one fast-forwards)\n 3. branch off again, commit on the branch AND on main, then merge',
+      ask: 'After each of the three steps, how many commits does git log --merges list? Type the three numbers in order, separated by commas.',
+      code: 'git log --merges --oneline', ans: '0, 0, 1',
+      why: 'Step 1 makes an ordinary commit, so 0. Step 2 is the key one: a fast-forward creates no commit at all, it only slides a pointer, so the count is still 0. Step 3 has both branches moved, so Git must build a real merge commit with two parents, and only then does --merges have something to list. The count is a direct measure of how many real merges happened.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both sequences have exactly one working order. Every tile is distinct, and each
+     one depends on the tile before it, so there is no second arrangement that does
+     the job the prompt describes. */
+  var PARSONS = [
+    { prompt: 'You are standing on the branch rename-owner. It changes the same line of plan.md that main changed, so bringing it into main will conflict. Get back to main first, then bring rename-owner in, check the short two-letter status to see which file is unmerged, decide you do not want to deal with it after all and cancel the merge outright, then confirm with the full status report that the working tree is clean again.',
+      lines: ['git switch main', 'git merge rename-owner', 'git status --short', 'git merge --abort', 'git status'] },
+    { prompt: 'You are on main and the branch mark-final conflicts with it. Bring it in, see which file is unmerged using the short two-letter form, then open the file and rewrite it so it says what you want and no markers remain, tell Git that file is dealt with, and finally conclude the merge (an editor will open with the message already written, and you accept it).',
+      lines: ['git merge mark-final', 'git status --short', '(edit plan.md by hand)', 'git add plan.md', 'git commit'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Every comment describes what the line DOES, never the token being blanked. */
+  var FADED = [
+    { prompt: 'Fill the blanks so the first line brings topic in while accepting the message Git already prepared, the second cancels a merge that is half done and puts everything back, and the third narrows the log down to the commits that joined two branches together.',
+      code: 'git merge %% topic     # bring it in, keep the prepared message, open nothing\ngit merge %%           # call the whole thing off and restore the tree\ngit log %% --oneline   # only the commits that joined two branches', ans: ['--no-edit', '--abort', '--merges'] },
+    { prompt: 'Fill the blanks so the first line prints the raw stored text of the commit you are standing on, parent lines and all, and the next two each replace a conflicted file wholesale with one of the two competing versions rather than editing it by hand.',
+      code: 'git cat-file -p %%          # the raw commit you are standing on\ngit checkout %% plan.md     # use the version from the branch you are ON\ngit checkout %% plan.md     # use the version from the branch coming IN', ans: ['HEAD', '--ours', '--theirs'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'In merge-lab, on main with a clean tree, build a situation that CANNOT fast-forward: make a branch called sidebar, commit a new file called sidebar.md on it, then get back to main and commit a different new file called footer.md there. Finish by drawing the history of every branch so you can see the fork, and by asking Git which commit the two branches last had in common.',
+      sol: 'git switch -c sidebar\n# create sidebar.md in your editor, or with Set-Content / echo\ngit add sidebar.md\ngit commit -m "Add sidebar.md"\ngit switch main\n# create footer.md the same way\ngit add footer.md\ngit commit -m "Add footer.md"\ngit log --oneline --graph --all --decorate=short\ngit merge-base main sidebar' },
+    { task: 'Carrying straight on from the situation you just built, bring sidebar into main without any editor opening. Then prove, from the raw stored commit rather than from the graph drawing, that the commit you just created has two parents. Finish by listing only the merge commits in the repository.',
+      sol: 'git merge --no-edit sidebar    # nothing opens, the prepared message is accepted\ngit cat-file -p HEAD           # count the parent lines: there are two\ngit log --merges --oneline' },
+    { task: 'Now cause a conflict deliberately and read it without resolving it. Make a branch called title-a and change the FIRST line of plan.md to something new, and commit. Go back to main, change that same first line to something different, and commit. Merge, then inspect the conflict in all three places: what the merge printed, what the short status says, and what is now written inside the file. Then cancel the merge entirely and confirm the tree is clean.',
+      sol: 'git switch -c title-a\n# change the first line of plan.md, then:\ngit add plan.md\ngit commit -m "Retitle the plan"\ngit switch main\n# change that same first line differently, then:\ngit add plan.md\ngit commit -m "Retitle the plan differently"\ngit merge title-a             # CONFLICT (content): Merge conflict in plan.md\ngit status --short            # UU plan.md\n# read plan.md and find the three markers\ngit merge --abort             # prints nothing; the tree is clean again\ngit status' },
+    { task: 'Finally, take that same conflict all the way through. Cause it again, resolve the file by hand so it keeps something from BOTH versions and no markers remain, mark it resolved, and conclude the merge. Write down the exact status line that tells you the hard part is over, and then confirm the merge count went up by one.',
+      sol: 'git merge title-a\n# edit plan.md by hand: keep what you want from both sides,\n# and delete all three marker lines. Read it once more to be sure.\ngit add plan.md\ngit status\n\n# The line to look for is:\n#   All conflicts fixed but you are still merging.\n\ngit commit                    # the editor opens; save and quit to accept\ngit log --merges --oneline    # one more than before' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'What the merge base of two branches is', b: 'the most recent commit both branches can reach' },
+    { f: 'The three inputs to a three-way merge', b: 'the merge base, your side (ours), their side (theirs)' },
+    { f: 'How many parents a merge commit has', b: 'two' },
+    { f: 'How many parents the very first commit in a repository has', b: 'none, it is the root commit' },
+    { f: 'Print the raw stored text of the commit you are on', b: 'git cat-file -p HEAD' },
+    { f: 'List only the merge commits', b: 'git log --merges' },
+    { f: 'What ort is', b: 'the name of the default merge algorithm; you never have to choose it' },
+    { f: 'Merge a branch in without any editor opening', b: 'git merge --no-edit <branch>' },
+    { f: 'Find out which editor Git will launch for you', b: 'git var GIT_EDITOR' },
+    { f: 'Save and quit vim', b: 'press Esc, then type :wq and press Enter' },
+    { f: 'The three conflict markers, in the order they appear', b: '<<<<<<< HEAD   then   =======   then   >>>>>>> branch-name' },
+    { f: 'Which side sits ABOVE the ======= divider', b: 'your side: the branch you are standing on' },
+    { f: 'What git status calls a conflicted file', b: 'both modified:  under the heading Unmerged paths' },
+    { f: 'What git status --short prints for a conflicted file', b: 'UU' },
+    { f: 'What git add means during a conflict', b: 'I have resolved this file (it does NOT check for leftover markers)' },
+    { f: 'Cancel a merge in progress and restore everything', b: 'git merge --abort' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  /* Four new Session-4 questions carry an in-page scrollIntoView backlink (part).
+     The two recall questions carry an external new-tab link (ext), since the
+     concept they test lives in the Session 2 and Session 3 artifacts, not here. */
+  var S2_URL = 'git-session-02.html';
+  var S3_URL = 'git-session-03.html';
+  var QUIZ = [
+    { q: 'What makes a three-way merge three-way? What are the three things Git looks at?',
+      o: ['The merge base, the tip of the branch you are on, and the tip of theirs',
+          'The last three commits on the branch you are merging in, taken newest first',
+          'Your working tree, your staging area, and the last commit you made on this branch',
+          'The three files most recently changed on each of the two branches involved'],
+      c: 0,
+      e: 'The three inputs are the merge base (the last commit both branches shared), your side, and their side. Comparing each side against the BASE is what lets Git work out who changed what, rather than just noticing that two files differ. If only one side changed a line, Git takes that version silently. It only stops when both sides changed the same line, because then the question of who changed it has two answers.',
+      part: { id: 'concept-threeway', label: 'C. What a three-way merge actually is' } },
+
+    { q: 'Git has written conflict markers into your file. What are they, exactly?',
+      o: ['Ordinary text Git wrote into the file; you edit it until it reads correctly and they are gone',
+          'A special locked mode the file is in, which a Git command has to switch off before you can edit it',
+          'A read-only preview; the real file is stored safely inside .git until you choose a side',
+          'An error report that Git will clean up automatically the moment you commit the merge'],
+      c: 0,
+      e: 'They are just text. Git opened your file and typed them in, the same way you would. <<<<<<< HEAD marks the start of your side, ======= divides the two versions, and >>>>>>> names the branch the other version came from. There is no special mode to leave and no command that removes them for you: you edit the file until it reads correctly, delete the marker lines, and that is what resolving means.',
+      part: { id: 'concept-read', label: 'H. Reading the conflict, three ways' } },
+
+    { q: 'You have edited the conflicted file and you run git add on it. What does that mean here, and what does it NOT do?',
+      o: ['It means you have resolved this file; it does not check that you removed the markers',
+          'It means you have resolved this file, and Git verifies no markers remain before accepting it',
+          'It abandons your own edits and takes the incoming branch version of the file instead',
+          'It finishes the merge completely, so there is no commit step needed afterwards'],
+      c: 0,
+      e: 'During a merge, git add takes on a second job on top of the staging you know from Session 1: it tells Git this conflict is dealt with, and git status changes from both modified: to an ordinary modified:. Crucially it does NOT inspect the contents, so if you leave <<<<<<< in the file it will be staged and then committed into your project without a single warning. Read the file before you stage it. The merge is still not finished either: you have to commit to conclude it.',
+      part: { id: 'concept-resolve', label: 'J. Resolving it deliberately' } },
+
+    { q: 'A merge conflicted and you would rather not deal with it right now. You run git merge --abort. What does that leave you with?',
+      o: ['Exactly what you had before you ran the merge: no commit and no markers',
+          'A commit that records the conflict so you can come back to it later',
+          'Your side of the file kept, and the branch you were merging in deleted',
+          'The merge finished, with Git picking whichever side had the newer timestamp'],
+      c: 0,
+      e: 'It cancels the merge and restores the working tree exactly as it was beforehand. The markers disappear, the file goes back to your side version, no commit is created, and the branch you were merging in still holds its own work. It prints nothing at all, which as ever means it worked. Nothing in a merge is permanent until you commit, which is precisely why you can read conflict markers calmly.',
+      part: { id: 'concept-abort', label: 'I. Backing out, before you ever need to' } },
+
+    { q: 'Recall from Session 3: you merge and Git says Fast-forward. Why was that possible, and what did Git actually do?',
+      o: ['Your branch had not moved since the other split off, so Git just slid its pointer',
+          'The two branches changed different files, so there was nothing to conflict over',
+          'The branch being merged in had only a small number of commits, so it was quick',
+          'Git picked the newer of the two branches and quietly discarded the older one'],
+      c: 0,
+      e: 'A fast-forward is possible precisely when your branch is an ancestor of the other one: every commit you had, it already had, so there were never two sets of changes to reconcile. Git just moved the branch pointer forward, which is why no commit is created and no message is needed. This session is the other case: once BOTH branches have moved, neither is an ancestor of the other, there is genuinely something to combine, and Git must build a merge commit with two parents.',
+      ext: { url: S3_URL, label: 'Session 3: fast-forward merges (opens in a new tab)' } },
+
+    { q: 'Recall from Session 2: in a diff, what does the hunk header @@ -1,3 +1,3 @@ tell you?',
+      o: ['Which lines the change covers: 3 lines from line 1, in the old and the new',
+          'That 1 line was removed from the file and 3 new lines were added in its place',
+          'That the file has 3 lines in total and the change begins on the first line',
+          'The commit hashes identifying the two versions of the file being compared'],
+      c: 0,
+      e: 'A hunk header locates the change. The minus part describes the old version and the plus part the new one, each as a starting line number and a count of lines, so -1,3 means three lines starting at line 1. It is worth keeping fresh because a conflicted file breaks the pattern: git diff during a conflict prints a combined diff with doubled + signs and a three-at-sign header, which is a different format entirely. This session names it and tells you to read the file instead.',
+      ext: { url: S2_URL, label: 'Session 2: how to read a diff (opens in a new tab)' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S04 on your Hub and move on to Session 5.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

@@ -1,0 +1,1221 @@
+<title>Git Sprint &middot; Session 1: Your first repository, from zero</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     Git commands lean on -- and <> which Cascadia Code would otherwise redraw. */
+  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three areas diagram */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* the commit chain diagram */
+  .chain { display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap; margin: 4px 0 14px; }
+  .cnode { flex: 1 1 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px; }
+  .cnode .cy { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--gold); }
+  .cnode .cmsg { font-size: 13px; color: var(--ink); margin-top: 3px; }
+  .cnode .cpar { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 6px; }
+  .clink { display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); flex: none; padding: 0 3px; text-align: center; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 25 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 12ch because the longest answer here is user.email (10 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 12ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 01 // Level 1 &middot; What Git Actually Is</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Your first repository, from zero</h1>
+    <p class="goal">Today Git stops being a list of commands you copy and starts being a thing you can picture. You get Git running, tell it who you are, build a practice repository that is safe to destroy, and make commits on purpose, knowing what each command will do before you press enter.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Turn a folder into a repository and commit to it deliberately.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>Step one below installs and checks Git, from nothing.</b> No prior setup is assumed: if you have never opened a terminal, that is exactly who this session is written for.</p>
+        <p>This is a workbook, not a reading. You will predict what a command prints, reassemble command sequences, fill blanks, and write from scratch, and each part hands you less scaffolding than the last. Reading a Git command teaches you the words; <b>running it and having predicted the result</b> is what turns it into knowledge.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">5</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. Three things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>b12d1b7</code>) are unique to every commit ever made, <b>file paths</b> depend on where your folder is, and <b>dates</b> are whenever you run it. Everything else should match.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. What Git is, and getting it running</h3>
+      <p><b>Version control</b> means keeping a recorded history of a set of files: what changed, when, by whom, and why. <b>Git</b> is the version control tool almost everyone uses.</p>
+      <p>Here is the problem it replaced. Without version control you save copies: <code>report.docx</code>, then <code>report-v2.docx</code>, then <code>report-final.docx</code>, then <code>report-final-ACTUAL.docx</code>. You cannot tell what changed between any two of them, you cannot tell why, you cannot get back a version you overwrote, and two people editing at once simply overwrite each other. Git replaces that whole pile with one folder that remembers every version you deliberately recorded, each one labelled with a message explaining the point of it.</p>
+      <p><b>Git is not GitHub.</b> This is the single most common beginner confusion, so lock it in now:</p>
+      <ul class="pts">
+        <li><b>Git</b> is a program that runs on your own computer. It works with no internet connection at all. Everything in Sessions 1 through 4 happens entirely on your machine.</li>
+        <li><b>GitHub</b> is a website that stores copies of Git repositories so other people can get at them. It is one of several such sites (GitLab and Bitbucket do the same job). You will not need an account until Session 5.</li>
+      </ul>
+      <p>A <b>repository</b> (almost always shortened to <b>repo</b>) is a folder that Git is tracking, plus the complete recorded history of that folder. You will make one in section C.</p>
+      <p><b>Where you type Git commands.</b> Git has no window and no buttons. You drive it from a <b>terminal</b>, which is a program that gives you a text prompt where you type one command, press enter, and read what it prints back. Every operating system ships one:</p>
+      <ul class="pts">
+        <li><b>Windows:</b> press the Start button, type <code>PowerShell</code>, and open <b>Windows PowerShell</b>. This session uses PowerShell as its default.</li>
+        <li><b>Windows, alternative:</b> installing Git also installs <b>Git Bash</b>, a terminal that behaves like the macOS and Linux one. Useful later if you follow a tutorial written for Mac.</li>
+        <li><b>macOS:</b> open <b>Terminal</b> (in Applications, Utilities).</li>
+        <li><b>Linux:</b> open your terminal application, often <b>Terminal</b> or <b>Konsole</b>.</li>
+        <li><b>Inside VS Code, on any system:</b> press <code>Ctrl+&#96;</code> (<code>Cmd+&#96;</code> on Mac) to open a terminal in the bottom panel, already sitting in your project folder. This is the most convenient option once you are working on real files.</li>
+      </ul>
+      <p><b>One promise that makes this whole track portable:</b> every command that starts with the word <code>git</code> is identical on Windows, macOS and Linux, and in every shell. Only the surrounding housekeeping commands differ (making a folder, creating a file, listing what is in a folder), and wherever one of those appears, both versions are shown side by side.</p>
+      <p>First, find out whether you already have Git. <code>git --version</code> asks Git to print its own version number and nothing else, which makes it the safest possible first command:</p>
+      <div class="filebox">
+        <div class="fbh">checking the install &middot; what it looks like when it runs</div>
+<pre><code><span class="cmd">&gt; git --version</span>
+git version 2.54.0.windows.1</code></pre>
+      </div>
+      <p>Any version number means Git is installed and you can move on; yours will differ. One honest caveat about that: Git reworks the little <code>(use "git add ..." to ...)</code> hint lines inside its own output every few releases, so on an older or newer Git a hint may be worded slightly differently from the transcripts here. The commands and their behaviour are stable. If a hint reads differently, that is a version difference, not a mistake on your part.</p>
+      <p>If instead you get an error along the lines of <code>git: command not found</code> or <code>'git' is not recognized</code>, Git is not installed yet. Install it:</p>
+      <ul class="pts">
+        <li><b>Windows:</b> go to <code>git-scm.com/downloads</code>, download the Windows installer, and run it. Accept every default, they are all sensible. Then <b>close and reopen your terminal</b> (a terminal only learns about newly installed programs when it starts) and run <code>git --version</code> again.</li>
+        <li><b>macOS:</b> run <code>git --version</code> and macOS will offer to install the developer command line tools; accept. Alternatively, if you have Homebrew, <code>brew install git</code>.</li>
+        <li><b>Linux (Debian or Ubuntu):</b> <code>sudo apt install git</code>. On Fedora, <code>sudo dnf install git</code>.</li>
+      </ul>
+      <p>Open a terminal now (PowerShell if you are on Windows), run <code>git --version</code>, and install Git from the matching bullet above if it is not there yet. Section B finishes the setup, and the two together are your first tracked task.</p>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Tell Git who you are</h3>
+      <p>Every commit Git records is stamped with an author name and email address, permanently. So before your first commit you have to tell Git what to stamp. This is a <b>one-time setup for your whole computer</b>, not something you redo per project.</p>
+      <p>The command is <code>git config</code>. The <code>--global</code> part is a <b>flag</b>: a word starting with two dashes that you attach to a command to change how it behaves. (Flags are sometimes called options, and single-letter ones take one dash, like the <code>-m</code> you will meet in section E.) This particular flag means "for my user account on this machine, in every repository", as opposed to just the repository you happen to be standing in. Repository-specific settings, which matter when you work under two different identities, are Session 9.</p>
+      <div class="filebox">
+        <div class="fbh">one-time setup &middot; substitute your own name and email</div>
+<pre><code><span class="cmd">&gt; git config --global user.name "Ada Lovelace"</span>
+<span class="cmd">&gt; git config --global user.email "ada@example.com"</span></code></pre>
+      </div>
+      <p>Neither command prints anything when it works. Silence from a Git command usually means success, which takes some getting used to. (Git does sometimes print a <i>warning</i> and carry on anyway; you will meet one in section E, and the difference between a warning and an error is spelled out there.)</p>
+      <p><b>Use a real name and a real email.</b> The email is what services like GitHub match commits against later, and the name is what teammates see next to every line you write. Nothing is verified here, Git records whatever string you give it, which is exactly why it is worth typing carefully.</p>
+      <p>Set one more thing while you are here. Every repository has a <b>default branch</b>, the name of the first line of history in it. Git historically called it <code>master</code>; the wider world has moved to <code>main</code>, and Git itself now warns that its own default will change to <code>main</code> in Git 3.0. Setting it yourself gives you <code>main</code> and settles the question:</p>
+      <div class="filebox">
+        <div class="fbh">choose the default branch name once, for all future repositories</div>
+<pre><code><span class="cmd">&gt; git config --global init.defaultBranch main</span></code></pre>
+      </div>
+      <p><b>Do not skip this one, and do not count on Git to nag you about it.</b> What you see if you leave it unset depends on your platform. On a stock macOS or Linux install, Git prints a block of <code>hint:</code> lines every time you create a repository until you choose a name, so it is hard to miss. <b>On Windows it says nothing at all</b>, because the Git for Windows installer already answered the question for you in a machine-wide setting, and the answer it wrote was <code>master</code>. So skipping this step on Windows is completely silent: you would quietly end up on <code>master</code> while every transcript in this sprint says <code>main</code>. That is why step 3 of the task below has you confirm the setting with <code>--list</code> rather than assume it.</p>
+      <p>Branches themselves are Session 3. For now, <code>main</code> is simply the name of the only line of history you have.</p>
+      <p>Now check that all three settings landed. <code>--list</code> prints every global setting Git currently holds for you:</p>
+      <div class="filebox">
+        <div class="fbh">confirming the setup &middot; what it looks like when it runs</div>
+<pre><code><span class="cmd">&gt; git config --global --list</span>
+user.name=Ada Lovelace
+user.email=ada@example.com
+init.defaultbranch=main</code></pre>
+      </div>
+      <p>Two things to notice, because both surprise people. Git prints the setting name back in <b>lower case</b> (<code>init.defaultbranch</code>, not <code>init.defaultBranch</code>): setting names are case-insensitive and this is just how Git displays them, nothing went wrong. And if you have used Git on this machine before, you will see extra lines here that you did not just add; that is fine, leave them alone.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Get Git working and tell it who you are</div>
+        <p>This one task covers sections A and B, so you set the whole environment up in one sitting.</p>
+        <ol>
+          <li>Open a terminal and run <code>git --version</code>. If Git is missing, install it from the list in section A, then close and reopen the terminal and run it again.</li>
+          <li>Run all three <code>git config --global</code> commands above, using <b>your own</b> name and email.</li>
+          <li>Run <code>git config --global --list</code> and confirm your name, your email, and <code>init.defaultbranch=main</code> all appear.</li>
+        </ol>
+        <details><summary>What if I skip the identity step?</summary>
+          <p style="font-size:13px;margin:8px 0 0">Depending on your system Git either refuses to commit at all, or guesses a name and email from your computer account and warns you about it. The guess is usually wrong, and it gets stamped permanently onto every commit you make until you notice. Sixty seconds now saves that.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I have Git installed, a terminal open, and my identity set</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Turn a folder into a repository: the practice sandbox</h3>
+      <p>Now build the repository you will use for the rest of the sprint. Call it <b>the sandbox</b>. Its whole job is to be disposable: every risky command in this track gets tried here first, so that you never learn <code>reset</code> or <code>rebase</code> on work you care about.</p>
+      <p>Three housekeeping commands, and this is one of the few places the shells differ. <code>cd</code> means "change directory", that is, move to a different folder; <code>~</code> is shorthand for your home folder (<code>C:\Users\YourName</code> on Windows). <code>mkdir</code> means "make directory".</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">Both shells</span><code>cd ~</code></div>
+        <div class="srow"><span class="sl">Both shells</span><code>mkdir git-sandbox</code></div>
+        <div class="srow"><span class="sl">Both shells</span><code>cd git-sandbox</code></div>
+      </div>
+      <p>You are now standing inside an ordinary empty folder. One command converts it:</p>
+      <div class="filebox">
+        <div class="fbh">git init &middot; what it looks like when it runs</div>
+<pre><code><span class="cmd">&gt; git init</span>
+Initialized empty Git repository in C:/Users/you/git-sandbox/.git/</code></pre>
+      </div>
+      <p>Read that message closely, because it says exactly what happened: Git created a folder called <b><code>.git</code></b> inside <code>git-sandbox</code>. That <code>.git</code> folder <i>is</i> the repository. Every commit, every message, every stored version lives inside it. Everything outside it is just your ordinary files.</p>
+      <p>This has a liberating consequence: <b>delete <code>.git</code> and the folder is a plain folder again</b>, with your files untouched but the history gone. Nothing about <code>git init</code> is magical or irreversible.</p>
+      <p>The <code>.</code> at the front of <code>.git</code> marks it as hidden, so a plain folder listing will not show it. To see it you have to ask for hidden entries, and here the two shells genuinely differ:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Get-ChildItem -Force</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>ls -a</code></div>
+      </div>
+      <p>Either one lists <code>.git</code>. Do not edit anything inside it by hand, ever. Every command in this track is a safe, supported way of asking Git to change it for you.</p>
+      <p>Finally, the command you will run more than any other. <code>git status</code> answers "what is the state of this repository right now":</p>
+      <div class="filebox">
+        <div class="fbh">git status in a brand-new, empty repository</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+
+No commits yet
+
+nothing to commit (create/copy files and use "git add" to track)</code></pre>
+      </div>
+      <p>Three facts, spread over five lines because Git separates them with blanks. <code>On branch main</code>: the default branch name you configured took effect. <code>No commits yet</code>: the history is genuinely empty. And a suggestion of what to do next, which <code>git status</code> gives you constantly. Get in the habit of reading those hint lines instead of skipping them; they are the best documentation Git has.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Create the sandbox</div>
+        <ol>
+          <li>Make and enter the <code>git-sandbox</code> folder using the three housekeeping commands above.</li>
+          <li>Run <code>git init</code> and read the path it prints back.</li>
+          <li>List the hidden entries with your shell version of that command and confirm <code>.git</code> is there.</li>
+          <li>Run <code>git status</code> and confirm it says <code>On branch main</code> and <code>No commits yet</code>.</li>
+        </ol>
+        <p><b>Keep this folder.</b> Sessions 2 through 10 all reuse it.</p>
+        <label class="did"><input type="checkbox" data-task="2"> I created the sandbox, saw .git appear, and ran git status in it</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. The three areas</h3>
+      <p>This is the model that makes Git predictable, and the reason most copy-pasters stay stuck: they picture one place where files live, when Git has three. A file you are working on exists in up to three states at once.</p>
+      <div class="areas">
+        <div class="area"><div class="an">Working tree</div><div class="ad">The folder as you see it in your editor. Where you actually make changes.</div></div>
+        <div class="arrow"><span class="ah">&rarr;</span><code>git add</code></div>
+        <div class="area"><div class="an">Staging area</div><div class="ad">A shortlist of the changes you want in your next commit. Also called the index.</div></div>
+        <div class="arrow"><span class="ah">&rarr;</span><code>git commit</code></div>
+        <div class="area"><div class="an">Repository</div><div class="ad">The <code>.git</code> folder. Permanent recorded snapshots, and everything Git remembers.</div></div>
+      </div>
+      <p>A change travels left to right, and it only moves when you tell it to. <code>git add</code> puts a change on the shortlist. <code>git commit</code> records everything on the shortlist as one permanent snapshot and empties the shortlist.</p>
+      <p><b>Why have a middle area at all?</b> Because it separates "I changed this" from "this belongs together in one recorded step". Suppose you fix a typo and, while you are in there, also start a half-finished new feature. Those are not one change. The staging area lets you commit the typo fix on its own and leave the unfinished work sitting in your working tree, uncommitted. Tools that snapshot everything automatically, like a Dropbox version history, cannot do that: they record what happened to the folder, whereas Git records what you decided was a change worth keeping. That authorship is the whole point, and it is why the staging area is a feature rather than an annoying extra step.</p>
+      <p>Every <code>git status</code> you run is really a report on these three areas, and it uses a fixed vocabulary for them:</p>
+      <ul class="pts">
+        <li><b>Untracked</b>: a file sitting in your working tree that Git has never been told about. It is in no commit and no shortlist, and Git will not record it until you add it.</li>
+        <li><b>Changes to be committed</b>: what is on the shortlist right now, waiting in the staging area. Also called <b>staged</b>.</li>
+        <li><b>Changes not staged for commit</b>: a file Git already tracks, which you have edited without adding the edit to the shortlist. Also called <b>modified</b>.</li>
+        <li><b>Working tree clean</b>: nothing untracked, nothing staged, nothing modified. This exact phrase appears only when all three areas agree, which makes it a genuinely useful thing to check for.</li>
+      </ul>
+      <p>Now make that concrete. Put a file in the working tree. You can create it in your editor, which is the normal way, or straight from the terminal:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">Any editor</span><code>Create a file called notes.md in the git-sandbox folder, type a line into it, and save.</code></div>
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content notes.md "Git sandbox"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "Git sandbox" &gt; notes.md</code></div>
+      </div>
+      <p>Both terminal versions <b>write the file from scratch</b>, replacing anything already in it. That is what you want right now, since the file does not exist yet, but keep it in mind: <code>Set-Content</code> and a single <code>&gt;</code> overwrite. The commands for <i>adding</i> a line to an existing file come up in section F.</p>
+      <p>The <code>.md</code> ending is just a convention for a plain-text notes file. <b>Git does not care about file extensions</b> at all, and a file with no extension is as valid to Git as any other. Here is what <code>git status</code> reports now:</p>
+      <div class="filebox">
+        <div class="fbh">git status with one untracked file</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+
+No commits yet
+
+Untracked files:
+  (use "git add &lt;file&gt;..." to include in what will be committed)
+	notes.md
+
+nothing added to commit but untracked files present (use "git add" to track)</code></pre>
+      </div>
+      <p>Note the last line: <b>Git does not say "working tree clean" here</b>, because an untracked file is unfinished business. Note also that <code>&lt;file&gt;</code> in that hint is a placeholder, not something you type literally; Git means "put a real file name here". Placeholders in angle brackets appear throughout Git output and this track, and they are never typed as written.</p>
+      <p>Create <code>notes.md</code> in your sandbox now, by either route above, and run <code>git status</code> to see it listed as untracked. Section E moves it the rest of the way, and the task at the end of E covers the whole journey.</p>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. status, add, commit: your first commit</h3>
+      <p><code>git add</code> moves a change onto the shortlist. Its most important property is the one nobody mentions: <b><code>git add</code> copies the file exactly as it is at that moment.</b> It is a snapshot of the file, not a subscription to it. Edit the file afterwards and that later edit is not staged, and will not be in your commit unless you add it again. That single fact explains most beginner confusion about Git, and you will predict it in Part 2.</p>
+      <p>Three forms, all taught here because you need all three:</p>
+      <ul class="pts">
+        <li><code>git add notes.md</code> stages one named file.</li>
+        <li><code>git add alpha beta</code> stages several named files in one go, separated by spaces.</li>
+        <li><code>git add .</code> stages <i>everything</i> in the current folder and below: new files and edits to tracked files alike. Convenient, and worth a moment of suspicion each time, because it is also how people accidentally commit a password file. Session 2 covers <code>.gitignore</code>, which is the real fix.</li>
+      </ul>
+      <p>Stage the file and look at the difference in <code>git status</code>:</p>
+      <div class="filebox">
+        <div class="fbh">git add, then git status &middot; the file has moved to the shortlist</div>
+<pre><code><span class="cmd">&gt; git add notes.md</span>
+<span class="cmd">&gt; git status</span>
+On branch main
+
+No commits yet
+
+Changes to be committed:
+  (use "git rm --cached &lt;file&gt;..." to unstage)
+	new file:   notes.md
+
+</code></pre>
+      </div>
+      <p><code>git add</code> printed nothing, which as ever means it worked. The heading changed from <code>Untracked files</code> to <code>Changes to be committed</code>, and Git labelled the change <code>new file:</code> because this file has never been in a commit before. Once a file has been committed, later stagings of it read <code>modified:</code> instead.</p>
+      <p><b>Two harmless surprises in that output, both worth naming so they do not worry you.</b></p>
+      <p>First, <b>you may see a warning from <code>git add</code> rather than silence</b>, reading <code>warning: in the working copy of 'notes.md', LF will be replaced by CRLF the next time Git touches it</code>. Windows ends its lines with two invisible characters (carriage return plus line feed, CRLF); macOS and Linux use one (LF). The Git for Windows installer turns on a setting that converts between them for you, and this warning is Git narrating that conversion. It is a <b>warning</b>, not an error: Git did the thing and carried on, the file staged fine, and nothing is broken. That is the general distinction to hold on to. A warning means "done, but you should know this"; <code>fatal</code>, which you will meet in section G, means "not done".</p>
+      <p>Second, <b>the hint in brackets changes depending on the state of your repository.</b> Above it reads <code>(use "git rm --cached &lt;file&gt;..." to unstage)</code> because there are no commits yet. Once your repository has at least one commit, the same line reads <code>(use "git restore --staged &lt;file&gt;..." to unstage)</code>, which you will see later in this session. Both undo the same staging; Git simply picks the one that works from where you are. Different hint text for a different state is normal.</p>
+      <p>Now record it. <code>git commit</code> takes everything on the shortlist and writes it into the repository as one permanent snapshot. The <code>-m</code> part supplies the message, in quotes:</p>
+      <div class="filebox">
+        <div class="fbh">git commit &middot; what it looks like when it runs</div>
+<pre><code><span class="cmd">&gt; git commit -m "Add notes.md"</span>
+[main (root-commit) b12d1b7] Add notes.md
+ 1 file changed, 1 insertion(+)
+ create mode 100644 notes.md</code></pre>
+      </div>
+      <p>Unpacking that output, since every part of it means something:</p>
+      <ul class="pts">
+        <li><code>main</code> is the branch the commit landed on.</li>
+        <li><code>(root-commit)</code> appears only on the very first commit in a repository. Section F explains why.</li>
+        <li><code>b12d1b7</code> is the start of the commit identifier. Yours will be different, always.</li>
+        <li><code>1 file changed, 1 insertion(+)</code> is a summary Git <i>calculated</i> for you by comparing this snapshot against the one before it. It is not what the commit stores, which matters in section F. If you typed more than one line into <code>notes.md</code>, your insertion count is higher, and that is the only part of this output that depends on your file.</li>
+        <li><code>create mode 100644</code> is the file permission Git recorded. You can ignore it; <code>100644</code> just means an ordinary non-executable file.</li>
+      </ul>
+      <p><b>Write the message like a professional from day one,</b> because you cannot easily fix it later and other people read it. Two conventions do most of the work: keep the summary short, and write it as a command describing what applying the commit does, so <code>Add notes.md</code> and <code>Fix date parsing on empty rows</code> rather than <code>added stuff</code> or <code>changes</code>. Say <i>why</i> where it is not obvious. Never write <code>update</code>, which is what a message says when the author did not want to think about it.</p>
+      <p>Confirm the state afterwards:</p>
+      <div class="filebox">
+        <div class="fbh">git status after committing &middot; all three areas now agree</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+nothing to commit, working tree clean</code></pre>
+      </div>
+      <p>There is the exact phrase from section D. <code>No commits yet</code> is gone, the shortlist is empty, and the working tree matches the last commit.</p>
+      <p>One more behaviour worth knowing before you can predict Git confidently: <b>committing with an empty shortlist does nothing at all.</b> Git will not invent a commit for you out of edits you never staged:</p>
+      <div class="filebox">
+        <div class="fbh">git commit with an edited file that was never added</div>
+<pre><code><span class="cmd">&gt; git commit -m "Attempt with unstaged change"</span>
+On branch main
+Changes not staged for commit:
+  (use "git add &lt;file&gt;..." to update what will be committed)
+  (use "git restore &lt;file&gt;..." to discard changes in working directory)
+	modified:   notes.md
+
+no changes added to commit (use "git add" and/or "git commit -a")</code></pre>
+      </div>
+      <p>No commit was created. Git printed the status instead and stopped. This is the behaviour that makes the staging area safe: it never guesses at your intent.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Walk a file through all three areas</div>
+        <p>This one task covers sections D and E: you take <code>notes.md</code> from untracked, to staged, to committed, and read <code>git status</code> at every stop. <b>Before each command, say out loud which area it will change and what status will say afterwards.</b></p>
+        <ol>
+          <li>Create <code>notes.md</code> in your sandbox if you have not already, then run <code>git status</code> and find it under <code>Untracked files</code>.</li>
+          <li>Run <code>git add notes.md</code>, then <code>git status</code>, and find the <code>new file:</code> line under <code>Changes to be committed</code>.</li>
+          <li>Run <code>git commit -m "Add notes.md"</code> and read all five parts of the output.</li>
+          <li>Run <code>git status</code> once more and confirm you get <code>nothing to commit, working tree clean</code>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I took notes.md from untracked to staged to committed, reading status at each step</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. What a commit really is: a snapshot with a parent</h3>
+      <p>Almost everyone starts out believing a commit stores <i>the changes you made</i>. It does not, and that single wrong belief is what makes branching and merging feel like magic later. Here is the truth:</p>
+      <p><b>A commit stores a complete snapshot of every tracked file at that moment</b>, plus the author name and email, the date, your message, and <b>a pointer to the commit that came before it</b>, called its <b>parent</b>. That is the whole object.</p>
+      <p>So a commit records unchanged files too. If a commit touches one file out of fifty, the commit still contains all fifty; the forty-nine unchanged ones simply point at content Git already has stored, which is why this costs almost no disk space. Nothing is ever reconstructed by stacking changes on top of each other, which means <b>any commit can be recovered on its own</b> without replaying history.</p>
+      <p>Then what about the <code>1 file changed, 1 insertion(+)</code> line, and the whole idea of a diff? A <b>diff</b> is a comparison, and Git <i>computes</i> diffs on demand by comparing two snapshots. It never stores one. So the old mental model, the tracked-changes-in-a-document one where a version is a pile of edits, is the wrong picture: Git keeps whole photographs and works out the differences between them whenever you ask. (Session 2 is entirely about asking.)</p>
+      <p>The <b>parent</b> pointer is what makes history a chain. Each commit knows the one before it, so Git can always walk backwards. Note the direction: the arrows point <i>back in time</i>, from newer to older, because a commit cannot know what will come after it.</p>
+      <div class="chain">
+        <div class="cnode"><div class="cy">b12d1b7</div><div class="cmsg">Add notes.md</div><div class="cpar">parent: none (root commit)</div></div>
+        <div class="clink">&larr;&nbsp;parent</div>
+        <div class="cnode"><div class="cy">8dea82d</div><div class="cmsg">Add a second line of notes</div><div class="cpar">parent: b12d1b7</div></div>
+        <div class="clink">&larr;&nbsp;parent</div>
+        <div class="cnode"><div class="cy">your next</div><div class="cmsg">Add alpha</div><div class="cpar">parent: 8dea82d</div></div>
+      </div>
+      <p>That is the chain you will have built by the end of this session: the commit you just made, the one you are about to make in the task below, and the milestone commit at the end of section G.</p>
+      <p>The very first commit has nothing before it, so it has <b>no parent at all</b>. Git calls that one the <b>root commit</b>, and that is what <code>(root-commit)</code> was telling you in section E. Every later commit has exactly one parent, until Session 4, where merging produces the one kind of commit with two.</p>
+      <p><b>About that identifier.</b> The full name of a commit is a 40-character <b>hash</b>, a string of hexadecimal digits like <code>223e773141200119b9e709e46653da1c515f3815</code>. Git calculates it from the commit contents: the snapshot, the message, the author, the date, and the parent. So the hash is not a serial number handed out in order, it is a fingerprint of that exact commit. Change any detail and you get a completely different hash, which is why Git can guarantee history has not been quietly altered. In practice you use the first 7 characters, which is what <code>git log --oneline</code> prints and is plenty to be unique in a repository this size.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make a second commit and give it a parent</div>
+        <ol>
+          <li>Add a second line to <code>notes.md</code> and save. Easiest is to type it in your editor. From the terminal, note that these are the <b>append</b> commands, not the ones from section D: <code>Add-Content</code> and <code>&gt;&gt;</code> add to the end of a file, while <code>Set-Content</code> and a single <code>&gt;</code> <b>replace the whole file</b>. Reach for the wrong one here and you will silently wipe your first line, which changes everything you see afterwards.
+            <div class="shells" style="margin-top:8px">
+              <div class="srow"><span class="sl">PowerShell</span><code>Add-Content notes.md "A second line"</code></div>
+              <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "A second line" &gt;&gt; notes.md</code></div>
+            </div>
+          </li>
+          <li>Run <code>git status</code>. Predict the heading first: the file is tracked now, so it will not say untracked.</li>
+          <li>Stage it and commit it with a message that says what changed.</li>
+          <li>Compare this commit output to the first one. <code>(root-commit)</code> is gone, because this commit has a parent.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I made a second commit and saw (root-commit) disappear</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Reading history with git log</h3>
+      <p><code>git log</code> walks backwards from your newest commit along those parent pointers and prints each one. Newest first, always:</p>
+      <div class="filebox">
+        <div class="fbh">git log &middot; the full form, after the two commits you have made</div>
+<pre><code><span class="cmd">&gt; git log</span>
+commit 8dea82df95b250ea9cbccdd40dc2cf7e2b9c38c7 (HEAD -&gt; main)
+Author: Ada Lovelace &lt;ada@example.com&gt;
+Date:   Tue Jul 28 13:17:54 2026 -0500
+
+    Add a second line of notes
+
+commit b12d1b7c076f4ce41924aea202d1e4c0c10d09d2
+Author: Ada Lovelace &lt;ada@example.com&gt;
+Date:   Tue Jul 28 13:17:54 2026 -0500
+
+    Add notes.md</code></pre>
+      </div>
+      <p>There is your identity from section B, permanently attached to both, and the full 40-character hash from section F. The newest commit is on top.</p>
+      <p><b>What is that <code>(HEAD -&gt; main)</code>?</b> It appears on the newest commit only, and it is Git telling you where you are standing: <b>HEAD</b> is Git shorthand for "the commit you are currently on", and here HEAD is reached through the branch <code>main</code>. Nothing is wrong and there is nothing to fix. Session 2 takes HEAD apart properly, and Session 3 does the same for branches. One quirk worth knowing so it does not confuse you: Git only prints that label when it is writing to a terminal, so if you ever pipe <code>git log</code> into another command or a file, the label disappears.</p>
+      <p>The full form gets unreadable fast at four commits per screen, so the form you will actually live in is <code>--oneline</code>, which compresses each commit to its short hash and its summary line:</p>
+      <div class="filebox">
+        <div class="fbh">git log --oneline &middot; the same two commits</div>
+<pre><code><span class="cmd">&gt; git log --oneline</span>
+8dea82d (HEAD -&gt; main) Add a second line of notes
+b12d1b7 Add notes.md</code></pre>
+      </div>
+      <p>Compare each short hash to the long one above it: the short form really is just the first 7 characters, exactly as section F said.</p>
+      <p>The reverse ordering is easier to see with three commits. In this different repository, the commits were made in the order alpha, then beta, then gamma:</p>
+      <div class="filebox">
+        <div class="fbh">git log --oneline in a repository with three commits</div>
+<pre><code><span class="cmd">&gt; git log --oneline</span>
+94d46df (HEAD -&gt; main) Add gamma
+22f89ae Add beta
+8c9ec6c Add alpha</code></pre>
+      </div>
+      <p>The output is the reverse of the order they were made in, because <code>log</code> starts at the newest commit and follows parent pointers backwards. Reading top to bottom is reading back in time. That also explains what your commit messages are really for: this list is the only description of your project history that anyone, including future you, will ever read.</p>
+      <p>Session 2 is largely about the other flags that shape <code>log</code> output.</p>
+      <p>One thing that trips people up on a brand-new repository: <code>git log</code> before any commit exists is an error, not an empty list.</p>
+      <div class="filebox">
+        <div class="fbh">git log in a repository with no commits yet</div>
+<pre><code><span class="cmd">&gt; git log</span>
+fatal: your current branch 'main' does not have any commits yet</code></pre>
+      </div>
+      <p>Nothing is broken. <code>fatal</code> is simply the word Git uses for "I stopped, I did not do the thing", and here it stopped because there is no history to walk yet.</p>
+
+      <p><b>Try both forms in your own sandbox before going on.</b> Run <code>git log</code> and find your name, your email, both hashes and both messages. Then run <code>git log --oneline</code> and check two things: your newest commit is at the top, and the short hash really is the first 7 characters of the long one above it. You will use <code>--oneline</code> again as the last step of the milestone below.</p>
+
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: a deliberate commit</div>
+        <p>This is the Session 1 milestone, and the point of it is the prediction, not the typing. Work in your sandbox. <b>Before every single command, say out loud what it will print and which of the three areas it will change.</b> Then run it and check yourself.</p>
+        <ol>
+          <li>Create two new files, <code>alpha</code> and <code>beta</code> (no extension needed).</li>
+          <li>Predict, then run <code>git status</code>. How many files under which heading?</li>
+          <li>Stage <b>only</b> <code>alpha</code>.</li>
+          <li>Predict, then run <code>git status</code>. Both files should now be under different headings.</li>
+          <li>Commit, with a message describing what changed.</li>
+          <li>Predict, then run <code>git status</code>. Is the working tree clean? Why not?</li>
+          <li>Predict, then run <code>git log --oneline</code>. How many lines, and in what order?</li>
+        </ol>
+        <p>You have hit the milestone when you predicted every step correctly and can say, for each command, which of the three areas it touched.</p>
+        <details><summary>Show the command sequence</summary>
+<pre><code><span class="cm"># create alpha and beta in your editor, or:</span>
+<span class="cm">#   PowerShell:  Set-Content alpha "a" ; Set-Content beta "b"</span>
+<span class="cm">#   Bash:        echo "a" &gt; alpha ; echo "b" &gt; beta</span>
+git status
+git add alpha
+git status
+git commit -m "Add alpha"
+git status
+git log --oneline</code></pre>
+          <p style="font-size:13px;margin:10px 0 6px">Step 4 puts the two files under <i>different</i> headings, which is the point of staging only one of them:</p>
+<pre><code>On branch main
+Changes to be committed:
+  (use "git restore --staged &lt;file&gt;..." to unstage)
+	new file:   alpha
+
+Untracked files:
+  (use "git add &lt;file&gt;..." to include in what will be committed)
+	beta
+
+</code></pre>
+          <p style="font-size:13px;margin:10px 0 0">Step 6 does <b>not</b> give you a clean working tree, because <code>beta</code> is still sitting there untracked, so you get <code>nothing added to commit but untracked files present</code> instead. Step 7 shows three lines if you have followed the whole session: the alpha commit on top, then your second commit, then <code>Add notes.md</code> at the bottom.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I predicted every step correctly and hit the milestone</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in your sandbox.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a repository created with <code>git init</code>, your identity already configured, and a working tree that is clean. Where a drill needs something to have happened first, it is shown in the grey <i>already run</i> box.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: run these in the wrong order and Git either errors or records the wrong thing.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 5 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> from Session 2 onward this section also mixes in a couple of questions from earlier sessions, since recalling old material on a delay is what makes it stick. Today it is all Session 1.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 01 of 10 &middot; Hit the milestone unassisted, then tick <b>S01</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; Keep the <code>git-sandbox</code> folder, Session 2 carries straight on in it.
+    <br><br>
+    <b>Your 15-minute review:</b> once you are done here, close this page and build a second repository from scratch at the terminal, with no notes open. Same shape as W4, but nothing to read from. If you get stuck on a step, that is the step to come back and reread. &middot; Next: <b>Session 02, reading history and seeing changes</b>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s01-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words (untracked,
+     modified, yes/no) and plain file names, where capitalisation is presentation
+     rather than the lesson. Marking "Untracked" wrong would be an unfair grade.
+     Git command case-sensitivity is taught in prose and tested in Parts 3 and 4. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ---------- */
+  var DRILLS = [
+    { type: 'value',
+      scen: 'git init\n(then you create a file called notes.md in your editor and save it)',
+      ask: 'git status groups files under headings. Which heading does notes.md appear under? Answer in one word.',
+      code: 'git status', ans: 'untracked',
+      why: 'Git has never been told about notes.md, so it is listed under Untracked files. Untracked means Git can see the file sitting in your working tree but is not recording its contents anywhere.' },
+
+    { type: 'value',
+      ask: 'This command creates one new item inside the folder. What is that item called? Type its name exactly.',
+      code: 'git init', ans: '.git',
+      why: 'git init creates a hidden folder called .git, and that folder IS the repository: every commit, message and stored snapshot lives inside it. Everything outside .git is just your ordinary files.' },
+
+    { type: 'set',
+      scen: '(a fresh repository with no commits yet, containing three new files:\n alpha, beta and gamma)\ngit add beta',
+      ask: 'List every file still shown under Untracked files, separated by commas. Order does not matter.',
+      code: 'git status', ans: 'alpha, gamma',
+      why: 'git add beta moved beta onto the shortlist, so beta now appears under Changes to be committed instead. alpha and gamma were never added, so they stay untracked.' },
+
+    { type: 'count',
+      scen: '(a repository with three commits in it)',
+      ask: 'This command shortens every commit hash. How many characters long is each shortened hash it prints?',
+      code: 'git log --oneline', ans: '7',
+      why: 'The full hash is 40 hexadecimal characters. The --oneline flag abbreviates it to the first 7, short enough to read and still unique in a repository this size. Very large repositories need more than 7 to stay unique, so Git prints a few extra there.' },
+
+    { type: 'value',
+      scen: '(notes.md is already tracked, and you have just added a line to it)\ngit add notes.md\n(then you add ANOTHER line to notes.md and save again)\ngit commit -m "Add a staged line"',
+      ask: 'After that commit, which single word does git status use to describe notes.md? Answer in one word.',
+      code: 'git status', ans: 'modified',
+      why: 'git add copied the file as it was AT THAT MOMENT. The later edit was never staged, so the commit recorded the earlier version and the newer edit is still sitting in your working tree. status reports it under Changes not staged for commit, as modified: notes.md.' },
+
+    { type: 'count',
+      scen: '(the very first commit in a brand-new repository)',
+      ask: 'Every commit stores a pointer to the commit before it, called its parent. How many parents does this commit have?',
+      code: 'git commit -m "Add notes.md"', ans: '0',
+      why: 'Nothing came before it, so it has no parent. Git calls it the root commit, which is why the first commit prints [main (root-commit) ...] while later ones print just [main ...].' },
+
+    { type: 'value',
+      scen: '(everything is committed and nothing has been changed since:\n git status reports the working tree clean)',
+      ask: 'Does Git create a new commit here? Answer yes or no.',
+      code: 'git commit -m "Just checking"', ans: 'no',
+      why: 'A commit records what is on the staging shortlist, and the shortlist is empty, so there is nothing to record. Git prints "nothing to commit, working tree clean" and stops without creating anything.' },
+
+    { type: 'set',
+      scen: '(gamma exists but was never added, and notes.md is already\n tracked and was edited without being added)\ngit add alpha beta',
+      ask: 'Which files get their new content recorded by this commit? List them, separated by commas. Order does not matter.',
+      code: 'git commit -m "Add alpha and beta"', ans: 'alpha, beta',
+      why: 'Only what is staged gets recorded. alpha and beta were staged, so their content goes in. gamma was never added and the edit to notes.md was never staged, so both stayed behind. Git confirms it by reporting 2 files changed.' },
+
+    { type: 'seq',
+      scen: '(three commits, made in this order:\n first "Add alpha", then "Add beta", then "Add gamma")',
+      ask: 'Each message is the word Add followed by a file name. Type just the three FILE NAMES (not the whole message), in the order they appear in this output, reading top to bottom.',
+      code: 'git log --oneline', ans: 'gamma, beta, alpha',
+      why: 'log starts at your newest commit and walks backwards along the parent pointers, so the newest prints first: Add gamma, then Add beta, then Add alpha. Reading log top to bottom is reading back in time.' },
+
+    { type: 'count',
+      scen: '(notes.md is already tracked and you have edited it;\n alpha and beta are brand-new files Git has never seen)',
+      ask: 'How many files does this stage?',
+      code: 'git add .', ans: '3',
+      why: 'The dot means everything in the current folder and below, and that covers both brand-new files and edits to tracked ones. So alpha and beta are staged as new file, and notes.md is staged as modified: 3 in total.' },
+
+    { type: 'seq',
+      scen: '(starting from a clean working tree in a repository\n that already has one commit, these four things happen in order)\n1. you create a new file called beta and save it\n2. git add beta\n3. git commit -m "Add beta"\n4. you edit beta again and save it',
+      ask: 'Trace it. After each of the four steps, does git status report the working tree clean? Type four answers, yes or no, in order.',
+      code: 'git status   (run after each step above)', ans: 'no, no, yes, no',
+      why: 'Step 1 leaves an untracked file, and Git reports "nothing added to commit but untracked files present" rather than clean. Step 2 puts it on the shortlist, so status shows Changes to be committed, still not clean. Step 3 records the shortlist, so all three areas finally agree: clean. Step 4 edits a tracked file again, which puts it under Changes not staged for commit, so not clean.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '\u2713 Correct' : '\u2717 Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'You have been handed a folder called git-demo that already contains a file called notes.md. Turn it into a repository, record notes.md in a first commit, then confirm that the commit exists.',
+      lines: ['cd git-demo', 'git init', 'git add notes.md', 'git commit -m "Add notes"', 'git log --oneline'] },
+    { prompt: 'You are standing in a folder that already contains two files, alpha and beta. Build a repository with two commits: the first one ADDS only alpha, and the second one ADDS only beta. (Remember from Part 1 that the second commit still contains both files as a snapshot; what differs is which file it adds.)',
+      lines: ['git init', 'git add alpha', 'git commit -m "Add alpha"', 'git add beta', 'git commit -m "Add beta"'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '\u2713 Correct order' : '\u2717 Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so this turns the folder you are standing in into a repository, puts every file in that folder onto the shortlist, and records them as one commit.',
+      code: 'git %%\ngit add %%\ngit %% -m "First commit"', ans: ['init', '.', 'commit'] },
+    { prompt: 'Fill the blanks so Git stamps this name and email onto commits in every repository on this machine, then prints back what it stored.',
+      code: 'git config %% user.name "Ada Lovelace"\ngit config --global %% "ada@example.com"\ngit config --global %%', ans: ['--global', 'user.email', '--list'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   \u00b7   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '\u2713 All blanks correct' : '\u2717 Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'You are standing in a folder that is not a repository yet. Write the two commands that make it one and then show you the state of it.',
+      sol: 'git init\ngit status' },
+    { task: 'Write the two commands that tell Git the name and email to stamp on your commits in every repository on this machine. Use your own name and email.',
+      sol: 'git config --global user.name "Your Name"\ngit config --global user.email "you@example.com"' },
+    { task: 'You have changed three tracked files: alpha, beta and gamma. Only alpha and beta belong in this commit. Write the commands that put exactly those two onto the shortlist and record them with a message describing the change.',
+      sol: 'git add alpha beta\ngit commit -m "Update alpha and beta"' },
+    { task: 'Build a whole repository from nothing. Make a folder called review-repo, turn it into a repository, add a file called plan.md, and record two commits: the first adding plan.md, the second recording a change to it. Finish by printing the one-line history.',
+      sol: 'mkdir review-repo\ncd review-repo\ngit init\n\n# create plan.md in your editor and save it\ngit add plan.md\ngit commit -m "Add plan.md"\n\n# change plan.md and save it again\ngit add plan.md\ngit commit -m "Expand the plan"\n\ngit log --oneline' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '\u2713 Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'Command that turns the folder you are standing in into a repository', b: 'git init' },
+    { f: 'The hidden folder that IS the repository', b: '.git' },
+    { f: 'Command that reports what has changed and what is staged', b: 'git status' },
+    { f: 'Put the current content of one named file onto the staging shortlist', b: 'git add notes.md' },
+    { f: 'Stage everything in the current folder and below', b: 'git add .' },
+    { f: 'Record what is staged as a permanent snapshot, with a message', b: 'git commit -m "message"' },
+    { f: 'Show the full history, newest first', b: 'git log' },
+    { f: 'Show the history as one short line per commit', b: 'git log --oneline' },
+    { f: 'The three areas, in the order a change travels through them', b: 'working tree, staging area, repository' },
+    { f: 'What a commit actually stores', b: 'a complete snapshot of every tracked file, plus author, date, message and a parent' },
+    { f: 'What a commit does NOT store', b: 'a diff; Git computes differences by comparing two snapshots' },
+    { f: 'Set the name Git stamps on commits in every repository on this machine', b: 'git config --global user.name "Your Name"' },
+    { f: 'What Git calls the first commit in a repository, the one with no parent', b: 'the root commit' },
+    { f: 'How many characters of the hash git log --oneline prints', b: '7 (the full hash is 40)' },
+    { f: 'What Git calls a file it has never been told about', b: 'untracked' },
+    { f: 'The difference between Git and GitHub', b: 'Git is a program on your computer; GitHub is a website that stores copies of repositories' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt \u00b7 tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  var QUIZ = [
+    { q: 'What does git init actually do to the folder you run it in?',
+      o: ['It creates a hidden .git folder there, which holds the repository',
+          'It uploads the folder to GitHub',
+          'It downloads a copy of a project from the internet onto your machine',
+          'It records your first commit'],
+      c: 0,
+      e: 'git init creates a hidden folder called .git, and that folder IS the repository. Nothing is uploaded anywhere (sending a copy to a hosted site is Session 5), and no commit exists until you make one.',
+      part: { id: 'concept-c', label: 'C. Turn a folder into a repository' } },
+
+    { q: 'You run git add notes.md, then edit notes.md again and save, then run git commit -m "..." . What content goes into the commit?',
+      o: ['The version of notes.md as it was when you ran git add',
+          'The latest version, including the edit you made after adding',
+          'Both versions, as two separate changes',
+          'Nothing, because the file changed after being staged'],
+      c: 0,
+      e: 'git add copies the file exactly as it is at that moment onto the staging shortlist. Your later edit was never staged, so the commit records the earlier version, and git status will still report notes.md as modified afterwards.',
+      part: { id: 'concept-e', label: 'E. status, add, commit' } },
+
+    { q: 'Which statement about a commit is true?',
+      o: ['It stores a complete snapshot of every tracked file, plus a pointer to its parent commit',
+          'It stores only the lines that changed since the previous commit, as a compact diff record',
+          'It stores a diff against the branch it is on',
+          'It stores a copy of the entire .git folder'],
+      c: 0,
+      e: 'A commit is a snapshot plus metadata plus a parent pointer, not a diff. Git computes differences on demand by comparing two snapshots, which is why the commit output can report "1 file changed" even though no diff was stored.',
+      part: { id: 'concept-f', label: 'F. What a commit really is' } },
+
+    { q: 'You have edited a tracked file but have not run git add. You run git commit -m "Fix it". What happens?',
+      o: ['No commit is created; Git prints the status and tells you nothing was added to commit',
+          'Git commits every change in the folder anyway',
+          'Git commits the most recently edited file',
+          'Git raises an error and discards your edit'],
+      c: 0,
+      e: 'A commit records what is on the staging shortlist, and nothing is on it, so Git creates nothing and prints "no changes added to commit" along with the current status. Your edit is untouched and still sitting in your working tree.',
+      part: { id: 'concept-e', label: 'E. status, add, commit' } },
+
+    { q: 'What is the relationship between Git and GitHub?',
+      o: ['Git is a program on your computer; GitHub is a website that stores copies of repositories',
+          'GitHub is the program and Git is the website that hosts it',
+          'They are two names for the same tool',
+          'Git only works while you are signed in to GitHub'],
+      c: 0,
+      e: 'Git runs locally and needs no internet connection, which is why Sessions 1 to 4 never touch an account. GitHub is one of several sites (GitLab and Bitbucket do the same job) that host copies so other people can reach them, and that is Session 5.',
+      part: { id: 'concept-a', label: 'A. What Git is' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '\u2713 Correct' : '\u2717 Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 4
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the W4 review with this page closed, then tick S01 on your Hub and move on to Session 2.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

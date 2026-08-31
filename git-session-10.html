@@ -1,0 +1,1489 @@
+<title>Git Sprint &middot; Session 10: Ship it, break it, fix it</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session needs it as badly as the ones before it: Cascadia Code would
+     otherwise redraw the -> in (HEAD -> main) and in main -> main on a push line,
+     the -- in --squash, --no-edit and --hard, the != in the hook's branch test,
+     and the ... in gh's truncated table columns. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code, .ptable
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  /* a refusal line, so the label stands out from the hint text around it */
+  .rej { color: var(--bad); font-weight: 700; }
+  /* the destructive-command warning banner */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the areas diagram: four boxes, carried forward from Session 7 */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .areas.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .areas.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; word-break: break-word; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas, .areas.plain, .areas.four { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* label / meaning rows: the reflog labels, the verbs, and the mistake-to-tool map */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the decision table: which of the four things each command moves */
+  .tscroll { overflow-x: auto; margin: 4px 0 14px; }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
+  .ptable th, .ptable td { border: 1px solid var(--border); padding: 9px 11px; text-align: left; background: var(--surface); }
+  .ptable thead th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 700; }
+  .ptable tbody th { font-size: 13px; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .ptable td.y { color: var(--good); font-weight: 700; }
+  .ptable td.n { color: var(--ink-faint); }
+  .ptable td.d { color: var(--bad); font-weight: 700; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 38 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 18ch, comfortably clear of this session longest answer, "squash" */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 18ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 10 // Level 5 &middot; Git in the Real World</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Ship it, break it, fix it</h1>
+    <p class="goal">There is almost nothing new here, and that is the point. Nine sessions handed you the pieces one at a time: branch, commit, merge, push, review, undo, recover, tag, search. This session runs them as <b>one loop</b>, on a project that is actually live, and then breaks it on purpose so that recovering stops being theory. The one genuinely new idea is small and it changes everything: on some repositories, <code>git push</code> is not a save, it is a release.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Maintain a real project end to end, and fix it when you break it.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>You do not need any folder from an earlier session.</b> Step one builds a fresh one called <code>ship-lab</code>, and it is disposable like the others. A new lab is needed here because this session is the only one where a push has to cause something to <i>happen</i>, which means the lab has to contain the thing that happens.</p>
+        <p><b>No account and no network, all the way to the end.</b> The deploy target is a script on your own disk that you can open and read, which is a better teacher than a hosted pipeline because nothing about it is hidden. Section I shows the same loop against real GitHub Pages, with captured output for every claim that a capture can settle, and it is <b>entirely optional</b>: every task, the write-its and the comprehensive final can all be completed without an account.</p>
+        <p><b>Three sections ask you to break something deliberately, and each one puts it back.</b> Section F breaks a heading on a practice page and section G reverts it, section G then makes a deliberately bad local commit and resets it away, and section H breaks the same heading a second way and reverts that too. All of it happens inside <code>ship-lab</code>. Nothing in this session touches any repository you actually use.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">10</span></div><div class="l">Final correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. This is the shortest teaching section on the track and the longest hands-on one, because by now you know the commands. What you are practising is running them as a sequence, under the mild pressure of something being live.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. Three things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>52ca712</code>), <b>dates</b>, and <b>paths</b>. Where a transcript shows a path under <code>C:/Users/you/</code>, that stands for your own home folder. <b>The transcripts were captured in PowerShell.</b> On Git Bash you will also see a <code>warning:</code> line about LF and CRLF after the <code>git add</code> and <code>git commit -am</code> steps, which is Session 1's line-ending note and is harmless. It comes from Git reading the file, not from the command that wrote it, which is why it lands on the commit rather than on the <code>printf</code>.</div>
+
+    <div class="block" id="concept-loop">
+      <h3>A. The whole track, as one loop</h3>
+      <p><b>Write down what you would do to change something on a project other people can see.</b> Not the commands, the steps. If you have been through the last nine sessions the answer is already in your head, and it looks like this:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">branch</span><span class="rd">Work somewhere that is not the branch everyone else depends on. <b>Session 3.</b></span></div>
+        <div class="refrow"><span class="rr">commit</span><span class="rd">Small, described steps, so the history can be read later by somebody who was not there. <b>Sessions 1 and 2.</b></span></div>
+        <div class="refrow"><span class="rr">push and<br>review</span><span class="rd">Get it off your machine and in front of someone, then merge it with a strategy you can justify. <b>Sessions 5 and 6.</b></span></div>
+        <div class="refrow"><span class="rr">tag</span><span class="rd">Mark what shipped, so "since the last good version" becomes something you can actually ask Git about. <b>Session 9.</b></span></div>
+        <div class="refrow"><span class="rr">and when<br>it breaks</span><span class="rd">Diagnose, then pick the recovery tool that matches who else already has the commit. <b>Sessions 7, 8 and 9.</b></span></div>
+      </div>
+      <p><b>You are not here to learn those.</b> You are here to run them once, in order, without a checklist, on something that is live, and to find out that the last row is the one deciding whether you feel comfortable or frightened. So this session teaches only three new <i>ideas</i>, all of them about the word "live", plus two small pieces of vocabulary noted where they appear (git hooks in section B, and the <code>A..B</code> commit range in section F):</p>
+      <ol>
+        <li><b>A branch can be a trigger.</b> Pushing to one particular branch makes something happen outside Git.</li>
+        <li><b>So push is not a save.</b> On a repository wired that way, pushing is releasing, and that reframes every careful thing the last nine sessions told you.</li>
+        <li><b>A deploy can fail in four different places</b>, needing four different fixes. Beginners treat all four as one problem called "it did not work".</li>
+      </ol>
+      <p><b>Out of scope, deliberately:</b> writing CI/CD pipelines, GitHub Actions syntax, hosting configuration, Docker, environments and secrets management. This session teaches the <b>Git side</b> of shipping, which is what your own commands cause. The tooling that does the deploying is a separate subject and a large one, and you do not need any of it to understand the part that is yours.</p>
+    </div>
+
+    <div class="block" id="concept-lab">
+      <h3>B. Build the lab, and read the trigger</h3>
+      <p><b>Session 5 built a bare repository to stand in for GitHub.</b> This lab does the same and adds one file: a <b>hook</b>, which is a script Git runs automatically at a set moment. Put a script called <code>post-receive</code> in a bare repository's <code>hooks</code> folder and Git runs it every time a push lands there. That is the whole mechanism behind "I pushed and the site updated", minus a great deal of scale.</p>
+      <p><b>Hooks are the only new vocabulary here, and you only ever need to read one.</b> Do not memorise the script. Read it once for what it decides, then forget the syntax: the decisions are the lesson.</p>
+
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build ship-lab</div>
+<pre><code>cd ~
+mkdir ship-lab
+cd ship-lab
+git init --bare origin-repo.git
+mkdir site
+
+$hook = @(
+  '#!/bin/sh',
+  'DEPLOY_BRANCH=main',
+  'LAB="$(cd "$(dirname "$0")/../.." &amp;&amp; pwd)"',
+  'while read old new ref; do',
+  '  if [ "$ref" != "refs/heads/$DEPLOY_BRANCH" ]; then',
+  '    echo "trigger: $ref is not the deploy branch, nothing to do"',
+  '    continue',
+  '  fi',
+  '  echo "trigger: fired for $ref"',
+  '  if git show "$new:index.html" | grep -q "&lt;h1&gt;"; then',
+  '    git --work-tree="$LAB/site" checkout -f -q "$DEPLOY_BRANCH"',
+  '    echo "deploy: published $(git rev-parse --short $new)"',
+  '    git rev-parse --short $new &gt;&gt; "$LAB/deploy.log"',
+  '  else',
+  '    echo "build: FAILED, index.html has no h1 heading"',
+  '    echo "deploy: skipped, the site still shows the previous version"',
+  '  fi',
+  'done'
+)
+Set-Content -Path 'origin-repo.git\hooks\post-receive' -Value $hook
+
+git clone ./origin-repo.git project
+cd project</code></pre>
+      </div>
+
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build ship-lab</div>
+<pre><code>cd ~
+mkdir ship-lab
+cd ship-lab
+git init --bare origin-repo.git
+mkdir site
+
+cat &gt; origin-repo.git/hooks/post-receive &lt;&lt;'HOOK'
+#!/bin/sh
+DEPLOY_BRANCH=main
+LAB="$(cd "$(dirname "$0")/../.." &amp;&amp; pwd)"
+while read old new ref; do
+  if [ "$ref" != "refs/heads/$DEPLOY_BRANCH" ]; then
+    echo "trigger: $ref is not the deploy branch, nothing to do"
+    continue
+  fi
+  echo "trigger: fired for $ref"
+  if git show "$new:index.html" | grep -q "&lt;h1&gt;"; then
+    git --work-tree="$LAB/site" checkout -f -q "$DEPLOY_BRANCH"
+    echo "deploy: published $(git rev-parse --short $new)"
+    git rev-parse --short $new &gt;&gt; "$LAB/deploy.log"
+  else
+    echo "build: FAILED, index.html has no h1 heading"
+    echo "deploy: skipped, the site still shows the previous version"
+  fi
+done
+HOOK
+chmod +x origin-repo.git/hooks/post-receive
+
+git clone ./origin-repo.git project
+cd project</code></pre>
+      </div>
+
+      <p><b>You now have four things</b> in <code>ship-lab</code>: <code>origin-repo.git</code>, the bare repository standing in for the hosting service; <code>site</code>, an empty folder standing in for the live website; <code>project</code>, your working clone; and shortly a <code>deploy.log</code> the hook writes to. The clone printed <code>warning: You appear to have cloned an empty repository</code>, which is correct and expected here.</p>
+      <p><b>Read the script once, for its four decisions.</b></p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">is this the<br>deploy branch?</span><span class="rd">It compares the incoming ref against <code>refs/heads/main</code>. Anything else and it says so and stops. <b>That single comparison is the whole of what makes a branch a trigger.</b></span></div>
+        <div class="refrow"><span class="rr">does the<br>build pass?</span><span class="rd">It checks that <code>index.html</code> still contains an <code>&lt;h1&gt;</code>. A real pipeline runs a test suite instead; the shape is identical and only the check is bigger.</span></div>
+        <div class="refrow"><span class="rr">publish</span><span class="rd">It copies the committed files into <code>site</code>. That copy, and nothing else, is what "the live site" means in this lab.</span></div>
+        <div class="refrow"><span class="rr">leave a<br>record</span><span class="rd">It appends the published hash to <code>deploy.log</code>. Section F is entirely about why that record earns its keep.</span></div>
+      </div>
+      <div class="note"><b>Two honest notes about hooks, so they do not surprise you later.</b> First, <b>hooks are not copied by <code>git clone</code></b>. They live in one repository's own <code>hooks</code> folder and travel with nothing: clone this bare repository and the copy holds only the <code>.sample</code> files Git ships. That is a deliberate safety decision, because a hook is a program, and cloning a repository should never run somebody else's programs. Second, Git's own documentation says <b>"Hooks that don't have the executable bit set are ignored"</b>, which is why the Git Bash version runs <code>chmod +x</code>. Windows has no executable bit to set, so the PowerShell version needs no equivalent step, and that was confirmed by running it rather than assumed.</div>
+    </div>
+
+    <div class="block" id="concept-trigger">
+      <h3>C. A branch as a deploy trigger</h3>
+      <p><b>Make the first version and push it.</b> Nothing in these four commands is new: this is Session 1's commit and Session 5's push. Watch what comes back.</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content index.html "&lt;h1&gt;Rate Tool&lt;/h1&gt;","&lt;p&gt;Version 1.&lt;/p&gt;"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>printf '&lt;h1&gt;Rate Tool&lt;/h1&gt;\n&lt;p&gt;Version 1.&lt;/p&gt;\n' &gt; index.html</code></div>
+      </div>
+<pre><code><span class="cmd">&gt; git add index.html</span>
+<span class="cmd">&gt; git commit -m "Add the first version of the page"</span>
+[main (root-commit) 0581368] Add the first version of the page
+ 1 file changed, 2 insertions(+)
+ create mode 100644 index.html
+<span class="cmd">&gt; git push -u origin main</span>
+remote: trigger: fired for refs/heads/main
+remote: deploy: published 0581368
+To C:/Users/you/ship-lab/./origin-repo.git
+ * [new branch]      main -&gt; main
+branch 'main' set up to track 'origin/main'.</code></pre>
+      <p><b>Those two <code>remote:</code> lines are the entire new idea in this session.</b> Session 6 met the <code>remote:</code> prefix already and named it correctly: it means the other end is talking, not your Git. Here the other end ran your hook, and the hook did something Git never does on its own. It published.</p>
+      <p><b>So look at the site.</b> Nothing copied that file there by hand.</p>
+<pre><code><span class="cmd">&gt; Get-Content ..\site\index.html</span>
+&lt;h1&gt;Rate Tool&lt;/h1&gt;
+&lt;p&gt;Version 1.&lt;/p&gt;</code></pre>
+      <p><b>Now mark it, and watch the trigger decline.</b> Session 9 taught annotated tags and taught that an ordinary push does not carry them, so a tag needs naming explicitly. Push it and read the hook's answer carefully:</p>
+<pre><code><span class="cmd">&gt; git tag -a v1.0.0 -m "First version live"</span>
+<span class="cmd">&gt; git push origin v1.0.0</span>
+remote: trigger: refs/tags/v1.0.0 is not the deploy branch, nothing to do
+To C:/Users/you/ship-lab/./origin-repo.git
+ * [new tag]         v1.0.0 -&gt; v1.0.0</code></pre>
+      <p><b>The tag reached the server and deployed nothing.</b> That is worth sitting with, because it kills the most natural wrong model: it is not "pushing causes a deploy", it is "pushing <b>this one ref</b> causes a deploy". Everything else is an ordinary upload. A repository can have any number of branches and tags flying at it all day while exactly one of them is wired to the outside world.</p>
+
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Set up and ship</div>
+        <ol>
+          <li>Run the whole <code>ship-lab</code> block for your shell from section B. Confirm you have <code>origin-repo.git</code>, <code>site</code> and <code>project</code> side by side, and that you are inside <code>project</code>.</li>
+          <li><b>Before you push, predict the two <code>remote:</code> lines.</b> Write down what you expect the hook to print. This is the habit the whole track was built for.</li>
+          <li>Create <code>index.html</code>, commit it, then <code>git push -u origin main</code>. Compare what printed against your prediction.</li>
+          <li>Look at <code>..\site\index.html</code> (or <code>../site/index.html</code>) and confirm the file is there. <b>You never copied it.</b></li>
+          <li>Tag it <code>v1.0.0</code> with <code>-a</code> and <code>-m</code>, push the tag, and read the hook's reply. Then check <code>..\site</code> has not changed.</li>
+          <li>Open <code>..\deploy.log</code>. One line, one hash. That file is your only record of what the trigger actually did, and section F leans on it hard.</li>
+        </ol>
+        <details><summary>My push printed no <code>remote:</code> lines at all.</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">The hook did not run, which almost always means it is in the wrong place or under the wrong name. It must be at <code>origin-repo.git/hooks/post-receive</code> with <b>no file extension</b>: a <code>post-receive.txt</code> or <code>post-receive.sh</code> is ignored silently, and Windows may have added <code>.txt</code> for you without saying so. Check with <code>Get-ChildItem origin-repo.git\hooks</code> and look for a name with no dot in it. On macOS or Linux the other cause is the executable bit, so re-run the <code>chmod +x</code> line.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I pushed, the hook published, and pushing a tag deployed nothing</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-release">
+      <h3>D. So push is not a save, it is a release</h3>
+      <p><b>This is the sentence to take away from the session.</b> For nine sessions <code>git push</code> has been a way of getting work off your machine, closer to a backup than anything else. On a repository wired the way <code>ship-lab</code> now is, that is no longer what it means:</p>
+      <div class="note" style="border-style:solid;border-color:var(--accent);background:var(--accent-soft)"><b>On a repository with a deploy trigger, <code>git push</code> to the trigger branch is a release.</b> Not a save, not a backup, not "getting it off my laptop". The moment it lands, strangers are looking at it.</div>
+      <p><b>And now every careful thing the last nine sessions said makes sense at once.</b> None of it was pedantry. Each piece was protecting this moment:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">why branch<br>at all</span><span class="rd">Feature branches are not tidiness. They exist so the trigger branch <b>stays deployable</b> while unfinished work still needs somewhere to live. Push a branch and nothing ships, which you just proved with the tag and will prove again in section E. <b>Session 3.</b></span></div>
+        <div class="refrow"><span class="rr">why review<br>before merge</span><span class="rd">Because merging into the trigger branch <i>is</i> the deploy decision. A pull request is not bureaucracy, it is the last point at which the release is still cheap to stop. <b>Session 6.</b></span></div>
+        <div class="refrow"><span class="rr">why tag</span><span class="rd">A tag turns "the last version that worked" from a memory into a name Git can compute against. That is what makes <code>v1.1.0..main</code> in section F possible at all. <b>Session 9.</b></span></div>
+        <div class="refrow"><span class="rr">why revert<br>and not reset</span><span class="rd"><code>git revert</code> adds a commit that undoes another one, so it <b>moves forward</b> and never argues with anyone else's copy. On a deploy branch that is also the fastest fix, because a push is all it takes to ship the undo. <b>Session 7.</b></span></div>
+        <div class="refrow"><span class="rr">why the<br>golden rule</span><span class="rd">Session 8's rule was "do not rewrite history somebody else already has". A deploy branch is the most-shared history there is, so it is exactly where rewriting hurts most, and exactly where the temptation is strongest, because rewriting <i>looks</i> tidier than admitting the mistake. <b>Session 8.</b></span></div>
+      </div>
+      <p><b>The practical version, in one line:</b> on a deploy branch you go forwards. Revert, fix, push again. You do not go back and edit what happened, because the outside world already saw it.</p>
+    </div>
+
+    <div class="block" id="concept-workflow">
+      <h3>E. Changing something properly, once</h3>
+      <p><b>Two rates need adding to the page.</b> You could edit <code>index.html</code> on <code>main</code> and push, and it would work, and that is exactly the habit this section exists to break. Branch instead, and prove to yourself that pushing the branch ships nothing.</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>git switch -c add-rates
+Set-Content index.html "&lt;h1&gt;Rate Tool&lt;/h1&gt;","&lt;p&gt;Version 1.&lt;/p&gt;","&lt;p&gt;Local rate: 145 per hour.&lt;/p&gt;","&lt;p&gt;Questions: dispatch@example.com&lt;/p&gt;"
+git commit -am "Add the local rate"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>git switch -c add-rates
+printf '&lt;h1&gt;Rate Tool&lt;/h1&gt;\n&lt;p&gt;Version 1.&lt;/p&gt;\n&lt;p&gt;Local rate: 145 per hour.&lt;/p&gt;\n&lt;p&gt;Questions: dispatch@example.com&lt;/p&gt;\n' &gt; index.html
+git commit -am "Add the local rate"</code></div>
+      </div>
+      <p>Add a second commit the same way for the long distance rate, then push the branch:</p>
+<pre><code><span class="cmd">&gt; git push -u origin add-rates</span>
+remote: trigger: refs/heads/add-rates is not the deploy branch, nothing to do
+To C:/Users/you/ship-lab/./origin-repo.git
+ * [new branch]      add-rates -&gt; add-rates
+branch 'add-rates' set up to track 'origin/add-rates'.
+<span class="cmd">&gt; Get-Content ..\site\index.html</span>
+&lt;h1&gt;Rate Tool&lt;/h1&gt;
+&lt;p&gt;Version 1.&lt;/p&gt;
+&lt;p&gt;Questions: dispatch@example.com&lt;/p&gt;</code></pre>
+      <p><b>Two commits are safely on the server and the public site has not moved.</b> That is what a feature branch buys you, stated as an observation instead of a principle: your work is backed up, shareable and reviewable, and it is not released. Those used to be the same act. They are not any more.</p>
+
+      <p><b>Meanwhile the deploy branch moved without you</b>, which is Session 6's situation exactly. A contact line and the office hours went onto <code>main</code> while you were working, so the two branches have genuinely diverged:</p>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+* 5d21a80 (HEAD -&gt; main, origin/main) Add the office hours
+| * f4281b6 (origin/add-rates, add-rates) Add the long distance rate
+| * c39fa60 Add the local rate
+|/
+* f085b98 Add a contact line
+* 0581368 (tag: v1.0.0) Add the first version of the page</code></pre>
+      <p><b>Now the decision Session 6 trained you for, with a reason attached.</b> Three strategies were on the table there: a merge commit, a squash, or a rebase. On a branch that deploys, the squash has a specific and practical argument in its favour, and it is not about tidiness:</p>
+      <div class="note"><b>Why squash, here.</b> A squash puts <b>one commit on <code>main</code> per change that shipped</b>. That matters because the deploy branch is the branch you will one day have to reason about under pressure: "which release broke this, and what do I revert?" One commit per change makes the answer one commit, and <code>git revert</code> takes one argument. A merge commit would also work and would preserve the two steps; a rebase would put both commits on <code>main</code> individually. Neither is wrong. What matters is that <b>you can say why</b>, which is the actual level milestone.</div>
+<pre><code><span class="cmd">&gt; git merge --squash add-rates</span>
+Auto-merging index.html
+Squash commit -- not updating HEAD
+Automatic merge went well; stopped before committing as requested
+<span class="cmd">&gt; git commit -m "Add the local and long distance rates"</span>
+[main 354b0ea] Add the local and long distance rates
+ 1 file changed, 2 insertions(+)
+<span class="cmd">&gt; git push origin main</span>
+remote: trigger: fired for refs/heads/main
+remote: deploy: published 354b0ea
+To C:/Users/you/ship-lab/./origin-repo.git
+   5d21a80..354b0ea  main -&gt; main</code></pre>
+      <div class="note"><b>Two details in that transcript, both real.</b> <b>One:</b> those three lines come from two different streams. <code>Auto-merging</code> and <code>Squash commit -- not updating HEAD</code> are printed to standard output, while <code>Automatic merge went well</code> goes to standard error, so <b>the order the three interleave in can differ from run to run</b> and no ordering is a fault. That Git splits its output across two streams at all is worth knowing on its own: it is why piping a Git command somewhere can look like it lost half of what you saw. <b>Two:</b> <code>git merge --squash</code> deliberately stops before committing, which is why a separate <code>git commit</code> follows. Give that commit <code>-m</code>: Session 4 showed you what opens when you leave the message off, and this is one of the places it would.</div>
+      <div class="note"><b>The one step this lab cannot give you, said plainly.</b> On a real hosted repository the merge above would happen <b>through a pull request</b>: you would open it, somebody would read the diff, and the merge button would offer you exactly the three strategies named here. A bare repository on your own disk has no pull request mechanism, so the offline path does the merge directly and you lose the review half. <b>That half is not skipped on this track, it is Session 6</b>, which ran the whole cycle against a real remote with captured output. If you have an account, section I is where the two rejoin. If you do not, Session 6 read alongside this section is the honest equivalent, and nothing later in this session depends on it.</div>
+      <p><b>Tag the release, then delete the branch and read the complaint.</b> Session 6 met this exact warning and explained it: a squash never recorded <code>add-rates</code> as merged, so as far as <code>main</code> is concerned that branch's commits were never taken. Git is telling you the truth in an alarming way.</p>
+<pre><code><span class="cmd">&gt; git tag -a v1.1.0 -m "Rates published"</span>
+<span class="cmd">&gt; git push origin v1.1.0</span>
+remote: trigger: refs/tags/v1.1.0 is not the deploy branch, nothing to do
+To C:/Users/you/ship-lab/./origin-repo.git
+ * [new tag]         v1.1.0 -&gt; v1.1.0
+<span class="cmd">&gt; git branch -d add-rates</span>
+warning: deleting branch 'add-rates' that has been merged to
+         'refs/remotes/origin/add-rates', but not yet merged to HEAD
+Deleted branch add-rates (was f4281b6).
+<span class="cmd">&gt; git log --oneline --graph --decorate=short</span>
+* 354b0ea (HEAD -&gt; main, tag: v1.1.0, origin/main) Add the local and long distance rates
+* 5d21a80 Add the office hours
+* f085b98 Add a contact line
+* 0581368 (tag: v1.0.0) Add the first version of the page</code></pre>
+      <p><b>One straight line, one commit per change, two tagged releases.</b> That history is readable by somebody who was not there, which was Session 2's whole argument, and it is about to earn its keep.</p>
+
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Change it properly, and justify the merge</div>
+        <ol>
+          <li><b>Order matters here, so follow it exactly or your graph will not match the transcripts.</b> First, while still on <code>main</code>, add the contact line as one ordinary commit and push it. It deploys, as you would now expect.</li>
+          <li>Now branch with <code>git switch -c add-rates</code> and make <b>two</b> commits, one per rate. Push the branch.</li>
+          <li><b>Then go back to <code>main</code> and add the office hours as another commit, and push that too.</b> This is the step that makes the two branches diverge rather than one simply being ahead, which is the whole situation the merge strategy question depends on.</li>
+          <li>When you pushed the branch, did you <b>predict the <code>remote:</code> line before pressing enter</b>? Check <code>..\site</code> now and confirm it did not move while two commits sat on the server.</li>
+          <li>Run <code>git log --oneline --graph --all</code> and satisfy yourself from the picture that the two branches have genuinely <b>diverged</b>, rather than one simply being ahead of the other. You are looking for the fork, the two stacked commits on one side and the single commit on the other.</li>
+          <li><b>Choose your merge strategy and write the reason down in one sentence before you run anything.</b> Squash, merge commit or rebase, any of the three, but the sentence is the assignment. If you cannot write it, re-read section E's note and Session 6.</li>
+          <li>Merge the way you chose, push, and confirm the deploy fired. Tag it <code>v1.1.0</code> and push the tag.</li>
+          <li>Delete <code>add-rates</code>. If you squashed, read the warning and explain to yourself why it is correct rather than a bug.</li>
+        </ol>
+        <details><summary><code>git branch -d</code> refused outright instead of warning me.</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Then you squashed and you never pushed the branch, so there is no <code>origin/add-rates</code> for Git to fall back on. With no evidence at all that the work was taken, it stops instead of warning:</p>
+            <pre style="margin:0 0 8px"><code>error: the branch 'add-rates' is not fully merged
+hint: If you are sure you want to delete it, run 'git branch -D add-rates'</code></pre>
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">That is Session 8's <code>-d</code> against <code>-D</code> distinction doing its job: <code>-d</code> refuses when it cannot prove the commits are reachable, and <code>-D</code> deletes regardless. Here the changes genuinely are in <code>main</code>, in squashed form, so <code>-D</code> is the honest answer. Compare <code>index.html</code> against what you expect first if you want to be certain.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I branched, pushed without deploying, merged with a stated reason, and tagged the release</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-checklist">
+      <h3>F. Break it, then read the failure in four questions</h3>
+      <p><b>Three more commits go onto <code>main</code>, and one of them is wrong.</b> The middle commit removes the closing <code>&lt;/h1&gt;</code> from the heading, which is the kind of mistake that looks like nothing in a diff and swallows an entire page in a browser. All three get pushed together, which is also realistic: people push a morning's work, not one commit.</p>
+<pre><code><span class="cmd">&gt; git push origin main</span>
+remote: trigger: fired for refs/heads/main
+remote: deploy: published c17919e
+To C:/Users/you/ship-lab/./origin-repo.git
+   354b0ea..c17919e  main -&gt; main
+<span class="cmd">&gt; Get-Content ..\site\index.html</span>
+&lt;h1&gt;Rate Tool
+&lt;p&gt;Version 1.&lt;/p&gt;
+&lt;p&gt;Local rate: 145 per hour.&lt;/p&gt;
+&lt;p&gt;Long distance: 210 per hour.&lt;/p&gt;
+&lt;p&gt;Packing: 60 per hour.&lt;/p&gt;
+&lt;p&gt;Questions: dispatch@example.com&lt;/p&gt;
+&lt;p&gt;Office hours: 8 to 5.&lt;/p&gt;
+&lt;p&gt;Updated August 2026.&lt;/p&gt;</code></pre>
+      <p><b>It deployed, and it is broken, and the deploy reported success.</b> Both of those are true at once and that combination is the normal case rather than an unlucky one. The hook did its job perfectly: it published what you gave it.</p>
+
+      <p><b>Here is the thing a beginner gets wrong.</b> "The deploy is broken" is not one problem, it is four, and they are distinguished by <b>where the chain stopped</b>. Ask them in this order, because each one is cheap and rules out the next:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">1. did the<br>push land?</span><span class="rd">Is the commit actually on the server, or is it still sitting on your laptop? <code>git fetch origin</code>, and then <code>git log --oneline -1 origin/main</code>. <b>The fetch is not optional</b>, for the reason Session 5 gave: <code>origin/main</code> is only your own note of where the server was the last time you asked. Astonishingly often the answer here is no, because the push was rejected and the message scrolled past.</span></div>
+        <div class="refrow"><span class="rr">2. did the<br>trigger fire?</span><span class="rd">The push landed, but did anything react? Here the evidence is the <code>remote:</code> block the push itself printed, where <code>trigger: fired</code> means it ran. On a hosted service it is the run list. <b>If the trigger never fired, nothing about your code is the problem</b>: you pushed the wrong branch, or the wiring is off.</span></div>
+        <div class="refrow"><span class="rr">3. did the<br>build fail?</span><span class="rd">It fired, but did it finish? Again the push output is what says so, with a <code>build: FAILED</code> line. A failed build means <b>the live site is untouched</b> and still serving the last good version. That is a much better position than it feels like.</span></div>
+        <div class="refrow"><span class="rr">4. did it deploy<br>something broken?</span><span class="rd">It fired, it succeeded, and the result is wrong. <code>deploy.log</code> is the evidence here, because the hook appends to it only on a successful publish: if its last line is the commit you just pushed, the site took your change. <b>Now it is your code</b>, and only now. This is the only one of the four where the fix is a commit.</span></div>
+      </div>
+      <p><b>Run questions one and four against the lab now.</b> Two and three were answered by the push output you already read. Question three gets its own demonstration in section H, because you have not yet seen a build refuse.</p>
+<pre><code><span class="cmd">&gt; git fetch origin</span>
+<span class="cmd">&gt; git log --oneline -1 origin/main</span>
+c17919e Add a last updated line
+<span class="cmd">&gt; Get-Content ..\deploy.log</span>
+0581368
+f085b98
+5d21a80
+354b0ea
+c17919e
+<span class="cmd">&gt; Get-Content ..\site\index.html -TotalCount 1</span>
+&lt;h1&gt;Rate Tool</code></pre>
+      <p><b>The fetch printed nothing at all</b>, which is itself the answer: there was nothing new to collect, so the note was already current. <b>Question 1: yes</b>, <code>origin/main</code> is at <code>c17919e</code>. <b>Questions 2 and 3: the push output already answered both</b>, with its <code>trigger: fired</code> line and no <code>build: FAILED</code> line. <b>Question 4: yes</b>, because <code>deploy.log</code> ends at that same <code>c17919e</code>, so the site really did take your change, and the first line of the served file shows what the change did. Four cheap checks, and the problem is now precisely located: it is in a commit, and the commit is one of the three you just pushed.</p>
+      <div class="note"><b>An honest limit of a fifteen-line hook, and the one real argument for a hosted pipeline.</b> This hook writes to <code>deploy.log</code> only when it actually publishes, so <b>a build that failed and a hook that was never installed leave that file looking identical</b>. Only the <code>remote:</code> block at push time tells those two apart, and that block scrolls away. A hosted service keeps a permanent record of every run and its outcome instead, which is exactly what section I shows: there, one glance separates a build that failed from one that was cancelled from one that never started at all. If you want the same thing here it is one more <code>echo</code> in the hook, writing a line <i>before</i> the build check rather than after it.</div>
+
+      <p><b>Which one?</b> This is where the tag stops being decoration. You do not need to search the whole history, only what shipped since the last release you trust. <b>The two dots are the one piece of new syntax in this section, so here is what they mean:</b> <code>A..B</code> is "everything reachable from B that is not reachable from A", so <code>v1.1.0..main</code> reads as "the commits on main that the v1.1.0 release did not have". That is the notation which turns a tag into a question you can ask.</p>
+<pre><code><span class="cmd">&gt; git log --oneline v1.1.0..main</span>
+c17919e Add a last updated line
+3b75017 Tidy the page heading
+8755328 Add the packing rate</code></pre>
+      <p>Three candidates, and one of them is named in a way that should raise an eyebrow. Session 2's <code>git show</code> settles it:</p>
+<pre><code><span class="cmd">&gt; git show 3b75017</span>
+commit 3b750170b9d6beb713267797fb131cfff9a92a80
+Author: Patrick Burdette &lt;patrick@example.com&gt;
+Date:   Thu Aug 20 20:22:13 2026 -0500
+
+    Tidy the page heading
+
+diff --git a/index.html b/index.html
+index b32a563..ae17f49 100644
+--- a/index.html
++++ b/index.html
+@@ -1,4 +1,4 @@
+-&lt;h1&gt;Rate Tool&lt;/h1&gt;
++&lt;h1&gt;Rate Tool
+ &lt;p&gt;Version 1.&lt;/p&gt;
+ &lt;p&gt;Local rate: 145 per hour.&lt;/p&gt;
+ &lt;p&gt;Long distance: 210 per hour.&lt;/p&gt;</code></pre>
+      <div class="note"><b>Why not <code>git bisect</code> here, and when it would be right.</b> Bisect is for when you <b>cannot see it</b>. Three commits and a visible diff means reading is faster than searching, and Session 9's own framing applies: bisect earns its setup cost over a range too long to read, where ten tests cover a thousand commits. The judgement call is the skill, so state it out loud: <b>reading is right when the range is short or the symptom points at a file; bisecting is right when the range is long or you have no idea which file is even involved.</b> Choosing correctly is worth more than knowing both commands.</div>
+
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Break it on purpose, and watch it ship</div>
+        <ol>
+          <li>Make three commits on <code>main</code>. The first adds a packing rate, the second removes the <code>&lt;/h1&gt;</code> from the heading and is described as tidying it, the third adds an "Updated August 2026" line. <b>Commit the break with an innocent message on purpose</b>, because that is what real ones look like.</li>
+          <li>Push all three at once. <b>Predict whether the deploy will succeed</b> before you press enter, and be careful: "succeed" and "correct" are different questions.</li>
+          <li>Look at <code>..\site\index.html</code>. The break is now live, published by a deploy that reported success.</li>
+          <li><b>Sit with that for a second.</b> This is the situation the whole session is about, and it took one push.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I shipped a broken page to the live site with a successful deploy</label>
+      </div>
+
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Diagnose it with the four questions</div>
+        <ol>
+          <li>Answer all four in order, in writing, with a command behind each. Do not skip one because you already know the answer: the point is the habit, and on a real incident you will not know.</li>
+          <li>Use your tag to narrow the range: <code>git log --oneline v1.1.0..main</code>.</li>
+          <li><b>Name the tool you are going to use to find the commit, and why, before you use it.</b> Reading with <code>git show</code>, or searching with <code>git bisect</code>. Both are legitimate. Write the reason.</li>
+          <li>Find the commit and confirm the diff is what you expected. Write its hash down; the next task needs it.</li>
+          <li><b>Then answer this without running anything:</b> if <code>deploy.log</code> had ended at <code>354b0ea</code> instead, which of the four questions would that have answered, and what would you have looked at next?</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I worked the four questions in order and named the commit and my reason for choosing the tool</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-recover">
+      <h3>G. Fix it forward, and the two kinds of broken</h3>
+      <p><b>The commit is shared. It is on the server, it deployed, and anyone could have pulled it.</b> Session 7 and Session 8 gave you two families of answer, and this is the first time you have had to pick. The rule is not about which command you like:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">shared<br>history</span><span class="rd">Somebody else may already have this commit. <b>Go forwards: <code>git revert</code>.</b> It adds a new commit that undoes the old one, so nobody's copy is contradicted, and on a deploy branch the fix ships with the same push you were going to make anyway.</span></div>
+        <div class="refrow"><span class="rr">local<br>only</span><span class="rd">The commit has never left your machine. <b>Remove it: <code>git reset</code>, with <code>git reflog</code> as the safety net.</b> Nobody can be contradicted by history they never had, so there is nothing to preserve and no reason to leave a scar in the log.</span></div>
+      </div>
+      <p><b>So, the shared half.</b> Revert the commit you found, push, and watch the site come back:</p>
+<pre><code><span class="cmd">&gt; git revert --no-edit 3b75017</span>
+Auto-merging index.html
+[main f73ce04] Revert "Tidy the page heading"
+ Date: Thu Aug 20 20:22:16 2026 -0500
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+<span class="cmd">&gt; git push origin main</span>
+remote: trigger: fired for refs/heads/main
+remote: deploy: published f73ce04
+To C:/Users/you/ship-lab/./origin-repo.git
+   c17919e..f73ce04  main -&gt; main
+<span class="cmd">&gt; Get-Content ..\site\index.html</span>
+&lt;h1&gt;Rate Tool&lt;/h1&gt;
+&lt;p&gt;Version 1.&lt;/p&gt;
+&lt;p&gt;Local rate: 145 per hour.&lt;/p&gt;
+&lt;p&gt;Long distance: 210 per hour.&lt;/p&gt;
+&lt;p&gt;Packing: 60 per hour.&lt;/p&gt;
+&lt;p&gt;Questions: dispatch@example.com&lt;/p&gt;
+&lt;p&gt;Office hours: 8 to 5.&lt;/p&gt;
+&lt;p&gt;Updated August 2026.&lt;/p&gt;</code></pre>
+      <p><b>Look closely at what came back.</b> The heading is fixed and <b>"Updated August 2026" is still there</b>, even though that commit came after the broken one. A revert is surgical: it undoes one commit's changes, not everything since. That is the property that makes it usable in an emergency, because you do not have to work out what collateral you are about to lose.</p>
+      <p><b>Use <code>--no-edit</code>.</b> Session 4 covered what opens when you leave a message off, and <code>git revert</code> is one of the commands that would open it. Then tag the fix, because a fix is a release too:</p>
+<pre><code><span class="cmd">&gt; git tag -a v1.1.1 -m "Fix the broken heading"</span>
+<span class="cmd">&gt; git push origin v1.1.1</span>
+remote: trigger: refs/tags/v1.1.1 is not the deploy branch, nothing to do
+<span class="cmd">&gt; git log --oneline -4</span>
+f73ce04 Revert "Tidy the page heading"
+c17919e Add a last updated line
+3b75017 Tidy the page heading
+8755328 Add the packing rate</code></pre>
+      <p><b>The mistake is still in the history and that is correct.</b> Nothing was hidden, nothing was rewritten, and anyone who pulled the broken version gets the fix by pulling again rather than by being told their copy is wrong. That is what "go forwards" buys.</p>
+
+      <p><b>Now the other kind of broken.</b> Same lab, different situation: a commit that never left your machine. <code>git status -sb</code> is the command that tells you which situation you are in, and it is the one worth building the habit around:</p>
+<pre><code><span class="cmd">&gt; git commit -am "Try something out"</span>
+[main 6ed62c8] Try something out
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main [ahead 1]
+<span class="cmd">&gt; git reset --hard origin/main</span>
+HEAD is now at f73ce04 Revert "Tidy the page heading"
+<span class="cmd">&gt; git log --oneline -2</span>
+f73ce04 Revert "Tidy the page heading"
+c17919e Add a last updated line
+<span class="cmd">&gt; git reflog -3</span>
+f73ce04 HEAD@{0}: reset: moving to origin/main
+6ed62c8 HEAD@{1}: commit: Try something out
+f73ce04 HEAD@{2}: revert: Revert "Tidy the page heading"</code></pre>
+      <p><b><code>[ahead 1]</code> is the whole decision, printed for you.</b> Ahead means you hold a commit the server does not, which means nobody else can possibly have it, which means resetting it away contradicts nobody. Had the bracket been absent altogether, printing just <code>## main...origin/main</code> the way it does everywhere else in this session, the commit would already be shared and <code>revert</code> would be the answer instead. Git omits the bracket when there is nothing to report rather than printing a zero, so <b>the thing to look for is the presence of the bracket, not a number inside it</b>. <b>One command distinguishes the two cases</b>, and <code>origin/main</code> is the natural thing to reset to because it is the definition of what everyone else has.</p>
+      <p><b>And the discarded commit is not gone</b>, as Session 8 promised: <code>6ed62c8</code> is sitting in the reflog. Resetting is safe on local work precisely because the reflog remembers what the branch forgot.</p>
+
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Fix both kinds, and feel the difference</div>
+        <ol>
+          <li><b>The shared half.</b> Revert the commit you identified in the last task, with <code>--no-edit</code>. Push it. Confirm the site recovered <b>and</b> that the later good commit's line survived.</li>
+          <li>Tag the fix <code>v1.1.1</code> and push the tag.</li>
+          <li>Run <code>git log --oneline -4</code> and confirm the broken commit is <b>still there</b>. Say why that is right rather than untidy.</li>
+          <li><b>The local half.</b> Make a deliberately bad commit and <b>do not push it</b>. Run <code>git status -sb</code> and read the <code>[ahead 1]</code>.</li>
+          <li>Reset it away with <code>git reset --hard origin/main</code>, then find it again in <code>git reflog</code>. Confirm <code>..\site</code> never changed at any point.</li>
+          <li><b>The question that is the actual milestone.</b> Write one sentence: what single fact decided which of the two tools you used? If your sentence mentions how bad the mistake was, or how recent, try again. There is only one fact that matters.</li>
+        </ol>
+        <details><summary>My <code>git reset --hard origin/main</code> threw away more than I expected.</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">Then you were more than one commit ahead, and <code>--hard</code> discarded all of them plus any uncommitted edits, exactly as Session 7 described. Everything committed is recoverable: <code>git reflog</code>, find the hash your branch was on before the reset, and <code>git reset --hard &lt;that hash&gt;</code> to put it back. <b>Uncommitted</b> edits are the exception and are genuinely gone, which is why <code>git status</code> before <code>--hard</code> is a habit worth having. Note also what <code>--hard</code> does not touch: untracked files survive it, because Git has no committed version of them to reset to.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I reverted the shared break, reset the local one, and can say what decided each</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-buildfail">
+      <h3>H. The third answer: when the build refuses</h3>
+      <p><b>Question three of the checklist has not happened to you yet, so make it happen once.</b> The difference between "it deployed something broken" and "the build failed" is the difference between a live outage and a non-event, and reading the two apart in the moment is worth practising while nothing is at stake.</p>
+      <p><b>Break it in a way the build's own check catches.</b> The hook only publishes if <code>index.html</code> still has an <code>&lt;h1&gt;</code>, so turn the heading into a paragraph and push:</p>
+<pre><code><span class="cmd">&gt; git commit -am "Make the heading a paragraph"</span>
+[main 0101d23] Make the heading a paragraph
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+<span class="cmd">&gt; git push origin main</span>
+remote: trigger: fired for refs/heads/main
+remote: build: FAILED, index.html has no h1 heading
+remote: deploy: skipped, the site still shows the previous version
+To C:/Users/you/ship-lab/./origin-repo.git
+   f73ce04..0101d23  main -&gt; main</code></pre>
+      <p><b>Now run the same four questions and watch them land differently.</b> The push landed and the trigger fired, exactly as before. What changed is the third and fourth answers:</p>
+<pre><code><span class="cmd">&gt; git log --oneline -1 origin/main</span>
+0101d23 Make the heading a paragraph
+<span class="cmd">&gt; Get-Content ..\deploy.log -Tail 3</span>
+354b0ea
+c17919e
+f73ce04
+<span class="cmd">&gt; Get-Content ..\site\index.html -TotalCount 1</span>
+&lt;h1&gt;Rate Tool&lt;/h1&gt;</code></pre>
+      <p><b>The evidence is the absence.</b> <code>deploy.log</code> still ends at <code>f73ce04</code>, the previous commit, so nothing was published this time, and the live page still has its proper heading. Compare that against section F, where the log's last line was the commit you had just pushed. <b>That comparison settles question four either way:</b> if the log ends at your new commit, the site has your change and the problem is the change; if it ends earlier, the site never took it at all. <b>What separates a failed build from a trigger that never ran is the push output rather than this file</b>, which is the limit section F named, and here it is the <code>build: FAILED</code> line that settles it.</p>
+      <div class="note"><b>The counter-intuitive part is worth saying plainly.</b> A failed build is <b>good news</b> compared to a successful one that published nonsense. Nobody outside ever saw it, the previous version is still serving, and you have as long as you like to fix it. The failure that hurts is the one that reports success. That is why the fourth question exists at all: three of the four leave the public site untouched, and only one of them is an outage.</div>
+      <p><b>Put the lab back.</b> Revert and push, and the deploy recovers, which also demonstrates that the same forward-moving fix works whichever of the two happened:</p>
+<pre><code><span class="cmd">&gt; git revert --no-edit HEAD</span>
+[main 23ed988] Revert "Make the heading a paragraph"
+ Date: Thu Aug 20 20:22:21 2026 -0500
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+<span class="cmd">&gt; git push origin main</span>
+remote: trigger: fired for refs/heads/main
+remote: deploy: published 23ed988
+To C:/Users/you/ship-lab/./origin-repo.git
+   0101d23..23ed988  main -&gt; main
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main</code></pre>
+      <p><b>No task box on this one</b>, because it is one command and its opposite, and the tasks are already carrying the session. Run it anyway. It is the cheapest way to feel the difference the checklist is built on, and <code>git status -sb</code> printing nothing after the branch name is your confirmation that the lab is back where it started.</p>
+    </div>
+
+    <div class="block" id="concept-github">
+      <h3>I. The same loop against real GitHub Pages (optional)</h3>
+      <div class="note"><b>Everything in this section is optional and needs a GitHub account.</b> Nothing later in the session depends on it: the drills, the write-its and the comprehensive final are all answerable from sections A to H. Read it even if you have no account, because it shows that the local hook was not a toy analogy, and it names the one place a hosted service tells you something the hook cannot.</div>
+      <p><b>GitHub Pages is a deploy trigger with the same shape.</b> Point it at a branch and every push to that branch rebuilds the site. Two commands and a setting, done once:</p>
+<pre><code><span class="cmd">&gt; gh repo create &lt;you&gt;/deploy-lab --public</span>
+<span class="cmd">&gt; gh api -X POST repos/&lt;you&gt;/deploy-lab/pages -f "source[branch]=main" -f "source[path]=/"</span></code></pre>
+      <p><b>The second command is the whole wiring, and its reply names the address the site will appear at.</b> Trimmed to the fields that matter:</p>
+<pre><code>{"html_url":"https://&lt;you&gt;.github.io/deploy-lab/","build_type":"legacy",
+ "source":{"branch":"main","path":"/"},"status":null,"public":true}</code></pre>
+      <p><code>"source"</code> is the trigger, stated back to you: branch <code>main</code>, folder <code>/</code>. <b>Serving a site from a private repository needs a paid plan</b>, so a free account has to make the repository public, which is worth knowing before you wonder why nothing ever appears. That part is GitHub policy rather than something these captures show.</p>
+      <p><b>Then it behaves exactly like the lab.</b> Pushing <code>main</code> starts a build; pushing a feature branch starts nothing. The captures below come from a throwaway repository built for this session and deleted afterwards, with the account and repository name replaced by <code>&lt;you&gt;</code> and <code>deploy-lab</code>:</p>
+<pre><code><span class="cmd">&gt; gh run list</span>
+STATUS  TITLE            WORKFLOW       BRANCH  EVENT    ID           ELAPSED  AGE
+&#10003;       pages build ...  pages-buil...  main    dynamic  32435197335  40s      about 15 m...
+X       pages build ...  pages-buil...  main    dynamic  32434586535  35s      about 26 m...
+X       pages build ...  pages-buil...  main    dynamic  32434565525  25s      about 26 m...
+&#10003;       pages build ...  pages-buil...  main    dynamic  32434500169  46s      about 27 m...</code></pre>
+      <div class="note"><b>A <code>gh</code> transcript can never be exactly reproducible, and it is honest to say so once.</b> <code>gh</code> lays its tables out to your terminal's width and truncates the columns to fit, so <code>pages build ...</code> is the tool abbreviating, not the output being cut here. It also prints relative ages, so <code>about 15 m...</code> becomes something else a minute later. Read the shape, not the spacing.</div>
+      <p><b>Four pushes, four runs, and the middle two both show <code>X</code>.</b> They are not the same failure, and this is the one thing the hosted version teaches that the hook cannot:</p>
+      <p><b>The table does not tell you which is which, so ask for the conclusion directly.</b> This is the command the previous note said to reach for:</p>
+<pre><code><span class="cmd">&gt; gh api repos/&lt;you&gt;/deploy-lab/actions/runs --jq &#39;.workflow_runs[] | "\(.head_sha[0:7]) \(.conclusion)"&#39;</span>
+43ba5e5 success
+69305ae failure
+b6169c1 cancelled
+53e19d5 success</code></pre>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">b6169c1:<br>cancelled</span><span class="rd">A second push arrived twenty seconds after this build started, so GitHub <b>abandoned the in-flight build</b> and began again on the newer commit. Nothing was wrong with this commit at all. Note what the table above showed for it: a plain <code>X</code>, the same mark as a real failure.</span></div>
+        <div class="refrow"><span class="rr">69305ae:<br>failure</span><span class="rd">A genuinely broken commit: an unterminated quote in a configuration file, so the build tool could not read its own settings. This is question three of the checklist, on a real service.</span></div>
+      </div>
+      <p><b>And the two surfaces disagree about the cancelled one.</b> The Pages-specific summary for <code>b6169c1</code> reported <code>"status": "errored"</code> with the message <code>"Page build failed."</code>, which is simply wrong: nothing failed, it was superseded. The Actions view above is the one that told the truth. <b>Prefer the run conclusion over any summary status</b>, or you will spend an afternoon debugging a commit that was never broken.</p>
+      <p><b>So go to the run itself rather than the summary.</b> The log names the file, the line and the column, which is more than the local hook ever tells you. <b>That output is abridged here:</b> every real log line carries the job name, the step name and a full timestamp in front of the message, and the error arrives as one very long line, so the prefix is shown as <code>...</code> and the message is wrapped to fit this page.</p>
+<pre><code><span class="cmd">&gt; gh run view 32434586535 --log-failed</span>
+build   Build with Jekyll   ... Error: (/github/workspace/./_config.yml):
+found unexpected end of stream while scanning a quoted scalar
+at line 2 column 14</code></pre>
+      <div class="note"><b>Two practical notes if you try this.</b> <b>First</b>, do not read too much into a single <code>X</code>: cancelled and failed are different events and only one of them is about your code, so check the conclusion, with the command shown above, before you start debugging something that was never broken. <b>Second</b>, this section deliberately shows only the deploy half. <b>The pull request half of the loop is Session 6</b>, which captured <code>gh pr create</code>, <code>gh pr list</code> and <code>gh pr merge</code>, along with all three merge strategies, against a real remote, so it is not repeated here. Run this section for the trigger and re-read Session 6 for the review, and between them you have the whole cycle on real hosting.</div>
+      <p><b>The point of the section, in one sentence:</b> the hook in section B and GitHub Pages differ in scale, logging and polish, and not at all in the thing that matters, which is that one branch is wired to the outside world and pushing to it is a release.</p>
+    </div>
+
+    <div class="block" id="concept-close">
+      <h3>J. What you can do now</h3>
+      <p><b>The Hub's promise for this level was: you can maintain your own projects, and work in someone else's repository without damaging it.</b> Measured against the loop you just ran, that is now a description rather than a goal:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">you can<br>ship</span><span class="rd">Branch, commit, merge with a strategy you can justify, tag the release, and know before you press enter which of those pushes is a release and which is only an upload.</span></div>
+        <div class="refrow"><span class="rr">you can<br>diagnose</span><span class="rd">Four questions in order, each with a command behind it, ending at a located problem instead of "the deploy is broken". Then read or search for the commit, and say which and why.</span></div>
+        <div class="refrow"><span class="rr">you can<br>recover</span><span class="rd">Revert what is shared, reset what is not, and decide between them on the one fact that matters rather than on how bad it feels. <code>git status -sb</code> tells you which world you are in.</span></div>
+        <div class="refrow"><span class="rr">you can<br>read Git</span><span class="rd">Which was the actual point of all ten sessions. You can look at a command and predict what it will do to your repository <b>before</b> you run it. That is the difference between using Git and copying commands.</span></div>
+      </div>
+      <p><b>What is still genuinely ahead of you</b>, honestly stated: everything below the commands. Git's own internals, the object graph, and the plumbing commands that let you script against a repository instead of typing at it. Session 8 gave you a glimpse when it explained why a hash changes, and that thread does keep going. <b>The Hub's "Where to next" closer</b> is where that road is signposted, along with what is and is not worth certifying.</p>
+      <p><b>One last thing, and it is the only advice in this session that is not about Git.</b> The reason a broken deploy is frightening is not technical, it is that people feel it is a verdict on them. It is not. It is a commit, it is findable, and it is reversible, and you have now done the whole cycle deliberately with your own hands. That is the actual milestone.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature, one last time: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. These eleven are deliberately spread across the track rather than drawn from today, so expect to be pulled back to branching, remotes and undo as much as to deploys. Full coverage of every level is the comprehensive final&#39;s job in Part 6, not this part&#39;s.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a repository on <code>main</code> with a handful of commits and a clean working tree, and where it matters, a deploy trigger wired to <code>main</code>. <b>No drill grades a hash, a date, a path, an email address or a URL</b>, since all of those differ per machine. Each drill names the shape of answer it wants: a single value, a count, an unordered set, or an ordered sequence.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. Both sequences here are whole procedures rather than fragments: one ships a change, the other recovers from one.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: you branch before you commit, you push before you merge, and you tag what has already shipped rather than what you hope will.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Two of these blanks are single flag letters where <b>capitalisation is the whole distinction</b>, because <code>-c</code> and <code>-C</code>, and <code>-d</code> and <code>-D</code>, are different commands rather than different spellings. Those two are graded exactly as typed.</p>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now, and on the last day of the track this is the part that matters most. Three of these four are <b>written rather than run</b>: they ask you to explain, plan and justify, because that is what separates somebody who can operate Git from somebody who can be trusted with a live project. Draft your answer in the box, reveal the reference, and compare the reasoning rather than the wording. Tap <b>Mine worked</b> when yours holds up, or <b>Needs another pass</b> to keep going.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">Sixteen atoms about shipping and recovering, the ones worth summoning without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============ PART 6: THE COMPREHENSIVE FINAL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>The Comprehensive Final</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">The last gate on the track, and a wider one than the nine before it: <b>ten questions covering all ten sessions</b>, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to go straight back to the concept it came from.</p>
+    <div class="note">&#127937; <b>This is the whole-track review.</b> Eight of these ten questions pull from earlier sessions, with <b>at least one from every level</b>, and their review links open that session in a new tab. The last two cover the capstone you built today and link back up this page. Pulling ten sessions of material back up on a delay, in one sitting, is what moves it from recently studied to genuinely known.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 10 of 10, the last one. &middot; Hit the milestone unassisted, then tick <b>S10</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a> to complete the track. &middot; <b>There is no Session 11.</b> What comes after this, and what is genuinely worth certifying, is set out in the Hub's <b>"Where to next"</b> closer at the bottom of that page. &middot; <code>ship-lab</code> can go whenever you like; nothing needs it now.
+    <br><br>
+    <b>One honest closing note.</b> Twenty hours ago a commit was a thing you copied off a web page. You have now built a repository from nothing, branched and merged and resolved conflicts on purpose, run a full pull request cycle, undone and recovered work four different ways, worked in a repository you did not own, and taken a live project through shipping, breaking and fixing without a checklist. <b>The track's whole aim was to make you able to predict what a command will do before you press enter.</b> Test that honestly: if you can read a Git command and say what it will change, you are done here. If a particular corner still feels like guessing, that corner is worth one more pass, and the sessions do not expire.
+    <br><br>
+  </footer>
+</div>
+<script>
+  var STORE = "git-s10-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words, verbs,
+     command words and yes/no words, where capitalisation is presentation rather
+     than the lesson. Marking "annotated" typed as "Annotated" wrong would be an
+     unfair grade. The per-item cs opt-out that Session 8 used for the -d against
+     -D flag letters still exists in gradeDrill and buildFaded, and THIS session
+     uses it twice: -c against -C, and -d against -D. See the FADED comment below. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+
+
+  /* ---------- Part 2: predict drills ----------
+     Eleven rapid-recall drills, ordered so that no two consecutive drills come from
+     the same session. Sources in order:
+     S10, S6, S7, S3, S9, S2, S8, S10, S5, S7+S8, and a whole-cycle sequence.
+     That is eight distinct sessions; S1 and S4 are carried by the comprehensive
+     final instead (Q1 and Q4), which is where full level coverage is promised.
+     Answer-type spread: 7 value, 2 count, 1 seq, 1 set. No drill grades a hash, a
+     date, a path, an email address or a token. Every drill whose answer is a word or
+     a label names the exact form it wants in the ask, so the grader has something
+     exact to compare against and a learner is never marked wrong for a synonym the
+     session never asked for. */
+  var DRILLS = [
+    { type: 'value',
+      scen: '# the deploy branch on this repository is main\n> git switch -c fix-typo\n> git commit -am "Fix the typo"',
+      ask: 'You push this branch to the server. Does the live site change? Answer yes or no.',
+      code: 'git push -u origin fix-typo', ans: 'no',
+      why: 'No. The trigger is wired to one specific ref, so a push to any other branch is an ordinary upload: the commit is safely on the server, it is shareable and reviewable, and nothing was released. That is the entire reason feature branches exist on a repository that deploys, and it is worth stating as the mechanism rather than the etiquette. Note that the same is true of a tag: pushing v2.0.0 also deploys nothing, because refs/tags/v2.0.0 is not the deploy branch either.' },
+
+    { type: 'count',
+      scen: '> git log --oneline feature\n4d1f9ac Fix the edge case\n8c22e01 Add the tests\n3ba7712 Rename the helper\n90fe418 Add the parser',
+      ask: 'You merge this four-commit branch into main with a squash. How many new commits does main gain? Answer with a digit.',
+      code: 'git merge --squash feature\ngit commit -m "Add the parser"', ans: '1',
+      why: 'One. A squash collapses every commit on the branch into a single new commit on main, which is why the four separate messages disappear and you supply one of your own. Compare the alternatives from Session 6: a plain merge of a diverged branch would add five (the four plus a merge commit), and a rebase merge would add four. The squash is often chosen for a deploy branch precisely because it makes one release equal one commit, so reverting a release takes one argument rather than a range.' },
+
+    { type: 'value',
+      scen: '> git log --oneline -2\n7ac4f10 Update the pricing table\n2e8b0d5 Add the contact page\n> git status -sb\n## main...origin/main',
+      ask: 'The top commit is wrong and it was pushed an hour ago, and the site deployed it. Which command undoes it: revert or reset? Answer with one word.',
+      code: 'git ___ 7ac4f10', ans: 'revert',
+      why: 'revert. The status line is the evidence: main and origin/main are level, with no ahead or behind, so the commit is on the server and anyone could hold it. A revert adds a new commit that undoes the old one, which moves forward and contradicts nobody, and on a deploy branch the fix ships with the very next push. A reset would rewrite history other people already have, which is Session 8 golden rule territory and would then need a force push to land at all. The deciding fact is not how bad or how recent the mistake was, it is whether anybody else could already have it.' },
+
+    { type: 'value',
+      scen: '> git branch\n* main\n  release\n> git log --oneline -1\nb41e7c2 Add the summary',
+      ask: 'Which file records where a new branch called hotfix points? Answer in the form refs/heads/name.',
+      code: 'git branch hotfix', ans: 'refs/heads/hotfix',
+      why: 'refs/heads/hotfix, a file containing one line: the hash. That is the whole of what a branch is, which is why creating and deleting them is instant no matter how large the project, and why Session 3 called them pointers rather than copies. Nothing is duplicated and no files are moved. The same idea explains the deploy trigger in this session: the hook compares the incoming ref name against refs/heads/main, because a ref name is exactly what a push delivers.' },
+
+    { type: 'value',
+      scen: '# a line in rates.txt is wrong and you want to know who last touched it',
+      ask: 'Which Git command answers who last changed a given line, as opposed to which commit introduced a bug? Answer with the subcommand only.',
+      code: 'git ___ rates.txt', ans: 'blame',
+      why: 'blame. It annotates every line of a file with the commit, author and date that last changed that line, so it answers a question about a location you can already point at. bisect answers the different question of which commit changed BEHAVIOUR, by binary search, and you reach for it when you cannot point at the line or even the file. The two get confused because both are described as finding the cause: blame finds who, over a place you name, while bisect finds which commit, over a range you name.' },
+
+    { type: 'value',
+      scen: '> git status --short\nM  notes.md',
+      ask: 'The M is in the FIRST column, so the only change here is already staged. What does the bare command below print? Answer nothing, or the edit.',
+      code: 'git diff', ans: 'nothing',
+      why: 'Nothing at all, and this is the moment most people conclude their work vanished. A bare git diff compares the working tree against the index, so once a change is staged there is no longer any difference between those two for it to report. git diff --staged is the half you want here, comparing the index against HEAD, and git diff HEAD spans both at once. The short status told you in advance: the first column means staged and the second means working tree, so M then space, and space then M, are different situations needing different diff commands.' },
+
+    { type: 'value',
+      scen: '> git log --oneline -1\n5f0c8ab Add the totals\n> git commit --amend -m "Add the totals and the header"',
+      ask: 'After the amend, is the commit still 5f0c8ab? Answer yes or no.',
+      code: 'git log --oneline -1', ans: 'no',
+      why: 'No. A commit cannot be edited, because its hash is computed from everything it contains, the message included, so any change at all produces a genuinely different commit. Amend builds a replacement and moves the branch onto it, leaving the original unreferenced but still present, which is what the reflog is for. That is also why amending something already pushed causes trouble: your history and everyone else version now disagree about which commit is real, and only a force push can resolve it.' },
+
+    { type: 'value',
+      scen: '# you pushed twenty minutes ago and the live site still shows the old version',
+      ask: 'Of the four diagnostic questions, which is the FIRST one to answer? Answer in the form: did the ___ land',
+      code: '# no command yet, decide what to check first', ans: 'push',
+      why: 'Did the push land. It is first because it is the cheapest and because it is wrong far more often than people expect: a rejected push prints a message that scrolls past, and you spend twenty minutes debugging a build that never received your commit. git log --oneline -1 origin/main answers it in one line. Only when the commit is provably on the server does it make sense to ask whether the trigger fired, then whether the build finished, then whether it published something broken. The order matters because each answer makes the next question meaningful.' },
+
+    { type: 'count',
+      scen: '> git status -sb\n## main...origin/main [ahead 2, behind 3]',
+      ask: 'How many commits would you have to receive from the server to be fully up to date with it? Answer with a digit.',
+      code: 'git status -sb', ans: '3',
+      why: 'Three, which is the behind number. Ahead counts commits you hold that the server does not, and behind counts commits the server holds that you do not, and the two are independent: this branch has diverged rather than simply lagging. That is also why a plain push here would be rejected, because accepting your two would discard their three. The ahead number is the one that decides revert against reset, since a commit that is only ahead has never been anywhere else.' },
+
+    { type: 'set',
+      scen: '# the branch is main, it is shared, and other people have pulled it today',
+      ask: 'Which of these three REWRITE history, in the sense Session 8 warned about? Answer with the rewriting ones only, separated by spaces: revert, rebase, amend',
+      code: 'git revert / git rebase / git commit --amend', ans: 'rebase amend',
+      why: 'rebase and amend. Both REPLACE commits with different ones, so your history and everyone else copy stop agreeing about what happened, and the disagreement surfaces as a rejected push or, worse, as a force push that silently discards somebody else work. revert is the odd one out because it ADDS a commit that undoes an earlier one, leaving every existing copy still valid, which is why it is the safe move on a branch other people hold. The test is not how drastic the command sounds, it is whether it adds or replaces.' },
+
+    { type: 'seq',
+      scen: '# a change needs to reach a live site, done properly, on a repository whose deploy branch is main',
+      ask: 'Put the five stages of one ship cycle in order, separated by spaces: tag, merge, branch, push, commit',
+      code: '# name the stages in the order you would do them', ans: 'branch commit push merge tag',
+      why: 'branch, commit, push, merge, tag. Branch first so the deploy branch stays deployable while the work is unfinished. Commit in small described steps. Push to get the work off your machine and reviewable, which on a feature branch releases nothing. Merge into the deploy branch, which is the moment the change actually ships and therefore the moment a review is worth having. Tag last, because you tag what shipped, and the tag is what makes the next incident answerable with git log v1.1.0..main.' }
+  ];
+
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both prompts narrate every step in order, and each tile answers exactly one
+     narrated step, so no second arrangement satisfies the description. The one
+     ordering git would otherwise permit, tagging before pushing, is pinned by the
+     words "Last of all" and "Finally" in the two prompts. */
+  var PARSONS = [
+    { prompt: 'A change needs to reach a live site on a repository whose deploy branch is main. Make a branch for the work and move onto it in one command. Commit the edit. Get it onto the server without releasing anything. Go back to the branch that deploys. Collapse the whole feature into a single change, which stops before committing. Supply the message it is waiting for. Now release it. Last of all, mark what you just shipped.',
+      lines: ['git switch -c add-rates', 'git commit -am "Add the local rate"', 'git push -u origin add-rates', 'git switch main', 'git merge --squash add-rates', 'git commit -m "Publish the rates"', 'git push origin main', 'git tag -a v1.1.0 -m "Rates published"'] },
+    { prompt: 'The site is showing something broken and the last release you trust is tagged v1.1.0. Start by refreshing your own note of where the server is, since that note is only as current as the last time you asked. Now read that note to confirm the server really holds what you think it does. List only what has shipped since that release. Open the one commit you suspect. Undo it in the way that is safe on shared history, without letting an editor open. Send the fix out. Finally mark the fix as a release of its own.',
+      lines: ['git fetch origin', 'git log --oneline -1 origin/main', 'git log --oneline v1.1.0..main', 'git show 3b75017', 'git revert --no-edit 3b75017', 'git push origin main', 'git tag -a v1.1.1 -m "Fix the heading"'] }
+  ];
+
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Two flag letters are graded case-sensitively via cs, because -c and -C, and
+     -d and -D, are different commands rather than different spellings. */
+  var FADED = [
+    { prompt: 'Four commands from one clean ship cycle. Fill the blanks so the first creates a branch and moves onto it in a single command, the second pushes while also setting the upstream, the third collapses the whole branch into one change on the deploy branch, and the fourth makes a tag that is a real object carrying a tagger and a message.',
+      code: 'git switch -%% add-rates                 # create it and move onto it\ngit push -%% origin add-rates            # push, and set the upstream too\ngit merge --%% add-rates                 # one commit on main, not four\ngit tag -%% v1.1.0 -m "Rates published"  # an object, not just a name',
+      ans: ['c', 'u', 'squash', 'a'], cs: [true, false, false, false] },
+    { prompt: 'Four commands from one incident. Fill the blanks so the first answers whether the push actually reached the server, the second prints the one line that tells you whether a commit is yours alone or already shared, the third throws the local commit away along with the edit inside it, and the fourth force-deletes a branch that was squashed into main but never pushed, so Git has no evidence at all that the work was taken and refuses the gentler flag.',
+      code: 'git log --oneline -1 origin/%%           # question one: did it land\ngit status -%%                           # ahead, or level with the server\ngit reset --%% origin/main                # drop the local commit entirely\ngit branch -%% add-rates                 # squashed, never pushed: force it',
+      ans: ['main', 'sb', 'hard', 'D'], cs: [false, false, false, true] }
+  ];
+
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          // a cs-marked blank is a flag letter, where -d and -D are different commands
+          var ok = (f.cs && f.cs[i]) ? (b.value.trim() === f.ans[i]) : (norm(b.value) === norm(f.ans[i]));
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'WRITTEN, NOT RUN: explain the central consequence of this session in your own words, as if to a colleague who knows Git commands but has only ever worked alone. Answer three things. First, what changes about the meaning of git push on a repository that has a deploy trigger. Second, name three habits from earlier in this track that exist because of that change, and say what each one protects. Third, and this is the part that shows whether it has landed, describe a situation where pushing is completely safe on the same repository, and say exactly what makes it safe. Aim for a short paragraph, not a list of commands.',
+      sol: 'What changes: on a repository where one branch is wired to a deploy, pushing to\nthat branch is not a save, it is a release. The moment it lands, people outside\nare looking at it. Nothing about the command changed; what changed is the\nconsequence, and the consequence is not visible in the command.\n\nThree habits and what each protects:\n  - Feature branches. They keep the deploy branch deployable while unfinished\n    work still has somewhere to live. Without a trigger they are tidiness; with\n    one they are the thing standing between a half-done edit and the public.\n  - Review before merge. Merging into the deploy branch IS the decision to\n    release, so the review is the last cheap moment to stop it.\n  - Tags on releases. They turn "the last version that worked" into a name Git\n    can compute from, which is what makes git log v1.1.0..main possible when\n    something breaks and you need the short list of suspects.\n\nWhen pushing is completely safe on the same repository: pushing any ref that is\nnot the trigger. A feature branch, or a tag. The hook or the service compares\nthe incoming ref name against one specific ref, and anything else is an\nordinary upload: backed up, shareable, reviewable, and not released. That is\nwhy the safety comes from WHICH ref you push, not from how careful you were.' },
+
+    { task: 'WRITTEN, NOT RUN: here is an incident. It is 4pm. You pushed three commits to the deploy branch about an hour ago and the deploy reported success. A colleague messages to say a page is showing raw text instead of a table, and mentions she pulled your changes just after lunch. The last tag on the branch is v2.3.0, from Monday. Write the recovery plan as an ordered list of steps, with the command for each, and with a one-line reason for every command. You must state which recovery tool you are using and the single fact that decided it. Do not write a plan that depends on knowing which commit is guilty before you have looked.',
+      sol: '1. git fetch origin  then  git log --oneline -1 origin/main\n   Confirm the server actually holds what I think it holds. The fetch is not\n   optional: origin/main is only my note of where the server was when I last\n   asked (Session 5), and an hour has passed. Cheapest check, and wrong\n   surprisingly often.\n\n2. Check the deploy record (deploy.log locally, or gh run list on a hosted\n   service). Did the trigger fire, and did the build finish?\n   This separates "my code is wrong" from "the pipeline never ran" and from\n   "the build failed and the old version is still serving".\n\n3. Look at the live page and confirm it really is serving my change.\n   Only now is it established that the problem is in a commit of mine.\n\n4. git log --oneline v2.3.0..main\n   The suspects, and only the suspects. The tag is what makes this a short\n   list rather than the whole history.\n\n5. git show <each candidate>   (three of them, so reading beats searching)\n   If the list were long, or if I could not guess the file, this step would be\n   git bisect instead. Stating the choice: reading, because the range is three\n   commits and the symptom points at one page.\n\n6. git revert --no-edit <the guilty commit>\n   THE TOOL: revert. THE DECIDING FACT: my colleague has already pulled it, so\n   the commit is shared. Revert adds a commit that undoes it and contradicts\n   nobody. reset would rewrite history she already holds. It is not about how\n   bad or how recent the mistake was.\n\n7. git push origin main\n   The fix ships the same way the break did. Confirm the deploy fired and the\n   page recovered.\n\n8. git tag -a v2.3.1 -m "Fix the table markup" and push the tag.\n   A fix is a release too, and the next incident will want this boundary.\n\nNote on what I do NOT do: I do not force push, and I do not ask her to reset\nher clone. She gets the fix by pulling, which is the whole point of going\nforwards.' },
+
+    { task: 'WRITTEN, NOT RUN: justify a merge strategy, which is the Level 5 skill of being able to say why rather than only how. The project: a small internal tool, four people, one deploy branch called main that publishes to a live dashboard on every push. Feature branches usually run to between three and nine commits and typically include a couple of "fix the test" and "typo" commits along the way. Releases are tagged. Pick ONE of the three strategies from Session 6 and argue for it in a short paragraph. Then, and this is the harder half, name the real cost of your choice and describe the specific situation in which you would pick a different one.',
+      sol: 'Choice: squash.\n\nArgument. The deploy branch is the branch this team will have to reason about\nunder pressure, because every commit on it went live. Squashing makes one\nrelease equal one commit, so "what shipped" and "what do I revert" have\nsingle-commit answers, and git revert takes one argument rather than a range.\nIt also keeps the typo and fix-the-test commits off the branch everyone reads,\nwhich matters more here than usual because those commits carry no information\nanyone will ever want, and main is the history a new team member will read\nfirst. With three to nine commits per branch, the noise-to-signal ratio on\nmain is exactly the problem squashing solves.\n\nThe real cost. The intermediate steps are gone from main. If a feature turns\nout to be subtly wrong in a way that only one of its nine commits caused, main\ncannot tell you which, because it holds one commit where nine used to be. That\nis a genuine loss of resolution and it is felt precisely when bisect would\notherwise have been most useful: bisect over squashed releases finds the\nrelease, not the change. The branch itself may still exist on the server, which\nsoftens this, but only until somebody deletes it.\n\nWhen I would choose differently. A merge commit, if the feature is large and\nits internal steps are genuinely meaningful, for example a migration where each\ncommit moves one table and the order is the documentation. The two parents keep\nthe detail while still marking clearly where the feature entered main. And a\nrebase merge if the team explicitly wants a linear history with every commit\npreserved, and is disciplined enough that no commit on a branch is ever noise.\nWith this team and these branches, that discipline is the part I would not bet\non, which is why squash wins here rather than everywhere.' },
+
+    { task: 'Session 2 asked you to open a repository you did not write and produce a five-line summary of its history. Do it once more, on the last day of the track, and notice how much less you have to look up. Pick any repository you did not author: one you cloned during Session 9, or any project on your disk. Using only reading commands, work out and write down five lines: what the project is for, roughly how long it has been going and how actively, who the main contributors are, what the most recent meaningful change was, and whether it uses branches and tags in any disciplined way. Then add a sixth line that Session 2 could not have asked for: from the branch and tag names alone, say whether you think this project deploys from a branch, and what evidence you are using.',
+      sol: '# Commands that answer each line. Run them in the repository.\n\n# 1. what it is for\ncat README.md              # or Get-Content README.md\n\n# 2. how long, and how actively\ngit log --format="%ad %s" --date=short | Select-Object -Last 1   # the first commit\n# (--reverse does the same by flipping the order; it is new here, not taught)\ngit log -1 --format="%ad" --date=short                # the most recent\ngit log --oneline | Measure-Object -Line              # how many commits\n# in Git Bash: git log --oneline | wc -l\n\n# 3. who\n# with only what this track taught:\ngit log --format=%an | Sort-Object -Unique\n# in Git Bash: git log --format=%an | sort | uniq -c | sort -rn | head -5\n#\n# NEW COMMAND, worth knowing: git shortlog -sn --all does this in one step,\n# counting commits per author. It was never taught in the ten sessions, so\n# treat it as a free extra rather than something you should have recalled.\ngit shortlog -sn --all\n\n# 4. the most recent meaningful change\ngit log --oneline -10\ngit show --stat HEAD\n\n# 5. branches and tags, and whether they look disciplined\ngit branch -a\ngit tag                    # taught in Session 9\n# --sort=-creatordate orders them newest first, and is new here, not taught\ngit log --oneline --graph --all -20\n\n# 6. does it deploy from a branch, and on what evidence\ngit branch -a\n# Look for names that are destinations rather than descriptions:\n# gh-pages, production, release, live, main protected while work happens\n# on feature branches. Then look for the trigger itself:\nGet-ChildItem .github/workflows -ErrorAction SilentlyContinue\n# a workflow file with "on: push: branches: [main]" is the trigger, stated\n# in the repository. Semantic version tags (v1.4.2) that line up with merge\n# commits are the other clue: something is being released deliberately.\n#\n# Honest note: hooks would NOT show up, because hooks live in the copy on the\n# server and are not copied by clone. Absence of a workflow file is therefore\n# weak evidence, while presence of one is strong.' }
+  ];
+
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'What makes a branch a deploy trigger', b: 'something on the server watches ONE ref name and acts when it changes' },
+    { f: 'On a repository with a deploy trigger, what is git push', b: 'a release, not a save. It goes live the moment it lands' },
+    { f: 'Push a feature branch to a repo whose deploy branch is main', b: 'nothing deploys. It is an ordinary upload' },
+    { f: 'Push a tag to a repo whose deploy branch is main', b: 'nothing deploys either. refs/tags/x is not refs/heads/main' },
+    { f: 'What a git hook is', b: 'a script the repository runs automatically at a set moment, such as post-receive' },
+    { f: 'Are hooks copied by git clone', b: 'no. They live in one repository only, so cloning never runs somebody else code' },
+    { f: 'The four questions when a deploy looks wrong', b: 'did the push land, did the trigger fire, did the build fail, did it publish something broken' },
+    { f: 'Which of those four is an actual outage', b: 'only the last. The other three leave the previous version serving' },
+    { f: 'A build that FAILED means the live site is', b: 'untouched, still on the last good version. Better news than it feels' },
+    { f: 'Find what shipped since the last good release', b: 'git log --oneline v1.1.0..main, which is what the tag was for' },
+    { f: 'Reading with git show against searching with git bisect', b: 'read when the range is short or the file is obvious; bisect when it is long or unknown' },
+    { f: 'The one fact that decides revert against reset', b: 'whether anybody else could already have the commit. Not how bad it was' },
+    { f: 'The command that answers that question', b: 'git status -sb. Ahead means yours alone, level means already shared' },
+    { f: 'Why revert is the right fix on a deploy branch', b: 'it adds a commit, so it moves forward, contradicts nobody, and ships with one push' },
+    { f: 'Does reverting one commit undo everything after it', b: 'no. It undoes that commit changes only, leaving later commits intact' },
+    { f: 'How many commits a squash merge adds to main', b: 'one, however many were on the branch. One release, one commit' }
+  ];
+
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: the comprehensive final ----------
+     Ten questions. Eight are recall drawn from across the ten sessions, with at least
+     one from every level, and they carry new-tab backlinks because the concept lives in
+     another artifact. The last two cover today capstone and link in-page. */
+  var S1_URL = 'git-session-01.html';
+  var S2_URL = 'git-session-02.html';
+  var S3_URL = 'git-session-03.html';
+  var S4_URL = 'git-session-04.html';
+  var S5_URL = 'git-session-05.html';
+  var S6_URL = 'git-session-06.html';
+  var S7_URL = 'git-session-07.html';
+  var S9_URL = 'git-session-09.html';
+  var QUIZ = [
+    { q: 'Recall, Level 1 (Session 1). You edit a tracked file and run git add on it, then edit the same file again before committing. What does the commit contain?',
+      o: ['The version as it was when you ran git add, not the newer edit',
+          'Both edits, since add and commit both look at the file on disk',
+          'The newer edit, because a commit always stores the current file',
+          'Nothing at all, because the second edit invalidates the staged copy'],
+      c: 0,
+      e: 'The staging area holds a snapshot taken at the moment you ran git add, so the commit stores that and the later edit stays in the working tree as an unstaged change. This is the single most useful consequence of Git having three areas rather than two, and git status --short shows it as MM: staged content in one column, further edits in the other. Nothing is invalidated and nothing is silently combined, which is exactly why add is a separate step rather than part of commit.',
+      ext: { url: S1_URL, label: 'Session 1: the three areas, add and commit (opens in a new tab)' } },
+
+    { q: 'Recall, Level 1 (Session 2). A file containing a password was committed last week. You now add that file to .gitignore. What happens to it?',
+      o: ['Nothing: it stays tracked and committed, and the history still has it',
+          'It stops being tracked, though the earlier commits still contain it',
+          'It is stripped from the working tree and from every earlier commit',
+          'It stays tracked until the next commit, which then drops it quietly'],
+      c: 0,
+      e: 'Nothing at all. .gitignore only tells Git which UNTRACKED files to stop mentioning, so it has no effect whatever on a file Git already tracks, and none at all on history. The file keeps being tracked, keeps showing up in diffs, and the password stays in every commit that ever held it. Untracking it needs git rm --cached, and removing it from history is a separate and much larger job. That is exactly why Session 2 insisted the real rule is never to commit a secret at all: a leaked credential should be treated as leaked and rotated, not tidied away.',
+      ext: { url: S2_URL, label: 'Session 2: .gitignore, and what must never be committed (opens in a new tab)' } },
+
+    { q: 'Recall, Level 2 (Session 3). Your project has 40,000 files and a long history. Why is creating a branch effectively instant?',
+      o: ['A branch is one small file holding a commit hash, so nothing is copied',
+          'Git compresses the files first, which makes the copy step very fast',
+          'Git copies only the files that differ from the branch you are on',
+          'The copy happens lazily in the background after the command returns'],
+      c: 0,
+      e: 'A branch is a file under .git/refs/heads containing a single hash, so creating one writes a few dozen bytes regardless of project size. Nothing is copied, in the background or otherwise. That is why Git encourages branching where older tools discouraged it, and it is the same mechanism the deploy trigger relies on in this session, since a push delivers a ref name and the hook simply compares it against one particular ref.',
+      ext: { url: S3_URL, label: 'Session 3: what a branch literally is (opens in a new tab)' } },
+
+    { q: 'Recall, Level 2 (Session 4). A merge stops with conflict markers in three files and you decide you would rather not do this now. What puts the repository back?',
+      o: ['git merge --abort, which returns it to the state before the merge',
+          'git reset --hard, which is the only way out once markers exist',
+          'Deleting the marker lines by hand, then committing the result',
+          'git revert HEAD, which undoes the merge that has just been made'],
+      c: 0,
+      e: 'git merge --abort exists for exactly this and restores the pre-merge state. The other options misread what has happened: a conflicted merge has made no commit yet, so there is nothing for revert to undo, and editing the markers out by hand then committing would record a resolution you never actually decided. reset --hard would also get you back but discards uncommitted work indiscriminately, so abort is both safer and clearer about intent.',
+      ext: { url: S4_URL, label: 'Session 4: backing out of a merge safely (opens in a new tab)' } },
+
+    { q: 'Recall, Level 3 (Session 5). Your push is rejected as non-fast-forward. What has actually happened?',
+      o: ['The server has commits you do not, so accepting yours would lose them',
+          'Your commits are malformed, so the server refused to store any of them',
+          'You lack permission to write to that branch on the remote repository',
+          'Your branch has no upstream set, so Git cannot tell where to send it'],
+      c: 0,
+      e: 'Non-fast-forward means the remote branch has moved on since you last synced, so making your commit the new tip would orphan whatever arrived in the meantime, and Git refuses rather than silently discarding somebody work. The fix is to bring their work in first, with fetch then merge or rebase, and push again. Permissions and missing upstreams produce different messages entirely, which is why reading the actual word in the error is worth the two seconds.',
+      ext: { url: S5_URL, label: 'Session 5: the rejected push, and recovering from it (opens in a new tab)' } },
+
+    { q: 'Recall, Level 3 (Session 6). A branch with six commits is merged into main using a squash merge. How does main look afterwards?',
+      o: ['One new commit, carrying all six changes under a message you write',
+          'Six new commits, replayed onto main in their original order',
+          'Seven new commits: the six, plus a merge commit tying them together',
+          'One new commit, plus the six kept on main as a second parent line'],
+      c: 0,
+      e: 'A squash merge combines every change from the branch into a single new commit on main, which is why Git stops before committing and asks you for the message. Six replayed commits is a rebase merge, and six plus a merge commit is an ordinary merge of a diverged branch. The squash is often chosen for a deploy branch because one release then equals one commit, which makes reverting a release a single-argument operation.',
+      ext: { url: S6_URL, label: 'Session 6: the three merge strategies, compared (opens in a new tab)' } },
+
+    { q: 'Recall, Level 4 (Session 7). You run git reset --soft HEAD~1. Where do the changes from the undone commit end up?',
+      o: ['Staged, ready to commit again, with the working tree left alone',
+          'Unstaged in the working tree, needing git add before recommitting',
+          'Discarded completely, which is what makes soft the dangerous mode',
+          'Left exactly where they were, since soft only moves the branch label'],
+      c: 0,
+      e: 'soft moves the branch pointer and stops, leaving the index and the working tree untouched, so the undone commit content is sitting staged and one git commit away from being redone. That makes it the mode for rewording or recombining a commit you have just made. mixed, the default, additionally resets the index so the changes come back unstaged; hard resets the working tree too and is the one that discards. The three differ only in how far down they reach.',
+      ext: { url: S7_URL, label: 'Session 7: the three reset modes (opens in a new tab)' } },
+
+    { q: 'Recall, Level 5 (Session 9). What is the real difference between git tag v2.0 and git tag -a v2.0 -m "Release"?',
+      o: ['The second is a stored object recording who tagged it, when, and why',
+          'The second can be pushed to a remote, where the first is local only',
+          'The second moves automatically as the branch it names gains commits',
+          'The second can be deleted later on, whereas the first is permanent'],
+      c: 0,
+      e: 'A lightweight tag is just a name pointing at a commit; an annotated tag is an object in its own right, carrying a tagger, a date and a message, which then points at the commit. Prove it with git cat-file -t: the lightweight name prints commit and the annotated one prints tag. Neither travels with an ordinary git push, neither follows a branch, and both can be deleted, so the recorded metadata is the whole of the difference and the reason releases use annotated tags.',
+      ext: { url: S9_URL, label: 'Session 9: lightweight against annotated tags (opens in a new tab)' } },
+
+    { q: 'Today capstone. A repository deploys from main. You push a branch called fix-header, and separately push the tag v2.1.0. What has gone live?',
+      o: ['Nothing has gone live, because neither of those is the branch main',
+          'The branch only, since pushing any branch triggers a fresh deploy',
+          'The tag only, because a tag is how a release is marked as shippable',
+          'Both of them, since anything arriving at the server is published'],
+      c: 0,
+      e: 'Nothing. The trigger compares the incoming ref against one specific ref, refs/heads/main, and both a feature branch and a tag fail that comparison, so each push is an ordinary upload: safely stored, shareable, reviewable, and not released. This is the correction to the most natural wrong model, which is that pushing causes deploys. Pushing one particular ref causes deploys, and that asymmetry is exactly what makes feature branches useful rather than merely tidy.',
+      part: { id: 'concept-trigger', label: 'C. A branch as a deploy trigger' } },
+
+    { q: 'Today capstone, combining two sessions. You pushed a broken commit to the deploy branch an hour ago, it went live, and a colleague has already pulled it. What do you do, and why?',
+      o: ['Revert it and push, because the commit is shared and cannot be rewritten',
+          'Reset the branch back and force push, since that leaves no broken commit',
+          'Amend the commit and force push, which fixes it without an extra commit',
+          'Ask her to delete her clone, then reset your own branch back one commit'],
+      c: 0,
+      e: 'Revert. The deciding fact is that somebody else already holds the commit, which is Session 8 golden rule: do not rewrite history other people have. Both force-push answers would leave your history and hers disagreeing about what happened, and asking a colleague to delete a clone to accommodate your mistake is worse still. A revert adds a commit that undoes the change, so it moves forward, contradicts nobody, and on a deploy branch it ships with the very next push. Note what the decision does NOT depend on: how bad the break is, or how recent, or how embarrassing.',
+      part: { id: 'concept-recover', label: 'G. Fix it forward, and the two kinds of broken' } }
+  ];
+
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 8
+              ? 'Comprehensive final: ' + quizCorrect + '/' + QUIZ.length + '. Solid, and that is the whole track. Tick S10 on your Hub, then read the Where to next closer at the bottom of it.'
+              : 'Comprehensive final: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, reopening the session it came from where the link offers that, then reset this part and retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

@@ -1,0 +1,1284 @@
+<title>Git Sprint &middot; Session 3: Branches are just pointers</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     Git commands lean on -- and <> which Cascadia Code would otherwise redraw. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three areas diagram */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* the pointer map: which file holds what, and which commit each ref name lands on */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 30 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 15ch because the longest answer here is "--show-current" (14 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 15ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 03 // Level 2 &middot; Branching &amp; Merging</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Branches are just pointers</h1>
+    <p class="goal">A branch is not a copy of your project and it is not a folder. It is one line in one small file, holding one commit hash. This session opens that file, watches the pointer move when you commit, and then merges a branch back with a single sliding step, so that working on a branch stops feeling risky and starts feeling free.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Do work in isolation on a branch and merge it back.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>You do not need the folders from Sessions 1 and 2.</b> Step one below builds a brand new repository called <code>branch-lab</code> from scratch, in under a minute, so that every learner starts from exactly the same one-commit history. No account and no internet are needed for any of this session.</p>
+        <p>This is a workbook, not a reading. You will predict what a command does to your repository, reassemble command sequences, fill blanks, and write from scratch, and each part hands you less scaffolding than the last. The goal is the one this whole track is built on: <b>read a Git command and know what it will do before you press enter.</b></p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. Three things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>eae0405</code>), <b>file paths</b>, and <b>dates</b>. Everything else should match. One more from Session 1: if you create files in Git Bash rather than PowerShell, <code>git add</code> may print a harmless <code>warning: ... LF will be replaced by CRLF ...</code> line. That is the line-ending note from Session 1, nothing is wrong.</div>
+
+    <div class="block" id="concept-setup">
+      <h3>A. Build a fresh lab</h3>
+      <p>Session 2 left <code>git-sandbox</code> in a state that depends on choices you made along the way, so this session does not use it. Instead you build a small, brand new repository whose history is identical for everybody: <b>one folder, one file, one commit.</b> Every transcript and every drill in this session assumes that starting point.</p>
+      <p>One new flag before you paste. <code>git init -b main</code> is the <code>git init</code> you already know, plus <b><code>-b</code>, which names the first branch outright</b>. Session 1 had you set <code>init.defaultBranch</code> so that new repositories start on <code>main</code>; <code>-b main</code> says it explicitly on the spot instead of relying on that setting, so this block behaves identically on any machine, including one where that setting was never made.</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build branch-lab</div>
+<pre><code>cd ~
+mkdir branch-lab
+cd branch-lab
+git init -b main
+Set-Content notes.md "Branch lab"
+Add-Content notes.md "Created while learning Git."
+Add-Content notes.md "Safe to delete."
+git add notes.md
+git commit -m "Add notes.md"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build branch-lab</div>
+<pre><code>cd ~
+mkdir branch-lab
+cd branch-lab
+git init -b main
+echo "Branch lab" &gt; notes.md
+echo "Created while learning Git." &gt;&gt; notes.md
+echo "Safe to delete." &gt;&gt; notes.md
+git add notes.md
+git commit -m "Add notes.md"</code></pre>
+      </div>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Already have a folder called branch-lab? Read this first</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">The <code>mkdir</code> line will fail if the folder already exists. The <code>cd</code> line after it will then succeed anyway and take you <b>into the folder you already had</b>, so the rest of the block runs against whatever is already in there instead of a clean start. The giveaway is the <code>git init -b main</code> line, which prints <code>Reinitialized existing Git repository</code> instead of <code>Initialized empty Git repository</code>. Two ways out.</p>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px"><b>The safe one:</b> pick another name. Replace <code>branch-lab</code> with <code>branch-lab-2</code> in the <code>mkdir</code> and <code>cd</code> lines and carry on. Everything else in the session is identical.</p>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px"><b>The other one:</b> delete the old folder first. This <b>permanently removes that folder and everything inside it</b>, so only run it if you are certain you do not need what is in there.</p>
+          <div class="shells">
+            <div class="srow"><span class="sl">PowerShell</span><code>cd ~
+Remove-Item -Recurse -Force branch-lab</code></div>
+            <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ~
+rm -rf branch-lab</code></div>
+          </div>
+        </div>
+      </details>
+      <p>The commit line prints the summary you learned to read in Session 1:</p>
+      <div class="filebox">
+        <div class="fbh">git commit &middot; the first commit in a brand new repository</div>
+<pre><code><span class="cmd">&gt; git commit -m "Add notes.md"</span>
+[main (root-commit) eae0405] Add notes.md
+ 1 file changed, 3 insertions(+)
+ create mode 100644 notes.md</code></pre>
+      </div>
+      <p>Now confirm the result, and there is one more flag to name before you run it. <b><code>--decorate=short</code> asks Git for the short form of the <code>(HEAD -&gt; main)</code> label</b> you have been seeing since Session 1. That label is already on by default when you are reading output at a terminal, so adding the flag changes nothing about what you see; naming it explicitly is what keeps these transcripts correct even if you copy output somewhere else, which is the piping quirk Session 2 explained. Two commands, and the output should match this exactly apart from the hash:</p>
+      <div class="filebox">
+        <div class="fbh">confirm the starting point</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+eae0405 (HEAD -&gt; main) Add notes.md
+
+<span class="cmd">&gt; git status</span>
+On branch main
+nothing to commit, working tree clean</code></pre>
+      </div>
+      <p>One commit, on <code>main</code>, nothing outstanding. That is the whole lab.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the lab</div>
+        <ol>
+          <li>Paste the block for your shell and run it.</li>
+          <li>Run <code>git log --oneline --decorate=short</code> and confirm you see exactly one commit, labelled <code>(HEAD -&gt; main)</code>.</li>
+          <li>Run <code>git status</code> and confirm it says <code>On branch main</code> and <code>nothing to commit, working tree clean</code>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> I built branch-lab and I have one commit on main with a clean working tree</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-whatis">
+      <h3>B. What a branch literally is</h3>
+      <p><b>The old way first.</b> Before version control, trying something risky without losing what already worked meant copying the whole project folder to <code>project-backup-v2</code>. That is slow, it doubles the disk space, you end up with <code>v2</code>, <code>v3</code> and <code>v3-final</code>, and when the experiment works you have to merge the two folders back together by hand, file by file. Every part of that is what a branch replaces.</p>
+      <p>So here is what a branch actually is, and the fastest way to believe it is to open the files. You already know how to write a file from Session 1 (<code>Set-Content</code> and <code>Add-Content</code>). <b>Reading one back is a single new command</b>, and it is an ordinary file read, nothing to do with Git:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Get-Content &lt;file&gt;</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cat &lt;file&gt;</code></div>
+      </div>
+      <p>As in Session 1, <code>&lt;file&gt;</code> in angle brackets is a placeholder: you type a real file name there, not the word "file". Forward slashes work in both shells for the paths below. Point it at <code>.git/HEAD</code>, inside the hidden <code>.git</code> folder Session 1 introduced:</p>
+      <div class="filebox">
+        <div class="fbh">.git/HEAD &middot; one line, naming a branch</div>
+<pre><code><span class="cmd">&gt; Get-Content .git/HEAD</span>
+ref: refs/heads/main</code></pre>
+      </div>
+      <p>That is the entire file. It does not hold a commit; it holds the words <code>ref:</code> and then a path, <code>refs/heads/main</code>, which points at <b>another file inside <code>.git</code></b>. So open that one too, and compare it against <code>git rev-parse HEAD</code>, a command that asks Git to resolve <code>HEAD</code> all the way down to the hash it eventually names:</p>
+      <div class="filebox">
+        <div class="fbh">.git/refs/heads/main &middot; one line, and it is the commit</div>
+<pre><code><span class="cmd">&gt; Get-Content .git/refs/heads/main</span>
+eae04054a80c2a40c4572fe44eedb4138ab717dd
+
+<span class="cmd">&gt; git rev-parse HEAD</span>
+eae04054a80c2a40c4572fe44eedb4138ab717dd</code></pre>
+      </div>
+      <p>The same 40-character hash, twice. <b>That is the "by way of" Session 2 promised.</b> Session 2 said HEAD is a reference to the commit you are on, reached through the current branch. Now you can see the chain as three real things on disk:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">.git/HEAD</span><span class="rd">one line naming the current branch: <b>ref: refs/heads/main</b></span></div>
+        <div class="refrow"><span class="rr">.git/refs/heads/main</span><span class="rd">one line holding one commit hash: <b>eae04054a80c...</b></span></div>
+        <div class="refrow"><span class="rr">the commit</span><span class="rd">the snapshot itself, stored inside <code>.git</code></span></div>
+      </div>
+      <p>So, the definition this whole session rests on: <b>a branch is a movable pointer to a commit.</b> The branch <code>main</code> is not the project, and it is not a folder of your files. It is the file <code>.git/refs/heads/main</code>, whose entire contents are 40 hash characters plus the newline that ends the line. <b>Forty-one bytes.</b></p>
+      <p>Which means <b>creating a branch writes one more 41-byte file</b>. Nothing is copied, nothing is duplicated, no files move. That, and not enthusiasm, is why everyone tells you branching in Git is cheap: it is cheap in the literal sense that it costs 41 bytes and no measurable time, whether your project is three files or thirty thousand.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Open the branch and see the hash</div>
+        <ol>
+          <li>In <code>branch-lab</code>, read <code>.git/HEAD</code> with <code>Get-Content</code> or <code>cat</code>. Confirm it names <code>refs/heads/main</code>.</li>
+          <li>Read <code>.git/refs/heads/main</code>. Confirm it is a single 40-character line.</li>
+          <li>Run <code>git rev-parse HEAD</code> and check the two strings are character-for-character identical.</li>
+          <li>Say the chain out loud before moving on: HEAD names <code>main</code>, <code>main</code> holds a commit hash, that hash is the commit you are standing on.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> I opened both files and saw that the branch is one line containing one commit hash</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-list">
+      <h3>C. Listing what branches exist</h3>
+      <p><code>git branch</code> with no arguments lists every branch in the repository and puts a <code>*</code> beside the one you are currently on:</p>
+      <div class="filebox">
+        <div class="fbh">git branch &middot; list them, current one starred</div>
+<pre><code><span class="cmd">&gt; git branch</span>
+* main</code></pre>
+      </div>
+      <p>Three variations are worth knowing now. Each answers a different question:</p>
+      <div class="filebox">
+        <div class="fbh">git branch --show-current &middot; just the name, nothing else</div>
+<pre><code><span class="cmd">&gt; git branch --show-current</span>
+main</code></pre>
+      </div>
+      <p><code>--show-current</code> prints one bare name and no <code>*</code>. It is the one to reach for when you only want to answer "where am I", and because the output is a plain name it is also what scripts use.</p>
+      <div class="filebox">
+        <div class="fbh">git branch -v &middot; add the commit each branch points at</div>
+<pre><code><span class="cmd">&gt; git branch -v</span>
+* main eae0405 Add notes.md</code></pre>
+      </div>
+      <p><code>-v</code> is short for verbose, and it adds two things per line: the <b>short hash</b> of the commit that branch points at, and that commit's <b>subject</b>, which is the first line of its message. Given what section B just showed you, <code>-v</code> is really printing the contents of each branch file in a readable form. It is the command you will use most in this session, because it is the fastest way to see which branch is pointing where.</p>
+      <div class="filebox">
+        <div class="fbh">git branch -a &middot; all branches, including ones from a remote copy</div>
+<pre><code><span class="cmd">&gt; git branch -a</span>
+* main</code></pre>
+      </div>
+      <p><code>-a</code> is short for all, and it adds the branches that live on a <b>remote</b> copy of the repository, meaning a copy somewhere else that yours is connected to, such as one on GitHub. <code>branch-lab</code> is not connected to anything, so <code>-a</code> shows the same single line as plain <code>git branch</code>. Once a repository does have a remote, those extra entries appear with a <code>remotes/</code> prefix, like <code>remotes/origin/main</code>. <b>Remotes are Session 5</b>, and that is where you will find out what those entries mean and how they get there. It is named here only so the flag is not a surprise.</p>
+    </div>
+
+    <div class="block" id="concept-create">
+      <h3>D. Creating a branch, and switching between branches</h3>
+      <p>Two jobs, and one command does both. <b><code>git switch -c &lt;name&gt;</code> creates a branch and moves you onto it.</b> The <code>-c</code> is short for create. The new branch is created pointing at the commit you are on right now, which is the only sensible place to start from:</p>
+      <div class="filebox">
+        <div class="fbh">git switch -c feature &middot; create it and move onto it</div>
+<pre><code><span class="cmd">&gt; git switch -c feature</span>
+Switched to a new branch 'feature'</code></pre>
+      </div>
+      <p>Now look at what that did, first with the two listing commands from section C:</p>
+      <div class="filebox">
+        <div class="fbh">two branches, and the * has moved</div>
+<pre><code><span class="cmd">&gt; git branch</span>
+* feature
+  main
+
+<span class="cmd">&gt; git branch -v</span>
+* feature eae0405 Add notes.md
+  main    eae0405 Add notes.md</code></pre>
+      </div>
+      <p><b>Read that second block twice, because it is the point of the session.</b> Both branches show the same short hash and the same commit subject. They are two pointers aimed at one commit. Nothing was copied, no file was duplicated, and there is not a second version of <code>notes.md</code> anywhere. That is the cleanest possible proof of the 41-byte claim, and you can confirm it at the file level too:</p>
+      <div class="filebox">
+        <div class="fbh">the new branch file holds the same hash, and HEAD now names it</div>
+<pre><code><span class="cmd">&gt; Get-Content .git/HEAD</span>
+ref: refs/heads/feature
+
+<span class="cmd">&gt; Get-Content .git/refs/heads/feature</span>
+eae04054a80c2a40c4572fe44eedb4138ab717dd</code></pre>
+      </div>
+      <p><b>Switching to a branch that already exists</b> drops the <code>-c</code>, because there is nothing to create:</p>
+      <div class="filebox">
+        <div class="fbh">git switch main &middot; move to an existing branch</div>
+<pre><code><span class="cmd">&gt; git switch main</span>
+Switched to branch 'main'</code></pre>
+      </div>
+      <p>Notice the wording differs by one word, and it is a useful word: <b>"a new branch"</b> when you created one, <b>"branch"</b> when you moved to an existing one. If you ever meant to switch to an existing branch and Git tells you it made a new one, you have a typo. Get the name wrong the other way and Git simply refuses:</p>
+      <div class="filebox">
+        <div class="fbh">a name that does not exist</div>
+<pre><code><span class="cmd">&gt; git switch nope</span>
+fatal: invalid reference: nope</code></pre>
+      </div>
+      <p>A <code>fatal</code>, so nothing happened at all, and note that Git does <b>not</b> offer a "did you mean" suggestion here. Run <code>git branch</code> and read the list.</p>
+      <p><b>The old way, which you will see everywhere.</b> Before <code>switch</code> existed, both of these jobs were done by <code>git checkout</code>: <code>git checkout -b &lt;name&gt;</code> to create and move, and <code>git checkout &lt;name&gt;</code> to move to an existing branch. They still work, and they give an identical result, right down to the message. <b>Do not run this one.</b> It is printed here only so that you recognise it, and running it would leave you standing on a spare branch that none of the transcripts below expect:</p>
+      <div class="filebox">
+        <div class="fbh">git checkout -b &middot; the older spelling, the same outcome</div>
+<pre><code><span class="cmd">&gt; git checkout -b legacy-style</span>
+Switched to a new branch 'legacy-style'</code></pre>
+      </div>
+      <p>So why does <code>switch</code> exist? Because <code>checkout</code> does several unrelated jobs. The same command that changes branch also restores a single file over your edits, and can also put you in a state where HEAD points straight at a commit instead of a branch. One mistaken argument therefore does something quite different from what you meant, and the command tells you nothing about which job it thinks it is doing. <b><code>git switch</code> does exactly one job: change which branch you are on.</b> Use <code>switch</code> in your own work, and recognise <code>checkout</code> when a tutorial or a colleague uses it. (That HEAD-points-straight-at-a-commit state has a name, detached HEAD, and it is <b>Session 7</b>.)</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Create a branch and prove nothing was copied</div>
+        <ol>
+          <li>In <code>branch-lab</code>, run <code>git switch -c feature</code>.</li>
+          <li>Run <code>git branch</code> and confirm the <code>*</code> is now beside <code>feature</code>.</li>
+          <li>Run <code>git branch -v</code>. <b>Confirm both branches show the same short hash and the same message.</b> This is the one result to actually stop and look at.</li>
+          <li>Read <code>.git/refs/heads/feature</code> and confirm it holds the same 40-character hash as <code>.git/refs/heads/main</code>.</li>
+          <li>Run <code>git switch nope</code> and read the error, so you recognise it later. Then make sure you are back on <code>feature</code> with <code>git branch --show-current</code>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I created feature and saw that it and main point at the exact same commit</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-pointer">
+      <h3>E. Commit on a branch, and watch the pointer move</h3>
+      <p>You are on <code>feature</code>. Do a small piece of work there. Create a file and commit it, exactly the way Session 1 taught:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content feature.md "The feature notes."</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "The feature notes." &gt; feature.md</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">git add and git commit, on the feature branch</div>
+<pre><code><span class="cmd">&gt; git add feature.md</span>
+<span class="cmd">&gt; git commit -m "Add feature.md"</span>
+[feature c73c51d] Add feature.md
+ 1 file changed, 1 insertion(+)
+ create mode 100644 feature.md</code></pre>
+      </div>
+      <p>Two details in that first line. The name in the brackets is <code>feature</code>, not <code>main</code>: <b>the commit was recorded on the branch you are standing on.</b> And the words <code>(root-commit)</code> are absent this time, because that label only appears on the very first commit in a repository, the one with no parent. This commit has a parent, so it is an ordinary link in the chain.</p>
+      <p>Now the question that matters. What happened to the two pointers?</p>
+      <div class="filebox">
+        <div class="fbh">git branch -v &middot; one moved, one did not</div>
+<pre><code><span class="cmd">&gt; git branch -v</span>
+* feature c73c51d Add feature.md
+  main    eae0405 Add notes.md</code></pre>
+      </div>
+      <p><b><code>feature</code> moved forward to the new commit. <code>main</code> did not move at all.</b> It is still holding the same hash it held before you started. This is the whole mechanism of working in isolation, and it is not clever: committing rewrites one 41-byte file, the one for the branch you are on, and leaves every other branch file untouched. Nothing you do on <code>feature</code> can disturb <code>main</code>, because nothing you do on <code>feature</code> writes to <code>main</code>.</p>
+    </div>
+
+    <div class="block" id="concept-switching">
+      <h3>F. What switching actually changes, and why --all matters</h3>
+      <p>Committing moves a pointer. <b>Switching changes the files in your folder.</b> When you switch branches, Git makes the working tree, meaning the ordinary files you can see and open, match the snapshot that branch points at. To watch that happen you need to list the folder, so here are the two shells, listing plain names one per line:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Get-ChildItem -Name</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>ls -1</code></div>
+      </div>
+      <p>Session 1 gave you <code>Get-ChildItem -Force</code> and <code>ls -a</code> for showing hidden entries. These are the same two commands without that: <code>-Name</code> and <code>-1</code> (the digit one) both mean "just the names, one per line", so the two shells print the same thing and you can compare against the transcript.</p>
+      <p><b>Now predict before you press enter.</b> This is the habit the whole track is for, and this is the first time in the track where the answer is not obvious. You are on <code>feature</code>. The folder holds <code>notes.md</code> and <code>feature.md</code>. You are about to run <code>git switch main</code>. <b>Commit to an answer out loud: which files will be in the folder afterwards?</b> Then run it.</p>
+      <div class="filebox">
+        <div class="fbh">the working tree changes to match the branch</div>
+<pre><code><span class="cmd">&gt; Get-ChildItem -Name</span>
+feature.md
+notes.md
+
+<span class="cmd">&gt; git switch main</span>
+Switched to branch 'main'
+
+<span class="cmd">&gt; Get-ChildItem -Name</span>
+notes.md</code></pre>
+      </div>
+      <p><code>feature.md</code> is gone from the folder. <b>If that looks like Git deleted your work, read this sentence carefully: it did not.</b> The commit holding <code>feature.md</code> is still in the repository, and the branch <code>feature</code> still points straight at it. What changed is which snapshot your folder is showing. <code>main</code> points at a commit whose snapshot never contained <code>feature.md</code>, so a folder matching that snapshot does not contain it either. Run <code>git switch feature</code> and the file is back, instantly, because it never went anywhere.</p>
+      <p>One honest limit on that, because it is exactly where the demonstration can look broken. <b>This applies only to work you have committed.</b> A file you created but never committed belongs to no snapshot on any branch, so Git has nothing to swap it for and simply leaves it where it is. It follows you across the switch and <code>git status</code> keeps reporting it as untracked. Nothing is wrong; the file just is not part of the history yet.</p>
+      <p><b>Now the other thing that changed when you switched, and it catches people.</b> You are standing on <code>main</code>. Ask for the history:</p>
+      <div class="filebox">
+        <div class="fbh">git log --oneline --graph --decorate=short &middot; from main, one commit</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --decorate=short</span>
+* eae0405 (HEAD -&gt; main) Add notes.md</code></pre>
+      </div>
+      <p>Your <code>feature</code> commit has vanished from the log as well. It is not lost: <code>git log</code> starts at the branch you are on and walks <b>backwards</b> along parent pointers, exactly as Session 1 described. The <code>feature</code> commit is not behind <code>main</code>, it is ahead of it on a different pointer, so the walk never reaches it.</p>
+      <p><b>This is where <code>--all</code> earns its keep.</b> Session 2 introduced <code>--graph</code> and it drew a plain column of dots, because a straight line of commits on one branch has no shape to draw. That was not <code>--graph</code> being useless; it was <code>--graph</code> having only one branch to look at. <b><code>--all</code> tells <code>git log</code> to start from every branch, not just the current one</b>, and the two commands together are how you see the repository rather than your corner of it:</p>
+      <div class="filebox">
+        <div class="fbh">git log --oneline --graph --all --decorate=short &middot; every branch</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+* c73c51d (feature) Add feature.md
+* eae0405 (HEAD -&gt; main) Add notes.md</code></pre>
+      </div>
+      <p>Both commits, each labelled with the branch that points at it. <b>Look hard at the shape, because the next section turns it into a rule:</b> this is a straight line. There is no fork in it. <code>main</code> sits directly below <code>feature</code>, which is another way of saying <b><code>main</code> is an ancestor of <code>feature</code></b>: every commit <code>main</code> has, <code>feature</code> already has, and <code>feature</code> has one more on top. Nothing has happened on <code>main</code> since <code>feature</code> split off.</p>
+      <p>Memorise the long form as one unit, because you will type it constantly: <code>git log --oneline --graph --all --decorate=short</code>.</p>
+    </div>
+
+    <div class="block" id="concept-ff">
+      <h3>G. Bringing the work back: a fast-forward merge</h3>
+      <p>The work on <code>feature</code> is finished and you want it on <code>main</code>. <b><code>git merge &lt;name&gt;</code> brings the named branch into the branch you are currently on</b>, so the direction matters: you stand on the branch that should receive the work, and you name the branch the work is coming from. You are already on <code>main</code>, which is where you want to be:</p>
+      <div class="filebox">
+        <div class="fbh">git merge feature &middot; run from main</div>
+<pre><code><span class="cmd">&gt; git merge feature</span>
+Updating eae0405..c73c51d
+Fast-forward
+ feature.md | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 feature.md</code></pre>
+      </div>
+      <ul class="pts">
+        <li><code>Updating eae0405..c73c51d</code> names the two commits <code>main</code> moved between: from the one it was on, to the one it is on now.</li>
+        <li><code>Fast-forward</code> is Git telling you <b>which kind of merge it did</b>. This is the word to look for.</li>
+        <li>The last three lines are the same changed-files summary a commit prints, listing what arrived in your working tree as a result.</li>
+      </ul>
+      <p><b>Here is the definition, and it comes straight off the graph you just looked at.</b> A fast-forward is possible <b>precisely when the branch you are on has not moved since the other branch split off</b>. That was true here: <code>main</code> was an ancestor of <code>feature</code>, so there was nothing to combine. Every commit <code>main</code> had, <code>feature</code> already had. Git did not need to work out how to reconcile two sets of changes, because there was only ever one set. So it did the only thing left to do: <b>it slid the <code>main</code> pointer forward</b> to the commit <code>feature</code> was already on. One 41-byte file rewritten.</p>
+      <p>Two consequences worth stating plainly, because they will not be true next session. <b>A fast-forward creates no new commit</b>, so the history stays a straight line and nothing new appears in your log. And because no commit is created, <b>Git never asks you for a commit message</b>; the command runs and returns you to your prompt.</p>
+      <p><b>Session 4 is the other case</b>: both branches moved, so <code>main</code> is no longer an ancestor of <code>feature</code>, there genuinely are two sets of changes to combine, and Git has to build a real merge commit, ask you for a message, and sometimes ask you to resolve a conflict where the two sides changed the same lines. (There is also a second way to combine branches, <code>rebase</code>, which reshapes history rather than merging it. That is <b>Session 8</b>.)</p>
+      <p>Look at what the merge left behind:</p>
+      <div class="filebox">
+        <div class="fbh">after the merge &middot; two names, one commit</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+* c73c51d (HEAD -&gt; main, feature) Add feature.md
+* eae0405 Add notes.md
+
+<span class="cmd">&gt; git branch -v</span>
+  feature c73c51d Add feature.md
+* main    c73c51d Add feature.md
+
+<span class="cmd">&gt; Get-ChildItem -Name</span>
+feature.md
+notes.md</code></pre>
+      </div>
+      <p><b>Both branch names now decorate the same commit</b>, and <code>git branch -v</code> shows both holding the same hash. That is exactly the state you were in right after <code>git switch -c feature</code>, just one commit further along: two pointers, one commit. And <code>feature.md</code> is in your folder again, this time as part of <code>main</code>.</p>
+    </div>
+
+    <div class="block" id="concept-delete">
+      <h3>H. Deleting a branch you have finished with</h3>
+      <p>Once the work is merged, the branch name has done its job and it is normal to remove it, so the list stays short. <b><code>git branch -d &lt;name&gt;</code></b> deletes a branch, with <code>-d</code> for delete:</p>
+      <div class="filebox">
+        <div class="fbh">git branch -d feature</div>
+<pre><code><span class="cmd">&gt; git branch -d feature</span>
+Deleted branch feature (was c73c51d).
+
+<span class="cmd">&gt; git branch</span>
+* main
+
+<span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+* c73c51d (HEAD -&gt; main) Add feature.md
+* eae0405 Add notes.md</code></pre>
+      </div>
+      <p><b>Nothing was destroyed.</b> Deleting a branch removes the 41-byte pointer file and that is all it removes. Commit <code>c73c51d</code> is still right there in the log, still holding <code>feature.md</code>; the only change is that one name refers to it now instead of two. Once you accept that a branch is a pointer, this stops being reassuring and starts being obvious: you deleted a pointer, so you lost a pointer.</p>
+      <p><b>That hash in the message is not decoration.</b> <code>(was c73c51d)</code> is Git handing you the way back, and it matters in the case this example does not show: deleting a branch whose commits are <b>not</b> merged anywhere else really would leave those commits with no name pointing at them, and that short hash is how you would find them again. <b>Session 8</b> is where you learn to use it.</p>
+      <p>Git tries hard to stop you reaching that situation by accident. <code>-d</code> <b>refuses</b> to delete a branch whose work is not already merged into the branch you are on. <b>You have no branch called <code>wip</code>, so this next block is a read-only example rather than something to run</b>, and here is what that refusal looks like:</p>
+      <div class="filebox">
+        <div class="fbh">git branch -d on a branch with unmerged work &middot; example only</div>
+<pre><code><span class="cmd">&gt; git branch -d wip</span>
+error: the branch 'wip' is not fully merged
+hint: If you are sure you want to delete it, run 'git branch -D wip'
+hint: Disable this message with "git config set advice.forceDeleteBranch false"</code></pre>
+      </div>
+      <p>That refusal is a safety net, and the hint names the override: <b><code>-D</code>, a capital D, deletes anyway.</b> It is being named here so that you recognise it and know it is not a typo for <code>-d</code>. <b>Do not reach for it yet.</b> Right now it is the one command in this session that can genuinely lose work, and Session 8 covers when it is safe and how to recover if it was not.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Take feature all the way through</div>
+        <p>All in <code>branch-lab</code>, starting on <code>feature</code>. Before each step that produces output, say what you expect.</p>
+        <ol>
+          <li>Create <code>feature.md</code> with the line for your shell above, then <code>git add feature.md</code> and <code>git commit -m "Add feature.md"</code>.</li>
+          <li>Run <code>git branch -v</code>. Confirm <code>feature</code> moved to the new commit and <code>main</code> did not move.</li>
+          <li><b>Predict, out loud, which files the folder will hold after you switch.</b> Then run <code>git switch main</code> and <code>Get-ChildItem -Name</code> (or <code>ls -1</code>). Confirm <code>feature.md</code> is gone.</li>
+          <li>Run <code>git log --oneline --graph --decorate=short</code>, then run it again with <code>--all</code> added. Confirm the first hides the <code>feature</code> commit and the second shows it, and that the graph is a straight line with no fork.</li>
+          <li>Run <code>git merge feature</code>. Confirm the output says <code>Fast-forward</code>, and that <code>feature.md</code> is back in your folder.</li>
+          <li>Run <code>git branch -d feature</code>, then the <code>--all</code> log again. Confirm the commit is still there with only <code>main</code> pointing at it.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I committed on a branch, watched the files change on switch, fast-forwarded main, and deleted the branch</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-milestone">
+      <h3>I. The milestone: work in isolation, then merge it back</h3>
+      <p>Section H walked you through it with every output printed. The milestone is the same shape with the scaffolding removed, a different branch name, and <b>two</b> commits instead of one, so that the pointer has to move twice before you bring it home.</p>
+      <p>You are in <code>branch-lab</code>, on <code>main</code>, with a clean working tree. Do the whole thing without scrolling back up. If you get stuck on a command name, use <code>git branch</code> and <code>git branch -v</code> to work out where you are first; knowing how to orient yourself is part of the milestone.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: a branch, two commits, and a merge</div>
+        <ol>
+          <li>Create a branch called <code>drafts</code> and move onto it in one command.</li>
+          <li>Create <code>draft-one.md</code> with any single line in it, and commit it with the message <code>Add draft-one.md</code>.</li>
+          <li>Create <code>draft-two.md</code> the same way, and commit it with the message <code>Add draft-two.md</code>.</li>
+          <li><b>Confirm <code>main</code> has not moved</b>, using the command that shows each branch with the commit it points at.</li>
+          <li>Switch back to <code>main</code>, then list the folder. <b>Confirm both draft files have vanished from it</b>, and be able to say why in one sentence.</li>
+          <li>Merge <code>drafts</code> into <code>main</code>. <b>Confirm the output contains the word <code>Fast-forward</code></b>, and be able to say why a fast-forward was possible here.</li>
+          <li>Delete <code>drafts</code>. Then draw the graph across every branch and confirm both draft commits are still in the history.</li>
+        </ol>
+        <p>You have hit the milestone when you did all seven from memory, and you can explain step 5 and step 6 without looking them up.</p>
+        <details><summary>What you should have seen (your hashes will differ)</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Step 4, after both commits, with <code>drafts</code> two ahead and <code>main</code> untouched:</p>
+<pre><code><span class="cmd">&gt; git branch -v</span>
+* drafts 312f23c Add draft-two.md
+  main   c73c51d Add feature.md</code></pre>
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Step 5, back on <code>main</code>, both drafts gone because <code>main</code> points at a snapshot that never contained them:</p>
+<pre><code><span class="cmd">&gt; git switch main</span>
+Switched to branch 'main'
+
+<span class="cmd">&gt; Get-ChildItem -Name</span>
+feature.md
+notes.md</code></pre>
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Step 6, the merge. Two files arrive at once, and it is still a fast-forward because <code>main</code> never moved while you were on <code>drafts</code>:</p>
+<pre><code><span class="cmd">&gt; git merge drafts</span>
+Updating c73c51d..312f23c
+Fast-forward
+ draft-one.md | 1 +
+ draft-two.md | 1 +
+ 2 files changed, 2 insertions(+)
+ create mode 100644 draft-one.md
+ create mode 100644 draft-two.md</code></pre>
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Step 7, the delete and the final graph. Four commits, one branch, nothing lost:</p>
+<pre><code><span class="cmd">&gt; git branch -d drafts</span>
+Deleted branch drafts (was 312f23c).
+
+<span class="cmd">&gt; git log --oneline --graph --all --decorate=short</span>
+* 312f23c (HEAD -&gt; main) Add draft-two.md
+* b39de35 Add draft-one.md
+* c73c51d Add feature.md
+* eae0405 Add notes.md</code></pre>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I did all seven steps from memory and can explain why the files vanished and why the merge fast-forwarded</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in <code>branch-lab</code>.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a normal repository with a few commits and a clean working tree. Where a drill needs something to have happened first, it is shown in the grey <i>already run</i> box.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: run these in the wrong order and Git either errors, refuses, or records the work on the wrong branch.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> two of these six questions come from earlier sessions, because recalling older material on a delay is what makes it stick. Their review links open that session in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 03 of 10 &middot; Hit the milestone unassisted, then tick <b>S03</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; Session 4 builds its own practice repository from scratch, so you do not need to keep <code>branch-lab</code>.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, draw the commit graph of <code>branch-lab</code> from memory: every commit as a dot, in order, with an arrow labelled <code>main</code> pointing at the one <code>main</code> holds. Then open a terminal and check yourself with <code>git log --oneline --graph --all --decorate=short</code>. If your drawing was right, you have the model. &middot; Next: <b>Session 04, real merges &amp; conflicts</b> (Level 2).
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s03-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words (staged,
+     unstaged, deleted), branch names and plain file names, where capitalisation is
+     presentation rather than the lesson. Marking "Feature" wrong would be an unfair
+     grade. Git command case-sensitivity is taught in prose and tested in Parts 3 and 4. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 4 value, 3 count, 2 set, 2 seq. No drill grades a hash. */
+  var DRILLS = [
+    { type: 'value',
+      scen: '> git branch -v\n* feature 8c41d0e Tidy the parser\n  main    3f2b7a1 Add the parser',
+      ask: 'Which commit message is the branch main pointing at? Type the message.',
+      code: 'git branch -v', ans: 'Add the parser',
+      why: 'Read across the main row, not the starred one. The star marks the branch you are standing on, which is feature here, but the question asks where main points. On the main row the short hash is 3f2b7a1 and the subject beside it is Add the parser.' },
+
+    { type: 'value',
+      scen: 'You are on main, and reading .git/HEAD prints:\n ref: refs/heads/main\nYou then run:\n git switch -c feature',
+      ask: 'What does reading .git/HEAD print now? Type the whole line.',
+      code: 'Get-Content .git/HEAD      # PowerShell\ncat .git/HEAD              # Git Bash / macOS / Linux', ans: 'ref: refs/heads/feature',
+      why: 'The file .git/HEAD holds one line naming the branch you are on. Switching rewrites that line, so it now names the new branch: ref: refs/heads/feature. Note it still names a branch rather than a commit, because HEAD reaches the commit by way of the branch.' },
+
+    { type: 'count',
+      scen: '> git log --oneline --graph --all --decorate=short\n* 9d2f118 (feature) Add the tests\n* 3a7c05b Add the parser\n* 51e9a4c (HEAD -> main) Add README.md',
+      ask: 'How many commits does feature have that main does not have?',
+      code: 'git log --oneline --graph --all --decorate=short', ans: '2',
+      why: 'Read upward from the row main decorates. Above it sit 3a7c05b and 9d2f118, both of which feature can reach and main cannot, so the answer is 2. The commit main is already on does not count, because feature has that one too: the question is what feature has in addition.' },
+
+    { type: 'set',
+      scen: 'main has two committed files: notes.md and README.md.\nfeature branched off main and committed one more file,\nfeature.md. You are on feature, and you run:\n git switch main',
+      ask: 'Which files does the folder hold afterwards? List the names separated by commas, any order.',
+      code: 'Get-ChildItem -Name      # PowerShell\nls -1                    # Git Bash / macOS / Linux', ans: 'notes.md, README.md',
+      why: 'Switching makes the working tree match the snapshot the branch points at. The commit main points at contains notes.md and README.md and never contained feature.md, so feature.md leaves the folder. It is not lost: the feature branch still points at the commit holding it.' },
+
+    { type: 'value',
+      scen: '> git log --oneline --graph --all --decorate=short\n* 9711603 (feature) Add the tests\n* b5b3590 (HEAD -> main) Add the parser\n* 5199dd7 Add README.md',
+      ask: 'You are on main and you run git merge feature. Can Git finish this by only moving the main pointer forward? Answer yes or no.',
+      code: 'git merge feature', ans: 'yes',
+      why: 'Find the row main decorates before deciding anything: it is the middle one here, not the bottom one. What matters is that feature sits above it on the same unbroken line, so main is an ancestor of feature and every commit main has, feature already has. There is nothing to combine, so Git slides the main pointer up one row. How far down the line main happens to sit makes no difference.' },
+
+    { type: 'value',
+      scen: '> git log --oneline --graph --all --decorate=short\n* 44c73fa (feature) Add the tests\n* b4b2281 Add the parser\n* 1b7a5af (HEAD -> main) Add README.md\n\nYou then leave for the day. While you are away, a colleague\nmakes one new commit on main.',
+      ask: 'You come back, and you are on main. You run git merge feature. Can Git finish this by only moving the main pointer forward? Answer yes or no.',
+      code: 'git merge feature', ans: 'no',
+      why: 'The graph shown was true this morning, and the sentence under it makes it out of date. That new commit moved main off the line feature grew from, so main is no longer an ancestor of feature: each branch now has work the other does not. There is nothing for a pointer to slide along, so Git has to build a real merge commit instead, which is Session 4.' },
+
+    { type: 'seq',
+      scen: 'You start on main. You run these three commands, in order:\n git switch -c feature\n git switch -c hotfix\n git switch main',
+      ask: 'After each command, which branch are you on? Type the three branch names in order, separated by commas.',
+      code: 'git branch --show-current', ans: 'feature, hotfix, main',
+      why: 'The -c form creates a branch and moves you onto it in one step, so the first command lands you on feature and the second lands you on hotfix, created from where feature was. The third has no -c, so it creates nothing and simply moves you to the existing branch main.' },
+
+    { type: 'count',
+      scen: 'A repository with one commit on main. You then run:\n git switch -c feature\n git checkout -b hotfix',
+      ask: 'How many branch names does git branch list?',
+      code: 'git branch', ans: '3',
+      why: 'git checkout -b is the older spelling of git switch -c and does exactly the same job, so each of those two commands created a branch. Together with main, which was already there, that is 3 names in the list.' },
+
+    { type: 'seq',
+      scen: 'A repository with one commit on main. You run, in this order:\n 1. git switch -c feature\n 2. create feature.md, then git add and git commit it\n 3. git switch main\n 4. git merge feature',
+      ask: 'After each of the four numbered steps, is feature.md in the folder? Answer yes or no for each, in order, separated by commas.',
+      code: 'Get-ChildItem -Name      # PowerShell\nls -1                    # Git Bash / macOS / Linux', ans: 'no, yes, no, yes',
+      why: 'After step 1 the branch exists but the file has not been created, so no. Step 2 creates and commits it, so yes. Step 3 switches to main, whose snapshot never held it, so it leaves the folder: no. Step 4 fast-forwards main onto the commit that holds it, so it comes back: yes.' },
+
+    { type: 'set',
+      scen: "You are on main. feature has one commit that main does not\nhave, and main has not moved. You run:\n git merge feature\nGit prints:\n Updating eae0405..c73c51d\n Fast-forward",
+      ask: 'Which branch names now point at commit c73c51d? feature has not been deleted. List them separated by commas, any order.',
+      code: 'git log --oneline --graph --all --decorate=short', ans: 'main, feature',
+      why: 'A fast-forward moves the pointer of the branch you are on, and leaves the other branch exactly where it was. feature was already on c73c51d and main has just been slid up to it, so both names hold the same hash. Merging does not move or remove the branch you merged from.' },
+
+    { type: 'count',
+      scen: '> git branch -v\n  feature 5f0c8a2 Add the loader\n* main    5f0c8a2 Add the loader\nYou then run, from main:\n git branch -d feature',
+      ask: 'How many commits does the repository lose?',
+      code: 'git branch -d feature', ans: '0',
+      why: 'Deleting a branch removes its pointer file and nothing else. Commit 5f0c8a2 is still in the repository and main still points straight at it, so the count is 0. A branch name is a label on a commit, not a container holding one.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ---------- */
+  var PARSONS = [
+    { prompt: 'You are on main with a clean working tree, and you have already created the file feature.md in the folder. Do every part of the work on a branch, so that nothing is ever staged while you are still standing on main: move onto a new branch called feature, stage feature.md, record it in a commit there, then come back to main, bring the work in, and finish by removing the branch name you no longer need.',
+      lines: ['git switch -c feature', 'git add feature.md', 'git commit -m "Add feature.md"', 'git switch main', 'git merge feature', 'git branch -d feature'] },
+    { prompt: 'You are in a folder that is not yet a repository and contains one file, notes.md. Turn it into a repository whose first branch is called main, record notes.md in a commit on that branch, then create a second branch called feature, and finish by listing both branches with the commit each one points at so you can see they are on the same commit.',
+      lines: ['git init -b main', 'git add notes.md', 'git commit -m "Add notes.md"', 'git switch -c feature', 'git branch -v'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so the first line prints only the name of the branch you are standing on, the second lists every branch with the commit it holds, and the third removes a branch name whose work has already been brought into main.',
+      code: 'git branch %%          # print just the name of the one you are on\ngit branch %%          # list them with the commit each one holds\ngit branch %% feature  # remove a name you have finished with', ans: ['--show-current', '-v', '-d'] },
+    { prompt: 'Fill the blanks so the first line makes a new branch and moves you onto it in one step, the second brings that branch into the one you are standing on, and the third draws the history of the whole repository rather than only the part you can reach from here.',
+      code: 'git switch %% feature   # make it and move onto it in one step\ngit %% feature          # bring its work into the branch you are on\ngit log --graph --oneline %%   # draw every branch, not just this one', ans: ['-c', 'merge', '--all'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'You are on main in branch-lab. Create a branch called experiment and move onto it, then confirm two separate things: that you are standing on it, and that it points at the same commit main does.',
+      sol: 'git switch -c experiment       # create it and move onto it\ngit branch --show-current      # confirms which branch you are on\ngit branch -v                  # both rows show the same short hash' },
+    { task: 'You are on experiment and you have just created a file called idea.md. Record it in a commit on experiment, then show that main has not moved as a result.',
+      sol: 'git add idea.md\ngit commit -m "Add idea.md"\ngit branch -v                  # experiment moved, main still on the old hash' },
+    { task: 'Show the history of every branch in the repository, one line per commit, with the graph drawn down the left and the branch labels shown. This is the one command to have in your fingers by the end of this session.',
+      sol: 'git log --oneline --graph --all --decorate=short' },
+    { task: 'The work on experiment is finished and main has not moved since you branched. Get back to main, bring the work in, and clean up the branch name. Then write down which single word in the merge output tells you Git only had to move a pointer.',
+      sol: 'git switch main\ngit merge experiment           # look for the word Fast-forward\ngit branch -d experiment       # prints the hash it was on, keep that in mind\n\n# The word is Fast-forward.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'What a branch is, in one sentence', b: 'a movable pointer to a commit' },
+    { f: 'The file that records which branch you are on', b: '.git/HEAD' },
+    { f: 'What .git/HEAD contains while you are on main', b: 'ref: refs/heads/main' },
+    { f: 'What the file .git/refs/heads/main contains', b: 'one 40-character commit hash plus a newline: 41 bytes' },
+    { f: 'Print the hash of the commit you are standing on', b: 'git rev-parse HEAD' },
+    { f: 'List every branch, with a star on the current one', b: 'git branch' },
+    { f: 'Print only the name of the branch you are on', b: 'git branch --show-current' },
+    { f: 'List branches with the commit each one points at', b: 'git branch -v' },
+    { f: 'List branches including ones on a remote copy', b: 'git branch -a' },
+    { f: 'Create a branch and move onto it, in one command', b: 'git switch -c feature' },
+    { f: 'Move to a branch that already exists', b: 'git switch main' },
+    { f: 'The older spellings of those same two jobs', b: 'git checkout -b feature   and   git checkout main' },
+    { f: 'Why switch exists alongside checkout', b: 'checkout does several unrelated jobs, switch only changes branch' },
+    { f: 'Draw the history of every branch, not just this one', b: 'git log --oneline --graph --all --decorate=short' },
+    { f: 'What a fast-forward merge does', b: 'slides the branch pointer forward; it creates no new commit' },
+    { f: 'Delete a branch whose work is already merged', b: 'git branch -d feature' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  /* Four new Session-3 questions carry an in-page scrollIntoView backlink (part).
+     The two recall questions carry an external new-tab link (ext), since the
+     concept they test lives in the Session 1 and Session 2 artifacts, not here. */
+  var S1_URL = 'git-session-01.html';
+  var S2_URL = 'git-session-02.html';
+  var QUIZ = [
+    { q: 'You are on main in a repository with thirty thousand files. You run git switch -c feature. What has Git physically done?',
+      o: ['Written one small file under .git holding the hash of the commit you were on',
+          'Copied all thirty thousand files into a second folder dedicated to the new branch',
+          'Created an empty branch with no history, which you now have to populate',
+          'Uploaded a copy of the project so the branch can be shared'],
+      c: 0,
+      e: 'Creating a branch writes the file .git/refs/heads/feature, whose whole contents are the 40-character hash of the commit you were on plus a newline. Forty-one bytes, no copying, and the size of the project makes no difference. That is the literal reason branching in Git is described as cheap.',
+      part: { id: 'concept-whatis', label: 'B. What a branch literally is' } },
+
+    { q: 'You are on main. feature has 2 commits that main does not have, and nothing has been committed to main since feature was created. You run git merge feature and Git says Fast-forward. Why was that possible?',
+      o: ['main was an ancestor of feature, so Git only had to move the main pointer forward',
+          'Because feature had only 2 commits; more than that would need a real merge',
+          'Because both branches had changed different files, so nothing overlapped',
+          'Because feature was created from main, and branching that way always makes merges fast-forward'],
+      c: 0,
+      e: 'A fast-forward is possible precisely when the branch you are on has not moved since the other one split off. That makes it an ancestor: every commit main had, feature already had, so there were not two sets of changes to reconcile. The number of commits is irrelevant, and so is which files changed. Had someone committed to main in the meantime, it would no longer be an ancestor and Git would have to build a real merge commit, which is Session 4.',
+      part: { id: 'concept-ff', label: 'G. Fast-forward merges' } },
+
+    { q: 'You commit report.py on a branch called analysis, then run git switch main. report.py disappears from your folder. What happened?',
+      o: ['Your folder now matches the snapshot main points at, which never contained report.py; the commit and the analysis branch still hold it',
+          'Git deleted report.py, and it is gone unless you can undo the switch',
+          'The file was moved into the .git folder and has to be extracted manually',
+          'The commit failed, so report.py was never recorded anywhere'],
+      c: 0,
+      e: 'Switching makes the working tree match the snapshot the branch points at. main points at a commit whose snapshot never contained report.py, so a folder matching it does not contain the file either. Nothing was deleted: analysis still points straight at the commit holding it, and git switch analysis brings it straight back. The one exception is a file you never committed, which belongs to no snapshot and so simply stays put.',
+      part: { id: 'concept-switching', label: 'F. What switching actually changes' } },
+
+    { q: 'After merging, you run git branch -d feature and Git prints: Deleted branch feature (was c73c51d). What did it delete, and why is that hash worth noticing?',
+      o: ['Only the branch pointer; the commits remain, and the hash is how you would find them again if the branch had held unmerged work',
+          'The branch and all of its commits, and the hash is a receipt for what was removed',
+          'The branch and the files it added, and the hash lets you re-download them',
+          'Nothing yet; the hash has to be confirmed before the deletion takes effect'],
+      c: 0,
+      e: 'Deleting a branch removes its 41-byte pointer file and nothing else, so every commit survives. Here they are also reachable from main, so the hash is not needed. It matters in the case this one is not: a branch whose commits are merged nowhere else leaves those commits with no name pointing at them, and that short hash is how you would find them. Session 8 teaches that recovery, which is also why -d refuses to delete unmerged work in the first place.',
+      part: { id: 'concept-delete', label: 'H. Deleting a merged branch' } },
+
+    { q: 'Recall from Session 2: which two things does git diff --staged compare?',
+      o: ['The staging area against the last commit',
+          'The working tree against the staging area',
+          'The working tree against the last commit',
+          'The current branch against the previous branch'],
+      c: 0,
+      e: 'git diff --staged compares the staging area against the last commit, so it shows exactly what you have staged and would record next. Plain git diff compares the working tree against the staging area, and git diff HEAD skips the staging area to compare the working tree against the last commit. None of the three compares branches, which is a job for git log --all and, in Session 4, for git merge.',
+      ext: { url: S2_URL, label: 'Session 2: git diff across the three areas (opens in a new tab)' } },
+
+    { q: 'Recall from Session 1: what does a single commit actually store?',
+      o: ['A complete snapshot of every tracked file, plus author, date, message, and a pointer to its parent',
+          'Only the lines that changed since the previous commit (a diff)',
+          'A copy of the whole .git folder',
+          'Just the commit message and the date'],
+      c: 0,
+      e: 'A commit stores a whole snapshot plus a parent pointer, not a diff. That is what makes this session work: a branch is a pointer into a chain of snapshots, so switching branches can swap your whole folder to a different snapshot instantly, and a fast-forward merge can be nothing more than pointing a name at a snapshot further along the chain.',
+      ext: { url: S1_URL, label: 'Session 1: a commit is a snapshot, not a diff (opens in a new tab)' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S03 on your Hub and move on to Session 4.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

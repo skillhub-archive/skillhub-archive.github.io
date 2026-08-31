@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Git // 20-Hour Sprint</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127807;</text></svg>">
+<style>
+  /* Track family house style, inherited from python-hub.html / sql-hub.html.
+     Differentiated ONLY by accent colour, favicon and copy. Do not diverge
+     structurally: the family's consistency is the design. */
+  :root {
+    --bg: #F2F4F8;
+    --surface: #FFFFFF;
+    --surface-2: #EAEEF4;
+    --ink: #151A22;
+    --ink-soft: #48505F;
+    --ink-faint: #646C7B;
+    --border: #DEE3EB;
+    --accent: #1B62C4;
+    --accent-soft: #E5EDFA;
+    --gold: #9D6110;
+    --gold-bright: #C77F1A;
+    --gold-soft: #FBF1DF;
+    --good: #1C7B51;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218;
+      --surface: #161B23;
+      --surface-2: #1E242E;
+      --ink: #EBEFF5;
+      --ink-soft: #AAB2C0;
+      --ink-faint: #848A98;
+      --border: #262D38;
+      --accent: #7FB3FF;
+      --accent-soft: #16243A;
+      --gold: #E6A94B;
+      --gold-bright: #E6A94B;
+      --gold-soft: #2A2213;
+      --good: #3FBE82;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Disable programming ligatures so any code shows the exact characters you type */
+  code, pre { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ---- Header ---- */
+  header.hero { padding: 56px 0 32px; border-bottom: 1px solid var(--border); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+  }
+  .trackback { display: inline-block; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; margin-bottom: 14px; }
+  .trackback:hover { color: var(--accent); }
+  h1 {
+    font-size: clamp(32px, 5vw, 52px); line-height: 1.05; margin: 14px 0 10px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .lede { font-size: 18px; color: var(--ink-soft); max-width: 62ch; margin: 0; }
+
+  /* Two-column hero: copy left, specimen right. Matches the animation Hub's
+     hero-grid so the specimen reads as a companion to the pitch rather than a
+     footnote under it. Progress panel stays full width below the grid. */
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; }
+  @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; gap: 24px; } }
+
+  /* ---- Hero specimen: the smallest honest example of what you will produce.
+     Static on purpose. Git's output is text, so it is shown as text; motion
+     belongs to tracks whose output is itself motion. Colours follow git's own
+     convention: coloured graph glyphs, yellow hashes, plain subjects. ---- */
+  .specimen {
+    margin: 0; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px;
+    box-shadow: var(--shadow);
+  }
+  .specimen-cmd {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
+    padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--border);
+  }
+  .specimen-cmd b { color: var(--ink); font-weight: 600; }
+  .specimen-out {
+    margin: 0; overflow-x: auto; font-family: var(--mono);
+    font-size: 12.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .specimen-out .g { color: var(--accent); }
+  .specimen-out .h { color: var(--gold); }
+  .specimen-note {
+    margin-top: 11px; padding-top: 9px; border-top: 1px dashed var(--border);
+    font-size: 12.5px; color: var(--ink-faint);
+  }
+
+  /* ---- Progress panel ---- */
+  .progress-panel {
+    margin-top: 32px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 1fr auto; gap: 18px 32px; align-items: center;
+  }
+  .pp-stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .pp-stat .num {
+    font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .pp-stat .lbl {
+    font-size: 12px; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: .08em; margin-top: 6px;
+  }
+  .pp-stat .num.accent { color: var(--accent); }
+  .bar-wrap { grid-column: 1 / -1; }
+  .bar-track { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--gold-bright)); border-radius: 99px; transition: width .5s ease; }
+  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-faint); }
+  .reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--ink-faint);
+    font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 7px;
+    cursor: pointer; letter-spacing: .04em;
+  }
+  .reset-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  /* ---- Section headings ---- */
+  .sec { margin-top: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .sec-head h2 { font-size: 24px; margin: 0; letter-spacing: -.01em; font-weight: 750; }
+  .sec-kicker { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: .1em; }
+  .sec-sub { color: var(--ink-soft); margin: 0 0 26px; max-width: 68ch; }
+
+  /* ---- How it works strip ---- */
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .fact {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .fact .k { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); }
+  .fact .v { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* ---- Levels ---- */
+  .level { margin-top: 30px; }
+  .level-head {
+    display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px;
+    padding-left: 4px;
+  }
+  .level-badge {
+    flex: none; width: 52px; height: 52px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-family: var(--mono);
+    font-weight: 700; font-size: 16px; text-align: center; line-height: 1.1;
+    -webkit-text-stroke: 0.7px rgba(0, 0, 0, .5); paint-order: stroke fill;
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .level-badge small { display: block; font-size: 11px; letter-spacing: .1em; opacity: .8; }
+  .level-title { font-size: 19px; font-weight: 750; margin: 2px 0 4px; }
+  .level-milestone {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 15px;
+    color: var(--gold); background: var(--gold-soft); border-radius: 8px;
+    padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent);
+    font-weight: 600;
+  }
+  .level-milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; opacity: .85; text-transform: uppercase; }
+
+  .sessions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 20px 18px; box-shadow: var(--shadow); position: relative;
+    display: flex; flex-direction: column; transition: border-color .2s, transform .2s;
+  }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+  .card.done::after {
+    content: "✓ done"; position: absolute; top: 16px; right: 16px;
+    font-family: var(--mono); font-size: 11px; color: var(--good); font-weight: 700;
+  }
+  .card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .snum {
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; letter-spacing: .03em;
+  }
+  .sdur { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
+  .card h3 { font-size: 17px; margin: 0 0 10px; letter-spacing: -.01em; line-height: 1.25; padding-right: 44px; }
+  .learn { margin: 0 0 12px; padding-left: 18px; }
+  .learn li { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .card-meta { margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .mrow { font-size: 12.5px; display: flex; gap: 8px; }
+  .mrow .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); flex: none; width: 62px; padding-top: 1px; }
+  .mrow .txt { color: var(--ink-soft); }
+  .mrow .txt b { color: var(--gold); font-weight: 600; }
+  .check {
+    margin-top: 14px; display: flex; align-items: center; gap: 9px; cursor: pointer;
+    font-size: 13px; color: var(--ink-soft); user-select: none;
+  }
+  .check input { width: 16px; height: 16px; accent-color: var(--good); cursor: pointer; }
+  .check:hover { color: var(--ink); }
+  .card-open { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: #fff; background: var(--accent); padding: 8px 14px; border-radius: 8px; text-decoration: none; }
+  .card-open:hover { filter: brightness(1.06); }
+
+  /* ---- Resources ---- */
+  .res-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .res {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .res .rnum { font-family: var(--mono); font-size: 12px; color: var(--gold); font-weight: 700; }
+  .res h4 { margin: 6px 0 2px; font-size: 16px; }
+  .res .cost { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--good); margin-bottom: 8px; }
+  .res .cost.paid { color: var(--ink-faint); }
+  .res p { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 10px; }
+  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .res a { color: var(--accent); text-decoration: none; font-size: 12.5px; font-family: var(--mono); word-break: break-all; }
+  .res a:hover { text-decoration: underline; }
+
+  /* ---- callout ---- */
+  .callout {
+    margin-top: 40px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 12px; padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .callout h3 { margin: 0 0 8px; font-size: 16px; }
+  .callout p { margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; }
+  .callout code {
+    font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
+    padding: 2px 6px; border-radius: 5px; color: var(--ink);
+  }
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+
+  @media (max-width: 720px) {
+    .progress-panel { grid-template-columns: 1fr; }
+    .facts { grid-template-columns: 1fr 1fr; }
+    .sessions { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <a class="trackback" href="index.html">&#8592; Learning Hub</a>
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">Git // 20-Hour Sprint</div>
+        <h1>Git, before you press enter</h1>
+        <p class="lede">A focused sprint from copy-pasting commands to knowing exactly what each one will do to your repository. Ten two-hour sessions, five levels, a milestone at every step so you always know where you stand.</p>
+      </div>
+
+      <div class="specimen">
+        <div class="specimen-cmd">$ <b>git log --oneline --graph</b></div>
+<pre class="specimen-out"><span class="g">*</span>   <span class="h">9f2c1ab</span> Merge branch 'add-export'
+<span class="g">|\</span>
+<span class="g">| *</span> <span class="h">4d81e07</span> Add CSV export
+<span class="g">| *</span> <span class="h">a17b3c9</span> Extract the report builder
+<span class="g">* |</span> <span class="h">c03fe55</span> Fix date parsing on empty rows
+<span class="g">|/</span>
+<span class="g">*</span>   <span class="h">8e5d2f1</span> Initial commit</pre>
+        <div class="specimen-note">A branch, two commits on it, and a merge. By Session 10 you read this fluently and produce it deliberately.</div>
+      </div>
+    </div>
+
+    <div class="progress-panel">
+      <div class="pp-stats">
+        <div class="pp-stat"><div class="num accent" id="stat-sessions">0/10</div><div class="lbl">Sessions done</div></div>
+        <div class="pp-stat"><div class="num" id="stat-level">Level 1</div><div class="lbl">Current level</div></div>
+        <div class="pp-stat"><div class="num" id="stat-hours">0h</div><div class="lbl">Hours invested</div></div>
+      </div>
+      <button class="reset-btn" id="reset">reset progress</button>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+        <div class="bar-caption"><span id="bar-label">Not started, tick a session when you finish it</span><span id="bar-pct">0%</span></div>
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the shape</span><h2>How this Sprint Works</h2></div>
+    <p class="sec-sub">Each session is ~1h45 of hands-on work plus a built-in 15-minute review. Session 1 creates a practice repository that is safe to destroy, and every dangerous command gets run there first, never on anything you care about. The arc: understand what Git actually is, then branch and collaborate, then learn to undo anything, and finally ship a live project and recover it when it breaks.</p>
+    <div class="facts">
+      <div class="fact"><div class="k">5</div><div class="v">Levels, beginner &rarr; advanced, each with a clear "you can now&hellip;" milestone.</div></div>
+      <div class="fact"><div class="k">10</div><div class="v">Two-hour hands-on workbooks you complete in your own terminal. All ten are built.</div></div>
+      <div class="fact"><div class="k">6</div><div class="v">Practice modes each session: learn-and-do, predict, arrange, fill, write, recall.</div></div>
+      <div class="fact"><div class="k">&sum;</div><div class="v">Cumulative review, later sessions re-test earlier ones (spaced practice).</div></div>
+    </div>
+  </section>
+
+  <!-- LEVELS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the path</span><h2>The Five Levels</h2></div>
+    <p class="sec-sub"><b>All ten sessions are built, so open any card.</b> Work them in order, Session 1 through 10, since later sessions build on earlier ones and re-test them. Tick the box when you finish a session so this page tracks where you are. Commands are shown for both PowerShell and Bash, so the track works on any operating system.</p>
+
+    <div id="level-track"></div>
+  </section>
+
+  <div class="callout">
+    <h3>Using this Hub</h3>
+    <p><b>Go in order.</b> Every session assumes the one before it. Level 4 in particular is much safer once Level 1 has explained what the three areas are.</p>
+    <p><b>Each session tells you which folder it starts in.</b> Most build a small fresh practice repository of their own, so you are never blocked by what an earlier session left behind. Two carry straight on from the session before, Session 2 and Session 6, and in both cases the previous session ends by telling you to keep that folder. Anywhere you are not told to keep it, deleting a practice folder between sessions costs you nothing.</p>
+    <p><b>Two hours is a guide, not a target.</b> Finishing in ninety minutes is fine, and so is taking three hours.</p>
+    <p><b>Tick sessions as you finish them</b> so the panel above stays honest, and export a copy if you switch machines.</p>
+  </div>
+
+  <!-- RESOURCES -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// keep going</span><h2>Top 5 Resources</h2></div>
+    <p class="sec-sub">Four of these five are free. Each is here for a specific job, so use them where they help rather than reading them end to end.</p>
+    <div class="res-grid">
+      <div class="res">
+        <div class="rnum">01</div>
+        <h4>Pro Git</h4>
+        <div class="cost">Free &middot; the standard</div>
+        <p>Chacon and Straub's book, free online under a Creative Commons licence. Gentle enough for chapter 1, thorough enough that chapter 10 explains Git's internals properly.</p>
+        <a href="https://git-scm.com/book" target="_blank" rel="noopener">git-scm.com/book</a>
+        <div class="when">During: Ch.2&ndash;3 track Levels 1&ndash;2 almost exactly.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">02</div>
+        <h4>Learn Git Branching</h4>
+        <div class="cost">Free</div>
+        <p>An interactive visualiser where you type real commands and watch the commit graph rearrange itself. Nothing makes branching and rebasing click faster, because you see the graph move instead of imagining it.</p>
+        <a href="https://learngitbranching.js.org/" target="_blank" rel="noopener">learngitbranching.js.org</a>
+        <div class="when">During: Level 2, then again for rebase in Level 4.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">03</div>
+        <h4>Oh Shit, Git!?!</h4>
+        <div class="cost">Free</div>
+        <p>Solves the reverse-lookup problem: you cannot search Git's own docs for how to fix a mistake unless you already know the name of the thing you need. Organised by the situation you are in. Swear-free mirror at dangitgit.com.</p>
+        <a href="https://ohshitgit.com/" target="_blank" rel="noopener">ohshitgit.com</a>
+        <div class="when">During: Level 4, then keep it bookmarked forever.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">04</div>
+        <h4>Atlassian: Merging vs. Rebasing</h4>
+        <div class="cost">Free</div>
+        <p>The clearest short explanation of the one Git decision that genuinely confuses everyone. Well diagrammed, and honest that both solve the same problem differently rather than one being correct.</p>
+        <a href="https://www.atlassian.com/git/tutorials/merging-vs-rebasing" target="_blank" rel="noopener">atlassian.com/git/tutorials/merging-vs-rebasing</a>
+        <div class="when">During: Session 4, then re-read before Session 8.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">05</div>
+        <h4>The official Git reference</h4>
+        <div class="cost">Free &middot; reference</div>
+        <p>The authoritative manual pages. Dense and not a teaching text, which is exactly why it belongs here: once you know what a command is called, this is where you learn every flag it takes.</p>
+        <a href="https://git-scm.com/docs" target="_blank" rel="noopener">git-scm.com/docs</a>
+        <div class="when">After: for precision, not for learning a concept.</div>
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- ============ WHERE TO NEXT (post-sprint send-off) ============ -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// now that you know</span><h2>Where to next</h2></div>
+    <p class="sec-sub">You finished the whole track: you can build a repository from nothing, branch and merge and resolve conflicts on purpose, run a pull request cycle, undo and recover work four different ways, and take a live project through shipping, breaking and fixing. This is not another level to clear. It is the view from the top of the sprint, and two honest ways to keep climbing.</p>
+
+    <div class="callout">
+      <h3>Try this next: what Git looks like underneath</h3>
+      <p>Every one of the ten sessions used what Git calls its <b>porcelain</b>: the friendly commands built for people, <code>commit</code>, <code>merge</code>, <code>switch</code>, <code>log</code>. Underneath sits the <b>plumbing</b>, a second set of commands built for scripts, and with them a small, genuinely elegant data model: four object types, a handful of refs, and nothing else. Session 8 opened this door when it explained why editing a commit produces a different hash, and Session 10 leaned on it again when a hook compared one ref name against another.</p>
+      <p><b>Why it is the natural next topic</b> rather than just trivia: it is the difference between typing at Git and scripting against it. Once you can ask a repository a question with <code>rev-parse</code>, <code>cat-file</code> and <code>for-each-ref</code>, you can automate the reporting and checking work that this track only ever did by hand.</p>
+      <p><b>Where to learn it:</b> <a href="https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">Pro Git, chapter 10 (Git Internals)</a> is the canonical treatment and it is free. That is resource 01 above, which is why its blurb says chapter 10 explains the internals properly. Read it with a throwaway repository open beside you and run every command it shows.</p>
+      <p><b>Hands-on bonus:</b> there is now an optional workbook for exactly this, a real workbook in the same six-part format as the ten sprint sessions but deliberately outside the graded ten, so opening it does not change your 10/10. It builds a small lab repository, then reads every object in it by hand with <code>cat-file</code>, <code>ls-tree</code>, <code>rev-parse</code> and <code>for-each-ref</code>, and finishes by scripting a question about a repository that you cannot answer by looking.</p>
+      <a class="card-open" href="git-session-bonus-plumbing.html" target="_blank" rel="noopener">Open the bonus workbook &#8599;</a>
+      <!-- The hands-on bonus workbook (git-session-bonus-plumbing.html, artifact 83e50617) is the button above; the outward Pro Git chapter 10 link stays alongside it on purpose. This is NOT a graded card, carries no data-check, and is absent from BUILT, so the progress bar still reads 10/10. -->
+    </div>
+
+    <div style="margin-top:34px">
+      <div class="sec-head"><span class="sec-kicker">// prove it</span><h2 style="font-size:19px">Get it certified</h2></div>
+      <p class="sec-sub">This sprint cannot hand you a credential. If you want one that proves what you learned, these two are genuine proctored exams rather than course-completion badges, and both were checked as current in August 2026. Read the honest caveat underneath them before you pay for either.</p>
+      <div class="res-grid">
+        <div class="res">
+          <div class="rnum">CERT &middot; best match</div>
+          <h4>Source Control Management with Git (SC102)</h4>
+          <div class="cost paid">Paid &middot; Linux Foundation SkillCred &middot; $79</div>
+          <p>By far the closest match to what this track taught, and the only one of the two that certifies <b>Git itself</b> rather than a hosting platform. Its published domains line up almost session for session: repository management, branching, reconciling changes, inspecting commits, working with remotes, undoing changes, and temporary commits, which is stash. Online, proctored, performance-based or multiple-choice, 45 minutes, and the credential does not expire.</p>
+          <div class="when">Closest to what you learned</div>
+          <a href="https://training.linuxfoundation.org/skillcred/git/" target="_blank" rel="noopener">training.linuxfoundation.org/skillcred/git</a>
+        </div>
+        <div class="res">
+          <div class="rnum">CERT &middot; platform</div>
+          <h4>GitHub Foundations</h4>
+          <div class="cost paid">Paid &middot; exam GH-900 &middot; regional pricing</div>
+          <p>Certifies <b>GitHub the platform</b>, not Git, so treat the overlap honestly: one of its seven assessed areas is "Understand Git and GitHub basics" and the rest covers repositories, collaboration, GitHub Projects, security and administration, which this track never taught. Proctored through Pearson VUE, 100 minutes. The official page states pricing by country rather than one figure, so check it there rather than trusting a third-party number.</p>
+          <div class="when">If your work is GitHub-centred</div>
+          <a href="https://learn.microsoft.com/en-us/credentials/certifications/github-foundations/" target="_blank" rel="noopener">learn.microsoft.com &middot; GitHub Foundations</a>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--ink-faint);margin:14px 0 0"><b>The honest caveat:</b> there is no certification from the Git project itself, and no single Git exam that every employer recognises. Git is a tool rather than a product with an exam body, so every credential you will find certifies either a vendor platform or a training provider assessment. The Linux Foundation SkillCred above is the nearest thing to a vendor-neutral Git credential. For a tooling and automation role, a repository somebody else can read and a history somebody else can follow usually says more than a badge does.</p>
+    </div>
+  </section>
+
+  <footer>
+    Git // 20-Hour Sprint &middot; ten sessions, five levels, about twenty hours. Your progress lives in this browser; use Export to keep a copy.
+  </footer>
+</div>
+
+<script>
+  var BUILT = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];  /* all ten shipped 2026-08-20 */
+
+  /* Session links. null means derive local site filenames, which is what the site
+     wants. The internal claude.ai variant is generated by
+     tools/learning-hub-hosting/build-artifact-variant.js, which replaces this one
+     declaration with an {n: artifactUrl} map. Keep it on its own line: it is the
+     single swap point between the two publish targets. */
+  var LINKS = null;
+
+  var LEVELS = [
+    { n: 1, title: "What Git actually is",
+      milestone: "You can create a repository and make intentional commits, explaining what each command did.",
+      sessions: [
+        { n: 1, title: "Your first repository, from zero",
+          learn: ["Check your install, set your identity, create the practice repository",
+                  "The three areas: working tree, staging area, repository",
+                  "What a commit really is: a snapshot with a parent, not a diff",
+                  "<code>status</code>, <code>add</code>, <code>commit</code>, <code>log</code>"],
+          ms: "Turn a folder into a repository and commit to it deliberately.",
+          res: "Pro Git, Ch.1&ndash;2 (free)",
+          rev: "Set up a second repository from scratch with no notes open." },
+        { n: 2, title: "Reading history &amp; seeing changes",
+          learn: ["Shaping <code>log</code> output; <code>show</code> and <code>diff</code> across all three areas",
+                  "What HEAD actually points at",
+                  "<code>.gitignore</code>, and what must never be committed: keys, tokens, credentials"],
+          ms: "Open any repository and say what changed, when, and by whom.",
+          res: "Official reference: <code>git-log</code>, <code>git-diff</code> (free)",
+          rev: "Investigate a repository you did not create, write a five-line history summary." }
+      ] },
+    { n: 2, title: "Branching &amp; merging",
+      milestone: "You can branch, merge, and resolve a conflict unassisted, without fear.",
+      sessions: [
+        { n: 3, title: "Branches are just pointers",
+          learn: ["What a branch literally is: a movable pointer to a commit",
+                  "Creating, switching, listing; why branching in Git is cheap",
+                  "Fast-forward merges, and when you get one"],
+          ms: "Do work in isolation on a branch and merge it back.",
+          res: "Learn Git Branching, Main sequence (free)",
+          rev: "Draw your commit graph from memory, then check it against <code>log --graph</code>." },
+        { n: 4, title: "Real merges &amp; conflicts",
+          learn: ["Three-way merges, and why a conflict happens at all",
+                  "Reading conflict markers instead of guessing",
+                  "Resolving deliberately; backing out safely with <code>merge --abort</code>"],
+          ms: "Cause, read, and resolve a merge conflict calmly.",
+          res: "Atlassian: Merging vs. Rebasing (free)",
+          rev: "Create and resolve two conflicts on purpose, one trivial and one genuine." }
+      ] },
+    { n: 3, title: "Remotes &amp; collaboration",
+      milestone: "You can run a full pull request cycle on a real remote, and review someone else's work.",
+      sessions: [
+        { n: 5, title: "Remotes, demystified",
+          learn: ["What <code>origin</code> actually is; clone, fetch, pull, push",
+                  "The real difference between fetch and pull",
+                  "Tracking branches, and what \"ahead 2, behind 1\" is telling you"],
+          ms: "Explain what push and pull each change, and recover from a rejected push.",
+          res: "Pro Git, working with remotes (free)",
+          rev: "Break sync on purpose by committing in two places, then reconcile it." },
+        { n: 6, title: "Pull requests &amp; review",
+          learn: ["Opening a pull request from a branch; how review actually works",
+                  "Merge vs squash vs rebase merge, and choosing with a reason",
+                  "Optional: if you have a second account, review as a different person"],
+          ms: "Open, review, and merge a pull request, and justify the merge strategy.",
+          res: "GitHub docs on pull requests (free)",
+          rev: "Review your own pull request as if a stranger wrote it, leaving three real comments." }
+      ] },
+    { n: 4, title: "Undo, recover, rewrite",
+      milestone: "You can recover from any mistake. Almost nothing you do in Git is truly unrecoverable.",
+      sessions: [
+        { n: 7, title: "Undo, safely",
+          learn: ["<code>reset</code> in all three modes, <code>revert</code>, and <code>restore</code>",
+                  "What each one touches, and when each is the right answer",
+                  "What detached HEAD means, and why it is not an error"],
+          ms: "Undo a local mistake and say exactly which area you changed.",
+          res: "Oh Shit, Git!?! (free)",
+          rev: "Fill in your own decision table mapping each mistake to the right tool." },
+        { n: 8, title: "Recovery &amp; rewriting history",
+          learn: ["<code>reflog</code>, the safety net that makes Git forgiving",
+                  "<code>amend</code>, interactive rebase, squash and fixup, <code>cherry-pick</code>",
+                  "The golden rule about shared history, and why <code>--force-with-lease</code> exists"],
+          ms: "Recover a lost commit and tidy a messy branch before sharing it.",
+          res: "Pro Git, rewriting history (free)",
+          rev: "Destroy a branch on purpose, then bring it back from the reflog." }
+      ] },
+    { n: 5, title: "Git in the real world",
+      milestone: "You can maintain your own projects, and work in someone else's repository without damaging it.",
+      sessions: [
+        { n: 9, title: "Working like a professional",
+          learn: ["Several identities on one machine: repo-local vs global config, credential helpers",
+                  "Repositories you do not own: read-only clones, fast-forward-only pulls, forks, syncing upstream",
+                  "<code>stash</code>, tags and releases, and <code>bisect</code>"],
+          ms: "Work in a repository you do not own, and find the commit that introduced a bug.",
+          res: "Pro Git, <code>bisect</code> and configuration (free)",
+          rev: "Bisect a planted bug in the practice repository." },
+        { n: 10, title: "Ship it, break it, fix it",
+          learn: ["A branch as a deploy trigger, and what that means for how you push",
+                  "Capstone: take a real project through branch, pull request, review, merge, deploy",
+                  "Then break it on purpose and recover it"],
+          ms: "Maintain a real project end to end, and fix it when you break it.",
+          res: "A practice project is provided; use your own instead if you have one.",
+          rev: "The comprehensive final, covering all ten sessions." }
+      ] }
+  ];
+
+  /* Level track rendered from data, matching python-hub / sql-hub / animation.
+     MUST run before the progress IIFE, which queries input[data-check] immediately. */
+  (function renderLevels() {
+    var track = document.getElementById("level-track");
+    if (!track) { return; }
+
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+    function sessionHref(n) {
+      return LINKS ? LINKS[n] : "git-session-" + pad(n) + ".html";
+    }
+
+    function sessionCard(s, levelNo) {
+      var bullets = s.learn.map(function (b) { return "<li>" + b + "</li>"; }).join("");
+      // Every session is built, so a card always offers its workbook. The
+      // The pending-card state was removed when Session 10 shipped.
+      var action = '<a class="card-open" href="' + sessionHref(s.n) + '" target="_blank" rel="noopener">Open workbook &#8599;</a>';
+      return '<div class="card" data-session="' + s.n + '" data-level="' + levelNo + '">' +
+               '<div class="card-top"><span class="snum">S' + pad(s.n) + '</span>' +
+               '<span class="sdur">1h45 + 15m review</span></div>' +
+               "<h3>" + s.title + "</h3>" +
+               '<ul class="learn">' + bullets + "</ul>" +
+               '<div class="card-meta">' +
+                 '<div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>' + s.ms + "</b></span></div>" +
+                 '<div class="mrow"><span class="tag">Resource</span><span class="txt">' + s.res + "</span></div>" +
+                 '<div class="mrow"><span class="tag">Review</span><span class="txt">' + s.rev + "</span></div>" +
+               "</div>" +
+               '<label class="check"><input type="checkbox" data-check="' + s.n + '"> Mark session complete</label>' +
+               action +
+             "</div>";
+    }
+
+    var html = LEVELS.map(function (lv) {
+      var cards = lv.sessions.map(function (s) { return sessionCard(s, lv.n); }).join("");
+      return '<div class="level">' +
+               '<div class="level-head">' +
+                 '<div class="level-badge">LVL<small>' + pad(lv.n) + "</small></div>" +
+                 "<div>" +
+                   '<div class="level-title">' + lv.title + "</div>" +
+                   '<span class="level-milestone"><span class="flag">Milestone</span> ' + lv.milestone + "</span>" +
+                 "</div>" +
+               "</div>" +
+               '<div class="sessions">' + cards + "</div>" +
+             "</div>";
+    }).join("");
+
+    track.innerHTML = html;
+  })();
+
+  (function () {
+    var KEY = "git-sprint-progress-v1";
+    var TOTAL = 10;
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+      catch (e) { return {}; }
+    }
+    function save(state) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    var boxes = Array.prototype.slice.call(document.querySelectorAll(".check input"));
+    var elSessions = document.getElementById("stat-sessions");
+    var elLevel = document.getElementById("stat-level");
+    var elHours = document.getElementById("stat-hours");
+    var elBar = document.getElementById("bar");
+    var elBarLabel = document.getElementById("bar-label");
+    var elBarPct = document.getElementById("bar-pct");
+
+    function render() {
+      var state = load();
+      var done = 0;
+
+      boxes.forEach(function (b) {
+        var id = b.getAttribute("data-check");
+        var on = !!state[id];
+        b.checked = on;
+        if (on) { done++; }
+        var card = b.closest(".card");
+        if (card) { card.classList.toggle("done", on); }
+      });
+
+      var pct = Math.round(done / TOTAL * 100);
+      elSessions.textContent = done + "/" + TOTAL;
+      elHours.textContent = (done * 2) + "h";
+      elBar.style.width = pct + "%";
+      elBarPct.textContent = pct + "%";
+
+      if (done === 0) {
+        elLevel.textContent = "Level 1";
+        elBarLabel.textContent = "Not started, tick a session when you finish it";
+      } else if (done >= TOTAL) {
+        elLevel.textContent = "Complete";
+        elBarLabel.textContent = "All ten sessions done";
+      } else {
+        elLevel.textContent = "Level " + Math.min(5, Math.floor(done / 2) + 1);
+        elBarLabel.textContent = done + " of " + TOTAL + " sessions done";
+      }
+    }
+
+    boxes.forEach(function (b) {
+      b.addEventListener("change", function () {
+        var state = load();
+        var id = b.getAttribute("data-check");
+        if (b.checked) { state[id] = true; } else { delete state[id]; }
+        save(state);
+        render();
+      });
+    });
+
+    document.getElementById("reset").addEventListener("click", function () {
+      if (!window.confirm("Clear your progress for this track?")) { return; }
+      save({});
+      render();
+    });
+
+    render();
+
+    // File-based export / import of ALL progress on this origin, every track.
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById("save-hint");
+    document.getElementById("export-btn").addEventListener("click", function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = "learning-hub-progress.json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      sHint.textContent = "Downloaded learning-hub-progress.json";
+    });
+    var sFile = document.getElementById("import-file");
+    document.getElementById("import-btn").addEventListener("click", function () { sFile.click(); });
+    sFile.addEventListener("change", function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) { return; }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); }
+        catch (e) { sHint.textContent = "That file is not a valid progress file."; return; }
+        if (!data || typeof data !== "object") { sHint.textContent = "That file is not a valid progress file."; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        sHint.textContent = "Imported " + n + " entries. Reloading...";
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = "";
+    });
+  })();
+</script>
+</body>
+</html>

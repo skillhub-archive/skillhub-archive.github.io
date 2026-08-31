@@ -1,0 +1,1593 @@
+<title>Git Sprint &middot; Session 5: Remotes, demystified</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session needs it for the branch names: Cascadia Code would otherwise
+     redraw the -> in (HEAD -> main) and in origin/HEAD -> origin/main. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code, .ptable
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  /* a rejection line, so the two labels stand out from the hint text around them */
+  .rej { color: var(--bad); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-copies diagram, and the three-branch-names diagram */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .areas.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; word-break: break-word; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas, .areas.plain { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* label / meaning rows: used for the rejection labels and the shell equivalents */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the milestone table: which of the three things each command moves */
+  .tscroll { overflow-x: auto; margin: 4px 0 14px; }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 520px; }
+  .ptable th, .ptable td { border: 1px solid var(--border); padding: 9px 11px; text-align: left; background: var(--surface); }
+  .ptable thead th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 700; }
+  .ptable tbody th { font-size: 13px; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .ptable td.y { color: var(--good); font-weight: 700; }
+  .ptable td.n { color: var(--ink-faint); }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 38 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 15ch because the longest answer here is "ls-remote" plus room to type */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 15ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 05 // Level 3 &middot; Remotes &amp; Collaboration</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Remotes, demystified</h1>
+    <p class="goal">There is no such thing as <em>the</em> repository. There are several complete copies, and <code>origin/main</code> is your copy's written note of where somebody else's <code>main</code> was the last time you asked. Every confusing thing about remotes follows from that one fact, including the push that gets refused. This session has you break sync on purpose and put it back.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Explain what push and pull each change, and recover from a rejected push.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>You do not need <code>merge-lab</code> from Session 4.</b> Step one below builds a brand new folder called <code>remote-lab</code>, and this one holds <b>three</b> repositories rather than one. It has to be new, because the whole point of this session is watching two copies of the same project drift apart, and that needs a setup no earlier session built. <b>No account and no internet are needed for any of this.</b></p>
+        <p>This is a workbook, not a reading. You will predict what a command does to your repository, reassemble command sequences, fill blanks, and write from scratch, and each part hands you less scaffolding than the last. The goal is the one this whole track is built on: <b>read a Git command and know what it will do before you press enter.</b></p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. <b>Every transcript says which of the three folders it was run in</b>, and that matters more in this session than in any before it, because the same command gives different answers in different copies. Four things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>99a877c</code>, and one full 40-character one), <b>dates</b>, <b>full paths</b> (anywhere you see <code>...</code> at the start of a path, that stands for wherever your home folder lives, and it is different on every machine), and the <b>name and email on the teammate's commits</b>, in the one transcript that prints them, if you skip the identity lines in the section D setup block. Everything else should match, including the odd-looking trailing spaces in the graph drawings. One more from Session 1: if you create files in Git Bash rather than PowerShell, <code>git add</code> may print a harmless <code>warning: ... LF will be replaced by CRLF ...</code> line. Nothing is wrong.</div>
+
+    <div class="block" id="concept-copies">
+      <h3>A. Three copies, one project</h3>
+      <p><b>Start with the idea, because the commands only make sense underneath it.</b> Until now you have had one folder with one <code>.git</code> in it, and that was the whole world. Working with other people does not change that folder. It just means <b>there is more than one of them.</b></p>
+      <p>Each copy is complete. Each has its own commits, its own branches, its own <code>.git</code>. None of them is in charge, and none of them knows anything about the others except what somebody deliberately went and asked for. <b>That last clause is the whole session.</b></p>
+      <p>The usual arrangement has three, and you are about to build all three on your own disk:</p>
+      <div class="areas plain">
+        <div class="area"><div class="an">origin-repo.git</div><div class="ad">The shared copy everybody agrees to send work to. On a real team this lives on GitHub. Here it is a folder next door, and it behaves identically.</div></div>
+        <div class="area"><div class="an">work-a</div><div class="ad">Your copy. You will spend the session standing in this one.</div></div>
+        <div class="area"><div class="an">work-b</div><div class="ad">A teammate's copy. Same project, different person, and it is how you will make somebody else push.</div></div>
+      </div>
+      <p><b>The shared copy is a little different, and it has a name: a <em>bare</em> repository.</b> It has the history in it but no working files, because nobody edits in it. They only send work to it and take work from it. You make one by adding <code>--bare</code>, and the <code>.git</code> on the end of the folder name is a convention that says "this one is bare", not something Git enforces.</p>
+      <p>Now build the lab. This is the longest setup block in the track, and every line in it is either a command you already know, one this section just explained, or the single new one that section B is entirely about:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build remote-lab</div>
+<pre><code>cd ~
+mkdir remote-lab
+cd remote-lab
+git init --bare origin-repo.git
+git init -b main work-a
+cd work-a
+git remote add origin ../origin-repo.git</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build remote-lab</div>
+<pre><code>cd ~
+mkdir remote-lab
+cd remote-lab
+git init --bare origin-repo.git
+git init -b main work-a
+cd work-a
+git remote add origin ../origin-repo.git</code></pre>
+      </div>
+      <p>The two blocks are identical, which is worth a moment: nothing here writes a file, so there is no <code>Set-Content</code> or <code>echo</code> to differ over. The two shells only part company when files are involved.</p>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Already have a folder called remote-lab? Read this first</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">The <code>mkdir</code> line fails if the folder exists, and the <code>cd</code> after it then succeeds anyway and takes you <b>into the folder you already had</b>, so the rest of the block runs against whatever is in there. This is the same trap Session 4 flagged, and it has the same two ways out.</p>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px"><b>The safe one:</b> use another name. Replace <code>remote-lab</code> with <code>remote-lab-2</code> in the <code>mkdir</code> and <code>cd</code> lines. Everything else in the session is identical.</p>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px"><b>The other one:</b> delete the old folder first. This <b>permanently removes that folder and everything inside it</b>, so only run it if you are certain you do not need what is in there.</p>
+          <div class="shells">
+            <div class="srow"><span class="sl">PowerShell</span><code>cd ~
+Remove-Item -Recurse -Force remote-lab</code></div>
+            <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ~
+rm -rf remote-lab</code></div>
+          </div>
+        </div>
+      </details>
+      <p>Two of those lines printed something. Here is what, and the paths are the only machine-specific thing on this page:</p>
+      <div class="filebox">
+        <div class="fbh">run in remote-lab &middot; the two repositories being created</div>
+<pre><code><span class="cmd">&gt; git init --bare origin-repo.git</span>
+Initialized empty Git repository in .../remote-lab/origin-repo.git/
+
+<span class="cmd">&gt; git init -b main work-a</span>
+Initialized empty Git repository in .../remote-lab/work-a/.git/</code></pre>
+      </div>
+      <p>Notice the difference in those two lines, because it is the whole of what <code>--bare</code> means. The bare one lives <b>directly in</b> <code>origin-repo.git/</code>. The ordinary one lives in a <code>.git/</code> <b>tucked inside</b> <code>work-a/</code>, with room beside it for your actual files.</p>
+      <p><code>git init -b main</code> is the same line Sessions 3 and 4 used, with one addition: giving it a folder name makes the folder as well, so you do not need a separate <code>mkdir</code>.</p>
+    </div>
+
+    <div class="block" id="concept-origin">
+      <h3>B. What <code>origin</code> actually is</h3>
+      <p>That last setup line was the new one. <b><code>git remote add origin ../origin-repo.git</code> saves a URL under a nickname.</b> That is genuinely all it does. It writes two lines into your repository's config and stops.</p>
+      <p><b>A <em>remote</em> is a nickname for a URL, and <code>origin</code> is a nickname like any other.</b> There is nothing special about the word. It is simply the name Git picks by default, so everybody has one called <code>origin</code> and it came to feel like a keyword. You could have called it <code>shared</code> or <code>upstairs</code> and every later command would work the same with that word in it.</p>
+      <p>Ask Git what nicknames it has:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; git remote -v</div>
+<pre><code><span class="cmd">&gt; git remote -v</span>
+origin	../origin-repo.git (fetch)
+origin	../origin-repo.git (push)</code></pre>
+      </div>
+      <p><b>Two lines, not one, and it is not a display bug.</b> Git lets a remote have a different address for reading than for writing, so it always prints both. They are the same here, and on a normal GitHub setup they are the same too. Worth knowing the day you see two that differ.</p>
+      <p><b>Why <code>../origin-repo.git</code> and not a long path?</b> The <code>..</code> means "the folder above this one", so read from inside <code>work-a</code> it points at its sibling. Git stores whatever you type, so a short relative address stays short, and every path you see for the rest of this session will be this same short string on your machine as well as on this page. A real remote would be a URL like <code>https://github.com/someone/project.git</code> instead, and nothing else would change.</p>
+      <p>One sentence on the thing you will meet eventually and can safely park: <b>a repository can have several remotes</b>, each with its own nickname, and you name the one you mean in the command. Session 9 is where a second one earns its place.</p>
+    </div>
+
+    <div class="block" id="concept-push">
+      <h3>C. Your first push, and what <code>-u</code> sets up</h3>
+      <p>You have a remote but nothing to send, so make a commit first. Only this part differs by shell:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content notes.md "line one"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "line one" &gt; notes.md</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the first commit</div>
+<pre><code><span class="cmd">&gt; git add notes.md</span>
+
+<span class="cmd">&gt; git commit -m "Add notes.md"</span>
+[main (root-commit) 99a877c] Add notes.md
+ 1 file changed, 1 insertion(+)
+ create mode 100644 notes.md</code></pre>
+      </div>
+      <p><b>Now look carefully at the state of things before you push</b>, because the difference afterwards is the lesson. Session 4 gave you <code>git status --short</code>, the two-letter form. <b>Adding <code>b</code> to that flag adds one line at the top about the <em>branch</em></b>, and <code>-sb</code> is how it is nearly always typed:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; before the first push</div>
+<pre><code><span class="cmd">&gt; git status -sb</span>
+## main
+
+<span class="cmd">&gt; git branch -vv</span>
+* main 99a877c Add notes.md
+
+<span class="cmd">&gt; git branch -a</span>
+* main</code></pre>
+      </div>
+      <p>Three commands, one message: <b>there is a branch called <code>main</code> and it is alone in the world.</b> <code>git status -sb</code> names it and says nothing else about it. <b><code>git branch -vv</code> is <code>git branch -v</code> from Session 3 with a second <code>v</code></b>, and that second <code>v</code> asks for one extra thing, the branch on the other side that this one is paired with. There is no such pairing yet, so nothing appears. And <code>git branch -a</code>, the "all branches" form from Session 3, finds only your own.</p>
+      <p>Send it:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; git push -u origin main</div>
+<pre><code><span class="cmd">&gt; git push -u origin main</span>
+To ../origin-repo.git
+ * [new branch]      main -&gt; main
+branch 'main' set up to track 'origin/main'.</code></pre>
+      </div>
+      <ul class="pts">
+        <li><b><code>To ../origin-repo.git</code></b> is where the work went, echoed back so you can see you sent it where you thought.</li>
+        <li><b><code>* [new branch]      main -&gt; main</code></b> reads left to right: your branch <code>main</code> became a branch called <code>main</code> over there. It says <code>new branch</code> because the shared copy was empty and had none.</li>
+        <li><b><code>branch 'main' set up to track 'origin/main'.</code></b> is the <code>-u</code> reporting for duty. That is the flag's whole effect and the next block proves it.</li>
+      </ul>
+      <p>Run the same three commands again:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; after the first push</div>
+<pre><code><span class="cmd">&gt; git status -sb</span>
+## main...origin/main
+
+<span class="cmd">&gt; git branch -vv</span>
+* main 99a877c [origin/main] Add notes.md
+
+<span class="cmd">&gt; git branch -a</span>
+* main
+  remotes/origin/main</code></pre>
+      </div>
+      <p><b>All three changed, and <code>-u</code> is why.</b> <code>-u</code> is short for <code>--set-upstream</code>, and an <b>upstream</b> is the branch on the other side that yours is paired with. Once that pairing exists, Git can answer "how do I compare to them" without being told which branch to compare against, which is what the <code>...origin/main</code> and the <code>[origin/main]</code> are announcing.</p>
+      <p><b>You only need <code>-u</code> once per branch.</b> The pairing is saved, so from now on plain <code>git push</code> is enough in this repository. Push without <code>-u</code> and the work still arrives, it just leaves you with no pairing and none of those three readouts.</p>
+      <p><b>And the one thing to fix in your head about push before anything else:</b> pushing does not merge, and it does not ask. It either adds your commits on top of what is already there, or it is refused outright. Section J is that refusal, and it is the most useful thing in this session.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the lab and make the first push</div>
+        <ol>
+          <li>Run the setup block for your shell, then create <code>notes.md</code> and commit it.</li>
+          <li>Run <code>git remote -v</code> and confirm you get <b>two</b> lines, one <code>(fetch)</code> and one <code>(push)</code>.</li>
+          <li>Run <code>git status -sb</code>, <code>git branch -vv</code> and <code>git branch -a</code>, and <b>read all three before you push</b>.</li>
+          <li>Run <code>git push -u origin main</code>.</li>
+          <li>Run those same three commands again and <b>find what changed in each one</b>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> I pushed, and I can point at what -u changed in all three readouts</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-clone">
+      <h3>D. <code>git clone</code>, and the three kinds of branch name</h3>
+      <p><b>Time to make the teammate.</b> <code>git clone</code> takes a copy of a repository, and it is the command most people meet first, usually by pasting it off a GitHub page without knowing what it did. It does four things:</p>
+      <ul class="pts">
+        <li><b>Copies the whole repository</b>, every commit and every branch, not just the latest files.</li>
+        <li><b>Creates a remote called <code>origin</code></b> pointing at wherever you cloned from. So <code>git remote add</code> is the manual version of something clone does for you.</li>
+        <li><b>Checks out the default branch</b>, so you get working files to look at.</li>
+        <li><b>Sets up tracking</b> on that branch, which is the <code>-u</code> pairing you just made by hand.</li>
+      </ul>
+      <p>Go up one folder and clone. The three commands after the clone are explained right below, so run all six lines:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell &middot; make the teammate copy</div>
+<pre><code>cd ..
+git clone ./origin-repo.git work-b
+cd work-b
+git remote set-url origin ../origin-repo.git
+git config user.name "Rae Okafor"
+git config user.email "rae@example.com"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; make the teammate copy</div>
+<pre><code>cd ..
+git clone ./origin-repo.git work-b
+cd work-b
+git remote set-url origin ../origin-repo.git
+git config user.name "Rae Okafor"
+git config user.email "rae@example.com"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in remote-lab &middot; git clone</div>
+<pre><code><span class="cmd">&gt; git clone ./origin-repo.git work-b</span>
+Cloning into 'work-b'...
+done.</code></pre>
+      </div>
+      <p><b><code>git remote set-url</code> changes the address behind a nickname</b>, leaving the nickname alone. Clone always writes down the full path it cloned from, which would be long and different on your machine, so this swaps it for the same short <code>../origin-repo.git</code> that <code>work-a</code> uses. It is a real command worth knowing, since a project that moves house is exactly when you need it.</p>
+      <p><b>And <code>git config user.name</code> without <code>--global</code> sets the name for this repository only</b>, rather than for everything you do. Session 1 set your identity globally; dropping <code>--global</code> overrides it in one place. That is what makes <code>work-b</code> genuinely somebody else rather than you in a different folder.</p>
+      <div class="note"><b>An aside worth thirty seconds.</b> You cloned a repository that already had a commit in it. Clone an <b>empty</b> one and it tells you so: <code>warning: You appear to have cloned an empty repository.</code> That is a warning, not an error, and Session 1 drew that distinction: a warning means it worked and you should know something. It is only saying there was nothing to copy yet.</div>
+      <p>Now the reason this session exists. <b>You are about to see three different names that all look like they mean "main", and telling them apart is the whole skill.</b></p>
+      <div class="areas plain">
+        <div class="area"><div class="an">main</div><div class="ad"><b>Yours.</b> A branch in your copy, on your disk. It moves when you commit, and nothing anybody else does can move it.</div></div>
+        <div class="area"><div class="an">origin/main</div><div class="ad"><b>Your note about theirs.</b> Also on your disk. It records where the shared copy's <code>main</code> was <b>the last time you asked</b>. It moves only when you ask again.</div></div>
+        <div class="area"><div class="an">(the branch on the server)</div><div class="ad"><b>Theirs.</b> It has no name you can type, because you never see it directly. Everything you know about it is the note in the middle box.</div></div>
+      </div>
+      <p><b>The middle box is a cache, and almost every confusing thing about remotes is somebody treating it as live.</b> <code>origin/main</code> is not a window onto the server. It is a sticky note you wrote, and it goes stale the moment somebody else pushes. Git has a name for that middle kind: a <b>remote-tracking branch</b>, meaning a branch that tracks what a remote had.</p>
+      <p>Look at all of it inside the fresh clone:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-b &middot; all the branch names, and one commit wearing three of them</div>
+<pre><code><span class="cmd">&gt; git branch</span>
+* main
+
+<span class="cmd">&gt; git branch -a</span>
+* main
+  remotes/origin/HEAD -&gt; origin/main
+  remotes/origin/main
+
+<span class="cmd">&gt; git branch -vv</span>
+* main 99a877c [origin/main] Add notes.md
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+99a877c (HEAD -&gt; main, origin/main, origin/HEAD) Add notes.md</code></pre>
+      </div>
+      <ul class="pts">
+        <li><b><code>git branch</code> shows only your own</b>, which is why it looked so quiet in Session 3.</li>
+        <li><b><code>git branch -a</code> adds the remote-tracking ones</b>, spelled out in full as <code>remotes/origin/main</code>. The short way to write that same thing is <code>origin/main</code>, and that is what you will see everywhere else.</li>
+        <li><b><code>origin/HEAD -&gt; origin/main</code> is the remote's idea of its own default branch</b>, the one you land on when you clone. It is a pointer at another pointer, and it is the reason you get <code>main</code> rather than being asked. You will almost never need to think about it, but it turns up in decorations, so it should not be a mystery.</li>
+      </ul>
+      <p><b>That last line is the one to sit with.</b> One commit, <code>99a877c</code>, wearing three names at once: <code>HEAD -&gt; main</code> (you are standing here), <code>origin/main</code> (your note says they are here too), and <code>origin/HEAD</code> (and this is their default branch). Three names, one commit, because right now everybody agrees. <b>The rest of the session is what happens when they stop agreeing.</b></p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make the second copy and name the three names</div>
+        <ol>
+          <li>Run the "make the teammate copy" block for your shell, all six lines.</li>
+          <li>Run <code>git remote -v</code> in <code>work-b</code> and confirm it now reads <code>../origin-repo.git</code>.</li>
+          <li>Run <code>git branch</code>, then <code>git branch -a</code>, and <b>say out loud what the extra lines are</b>.</li>
+          <li>Run <code>git log --oneline --decorate=short</code> and <b>find all three names on the one commit</b>.</li>
+          <li>Without scrolling up: say what <code>origin/main</code> is, in your own words, in one sentence.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> I have two working copies, and I can say what origin/main is without looking</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-drift">
+      <h3>E. Somebody else pushes</h3>
+      <p>Stay in <code>work-b</code>. You are Rae now. Add a line to <code>notes.md</code> and send it:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content notes.md "line one"
+Add-Content notes.md "a line from B"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "line one" &gt; notes.md
+echo "a line from B" &gt;&gt; notes.md</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in work-b &middot; the teammate commits and pushes</div>
+<pre><code><span class="cmd">&gt; git add notes.md</span>
+
+<span class="cmd">&gt; git commit -m "B adds a line"</span>
+[main 8b55c64] B adds a line
+ 1 file changed, 1 insertion(+)
+
+<span class="cmd">&gt; git push origin main</span>
+To ../origin-repo.git
+   99a877c..8b55c64  main -&gt; main</code></pre>
+      </div>
+      <p><b>The push line has a different shape this time.</b> Instead of <code>* [new branch]</code> it reads <code>99a877c..8b55c64</code>, which is Git saying "the branch over there moved from this commit to that one". Two dots between two hashes is Git's way of writing a range, and you will see it again in a moment.</p>
+      <p><b>And this is where those two <code>git config</code> lines pay off.</b> Ask plain <code>git log</code> for the last commit, in the full form Session 1 introduced rather than <code>--oneline</code>, and somebody else is genuinely on it:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-b &middot; the commit has a different author</div>
+<pre><code><span class="cmd">&gt; git log -1</span>
+commit 8b55c64905e8815b8e533c4655b0a88298f363a5
+Author: Rae Okafor &lt;rae@example.com&gt;
+Date:   Thu Aug 6 17:48:27 2026 -0500
+
+    B adds a line</code></pre>
+      </div>
+      <p>Your own commits in <code>work-a</code> still carry your name, because <code>work-a</code> never had its identity overridden. <b>Two names in one project is what a shared repository looks like</b>, and it is worth seeing once so that "somebody else pushed" is a fact about a person rather than a phrase in a workbook. If you skipped those config lines, this prints your own name instead and nothing else in the session changes.</p>
+      <p><b>The shared copy has now moved, and nothing told <code>work-a</code>.</b> Nothing ever will, on its own. That is the next section, and it is the best demonstration on this whole track.</p>
+    </div>
+
+    <div class="block" id="concept-fetch">
+      <h3>F. The proof that <code>origin/main</code> is only a note</h3>
+      <p>Go back to your own copy and ask it how things are. <b>Predict the answer before you read it.</b> Rae has pushed. Your copy has not been told:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">Both shells</span><code>cd ../work-a</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; AFTER the teammate has already pushed</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+99a877c (HEAD -&gt; main, origin/main) Add notes.md</code></pre>
+      </div>
+      <p><b>Read that second line again: <code>Your branch is up to date with 'origin/main'.</code></b></p>
+      <p>It is perfectly true and completely useless. You <em>are</em> up to date with <code>origin/main</code>, because <code>origin/main</code> is your own note and your note has not changed. It says nothing whatsoever about the shared copy, which has moved on without you. <b>Git is not lying and it is not broken. It is answering the question you asked, which was about a sticky note.</b></p>
+      <p><b>This single output is why the three-box picture matters</b>, and once you have seen it, most remote confusion stops being confusing. Nothing in Git contacts the network unless you run a command that contacts the network. <code>git status</code> is not one of them, and neither is <code>git log</code>, or <code>git diff</code>, or anything else you have learned so far.</p>
+      <p><b><code>git fetch</code> is the command that goes and asks.</b> It contacts the remote, brings back anything new, and <b>updates your <code>origin/main</code> to match what it found. That is all it does.</b> It does not touch your branch. It does not touch a single file in your folder. If you fetch and then look at your files, nothing has changed, and that is the point rather than a disappointment:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; git fetch</div>
+<pre><code><span class="cmd">&gt; git fetch</span>
+From ../origin-repo
+   99a877c..8b55c64  main       -&gt; origin/main</code></pre>
+      </div>
+      <p>One line of report, and it is the same range shape from the push: the thing that moved from <code>99a877c</code> to <code>8b55c64</code> was <code>main</code> over there, and what it updated here was <b><code>origin/main</code></b>. Git writes down which of your names it moved. (The address loses its <code>.git</code> ending on this line, purely because <code>fetch</code> prints the repository rather than the folder. Nothing has changed.)</p>
+      <p>Now ask the same questions as before:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the same three commands, after fetching</div>
+<pre><code><span class="cmd">&gt; git status -sb</span>
+## main...origin/main [behind 1]
+
+<span class="cmd">&gt; git status</span>
+On branch main
+Your branch is behind 'origin/main' by 1 commit, and can be fast-forwarded.
+  (use "git pull" to update your local branch)
+
+nothing to commit, working tree clean
+
+<span class="cmd">&gt; git log --oneline --all --decorate=short --graph</span>
+* 8b55c64 (origin/main, origin/HEAD) B adds a line
+* 99a877c (HEAD -&gt; main) Add notes.md</code></pre>
+      </div>
+      <p><b>Nothing happened to your work between those two blocks. The only thing that changed is what you know.</b> The commits were sitting in the shared copy the whole time; you had simply never asked. <code>[behind 1]</code> means there is one commit they have that you do not.</p>
+      <p>And the graph makes it visible: <code>origin/main</code> has climbed one commit above <code>HEAD -&gt; main</code>. <b>Your two names are no longer on the same commit</b>, which is the picture of being out of sync. (Your copy picked up an <code>origin/HEAD</code> of its own during that first fetch, which is why it appears here and did not in section C.)</p>
+    </div>
+
+    <div class="block" id="concept-look">
+      <h3>G. Look at it before you take it</h3>
+      <p><b>You have fetched, so the commits are already on your disk.</b> They are just not in your branch. That gap is a genuinely useful place to stand, and it is the reason to know <code>fetch</code> as its own command rather than only ever using the shortcut in the next section.</p>
+      <p>You can read what is coming with a command you have had since Session 2. <b><code>git diff HEAD origin/main</code> compares where you are standing against your note of where they are</b>, and Session 2's diff reading applies unchanged:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; what is about to arrive</div>
+<pre><code><span class="cmd">&gt; git diff HEAD origin/main</span>
+diff --git a/notes.md b/notes.md
+index 2d00bd5..62d3631 100644
+<span class="dmin">--- a/notes.md</span>
+<span class="dplus">+++ b/notes.md</span>
+@@ -1 +1,2 @@
+ line one
+<span class="dplus">+a line from B</span></code></pre>
+      </div>
+      <p>One line added to one file. <b>Get in the habit</b>: fetch, then diff, then decide. It costs seconds and it means nothing ever arrives in your folder unannounced.</p>
+      <p><b>Now take it, with a command you already know.</b> <code>origin/main</code> is a branch name like any other, so you merge it exactly as you merged <code>topic</code> in Session 4:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; git merge origin/main</div>
+<pre><code><span class="cmd">&gt; git merge origin/main</span>
+Updating 99a877c..8b55c64
+Fast-forward
+ notes.md | 1 +
+ 1 file changed, 1 insertion(+)
+
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main</code></pre>
+      </div>
+      <p><b><code>Fast-forward</code>, and that word should mean something to you now.</b> Session 3 taught it: your branch had not moved since theirs went ahead, so there was nothing to combine and Git slid your pointer forward. Nothing about remotes changed that rule. <b>An update that only arrives from somebody else, while you have added nothing, is always a fast-forward</b>, and that is why most days of working with other people involve no merge commits at all.</p>
+      <p>The two names are back on the same commit, and <code>[behind 1]</code> is gone.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Break sync, prove it, then close it</div>
+        <ol>
+          <li>In <code>work-b</code>, add the line to <code>notes.md</code>, commit it, and push.</li>
+          <li>Move to <code>work-a</code> and run <code>git status</code> <b>before fetching</b>. Read the "up to date" line and say why it is true and useless.</li>
+          <li>Run <code>git fetch</code>. Read the one line it prints and <b>name which of your branch names it moved</b>.</li>
+          <li>Run <code>git status -sb</code> and find <code>[behind 1]</code>, then draw the graph and see the two names on different commits.</li>
+          <li>Run <code>git diff HEAD origin/main</code> and read what is about to arrive.</li>
+          <li>Run <code>git merge origin/main</code> and confirm it says <code>Fast-forward</code>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I saw git status claim to be up to date while it was one commit behind</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-pull">
+      <h3>H. <code>git pull</code> is those two in one command</h3>
+      <p><b>Now that you have done it the long way, the shortcut cannot mislead you.</b> <code>git pull</code> is <code>git fetch</code> followed by a merge into the branch you are on. Two commands, one word, nothing else hiding in it.</p>
+      <p>Prove it. Back in <code>work-b</code>, have Rae add a file and push it:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>cd ../work-b
+Set-Content summary.md "summary: not written yet"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ../work-b
+echo "summary: not written yet" &gt; summary.md</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in work-b &middot; a second change from the teammate</div>
+<pre><code><span class="cmd">&gt; git add summary.md</span>
+
+<span class="cmd">&gt; git commit -m "Add summary.md"</span>
+[main 25fb465] Add summary.md
+ 1 file changed, 1 insertion(+)
+ create mode 100644 summary.md
+
+<span class="cmd">&gt; git push</span>
+To ../origin-repo.git
+   8b55c64..25fb465  main -&gt; main</code></pre>
+      </div>
+      <p>Plain <code>git push</code> with nothing after it, because <code>work-b</code> was cloned and clone set up the tracking. Now go back to <code>work-a</code> and pull:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; git pull, with the two halves labelled</div>
+<pre><code><span class="cmd">&gt; git pull</span>
+From ../origin-repo
+   8b55c64..25fb465  main       -&gt; origin/main
+Updating 8b55c64..25fb465
+Fast-forward
+ summary.md | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 summary.md</code></pre>
+      </div>
+      <p><b>Read that output as two blocks, because it literally is two commands.</b> The first two lines are the fetch, word for word what section F printed. The rest is the merge, word for word what section G printed. <code>git pull</code> did not do anything new; it ran both and printed both.</p>
+      <p><b>So when should you use which?</b> Use <code>pull</code> when you just want the latest and you have nothing of your own in flight, which is most of the time. Use <code>fetch</code> then <code>diff</code> then <code>merge</code> when you want to see what is coming first, or when you already have commits of your own and want to know what you are walking into. Both are correct. The only bad option is not knowing which one you ran.</p>
+      <p>One name to file away and not act on: <b>there is a setting called <code>pull.rebase</code></b> that makes <code>git pull</code> combine the two sides a different way, by rewriting your commits rather than merging them. It is off unless somebody turns it on, so your <code>pull</code> merges. <b>Rebasing is Session 8</b>, and until then a merge is the right mental model.</p>
+    </div>
+
+    <div class="block" id="concept-aheadbehind">
+      <h3>I. Reading ahead and behind</h3>
+      <p>You have seen <code>[behind 1]</code>. There are four states that line can be in, and reading them at a glance is worth more than any single command in this session:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">## main...origin/main</span><span class="rd"><b>Level.</b> Neither side has anything the other lacks. Nothing to do.</span></div>
+        <div class="refrow"><span class="rr">[ahead 1]</span><span class="rd"><b>You have 1 they do not, as far as your note knows.</b> You committed and have not pushed. If the note is current, a push will be accepted; if it is stale, this is the reading that lies to you.</span></div>
+        <div class="refrow"><span class="rr">[behind 1]</span><span class="rd"><b>They have 1 you do not.</b> A pull will fast-forward you.</span></div>
+        <div class="refrow"><span class="rr">[ahead 1, behind 1]</span><span class="rd"><b>Diverged.</b> Both sides moved since you last agreed. This is where a push gets refused, and it is the interesting case.</span></div>
+      </div>
+      <p><b>Every one of those numbers is measured against your note, not against the server</b>, so all four can be out of date. A stale <code>[ahead 1]</code> is exactly how people get surprised by a rejected push, which is section J.</p>
+      <p>There is a command that prints the two numbers on their own, and it is worth meeting because its output is so blunt it is hard to misread:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the two numbers, once you are diverged (section J builds this state)</div>
+<pre><code><span class="cmd">&gt; git rev-list --left-right --count origin/main...HEAD</span>
+1	1</code></pre>
+      </div>
+      <p><b>Left number is the thing named on the left of the three dots, right number is the thing on the right.</b> So <code>1</code> commit in <code>origin/main</code> that <code>HEAD</code> cannot reach, and <code>1</code> commit in <code>HEAD</code> that <code>origin/main</code> cannot reach. One each: diverged. Swap the two names around and the two numbers swap with them, which is the only thing about this command that catches people out.</p>
+      <p>The three dots are the same range notation as the two dots you saw in the push and fetch lines, asking a slightly different question. You do not need to memorise the distinction; you need to remember <b>left is the left name</b>.</p>
+    </div>
+
+    <div class="block" id="concept-reject">
+      <h3>J. The rejected push, and both of its labels</h3>
+      <p><b>Set it up deliberately.</b> Rae pushes something, and then, without asking the server anything, you commit something of your own. Crucially the two of you touch <b>different files</b>, so there is nothing to argue about; this is purely about push and pull, not about conflicts.</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell &middot; both sides move, on different files</div>
+<pre><code>cd ../work-b
+Set-Content todo.md "todo: pick a chart"
+git add todo.md
+git commit -m "Add todo.md"
+git push
+cd ../work-a
+Set-Content ideas.md "idea: add a glossary"
+git add ideas.md
+git commit -m "Add ideas.md"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; both sides move, on different files</div>
+<pre><code>cd ../work-b
+echo "todo: pick a chart" &gt; todo.md
+git add todo.md
+git commit -m "Add todo.md"
+git push
+cd ../work-a
+echo "idea: add a glossary" &gt; ideas.md
+git add ideas.md
+git commit -m "Add ideas.md"</code></pre>
+      </div>
+      <p>You are now in <code>work-a</code>, one commit ahead as far as you know, and quietly one behind as well. <b>Ask your own copy and it will confirm the half it can see:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; what you believe</div>
+<pre><code><span class="cmd">&gt; git status -sb</span>
+## main...origin/main [ahead 1]</code></pre>
+      </div>
+      <p>Push it:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the refusal</div>
+<pre><code><span class="cmd">&gt; git push</span>
+To ../origin-repo.git
+ <span class="rej">! [rejected]        main -&gt; main (fetch first)</span>
+error: failed to push some refs to '../origin-repo.git'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. This is usually caused by another repository pushing to
+hint: the same ref. If you want to integrate the remote changes, use
+hint: 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.</code></pre>
+      </div>
+      <p><b>Nothing has gone wrong. Read it as the safety feature it is.</b> Git was asked to move the shared branch to your commit, and it noticed that doing so would leave Rae's work with nothing pointing at it. Rather than lose somebody's commits, it refused and handed the decision back to you. <b>Push is the one command in Git that can affect other people, and this refusal is why it cannot hurt them by accident.</b></p>
+      <ul class="pts">
+        <li><b><code>! [rejected]</code></b> names the branch that was turned away.</li>
+        <li><b><code>error:</code></b> completes a set you have been collecting. Session 1 gave you <code>warning</code> (it worked, but know this) and <code>fatal</code> (it could not even start), and Session 3 showed you one <code>error:</code> in passing, when <code>git branch -d</code> refused to delete an unmerged branch. <b><code>error</code> sits between the other two: the command started, and this part of it did not succeed.</b> Like Session 4's conflict, it also finishes with a nonzero exit code, the invisible number that lets scripts notice.</li>
+        <li><b>The <code>hint:</code> lines are the answer</b>, and they tell you to integrate the remote changes before pushing again. That is exactly what you will do.</li>
+        <li><b>The last hint is honest but unhelpful.</b> <code>git push --help</code> opens the full manual page for <code>push</code>, usually in your browser, and it is thousands of words about every flag the command has. Everything you actually need is in the four lines above it.</li>
+      </ul>
+      <p>Now do the first half of what it asked, and watch the message change:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; fetch, then try the same push again</div>
+<pre><code><span class="cmd">&gt; git fetch</span>
+From ../origin-repo
+   25fb465..283d6ff  main       -&gt; origin/main
+
+<span class="cmd">&gt; git push</span>
+To ../origin-repo.git
+ <span class="rej">! [rejected]        main -&gt; main (non-fast-forward)</span>
+error: failed to push some refs to '../origin-repo.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. If you want to integrate the remote changes,
+hint: use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.</code></pre>
+      </div>
+      <p><b>Same refusal, different label, and the difference is worth having.</b></p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">(fetch first)</span><span class="rd">Your <code>origin/main</code> is stale. Git can tell the shared copy holds something you have not got, but your own note is too old for it to say more. <b>The label is an instruction: go and ask.</b></span></div>
+        <div class="refrow"><span class="rr">(non-fast-forward)</span><span class="rd">Now your note is current, and Git can be precise. Your branch is not a straight continuation of theirs, so the move it was asked to make is not a fast-forward, and it will not do it.</span></div>
+      </div>
+      <p>Fetching changed nothing about the situation. It only changed how much Git knew about it. <b>Look at the state now, with the note freshly updated:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the diverged state, four ways</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch main
+Your branch and 'origin/main' have diverged,
+and have 1 and 1 different commits each, respectively.
+  (use "git pull" if you want to integrate the remote branch with yours)
+
+nothing to commit, working tree clean
+
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main [ahead 1, behind 1]
+
+<span class="cmd">&gt; git rev-list --left-right --count origin/main...HEAD</span>
+1	1
+
+<span class="cmd">&gt; git log --oneline --all --decorate=short --graph</span>
+* 4b23af1 (HEAD -&gt; main) Add ideas.md
+| * 283d6ff (origin/main, origin/HEAD) Add todo.md
+|/  
+* 25fb465 Add summary.md
+* 8b55c64 B adds a line
+* 99a877c Add notes.md</code></pre>
+      </div>
+      <p><b>That is the fork from Session 4</b>, drawn between your branch and your note of theirs instead of between two branches you made yourself. Nothing new to learn in the picture, which is the point: a remote is not a new kind of thing.</p>
+      <p>One detail carried over from Session 4, mentioned again only so you do not think your output differs from this page: <b>the <code>|/</code> line has two trailing spaces after it.</b> You cannot see them, they do nothing, and Git prints them every time.</p>
+      <p><b>Two last commands, and both are about knowing the difference between asking and remembering.</b></p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; git remote show origin</div>
+<pre><code><span class="cmd">&gt; git remote show origin</span>
+* remote origin
+  Fetch URL: ../origin-repo.git
+  Push  URL: ../origin-repo.git
+  HEAD branch: main
+  Remote branch:
+    main tracked
+  Local branch configured for 'git pull':
+    main merges with remote main
+  Local ref configured for 'git push':
+    main pushes to main (local out of date)</code></pre>
+      </div>
+      <p>A summary of the whole arrangement in one place: both addresses, the remote's default branch, which of your branches is paired with which of theirs, and on the last line the verdict, <code>(local out of date)</code>. When everything is level that reads <code>(up to date)</code> instead.</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; git ls-remote origin</div>
+<pre><code><span class="cmd">&gt; git ls-remote origin</span>
+283d6fff3ade8072431866a1f5f9fb68fad3da34	HEAD
+283d6fff3ade8072431866a1f5f9fb68fad3da34	refs/heads/main</code></pre>
+      </div>
+      <p><b><code>git ls-remote</code> is the one command here that asks the server right now and changes nothing on your disk.</b> It prints what the remote has, in full 40-character hashes, and stores none of it. That makes it the cleanest possible contrast with everything else: <code>origin/main</code> is a remembered answer, and this is a live one. <code>refs/heads/main</code> is just the long spelling of the branch called <code>main</code>, the same full form Session 3 showed you inside <code>.git</code>.</p>
+    </div>
+
+    <div class="block" id="concept-recover">
+      <h3>K. Recovering: fetch, integrate, push again</h3>
+      <p><b>Three steps, and you already know all three.</b> Get their work, join it to yours, then send the result. You have fetched, so step one is done. Step two is the merge.</p>
+      <div class="note"><b>Read this before you run the pull, because something will open.</b> Both sides have moved, so joining them is <b>a real merge</b>, exactly the kind Session 4 taught, and a real merge builds a commit. A commit needs a message, so Git writes one and <b>opens your editor</b> to let you change it. This is not a problem and it is not a conflict. You have two choices, both fine: let it open and get out of it the way Session 4 showed (in <code>vim</code>: <b>Esc</b>, then <b>:wq</b>, then Enter), or add <code>--no-edit</code> to accept the prepared message and open nothing. If you are not sure which editor you have, run <code>git var GIT_EDITOR</code> first, exactly as in Session 4.</div>
+      <p>The transcript below leaves <code>--no-edit</code> off, so you meet it once and see what it says. <b>Brace yourself for a screen that goes quiet</b>, because this pull prints nothing at all before the editor appears:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; git pull, and the editor opens straight away</div>
+<pre><code><span class="cmd">&gt; git pull</span></code></pre>
+      </div>
+      <p><b>No output, and that is correct rather than alarming.</b> Section H's pull printed a fetch report first because it had something new to collect. This one does not: you already fetched in section J, so <code>origin/main</code> is current and the fetch half has nothing left to say. Straight past it to the merge, and the merge opens the editor.</p>
+      <div class="filebox">
+        <div class="fbh">what is in the editor when it opens</div>
+<pre><code>Merge branch 'main' of ../origin-repo
+# Please enter a commit message to explain why this merge is necessary,
+# especially if it merges an updated upstream into a topic branch.
+#
+# Lines starting with '#' will be ignored, and an empty message aborts
+# the commit.</code></pre>
+      </div>
+      <p><b>The prepared message names the remote you pulled from</b>, which is a nice piece of evidence for what just happened: this commit exists because two copies of the project had to be joined. Everything starting with <code>#</code> is a comment Git strips out, so the real message is the first line. Change nothing, save and quit, and Git finishes:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the rest of the pull, after you leave the editor</div>
+<pre><code>Merge made by the 'ort' strategy.
+ todo.md | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 todo.md</code></pre>
+      </div>
+      <p><b><code>Merge made by the 'ort' strategy.</code> instead of <code>Fast-forward</code></b>, which is Session 4's line and Session 4's meaning: a real merge commit, with two parents. Look at the shape and at where you now stand:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; a diamond, with their side decorated</div>
+<pre><code><span class="cmd">&gt; git log --oneline --all --decorate=short --graph</span>
+*   ef7343b (HEAD -&gt; main) Merge branch 'main' of ../origin-repo
+|\  
+| * 283d6ff (origin/main, origin/HEAD) Add todo.md
+* | 4b23af1 Add ideas.md
+|/  
+* 25fb465 Add summary.md
+* 8b55c64 B adds a line
+* 99a877c Add notes.md
+
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main [ahead 2]</code></pre>
+      </div>
+      <p><b>The diamond from Session 4, with a difference worth noticing: the right-hand branch is decorated <code>origin/main</code>.</b> That is your note of where the shared copy is, sitting on the side of the merge that came from somebody else. The picture and the sticky note are the same fact drawn two ways.</p>
+      <p><b>And <code>[ahead 2]</code>, not <code>[ahead 1]</code>.</b> You now have two commits the shared copy lacks: your <code>Add ideas.md</code>, and the merge commit you just made. <code>[behind 1]</code> is gone, because their commit is in your history now. <b>Nothing is behind you any more, so the push can go through.</b></p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; step three</div>
+<pre><code><span class="cmd">&gt; git push</span>
+To ../origin-repo.git
+   283d6ff..ef7343b  main -&gt; main
+
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main
+
+<span class="cmd">&gt; git rev-list --left-right --count origin/main...HEAD</span>
+0	0</code></pre>
+      </div>
+      <p><b><code>0	0</code>.</b> Nothing on either side that the other lacks. That is the recovery, start to finish: <b>fetch, integrate, push again.</b> Three steps, no force, nothing lost, and Rae's commit is still there in the history with her name on it.</p>
+      <div class="note"><b>The honest footnote.</b> You and Rae changed different files, so the merge was silent. Had you both changed <b>the same lines</b>, that pull would have conflicted, and you would be looking at conflict markers in a file. Nothing new to learn if that happens: it is Session 4's procedure exactly, on a file that arrived from somebody else. Edit it until it reads right, <code>git add</code> it, <code>git commit</code> to conclude the merge, and then push. <a href="git-session-04.html" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">&#8599; Session 4: causing and resolving conflicts (opens in a new tab)</a></div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Get a push rejected, then recover from it</div>
+        <ol>
+          <li>Run the setup block for section J so that Rae pushes <code>todo.md</code> and you commit <code>ideas.md</code> without fetching.</li>
+          <li>Run <code>git push</code>. <b>Read all of it</b>, and find the label <code>(fetch first)</code>.</li>
+          <li>Run <code>git fetch</code>, then <code>git push</code> again. Find the label <code>(non-fast-forward)</code> and say why it changed.</li>
+          <li>Run <code>git status -sb</code>, then <code>git rev-list --left-right --count origin/main...HEAD</code>, and confirm the two readings agree.</li>
+          <li>Run <code>git remote show origin</code> and find <code>(local out of date)</code>. Run <code>git ls-remote origin</code> and say what makes it different from everything else you have run.</li>
+          <li>Run <code>git pull</code>, get out of the editor, and confirm you see <code>Merge made by the 'ort' strategy.</code></li>
+          <li>Run <code>git push</code>. Confirm <code>git status -sb</code> is back to <code>## main...origin/main</code>.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I saw both rejection labels and recovered with fetch, integrate, push</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-table">
+      <h3>L. The milestone: what push and pull each change</h3>
+      <p><b>This is the table the whole session was built to let you fill in.</b> Three commands, and three things each one might move: your branch, your note of theirs, and the branch on the shared copy. Nine boxes, and if you can fill them in and prove two of them at the terminal, you have the model.</p>
+      <p>Here is the answer, so that the task below is a check rather than a guess. <b>Cover it and try first.</b></p>
+      <div class="tscroll">
+        <table class="ptable">
+          <thead>
+            <tr><th>Command</th><th>your <code>main</code></th><th>your <code>origin/main</code></th><th>the branch on the shared copy</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>git fetch</th><td class="n">no</td><td class="y">yes</td><td class="n">no</td></tr>
+            <tr><th>git pull</th><td class="y">yes</td><td class="y">yes</td><td class="n">no</td></tr>
+            <tr><th>git push</th><td class="n">no</td><td class="y">yes</td><td class="y">yes</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="pts">
+        <li><b><code>fetch</code> moves one thing.</b> It updates your note and touches nothing else, which is why it is always safe to run.</li>
+        <li><b><code>pull</code> moves two</b>, because it is a fetch plus a merge, and the merge is what moves your branch. It never touches the shared copy.</li>
+        <li><b><code>push</code> moves two as well</b>, and it is the only one of the three that changes anything anybody else can see. It also updates your note on the way, which is why <code>git status -sb</code> reads level immediately after a successful push rather than still claiming you are ahead.</li>
+        <li><b>Nothing moves your <code>main</code> except you</b>, by committing or by pulling. No one else can reach it.</li>
+      </ul>
+      <p>Work in <code>remote-lab</code> for the milestone. Do not scroll back up; if you get stuck, <code>git status</code> tells you where you are, which is the habit this whole track is really teaching.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: fill the table, then prove two rows</div>
+        <ol>
+          <li><b>On paper, from memory,</b> write the three commands down the side and the three things across the top, and fill in all nine boxes. Do this before touching the keyboard.</li>
+          <li><b>Prove the <code>fetch</code> row.</b> Go to <code>work-b</code> and <b>pull first</b>, because it is two commits behind after section K and a push from it would be refused for exactly the reason you just learned. Then commit a change there and push it. Back in <code>work-a</code>, note the commit your <code>main</code> is on, run <code>git fetch</code>, and show with two commands that <code>origin/main</code> moved and <code>main</code> did not.</li>
+          <li><b>Prove the <code>push</code> row.</b> In <code>work-a</code>, integrate whatever you just fetched, then commit something of your own and push it. Show that your note moved to match, and say why nothing had to move your <code>main</code> at the push step.</li>
+          <li><b>Then break it and fix it, unassisted.</b> Cause a rejected push again, using different files on the two sides, and recover from it with fetch, integrate, push. You should not need to look anything up.</li>
+          <li>Finish with <code>git rev-list --left-right --count origin/main...HEAD</code> in <code>work-a</code> and confirm you get <code>0	0</code>.</li>
+        </ol>
+        <p>You have hit the milestone when your paper table matched, both proofs worked, and you can say in one sentence why a push gets rejected.</p>
+        <details><summary>What the two proofs look like (your hashes will differ)</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Proving the <code>fetch</code> row. The point is that the first line of each pair is identical before and after, and the second line is not:</p>
+<pre><code><span class="cmd">&gt; git log --oneline -1</span>
+ef7343b Merge branch 'main' of ../origin-repo
+
+<span class="cmd">&gt; git fetch</span>
+From ../origin-repo
+   ef7343b..a67288a  main       -&gt; origin/main
+
+<span class="cmd">&gt; git log --oneline -1</span>
+ef7343b Merge branch 'main' of ../origin-repo
+
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main [behind 1]</code></pre>
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Proving the <code>push</code> row. Ahead of it, level after it, with no separate fetch in between:</p>
+<pre><code><span class="cmd">&gt; git status -sb</span>
+## main...origin/main [ahead 1]
+
+<span class="cmd">&gt; git push</span>
+To ../origin-repo.git
+   a67288a..c5cdb66  main -&gt; main
+
+<span class="cmd">&gt; git status -sb</span>
+## main...origin/main</code></pre>
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Your <code>main</code> did not move at the push step because pushing sends commits you already made. The commit was the thing that moved it, one step earlier.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I filled the table from memory, proved two rows, and recovered a rejected push unassisted</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-github">
+      <h3>M. The same thing against GitHub (entirely optional)</h3>
+      <p><b>Nothing in this session needs an account, and nothing below is required to pass it.</b> Skip it with a clear conscience; Session 6 introduces GitHub properly. It is here only so you know the answer to the obvious question.</p>
+      <p><b>The only difference is the URL.</b> Every command you have run works unchanged against a repository on GitHub, because <code>origin</code> was only ever a nickname for an address and the address is the one thing that varies. If you have an account and an empty repository on it, the whole of section C looks like this instead:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">local, this session</span><code>git remote add origin ../origin-repo.git</code></div>
+        <div class="srow"><span class="sl">GitHub</span><code>git remote add origin https://github.com/&lt;you&gt;/&lt;repo&gt;.git</code></div>
+      </div>
+      <p>Then <code>git push -u origin main</code>, exactly as before. The one thing that genuinely differs is that a real remote asks who you are, so the first push may prompt for a sign-in. <b>That is the part Session 6 sets up properly</b>, which is why it is not asked of you here.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in <code>remote-lab</code>.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> you are in <code>work-a</code>, on <code>main</code>, with a clean working tree and a remote called <code>origin</code>. Where a drill needs something to have happened first, it is shown in the grey <i>already run</i> box. <b>No drill grades a hash, a date or a full path</b>, since all three differ per machine.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: run these in the wrong order and Git either refuses, or answers a question about a copy that is out of date.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> two of these six questions come from earlier sessions, because recalling older material on a delay is what makes it stick. Their review links open that session in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 05 of 10 &middot; Hit the milestone unassisted, then tick <b>S05</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; <b>Keep <code>remote-lab</code> this time.</b> Session 6 opens a pull request against these same three copies, so do not delete the folder.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, draw three boxes: the shared copy, your copy, and the teammate's. Then write the table from memory, nine boxes, for what <code>fetch</code>, <code>pull</code> and <code>push</code> each move. Underneath it, write the three steps out of a rejected push and the two labels it can carry. Check yourself in <code>remote-lab</code> by causing one more rejection and clearing it without notes. &middot; Next: <b>Session 06, pull requests &amp; review</b> (Level 3).
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s05-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words, branch names,
+     plain file names and yes/no words, where capitalisation is presentation rather
+     than the lesson. Marking "diverged" typed as "Diverged" wrong would be an unfair
+     grade. Git command case-sensitivity is taught in prose and tested in Parts 3 and 4. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 5 value, 2 count, 2 set, 2 seq. No drill grades a hash, a date
+     or a path. The three "which refs move" drills use a fixed three-word vocabulary
+     stated in the ask, so the set grader has something exact to compare against. */
+  var DRILLS = [
+    { type: 'value',
+      scen: '> git status -sb\n## main...origin/main [ahead 1, behind 1]',
+      ask: 'What has happened to the two histories? Answer with the single word the long form of git status uses for this state.',
+      code: 'git status -sb', ans: 'diverged',
+      why: 'Each side has one commit the other does not, so the histories have diverged. The long form spells it out: "Your branch and origin/main have diverged, and have 1 and 1 different commits each, respectively." This is the state a push gets refused in, because moving the shared branch to your commit would leave the other side with nothing pointing at it.' },
+
+    { type: 'value',
+      scen: 'The teammate pushed a commit about ten minutes ago. You have\nbeen working in your own copy and have run no Git commands\nat all since then.',
+      ask: 'You now run git status. Does it tell you that you are behind? Answer yes or no.',
+      code: 'git status', ans: 'no',
+      why: 'It says you are up to date, and that is true but useless. git status compares your branch against origin/main, which is your own written note of where the shared copy was the last time you asked. Nothing has asked since, so the note is unchanged and status reports agreement with it. No Git command contacts the network unless it is one whose job is to contact the network.' },
+
+    { type: 'set',
+      scen: '> git fetch\nFrom ../origin-repo\n   99a877c..8b55c64  main       -> origin/main',
+      ask: 'Which of these three moved? Answer using exactly these words: main, origin/main, server. List all that moved, separated by commas.',
+      code: 'git fetch', ans: 'origin/main',
+      why: 'Fetch updates your remote-tracking branch and does nothing else. Your own main is untouched, no file in your folder changes, and the shared copy is only read from, never written to. That is precisely why fetch is always safe to run: it changes what you know, not what you have.' },
+
+    { type: 'set',
+      scen: '> git push\nTo ../origin-repo.git\n   283d6ff..ef7343b  main -> main',
+      ask: 'Which of these three moved? Answer using exactly these words: main, origin/main, server. List all that moved, separated by commas.',
+      code: 'git push', ans: 'origin/main, server',
+      why: 'A push that is accepted moves the branch on the shared copy, and updates your note of it on the way, which is why git status -sb reads level straight afterwards instead of still claiming you are ahead. Your own main does not move: pushing sends commits you had already made, and it was the commit, one step earlier, that moved your branch.' },
+
+    { type: 'count',
+      scen: '> git rev-list --left-right --count origin/main...HEAD\n2\t1',
+      ask: 'How many commits do you have that the shared copy does not? Answer with a digit.',
+      code: 'git rev-list --left-right --count origin/main...HEAD', ans: '1',
+      why: 'Left number belongs to the name on the left of the three dots, right number to the name on the right. Here origin/main is on the left with 2, and HEAD is on the right with 1, so the shared copy has two you lack and you have one it lacks. Swap the two names in the command and the two numbers swap with them, which is the only thing about this command that catches people out.' },
+
+    { type: 'value',
+      scen: 'You committed locally without fetching first, and meanwhile\nsomebody else pushed. You run git push and it is refused.',
+      ask: 'Which of the two rejection labels appears, given that your origin/main is stale? Type the two words only, without the parentheses.',
+      code: 'git push', ans: 'fetch first',
+      why: 'Git can tell the shared copy holds something you have not got, but your own note is too old for it to say anything more precise, so the label is an instruction: go and ask. Fetch and retry the same push and the label changes to non-fast-forward, because now your note is current and Git can name the real problem, which is that your branch is not a straight continuation of theirs.' },
+
+    { type: 'value',
+      scen: 'You want to know what the shared copy has RIGHT NOW, and you\nwant nothing whatsoever written to your own disk: no branch\nmoved, no note updated, nothing downloaded.',
+      ask: 'Which command does that? Type the command and the remote name, as you would type it.',
+      code: '# your answer here', ans: 'git ls-remote origin',
+      why: 'git ls-remote asks the remote for its refs and prints them, in full 40-character hashes, storing none of it. Every other command here either reads a remembered answer (status, log, diff against origin/main) or updates one (fetch, pull, push). It is the cleanest contrast there is with origin/main being a cache rather than a window.' },
+
+    { type: 'count',
+      scen: 'You pulled to recover from a rejected push, and the pull built\na merge commit. Now:\n\n > git status -sb\n ## main...origin/main [ahead 2]',
+      ask: 'How many commits will the next successful push send to the shared copy? Answer with a digit.',
+      code: 'git push', ans: '2',
+      why: 'Ahead 2 means two commits exist in your branch that the shared copy cannot reach, and a push sends exactly those. They are your own commit and the merge commit the pull just built. Being ahead and no longer behind is the whole reason the push will now be accepted rather than refused.' },
+
+    { type: 'seq',
+      scen: 'Three things happen in this order:\n 1. the teammate pushes a commit\n 2. you run git fetch\n 3. you run git merge origin/main',
+      ask: 'After each of the three steps, does git status -sb show a behind marker? Answer yes or no for each, in order, separated by commas.',
+      code: 'git status -sb', ans: 'no, yes, no',
+      why: 'Step 1 changes the shared copy and tells you nothing, so your note is stale and status still reads level: no. Step 2 updates the note, and only then does the gap become visible: yes. Step 3 brings their commit into your branch, closing the gap: no. Notice that your position relative to them was identical after steps 1 and 2. The only thing fetch changed was how much you knew.' },
+
+    { type: 'seq',
+      scen: 'Your push was just refused. You want to recover without losing\nany work on either side, so you carry out the three-step recovery.',
+      ask: 'Put these three into the order you run them: push, integrate, fetch. Type the three words in order, separated by commas.',
+      code: '# the three-step recovery', ans: 'fetch, integrate, push',
+      why: 'Get their work, join it to yours, then send the result. Fetch has to be first because you cannot integrate what you have not got, and push has to be last because until their commits are in your history the push is exactly what Git already refused. Integrate can be git pull on its own, which fetches again harmlessly, or git merge origin/main once you have fetched.' },
+
+    { type: 'value',
+      scen: '> git log --oneline --all --decorate=short --graph\n* 4b23af1 (HEAD -> main) Add ideas.md\n| * 283d6ff (origin/main, origin/HEAD) Add todo.md\n|/  \n* 25fb465 Add summary.md',
+      ask: 'Your origin/main is pointing at one of these commits. Type that commit message.',
+      code: 'git log --oneline --all --decorate=short --graph', ans: 'Add todo.md',
+      why: 'The decoration in brackets is the list of names sitting on that commit, so origin/main is on Add todo.md while your own main is on Add ideas.md. Read plainly, that says: the last time you asked, the shared copy was here, and meanwhile you went that way instead. Two branches that each moved is the fork from Session 4, drawn between your branch and your note of theirs.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both prompts narrate their steps in order, and every tile answers exactly one
+     narrated step, so there is no second arrangement that matches the description. */
+  var PARSONS = [
+    { prompt: 'You have a repository with one commit in it and no remote at all. Give the bare repository next door the nickname origin, check the nickname took by listing what Git now has under it, then send your one commit and pair the branch up at the same time, and finally confirm in the short status that your branch is now paired with a branch on the other side.',
+      lines: ['git remote add origin ../origin-repo.git', 'git remote -v', 'git push -u origin main', 'git status -sb'] },
+    { prompt: 'Your push was just refused because somebody else pushed first. Recover from it: go and ask the shared copy what it actually has, read what is about to arrive before you accept any of it, bring it into your branch without letting an editor open, send your work now that it will be accepted, and finish by confirming you are level.',
+      lines: ['git fetch', 'git diff HEAD origin/main', 'git pull --no-edit', 'git push', 'git status -sb'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Every comment describes what the line DOES, never the token being blanked. */
+  var FADED = [
+    { prompt: 'Fill the blanks so the first line sends your first commit and pairs the branch up with the one on the other side in the same breath, the second goes and asks the shared copy what it has without touching your branch, and the third does that and then brings the result into your branch as well.',
+      code: 'git push %% origin main   # send it, and pair the branch up\ngit %%                    # go and ask, change nothing else\ngit %%                    # go and ask, then bring it in too', ans: ['-u', 'fetch', 'pull'] },
+    { prompt: 'Fill the blanks so the first line saves an address under the nickname origin, the second shows each of your branches with the branch it is paired with and how far apart they are, and the third asks the shared copy for its refs right now and writes nothing to your disk.',
+      code: 'git remote %% origin ../origin-repo.git   # save the address\ngit branch %%                             # branches, pairings, distances\ngit %% origin                             # ask now, store nothing', ans: ['add', '-vv', 'ls-remote'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Build a fresh remote lab of your own, somewhere outside remote-lab so you do not disturb it. Make a folder called relay-lab, put a bare repository called hub.git inside it as the shared copy, then make an ordinary repository called desk beside it whose first branch is main. Point desk at the bare one under the usual nickname, confirm the nickname is there, then commit a file and send it in a way that pairs the branch up permanently. Finish by showing the pairing.',
+      sol: 'cd ~\nmkdir relay-lab\ncd relay-lab\ngit init --bare hub.git\ngit init -b main desk\ncd desk\ngit remote add origin ../hub.git\ngit remote -v\n# create a file with Set-Content or echo, then:\ngit add .\ngit commit -m "Add the first file"\ngit push -u origin main\ngit branch -vv          # * main <hash> [origin/main] Add the first file' },
+    { task: 'Staying in relay-lab, make a second working copy called bench by copying the shared repository rather than building it by hand, and give it a different name and email so its commits are visibly somebody else. In bench, change a file and send the change. Then go back to desk and, WITHOUT taking the change yet, show two readouts that prove desk still has no idea anything happened.',
+      sol: 'cd ..\ngit clone ./hub.git bench\ncd bench\ngit config user.name "Rae Okafor"\ngit config user.email "rae@example.com"\n# edit the file, then:\ngit add .\ngit commit -m "Change it from bench"\ngit push\n\ncd ../desk\ngit status              # says up to date with origin/main, which is stale\ngit log --oneline --decorate=short   # origin/main still sits on your own commit' },
+    { task: 'Now close that gap the long way rather than with the one-word shortcut, so you can see the two halves separately. In desk, ask the shared copy what it has, show that the gap is now visible where it was not before, read exactly what is about to arrive, and only then bring it into your branch. Say which of the three things moved at each step.',
+      sol: 'git fetch                       # updates origin/main ONLY\ngit status -sb                  # ## main...origin/main [behind 1]\ngit diff HEAD origin/main       # read what is coming before you take it\ngit merge origin/main           # Fast-forward: this is what moves your main\ngit status -sb                  # ## main...origin/main, level again' },
+    { task: 'Finally, cause a rejected push in relay-lab and recover from it unassisted. Have bench commit and push a change to one file, and have desk commit a change to a DIFFERENT file without asking the shared copy anything first. Try to push from desk, then work through the recovery until the push is accepted. Along the way, capture both rejection labels and the two numbers that show how far apart the copies were.',
+      sol: '# in bench: edit one file, then\ngit add .\ngit commit -m "Bench edits one file"\ngit push\n\n# in desk: edit a DIFFERENT file, then\ngit add .\ngit commit -m "Desk edits another file"\ngit push                        # ! [rejected] ... (fetch first)\n\ngit fetch\ngit push                        # ! [rejected] ... (non-fast-forward)\ngit status -sb                  # ## main...origin/main [ahead 1, behind 1]\ngit rev-list --left-right --count origin/main...HEAD   # 1  1\n\ngit pull --no-edit              # a real merge, so no editor with --no-edit\ngit push                        # accepted this time\ngit status -sb                  # ## main...origin/main' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'What a remote is', b: 'a saved nickname for a URL' },
+    { f: 'What origin is', b: 'the nickname git clone assigns by default; nothing special about the word' },
+    { f: 'What origin/main is', b: 'your note of where their main was the last time you asked' },
+    { f: 'What origin/HEAD is', b: 'the remote default branch, the one you land on when you clone' },
+    { f: 'The four things git clone does', b: 'copies it, adds origin, checks out the default branch, sets up tracking' },
+    { f: 'List your remotes and their addresses', b: 'git remote -v' },
+    { f: 'Save an address under the nickname origin', b: 'git remote add origin <url>' },
+    { f: 'What git fetch moves', b: 'your origin/main, and nothing else at all' },
+    { f: 'What git pull is', b: 'git fetch, then a merge into the branch you are on' },
+    { f: 'What git push does when the shared copy has moved on', b: 'refuses; it never merges and never asks' },
+    { f: 'First push, pairing the branch up as you go', b: 'git push -u origin main' },
+    { f: 'Show the branch line with ahead and behind counts', b: 'git status -sb' },
+    { f: 'Show every branch with its pairing and distance', b: 'git branch -vv' },
+    { f: 'Ask the server right now, store nothing locally', b: 'git ls-remote origin' },
+    { f: 'The rejection label when your origin/main is stale', b: '(fetch first)' },
+    { f: 'The three steps out of a rejected push', b: 'fetch, integrate, push again' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  /* Four new Session-5 questions carry an in-page scrollIntoView backlink (part).
+     The two recall questions carry an external new-tab link (ext), since the
+     concept they test lives in the Session 3 and Session 4 artifacts, not here. */
+  var S3_URL = 'git-session-03.html';
+  var S4_URL = 'git-session-04.html';
+  var QUIZ = [
+    { q: 'Your copy has a branch called origin/main. What is it, exactly?',
+      o: ['Your own written note of where their main was the last time you asked',
+          'A live view of the branch on the server, refreshed whenever you read it',
+          'The branch other people are working on, stored on the server rather than here',
+          'A backup copy of your main, taken automatically at each commit'],
+      c: 0,
+      e: 'It is a remote-tracking branch, and it sits on your disk like everything else. It records where the shared copy was the last time something went and asked, and it stays exactly where it is until something asks again. That is why git status can tell you that you are up to date while the shared copy has moved on without you: status is comparing you against a note, not against the server.',
+      part: { id: 'concept-clone', label: 'D. git clone, and the three kinds of branch name' } },
+
+    { q: 'You run git fetch and it reports one new commit. What has changed in your copy?',
+      o: ['Your origin/main moved, and your own branch and your files did not',
+          'Your branch moved forward and the new commit files are now in your folder',
+          'Nothing yet: fetch prints a report and must be run again to apply',
+          'Your branch moved, but the files stay as they were until you check them out'],
+      c: 0,
+      e: 'Fetch updates your remote-tracking branch and stops. The commits are downloaded and sit in your repository, but your own branch is untouched and not one file in your folder changes. That is exactly what makes fetch safe to run at any moment. To bring the commits into your branch you merge afterwards, and git pull is simply those two steps run back to back.',
+      part: { id: 'concept-fetch', label: 'F. The proof that origin/main is only a note' } },
+
+    { q: 'Your push is refused with ! [rejected] and a hint about fast-forwards. Why did Git refuse?',
+      o: ['The shared copy has commits you do not, so pushing would strand their work',
+          'Your commits conflict with theirs, and conflicts block a push',
+          'You lack permission to write to that branch, so the request was turned away',
+          'Your branch is not tracking anything, so Git could not tell where to send it'],
+      c: 0,
+      e: 'Somebody pushed after you last looked. Moving the shared branch to your commit would leave their work with nothing pointing at it, so Git refuses and hands the decision back. It is not about conflicts: yours and theirs may touch entirely different files, as they do in this session, and the push is refused all the same. The way out is always fetch, integrate, push again.',
+      part: { id: 'concept-reject', label: 'J. The rejected push, and both of its labels' } },
+
+    { q: 'What does the -u in git push -u origin main actually set up?',
+      o: ['A saved pairing between your branch and theirs, so later pushes need no arguments',
+          'A permanent record of the URL, so you do not have to type the address again',
+          'An upload of every branch you have on this machine, rather than only the one you name',
+          'A promise to pull automatically before each push, so it cannot be rejected'],
+      c: 0,
+      e: 'The u is short for --set-upstream, and an upstream is the branch on the other side that yours is paired with. Once saved, plain git push and git pull know where to go, and git status -sb and git branch -vv can report ahead and behind counts without being told what to compare against. The URL was already saved separately, by git remote add or by git clone.',
+      part: { id: 'concept-push', label: 'C. Your first push, and what -u sets up' } },
+
+    { q: 'Recall from Session 3: a pull reports Fast-forward. Why was that possible?',
+      o: ['You had added nothing of your own, so Git only had to slide your pointer',
+          'The two sides changed different files, so there was nothing to conflict over',
+          'Only one commit arrived, and a single commit is always fast-forwarded',
+          'Git chose the newer of the two histories and quietly dropped the older one'],
+      c: 0,
+      e: 'A fast-forward is possible precisely when your branch is an ancestor of the other one: every commit you had, it already had, so there were never two sets of changes to reconcile and no commit needed creating. Applied to a remote, that means an update arriving while you have added nothing of your own is always a fast-forward. Once both sides have moved, it is a real merge instead, which is exactly the recovery this session teaches.',
+      ext: { url: S3_URL, label: 'Session 3: fast-forward merges (opens in a new tab)' } },
+
+    { q: 'Recall from Session 4: a pull conflicts. What does running git add on the file mean here?',
+      o: ['That you consider the file resolved; it does not check for leftover markers',
+          'That you consider it resolved, and Git verifies that no markers remain first',
+          'That you want the incoming version of the file instead of your own edits',
+          'That the merge is already complete, so no commit is needed to conclude it'],
+      c: 0,
+      e: 'During a merge, git add takes on a second job on top of the staging from Session 1: it says this conflict is dealt with, and git status changes from both modified: to an ordinary modified:. It does not inspect the contents, so leaving a marker line in the file gets it committed without a word of warning. Read the file before you stage it, then commit to conclude the merge, and only then push.',
+      ext: { url: S4_URL, label: 'Session 4: resolving a conflict (opens in a new tab)' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S05 on your Hub and move on to Session 6.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

@@ -1,0 +1,1604 @@
+<title>Git Sprint &middot; Session 6: Pull requests &amp; review</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session needs it for the branch names: Cascadia Code would otherwise
+     redraw the -> in (HEAD -> main) and in origin/HEAD -> origin/main. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code, .ptable
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  /* a rejection line, so the two labels stand out from the hint text around them */
+  .rej { color: var(--bad); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-copies diagram, and the three-branch-names diagram */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .areas.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; word-break: break-word; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas, .areas.plain { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* label / meaning rows: used for the rejection labels and the shell equivalents */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the milestone table: which of the three things each command moves */
+  .tscroll { overflow-x: auto; margin: 4px 0 14px; }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 520px; }
+  .ptable th, .ptable td { border: 1px solid var(--border); padding: 9px 11px; text-align: left; background: var(--surface); }
+  .ptable thead th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 700; }
+  .ptable tbody th { font-size: 13px; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .ptable td.y { color: var(--good); font-weight: 700; }
+  .ptable td.n { color: var(--ink-faint); }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 29 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 15ch because the longest answer here is "--ff-only" plus room to type */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 15ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 06 // Level 3 &middot; Remotes &amp; Collaboration</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Pull requests &amp; review</h1>
+    <p class="goal">A pull request is not a Git feature. Git has never heard of one. It is a wrapper a website puts around three things you already have: a branch, a diff, and a merge. Once you can see that, the interface stops being intimidating and one real decision is left in it, which is <em>how</em> the branch gets joined on. This session builds all three answers to that question with your own hands, so the choice becomes something you can defend rather than a button you click.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Open, review, and merge a pull request, and justify the merge strategy.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>This one continues from Session 5.</b> You will work in the same <code>remote-lab</code> folder, with the same three copies in it. If you deleted it, or you are arriving here without having done Session 5, the collapsible block in section B rebuilds the whole thing from nothing in about thirty seconds.</p>
+        <p><b>You do not need a GitHub account, and you will not be asked to make one.</b> Everything that is graded, including the milestone, happens offline in that folder. Section L shows the same work on GitHub for those who want it, and it is entirely optional. Nothing in Sessions 7, 8 or 9 uses anything built here, so skipping section L costs you nothing later.</p>
+        <p>This is a workbook, not a reading. You will predict what a command does to your repository, reassemble command sequences, fill blanks, and write from scratch, and each part hands you less scaffolding than the last. The goal is the one this whole track is built on: <b>read a Git command and know what it will do before you press enter.</b></p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. <b>Every transcript says which folder it was run in, and names the branch wherever that changes the answer</b>, because in this session you stand on five different branches and the same command can answer differently on each. Three things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>b966400</code>), <b>dates</b>, and <b>paths</b>. Everything else should match, including the odd-looking trailing spaces after <code>|\</code> and <code>|/</code> in the graph drawings, which Git prints every time.<br><br><b>One thing about the graphs in particular.</b> Every <code>git log --graph</code> below ends with a number like <code>-6</code>, which means "stop after six commits". That is deliberate: it makes each drawing stop at <code>Add roadmap.md</code>, the commit you are about to make in section B. Underneath that line sits whatever Session 5 left in your folder, which is different for everyone, so it is cut off rather than shown. <b>If your graph keeps going below <code>Add roadmap.md</code>, nothing is wrong.</b> Compare only the lines above it.</div>
+
+    <div class="block" id="concept-what">
+      <h3>A. What a pull request actually is</h3>
+      <p><b>Start here, because the name is the most misleading thing about it.</b> A pull request does not pull anything, and it is not part of Git. If you type <code>git pull-request</code> you get nothing, because there is no such command and there never was.</p>
+      <p><b>A pull request is a message on a website.</b> It says: <em>here is a branch I pushed, please join it onto that other branch.</em> GitHub invented it, GitLab copied the idea and called it a merge request, Bitbucket has its own. Every one of them is a layer sitting on top of a repository, and underneath the layer the operation is the <code>git merge</code> you already ran in Session 4.</p>
+      <p>What the website adds on top is genuinely useful, and it is worth naming, because these are the parts that are not Git:</p>
+      <ul class="pts">
+        <li><b>A diff view.</b> Session 2's <code>git diff</code>, drawn in a browser with colours and line numbers.</li>
+        <li><b>A comment thread</b>, including comments attached to individual lines of the diff.</li>
+        <li><b>A verdict</b> from a reviewer: comment, approve, or request changes.</li>
+        <li><b>A merge button</b> that offers you a choice of <em>how</em> to merge. That choice is the real content of this session.</li>
+      </ul>
+      <p>Here is the whole cycle, start to finish. <b>You already know how to do steps 1, 2 and 3, and step 7.</b> Steps 4, 5 and 6 are the website's part:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">1. branch</span><span class="rd">Make a branch for the work. Session 3.</span></div>
+        <div class="refrow"><span class="rr">2. commit</span><span class="rd">Commit onto it, as many times as the work takes. Session 1.</span></div>
+        <div class="refrow"><span class="rr">3. push the branch</span><span class="rd">Send the branch to the shared copy. Session 5 taught the push; this session adds the small change for a branch that is not <code>main</code>.</span></div>
+        <div class="refrow"><span class="rr">4. open the pull request</span><span class="rd">Ask the platform to join it onto <code>main</code>. Not a Git step.</span></div>
+        <div class="refrow"><span class="rr">5. review</span><span class="rd">Read the diff, leave comments, give a verdict. Not a Git step.</span></div>
+        <div class="refrow"><span class="rr">6. merge, one of three ways</span><span class="rd">The button. Underneath it, one of three things you are about to do by hand.</span></div>
+        <div class="refrow"><span class="rr">7. clean up and pull</span><span class="rd">Delete the branch on both sides, and bring the result down. Session 5, plus one new flag.</span></div>
+      </div>
+      <p><b>So the plan for this session is to do steps 1, 2, 3, 6 and 7 offline, in the lab you already have</b>, where you can see exactly what each one does to the history. Step 6 is where nearly all the value is, and it needs no website at all. Steps 4 and 5 are shown on GitHub at the end for anyone who wants them.</p>
+      <p><b>Three things this session deliberately does not cover.</b> <em>Automated checks</em> (tests that a service runs on your branch and reports back on the pull request) get named here and nothing more; Session 10 is where a service runs something of yours. <em>Protected branches</em>, a setting that can require a review or a passing check before the merge button works, are worth knowing the name of and nothing else today. And <em>forks</em>, which are how you contribute to a project you cannot push to, are Session 9.</p>
+    </div>
+
+    <div class="block" id="concept-setup">
+      <h3>B. Get the lab level, and plant one commit to measure from</h3>
+      <p>Open your terminal in <code>remote-lab</code>. Session 5 left three folders in it: the bare <code>origin-repo.git</code>, your copy <code>work-a</code>, and the teammate's copy <code>work-b</code>. <b>Wherever Session 5 left off, this brings both working copies level with the shared one</b>, which is the state everything below assumes:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">Both shells</span><code>cd ~/remote-lab/work-b
+git pull --no-edit
+git push
+cd ../work-a
+git pull --no-edit
+git push</code></div>
+      </div>
+      <p><b>What that prints depends entirely on where you stopped last time</b>, so there is no transcript for it. It might say <code>Already up to date.</code> and <code>Everything up-to-date</code>, or it might report a merge and a push. Any of those is fine. <code>--no-edit</code> is there from Session 5 for the same reason as always: if the pull turns out to be a real merge, it accepts the prepared message instead of opening an editor at you.</p>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">No <code>remote-lab</code> folder? Build the whole thing from nothing (about 30 seconds)</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">If you deleted the folder, or you are starting the track here, this rebuilds all three copies exactly as Session 5 left them. <b>Run it instead of the block above, not as well as it.</b> Everything after this point works identically.</p>
+          <div class="filebox">
+            <div class="fbh">PowerShell (Windows default) &middot; rebuild remote-lab from zero</div>
+<pre><code>cd ~
+mkdir remote-lab
+cd remote-lab
+git init --bare origin-repo.git
+git init -b main work-a
+cd work-a
+git remote add origin ../origin-repo.git
+Set-Content notes.md "line one"
+git add notes.md
+git commit -m "Add notes.md"
+git push -u origin main
+cd ..
+git clone ./origin-repo.git work-b
+cd work-b
+git remote set-url origin ../origin-repo.git
+git config user.name "Rae Okafor"
+git config user.email "rae@example.com"
+cd ../work-a</code></pre>
+          </div>
+          <div class="filebox">
+            <div class="fbh">Git Bash / macOS / Linux &middot; rebuild remote-lab from zero</div>
+<pre><code>cd ~
+mkdir remote-lab
+cd remote-lab
+git init --bare origin-repo.git
+git init -b main work-a
+cd work-a
+git remote add origin ../origin-repo.git
+echo "line one" &gt; notes.md
+git add notes.md
+git commit -m "Add notes.md"
+git push -u origin main
+cd ..
+git clone ./origin-repo.git work-b
+cd work-b
+git remote set-url origin ../origin-repo.git
+git config user.name "Rae Okafor"
+git config user.email "rae@example.com"
+cd ../work-a</code></pre>
+          </div>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Every line in there is from Session 5. The bare repository is the stand-in for GitHub, <code>work-a</code> is you, and <code>work-b</code> is a teammate with their own name on their commits.</p>
+        </div>
+      </details>
+      <p>Now confirm you are in the right place and level, standing in <code>work-a</code>:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the state everything below assumes</div>
+<pre><code><span class="cmd">&gt; git status -sb</span>
+## main...origin/main</code></pre>
+      </div>
+      <p><b>No <code>[ahead]</code> and no <code>[behind]</code> on that line.</b> If you have either, run the block above again until it is clean. Session 5's four branch-line states are the whole vocabulary you need to read it.</p>
+      <p><b>Now plant a commit.</b> This one exists purely so that every drawing in this session has a fixed bottom line to stop at, and so that the branch you are about to make has a definite place to start from:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content roadmap.md "roadmap: chart work not started"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "roadmap: chart work not started" &gt; roadmap.md</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the commit every graph below stops at</div>
+<pre><code><span class="cmd">&gt; git add roadmap.md</span>
+
+<span class="cmd">&gt; git commit -m "Add roadmap.md"</span>
+[main bed2aaf] Add roadmap.md
+ 1 file changed, 1 insertion(+)
+ create mode 100644 roadmap.md
+
+<span class="cmd">&gt; git push</span>
+To ../origin-repo.git
+   e1f115a..bed2aaf  main -&gt; main</code></pre>
+      </div>
+      <p>Plain <code>git push</code> with nothing after it, because <code>main</code> has been paired with <code>origin/main</code> since Session 5. <b>The two hashes on that last line will both differ on your machine</b>, and the left-hand one especially: it is whatever your <code>main</code> was sitting on a moment ago.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Get level, then plant the anchor commit</div>
+        <ol>
+          <li>Bring <code>work-b</code> and then <code>work-a</code> level with the shared copy, or rebuild the lab from the collapsible block if you no longer have it.</li>
+          <li>In <code>work-a</code>, run <code>git status -sb</code> and confirm you get <code>## main...origin/main</code> with <b>nothing</b> in square brackets.</li>
+          <li>Create <code>roadmap.md</code>, commit it with the message <code>Add roadmap.md</code>, and push.</li>
+          <li>Run <code>git log --oneline -1</code> and note the hash. That commit is the floor of every drawing in this session.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> My lab is level and Add roadmap.md is pushed</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-pushbranch">
+      <h3>C. Pushing a branch that is not <code>main</code></h3>
+      <p><b>A pull request needs the branch to exist on the shared copy</b>, because that is the only copy the website can see. So the branch has to be pushed, and this is the one genuinely new Git mechanic in the first half of the session. It is smaller than you expect.</p>
+      <p>Make the branch and put three commits on it, using <code>git switch -c</code> from Session 3:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>git switch -c chart
+Set-Content chart.md "chart: draft one"
+git add chart.md
+git commit -m "Start the chart"
+Add-Content chart.md "axis labels"
+git add chart.md
+git commit -m "Add axis labels"
+Add-Content chart.md "legend"
+git add chart.md
+git commit -m "Add the legend"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>git switch -c chart
+echo "chart: draft one" &gt; chart.md
+git add chart.md
+git commit -m "Start the chart"
+echo "axis labels" &gt;&gt; chart.md
+git add chart.md
+git commit -m "Add axis labels"
+echo "legend" &gt;&gt; chart.md
+git add chart.md
+git commit -m "Add the legend"</code></div>
+      </div>
+      <p><b>Three separate commits on purpose.</b> Whether those three deserve to survive on <code>main</code> is exactly the question the three merge strategies answer differently, and you cannot feel the difference with a one-commit branch.</p>
+      <p>Now send the branch. <b>It is Session 5's first-push command with the branch name swapped in</b>, and that is the entire lesson:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on chart &middot; git push -u origin chart</div>
+<pre><code><span class="cmd">&gt; git push -u origin chart</span>
+To ../origin-repo.git
+ * [new branch]      chart -&gt; chart
+branch 'chart' set up to track 'origin/chart'.</code></pre>
+      </div>
+      <p><b>Word for word the shape Session 5 printed for <code>main</code></b>, with <code>chart</code> in place of <code>main</code>. <code>* [new branch]</code> because the shared copy had no branch by that name, and the <code>-u</code> line because you asked for the pairing. There is no special "push a feature branch" command. A branch is a branch.</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on chart &middot; what the pairing bought you</div>
+<pre><code><span class="cmd">&gt; git status -sb</span>
+## chart...origin/chart
+
+<span class="cmd">&gt; git branch -vv</span>
+* chart 0e70e9b [origin/chart] Add the legend
+  main  bed2aaf [origin/main] Add roadmap.md</code></pre>
+      </div>
+      <p><b>Two branches, two pairings, and they are independent.</b> <code>chart</code> is paired with <code>origin/chart</code>, <code>main</code> with <code>origin/main</code>. Every ahead and behind reading you learned in Session 5 now applies separately to each one, which is why <code>git branch -vv</code> earns its keep the moment you have more than one branch in flight.</p>
+      <div class="note"><b>The one thing that looks different against a real GitHub remote.</b> The same <code>git push -u origin chart</code> aimed at GitHub prints several extra lines beginning with <code>remote:</code>, offering you a link to open the pull request there and then. They come from the server rather than from your Git, which is why the local bare repository never prints them. Nothing else about the command changes. Section L shows the real thing.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make the branch and publish it</div>
+        <ol>
+          <li>Run the block for your shell to create <code>chart</code> and put three commits on it.</li>
+          <li>Run <code>git log --oneline -4</code> and confirm your three commits sit on top of <code>Add roadmap.md</code>.</li>
+          <li>Run <code>git push -u origin chart</code> and find the two things it reports: the new branch, and the pairing.</li>
+          <li>Run <code>git branch -vv</code> and <b>say which branch is paired with which</b>, out loud, before reading on.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> My branch is on the shared copy and paired up</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-fork">
+      <h3>D. Somebody else moves <code>main</code>, and why that matters here</h3>
+      <p><b>A pull request that could just slide into place is not interesting.</b> The whole reason there are three merge strategies is that <code>main</code> usually moves while your branch is out being reviewed. So make that happen, using Session 5's teammate:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>cd ../work-b
+git pull --no-edit
+Set-Content readme.md "readme: start here"
+git add readme.md
+git commit -m "Add readme.md"
+git push
+cd ../work-a
+git switch main
+git pull --no-edit</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ../work-b
+git pull --no-edit
+echo "readme: start here" &gt; readme.md
+git add readme.md
+git commit -m "Add readme.md"
+git push
+cd ../work-a
+git switch main
+git pull --no-edit</code></div>
+      </div>
+      <p>Look at the shape you are now in. <b>This is the picture the rest of the session works on:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on main &middot; the fork</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --decorate=short --all -5</span>
+* a0c0add (HEAD -&gt; main, origin/main, origin/HEAD) Add readme.md
+| * 0e70e9b (origin/chart, chart) Add the legend
+| * 239b290 Add axis labels
+| * b9f48f8 Start the chart
+|/  
+* bed2aaf Add roadmap.md</code></pre>
+      </div>
+      <p><b>You have seen this drawing twice before</b>, in Session 4 between two of your own branches and in Session 5 between your branch and your note of the shared copy. Same shape, third time: two lines of work leaving the same commit and going different ways. <code>Add roadmap.md</code> is the fork point, and it is where all three strategies below will start.</p>
+      <p><b>Now a small piece of stage machinery, and it is worth explaining rather than just running.</b> You are about to join <code>chart</code> onto <code>main</code> three different ways. The trouble is that the first one moves <code>main</code>, and then the second and third would start somewhere else and could not be compared. So instead of touching <code>main</code>, make <b>three throwaway branches that all start exactly where <code>main</code> is now</b>, and do one strategy on each:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on main &middot; three identical starting points</div>
+<pre><code><span class="cmd">&gt; git switch -c try-merge</span>
+Switched to a new branch 'try-merge'
+
+<span class="cmd">&gt; git switch main</span>
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.
+
+<span class="cmd">&gt; git switch -c try-squash</span>
+Switched to a new branch 'try-squash'
+
+<span class="cmd">&gt; git switch main</span>
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.
+
+<span class="cmd">&gt; git switch -c try-rebase</span>
+Switched to a new branch 'try-rebase'
+
+<span class="cmd">&gt; git switch main</span>
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.</code></pre>
+      </div>
+      <p><code>git switch -c</code> makes a branch <b>at the commit you are standing on</b>, which is Session 3's lesson doing exactly what it always did. Going back to <code>main</code> between each one is what guarantees all three start in the same place:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on main &middot; four names, one commit</div>
+<pre><code><span class="cmd">&gt; git branch -v</span>
+  chart      0e70e9b Add the legend
+* main       a0c0add Add readme.md
+  try-merge  a0c0add Add readme.md
+  try-rebase a0c0add Add readme.md
+  try-squash a0c0add Add readme.md</code></pre>
+      </div>
+      <p><b>Three of those rows are the same hash as <code>main</code>.</b> Session 3 made the point that a branch is just a name pointing at a commit, and here are four names on one commit, costing nothing. In real work you would not make these; you would pick one strategy and use it on <code>main</code>. They exist so that you can see all three answers side by side, once, and never have to guess again.</p>
+    </div>
+
+    <div class="block" id="concept-mergecommit">
+      <h3>E. Strategy one: the merge commit</h3>
+      <p><b>This is Session 4's merge, unchanged.</b> Nothing new to learn in the command; the new part is knowing what it leaves behind and when that is what you want.</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; switch to the first lane and merge</div>
+<pre><code><span class="cmd">&gt; git switch try-merge</span>
+Switched to branch 'try-merge'
+
+<span class="cmd">&gt; git merge --no-edit chart</span>
+Merge made by the 'ort' strategy.
+ chart.md | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 chart.md</code></pre>
+      </div>
+      <p><code>--no-edit</code> is there for the reason Session 5 gave: a real merge builds a commit, a commit needs a message, and without the flag Git opens your editor to let you edit the one it prepared. Leave the flag off if you would rather see it, and get out the way Session 4 showed.</p>
+      <p>Now the result:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on try-merge &middot; what a merge commit leaves</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --decorate=short try-merge -6</span>
+*   b966400 (HEAD -&gt; try-merge) Merge branch 'chart' into try-merge
+|\  
+| * 0e70e9b (origin/chart, chart) Add the legend
+| * 239b290 Add axis labels
+| * b9f48f8 Start the chart
+* | a0c0add (origin/main, origin/HEAD, try-squash, try-rebase, main) Add readme.md
+|/  
+* bed2aaf Add roadmap.md</code></pre>
+      </div>
+      <p><b>Everything is still there.</b> All three of your commits, the teammate's commit, and a new one on top with the two of them joined underneath it. That top commit is the diamond from Session 4, and you can ask Git to prove it has two parents:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on try-merge &middot; a merge commit has two parents</div>
+<pre><code><span class="cmd">&gt; git log -1 --format="%h has parents: %p"</span>
+b966400 has parents: a0c0add 0e70e9b</code></pre>
+      </div>
+      <p><b><code>--format</code> lets you ask for exactly the fields you want</b>, and the two here are <code>%h</code>, the short hash of the commit, and <code>%p</code>, the short hashes of its parents. Two hashes come back, and they are the tip of <code>main</code> and the tip of <code>chart</code>. <b>That is what "merge commit" means, spelled out</b>: a commit whose job is to have two parents, so both lines of history stay reachable.</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">What you end up with</span><span class="rd">Every commit from the branch, plus one merge commit. Four new commits on the target from a three-commit branch.</span></div>
+        <div class="refrow"><span class="rr">When it is right</span><span class="rd">When the fact that this work happened on a branch is worth recording, and when the individual commits are worth reading later.</span></div>
+        <div class="refrow"><span class="rr">What it costs</span><span class="rd">A busier graph. On a project with many branches the picture becomes genuinely hard to read, which is the honest argument against it.</span></div>
+      </div>
+    </div>
+
+    <div class="block" id="concept-squash">
+      <h3>F. Strategy two: the squash merge</h3>
+      <p><b>Squashing takes every commit on the branch and lands them on the target as one single new commit.</b> The branch's own commits do not appear on the target at all. The word is worth unpacking: to <em>squash</em> commits is to flatten several into one, keeping all of the changes and none of the separate steps.</p>
+      <p>Switch to the second lane and run it. <b>Read the output before you read the explanation</b>, because there is a surprise in it:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the squash, which does not do what its name implies</div>
+<pre><code><span class="cmd">&gt; git switch try-squash</span>
+Switched to branch 'try-squash'
+
+<span class="cmd">&gt; git merge --squash chart</span>
+Automatic merge went well; stopped before committing as requested
+Squash commit -- not updating HEAD</code></pre>
+      </div>
+      <div class="note"><b>Those two lines may come out in either order on your machine, and neither order is wrong.</b> Git sends one of them to its normal output and the other to its error channel, and which lands first depends on your terminal. Session 5's point about <code>error:</code> applies here in reverse: a line arriving on the error channel is not automatically a complaint.</div>
+      <p><b><code>git merge --squash</code> does not commit anything.</b> It works out the combined change, puts it in the staging area from Session 1, and stops, which is precisely what <code>stopped before committing as requested</code> is telling you. <code>not updating HEAD</code> is the same fact in Session 3's vocabulary: you have not moved.</p>
+      <p>Check with a command you have had since Session 1:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on try-squash &middot; staged, and nothing more</div>
+<pre><code><span class="cmd">&gt; git status</span>
+On branch try-squash
+Changes to be committed:
+  (use "git restore --staged &lt;file&gt;..." to unstage)
+	new file:   chart.md</code></pre>
+      </div>
+      <p><b>Staged, waiting for you</b>, exactly as if you had made the change yourself and run <code>git add</code>. That is the honest reading of the whole command: the squash is a way of <em>preparing</em> a commit, not of making one. So make it:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on try-squash &middot; one commit for the whole branch</div>
+<pre><code><span class="cmd">&gt; git commit -m "Add the chart"</span>
+[try-squash d44575f] Add the chart
+ 1 file changed, 3 insertions(+)
+ create mode 100644 chart.md</code></pre>
+      </div>
+      <p><b>Git also prepares a message for you, and it is worth knowing about even though this transcript does not use it.</b> The squash writes a draft into a file called <code>SQUASH_MSG</code> inside <code>.git</code>, listing every commit it flattened. Run a bare <code>git commit</code> with no <code>-m</code> and your editor opens with that draft already in it, which is often exactly what you want. Using <code>-m</code> as above ignores the draft and takes your message instead.</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on try-squash &middot; what a squash leaves</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --decorate=short try-squash -3</span>
+* d44575f (HEAD -&gt; try-squash) Add the chart
+* a0c0add (origin/main, origin/HEAD, try-rebase, main) Add readme.md
+* bed2aaf Add roadmap.md
+
+<span class="cmd">&gt; git log -1 --format="%h has parents: %p"</span>
+d44575f has parents: a0c0add</code></pre>
+      </div>
+      <p><b>Compare that to section E and the difference is stark.</b> No fork in the drawing, no branch commits, no merge commit, <b>one parent</b>. Your three commits still exist over on <code>chart</code>, untouched, but from this branch's point of view they were never here. The changes arrived; the history of how they were made did not.</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">What you end up with</span><span class="rd">Exactly one new commit on the target, whatever the branch contained. A straight line.</span></div>
+        <div class="refrow"><span class="rr">When it is right</span><span class="rd">When the branch history is <code>wip</code>, <code>wip</code>, <code>fix typo</code>, <code>actually fix typo</code>, and nobody will ever benefit from reading it.</span></div>
+        <div class="refrow"><span class="rr">What it costs</span><span class="rd">The detail is gone from the target for good. And it makes deleting the branch complain, which section I is about.</span></div>
+      </div>
+    </div>
+
+    <div class="block" id="concept-rebase">
+      <h3>G. Strategy three: the rebase merge</h3>
+      <p><b>Rebasing replays your commits onto a different starting point, one at a time.</b> The <em>base</em> of your branch is the commit it grew out of, so to <em>rebase</em> is to give it a new one. Your three commits stay three commits, in order, but they end up sitting on top of the teammate's work instead of beside it, and the fork disappears.</p>
+      <p><b>Do this one last, because unlike the other two it changes the branch itself.</b> Note the hashes before you start:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the branch, before</div>
+<pre><code><span class="cmd">&gt; git switch chart</span>
+Switched to branch 'chart'
+Your branch is up to date with 'origin/chart'.
+
+<span class="cmd">&gt; git log --oneline -4</span>
+0e70e9b Add the legend
+239b290 Add axis labels
+b9f48f8 Start the chart
+bed2aaf Add roadmap.md</code></pre>
+      </div>
+      <p>Now replay them onto the third lane. <b>You run this from the branch that is moving</b>, and you name the branch it should land on, which is the opposite way round from <code>git merge</code> and the single most common thing people get backwards:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on chart &middot; git rebase</div>
+<pre><code><span class="cmd">&gt; git rebase try-rebase</span>
+Successfully rebased and updated refs/heads/chart.</code></pre>
+      </div>
+      <p><b>While it works, Git also prints a counter</b> reading <code>Rebasing (1/3)</code>, then <code>2/3</code>, then <code>3/3</code>, redrawing itself on one line as it goes. Depending on your terminal you may be left looking at the last count, or at nothing but the success line. Either is normal. <code>refs/heads/chart</code> is the long spelling of the branch called <code>chart</code>, the same full form Session 5 showed you in <code>git ls-remote</code>.</p>
+      <p>Now look at the same four commits again:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on chart &middot; the branch, after</div>
+<pre><code><span class="cmd">&gt; git log --oneline -4</span>
+b6e52f7 Add the legend
+cd0c75d Add axis labels
+461568a Start the chart
+a0c0add Add readme.md</code></pre>
+      </div>
+      <p><b>Every hash is different, and the commit underneath is now the teammate's instead of the roadmap one.</b> The messages are the same and the changes are the same, but these are <b>new commits</b>. That is the thing to take away from this section, and it is the first time in this track that something has rewritten history rather than added to it.</p>
+      <p>Git will tell you as much, if you ask the branch how it compares to its pair on the shared copy:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on chart &middot; you and your own pushed branch now disagree</div>
+<pre><code><span class="cmd">&gt; git status -sb</span>
+## chart...origin/chart [ahead 4, behind 3]</code></pre>
+      </div>
+      <p><b>Read that with Session 5's four states in mind and it is alarming until you work it out.</b> You have not written any new work, yet you are diverged from your own branch on the shared copy. <code>behind 3</code> is the three original commits, which still sit over there with their old hashes. <code>ahead 4</code> is the three replacements plus the teammate's commit that they now sit on. <b>The same three changes are counted as six different commits, because a commit is identified by its hash and every hash changed.</b></p>
+      <div class="note"><b>This is the edge of Session 8, and the right move is to stop here.</b> Rewriting commits you have already pushed is genuinely the one Git operation that can cause somebody else real trouble, and there is a rule about when it is safe. <b>Session 8 is that rule</b>, along with the flag you would need to push this branch. For today, notice the effect and go no further: the workbook does not ask you to push <code>chart</code> again.</div>
+      <p>Finish the strategy. The branch now sits directly on top of the lane, so joining them needs no merge commit at all:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the second half of a rebase merge</div>
+<pre><code><span class="cmd">&gt; git switch try-rebase</span>
+Switched to branch 'try-rebase'
+
+<span class="cmd">&gt; git merge --ff-only chart</span>
+Updating a0c0add..b6e52f7
+Fast-forward
+ chart.md | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 chart.md</code></pre>
+      </div>
+      <p><b><code>--ff-only</code> means "fast-forward or fail".</b> Session 3 taught the fast-forward: when your branch has not moved and the other one is straight ahead, Git slides the pointer instead of building anything. The flag says do that and nothing else, so if a real merge were needed the command would refuse rather than quietly make a merge commit. After a rebase it always succeeds, which is the point of running the rebase first.</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a, on try-rebase &middot; what a rebase merge leaves</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --decorate=short try-rebase -5</span>
+* b6e52f7 (HEAD -&gt; try-rebase, chart) Add the legend
+* cd0c75d Add axis labels
+* 461568a Start the chart
+* a0c0add (origin/main, origin/HEAD, main) Add readme.md
+* bed2aaf Add roadmap.md</code></pre>
+      </div>
+      <p><b>A straight line, with all three commits still individually there.</b> That is the trade this strategy makes: you keep the steps, you lose the record that they happened on a branch, and the hashes are not the ones you originally made.</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">What you end up with</span><span class="rd">The branch's commits, in order, in a straight line, with no merge commit. Three new commits from a three-commit branch.</span></div>
+        <div class="refrow"><span class="rr">When it is right</span><span class="rd">When each commit is worth keeping on its own, and the project wants its history to read as one sequence.</span></div>
+        <div class="refrow"><span class="rr">What it costs</span><span class="rd">New hashes for every commit, which is a real problem if anyone else already has the old ones. Session 8.</span></div>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Produce all three histories from the same fork</div>
+        <ol>
+          <li>Move <code>main</code> using <code>work-b</code>, then make the three <code>try-</code> branches and confirm with <code>git branch -v</code> that all three sit on the same hash.</li>
+          <li>On <code>try-merge</code>, run <code>git merge --no-edit chart</code>, then draw it, then prove the top commit has <b>two</b> parents.</li>
+          <li>On <code>try-squash</code>, run <code>git merge --squash chart</code> and <b>stop</b>. Run <code>git status</code> and see the change sitting staged. Then commit it and draw the result.</li>
+          <li>On <code>chart</code>, note the three hashes, run <code>git rebase try-rebase</code>, and note them again. Then run <code>git status -sb</code> and work out where <code>ahead 4, behind 3</code> comes from.</li>
+          <li>Finish with <code>git merge --ff-only chart</code> from <code>try-rebase</code> and draw that too.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I have three different histories built from the same starting commit</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-choosing">
+      <h3>H. Choosing, and being able to say why</h3>
+      <p><b>Put the three drawings side by side and the decision stops being abstract.</b> Same branch, same fork, same changes, three shapes:</p>
+      <div class="tscroll">
+        <table class="ptable">
+          <thead>
+            <tr><th></th><th>merge commit</th><th>squash</th><th>rebase</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>new commits on the target</th><td>4</td><td>1</td><td>3</td></tr>
+            <tr><th>branch's commits survive</th><td class="y">yes</td><td class="n">no</td><td class="y">yes</td></tr>
+            <tr><th>a commit with two parents</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
+            <tr><th>hashes change</th><td class="n">no</td><td class="n">no</td><td class="y">yes</td></tr>
+            <tr><th>records that a branch existed</th><td class="y">yes</td><td class="n">no</td><td class="n">no</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>Here is a rule you can actually apply</b>, and it turns on one question: <em>was this branch's commit history worth keeping?</em></p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">No, it was scrappy</span><span class="rd"><b>Squash.</b> One clean commit on the target beats four commits nobody wants to read.</span></div>
+        <div class="refrow"><span class="rr">Yes, and the branch matters</span><span class="rd"><b>Merge commit.</b> Keeps the steps and records that they were done together, as a unit, off to one side.</span></div>
+        <div class="refrow"><span class="rr">Yes, but keep it linear</span><span class="rd"><b>Rebase.</b> Keeps the steps and drops the fork, at the price of new hashes.</span></div>
+      </div>
+      <p><b>Now the honest part.</b> Most teams pick one of these and standardise on it, and the setting lives on the repository rather than in your hands. So the odds are that you will not choose day to day. <b>What you will be asked, sooner or later, is why your team does it that way</b>, and the difference between someone who can answer that and someone who cannot is the whole point of this session. Having a reason matters more than which one you land on.</p>
+    </div>
+
+    <div class="block" id="concept-cleanup">
+      <h3>I. After the merge: deleting the branch, and the complaint</h3>
+      <p><b>The work has landed, so the branch has done its job.</b> There are two copies of it to remove, and they are separate: the one on the shared copy, and your own. Take the shared one first, with a flag that is new but reads exactly as it looks:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; remove the branch from the shared copy</div>
+<pre><code><span class="cmd">&gt; git push origin --delete chart</span>
+To ../origin-repo.git
+ - [deleted]         chart</code></pre>
+      </div>
+      <p><b><code>git push origin --delete chart</code> is a push that sends nothing and removes a name instead.</b> That is worth sitting with for a second, because it is the same command you have been using to send work. A push updates a branch on the other side; deleting is the case where you update it to nothing. On GitHub this is what the "Delete branch" button does after a merge.</p>
+      <p>Your own copy of the branch is untouched by that, and Git now says so:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; your branch outlived its pair</div>
+<pre><code><span class="cmd">&gt; git branch -vv</span>
+  chart      b6e52f7 [origin/chart: gone] Add the legend
+  main       a0c0add [origin/main] Add readme.md
+  try-merge  b966400 Merge branch 'chart' into try-merge
+* try-rebase b6e52f7 Add the legend
+  try-squash d44575f Add the chart</code></pre>
+      </div>
+      <p><b><code>[origin/chart: gone]</code> is Session 5's pairing reporting a death.</b> The branch is still paired with <code>origin/chart</code>, and <code>origin/chart</code> no longer exists. Nothing is broken; the note simply has nothing left to point at.</p>
+      <p><b>Now the part that confuses people, and it is worth causing on purpose.</b> Delete your local branch from the lane where you squashed:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; standing on try-squash, where the branch was squashed</div>
+<pre><code><span class="cmd">&gt; git switch try-squash</span>
+Switched to branch 'try-squash'
+
+<span class="cmd">&gt; git branch -d chart</span>
+error: the branch 'chart' is not fully merged
+hint: If you are sure you want to delete it, run 'git branch -D chart'
+hint: Disable this message with "git config set advice.forceDeleteBranch false"</code></pre>
+      </div>
+      <p><b>It looks wrong. It is not.</b> This is the same refusal Session 3 showed you, and it is Git correctly reporting a fact: the commits on <code>chart</code> are <b>not</b> in this branch's history. Squashing did not bring them here. It built one brand new commit that happens to contain the same changes, and Git has no way to know those changes came from anywhere in particular. As far as history is concerned, <code>chart</code> was never merged.</p>
+      <p>Prove that reading is right by running <b>the identical command from a different branch</b>:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; standing on try-rebase, where the commits really did arrive</div>
+<pre><code><span class="cmd">&gt; git switch try-rebase</span>
+Switched to branch 'try-rebase'
+
+<span class="cmd">&gt; git branch -d chart</span>
+Deleted branch chart (was b6e52f7).</code></pre>
+      </div>
+      <p><b>Same branch, same command, opposite answer.</b> That is the rule, and it is worth learning as a sentence: <b><code>git branch -d</code> asks whether the branch's commits are reachable from where you are standing right now.</b> On <code>try-rebase</code> they are, because the rebase put them there. On <code>try-squash</code> they are not, because the squash replaced them.</p>
+      <div class="note"><b>One extra condition, so this does not surprise you later.</b> Git also accepts the delete when the branch is fully merged into <b>its pair on the shared copy</b>, even if it is not merged where you are standing, and in that case it goes through with a warning rather than a refusal. That is why the complaint you just saw normally turns up only <em>after</em> the branch has been deleted on the platform, which is the order things happen in after a real pull request. <b>Do not go looking for that second case in this lab</b>: section G rebased <code>chart</code>, so it no longer matches <code>origin/chart</code> either, and it would be refused for that reason instead. Both behaviours are one rule said twice: Git lets a name go once the commits are safe somewhere else.</div>
+      <p><b>And if you genuinely want it gone regardless</b>, the capital <code>-D</code> from Session 3 forces it, which is what the hint offers. After a squash merge that is normally the correct thing to do: the changes are safely on the target, and only the scrappy history is being thrown away. <b>Read the refusal, decide, then override it deliberately.</b> That is different from being blocked.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Clean up, and get both answers out of one command</div>
+        <ol>
+          <li>Run <code>git push origin --delete chart</code> and read the one-line report.</li>
+          <li>Run <code>git branch -vv</code> and find <code>[origin/chart: gone]</code>.</li>
+          <li>From <code>try-squash</code>, run <code>git branch -d chart</code> and <b>get the refusal</b>.</li>
+          <li>From <code>try-rebase</code>, run the same command and watch it succeed.</li>
+          <li><b>Without looking back:</b> say in one sentence what <code>git branch -d</code> is actually checking.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I caused the refusal and can say what -d is really asking</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-review">
+      <h3>J. What makes a review worth doing</h3>
+      <p><b>This is the part that transfers straight into a job</b>, and it has nothing to do with Git. Reviewing is reading somebody's change and saying something useful about it. Most people freeze because they think the job is to find bugs, and if they cannot find one they approve and move on.</p>
+      <p><b>Three questions will get you further than looking for bugs</b>, and they work on a change in any language, including one you barely know:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">Does it do what it says?</span><span class="rd">Read the description, then read the diff. If the description promises one thing and the diff also quietly does another, that is worth a comment every time.</span></div>
+        <div class="refrow"><span class="rr">Could I change this in six months?</span><span class="rd">Not "is it clever" but "will the next person understand it". A name that means nothing, a number with no explanation, a missing note about why.</span></div>
+        <div class="refrow"><span class="rr">What happens when the input is wrong?</span><span class="rd">Empty, missing, enormous, the wrong type. Most real defects live here rather than in the case the author was thinking about.</span></div>
+      </div>
+      <p><b>And be honest about reviewing your own work</b>, which is what you are doing on a solo project. You will not catch what you did not think of the first time, and no amount of ceremony changes that. What it does do is force you to read the change as a whole, on a screen, away from the editor you wrote it in, which catches a surprising amount. <b>Do it for that, not for the tick.</b></p>
+      <p><b>To review a branch you first have to see it as one change</b>, and Session 2's diff has a form that does exactly that. Compare a branch against the one it will join, and use <b>three</b> dots:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">Both shells</span><code>git diff main...chart</code></div>
+      </div>
+      <p><b>The number of dots matters much more than it looks.</b> Two dots, <code>git diff main chart</code>, compares the two branch tips as they stand right now. That sounds like what you want, and it is not: anything that landed on <code>main</code> while you were away appears in that diff as though <em>your branch deleted it</em>, which is alarming and completely false. <b>Three dots measures from the merge base instead</b>, Session 4's word for the commit where the two lines parted, so you see what your branch added and nothing else. It is also exactly what a pull request shows you, which is the other reason to learn this form rather than the two-dot one.</p>
+      <p>Offline, the way to make the review itself real is to write it down. That is the last piece of the milestone below.</p>
+    </div>
+
+    <div class="block" id="concept-milestone">
+      <h3>K. The milestone</h3>
+      <p><b>One full cycle, unassisted, plus the thing that actually gets graded: the reason.</b> Work in <code>remote-lab</code>. Do not scroll back up; if you get stuck, <code>git status</code> and <code>git branch -vv</code> will tell you where you are, which is the habit this whole track is teaching.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: run the cycle, review it, and defend the strategy</div>
+        <ol>
+          <li><b>Start clean.</b> In <code>work-a</code>, get level with the shared copy and make a branch called <code>legend</code> off <code>main</code>. Put <b>two</b> commits on it that change a file, and push the branch so it exists on the shared copy.</li>
+          <li><b>Make <code>main</code> move underneath you.</b> Go to <code>work-b</code>, commit a change to a <b>different</b> file, and push it. Come back to <code>work-a</code> and bring <code>main</code> up to date.</li>
+          <li><b>Review your own branch.</b> Run <code>git diff main...legend</code>, three dots, and read it as if a stranger wrote it. Create a file called <code>review.md</code> on <code>main</code> and write <b>three</b> comments in it, one for each of the three questions in section J. Commit it.</li>
+          <li><b>Choose a strategy and carry it out</b> on <code>main</code>, for real this time rather than on a <code>try-</code> branch. Then push.</li>
+          <li><b>Write down why.</b> Add one more line to <code>review.md</code> naming the strategy you chose and giving your reason in a sentence, then commit and push that too.</li>
+          <li><b>Clean up.</b> Delete <code>legend</code> on the shared copy, then delete it locally. If Git refuses, say why before you override it.</li>
+        </ol>
+        <p>You have hit the milestone when the cycle worked end to end, <code>review.md</code> holds three real comments and a named strategy with a reason, and <code>git status -sb</code> in <code>work-a</code> reads <code>## main...origin/main</code> with nothing in brackets.</p>
+        <details><summary>Stuck on the shape of it? The skeleton, without the answers</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">This is the order of operations only. The strategy in step four is yours to pick, and the reason is the part that counts.</p>
+<pre><code>git switch main
+git pull --no-edit
+git switch -c legend
+# two commits here
+git push -u origin legend
+
+# in work-b: commit a different file, push
+# back in work-a:
+git switch main
+git pull --no-edit
+
+git diff main...legend    # three dots: read it like a stranger
+# write review.md with your three comments, then commit it
+
+# your chosen strategy onto main, then:
+# add the strategy and your reason to review.md, and commit that too
+git push
+
+git push origin --delete legend
+git branch -d legend      # decide what to do if this refuses</code></pre>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I ran a full cycle, wrote three real review comments, and justified my strategy</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-github">
+      <h3>L. The same cycle on GitHub (entirely optional)</h3>
+      <p><b>Nothing below is required, and nothing below is graded.</b> Skip it with a clear conscience: the milestone above covers everything this session is assessed on. This section exists because the three merge strategies you just built by hand are, on GitHub, three items in a dropdown, and seeing the buttons land on the commands makes both halves stick.</p>
+      <p><b>What the platform genuinely adds, and the local lab cannot.</b> Two things, and they both need another person: a threaded conversation on the diff, and the approve or request-changes verdict from someone who is not you. Everything else you have already done.</p>
+      <p>The commands below come from the <b>GitHub CLI</b>, a separate program called <code>gh</code> that talks to GitHub from your terminal. It is not part of Git, and you install it separately. Everything it does is also doable by clicking around the website, and the buttons are named the same as the flags, so reading these is useful even if you only ever click.</p>
+      <div class="note"><b>These transcripts were captured against <code>gh</code> version 2.93.0</b>, on a throwaway private repository. Wherever you see <code>&lt;you&gt;</code> and <code>&lt;repo&gt;</code>, your own account and repository names appear instead; they are stand-ins, not something to type. Two further things will differ and neither means anything is wrong: <b><code>gh</code> lays its tables out to fit your terminal</b>, so columns sit differently at other widths, and it prints times as relative phrases like <code>about 1 minute ago</code>. Compare the words and the structure, not the spacing.</div>
+
+      <p><b>Step one is a push you have already done.</b> Same command as section C, aimed at a repository on GitHub rather than the folder next door. What comes back is different:</p>
+      <div class="filebox">
+        <div class="fbh">on chart, against a GitHub remote &middot; the same push, a chattier answer</div>
+<pre><code><span class="cmd">&gt; git push -u origin chart</span>
+remote:
+remote: Create a pull request for 'chart' on GitHub by visiting:
+remote:      https://github.com/&lt;you&gt;/&lt;repo&gt;/pull/new/chart
+remote:
+To https://github.com/&lt;you&gt;/&lt;repo&gt;.git
+ * [new branch]      chart -&gt; chart
+branch 'chart' set up to track 'origin/chart'.</code></pre>
+      </div>
+      <p><b>The last three lines are the ones you already know</b>, identical to the local push apart from the address. The <code>remote:</code> lines are new, and the prefix is the giveaway: they were spoken by the server and passed through to you. GitHub noticed a branch arriving with no pull request attached and offered a link to open one. <b>Your Git did not generate that and the bare repository in <code>remote-lab</code> never could</b>, because a bare repository is storage and has no opinions. (The <code>branch ... set up to track</code> line may appear above the block rather than below it, for the same two-channel reason as the squash in section F.)</p>
+
+      <p><b>Now open the pull request.</b> This is the step with no Git equivalent at all:</p>
+      <div class="filebox">
+        <div class="fbh">on chart &middot; gh pr create</div>
+<pre><code><span class="cmd">&gt; gh pr create --draft --title "Add the chart" --body "Adds chart.md with axis labels and a legend."</span>
+https://github.com/&lt;you&gt;/&lt;repo&gt;/pull/4</code></pre>
+      </div>
+      <p><b>The address of the thing you just made comes back</b>, and that is the part you want. One note on the transcript: this was captured with the output sent to a file, and in an ordinary interactive terminal <code>gh</code> also prints a line above the address naming the two branches it is opening the pull request between. <b>Seeing more than one line is normal.</b></p>
+      <p><b><code>--draft</code> opens it as a draft</b>, which means visible to everyone but explicitly not ready to merge, and GitHub disables the merge button until you say otherwise. It is the honest way to share work in progress. <code>gh pr ready</code> takes it out of draft when you are done.</p>
+      <p>The pull request has a <b>number</b>, and from here on that number is how you refer to it. Yours will not be 4 unless you also made three others first.</p>
+
+      <p><b>Reading the change is the same diff you have had since Session 2</b>, fetched from the platform:</p>
+      <div class="filebox">
+        <div class="fbh">on chart &middot; gh pr diff</div>
+<pre><code><span class="cmd">&gt; gh pr diff</span>
+diff --git a/chart.md b/chart.md
+new file mode 100644
+index 0000000..3af4dff
+<span class="dmin">--- /dev/null</span>
+<span class="dplus">+++ b/chart.md</span>
+@@ -0,0 +1,3 @@
+<span class="dplus">+chart: draft one</span>
+<span class="dplus">+axis labels</span>
+<span class="dplus">+legend</span></code></pre>
+      </div>
+      <p><b>Not one character of that is new to you.</b> <code>--- /dev/null</code> on the left is Session 2's way of saying the file did not exist before. This is the exact text the website draws in colour with line numbers beside it, and knowing that the pretty version is only this makes the pretty version much less intimidating. It is also the <b>three-dot</b> diff from section J rather than the two-dot one, which is the other reason to have learned that distinction.</p>
+      <div class="note"><b>One practical warning before you run it.</b> When the diff is longer than your screen, <code>gh pr diff</code> hands it to a <em>pager</em>, a small program that shows one screenful at a time and waits. It looks like the terminal has stopped responding to you. <b>Press <code>q</code> to leave it</b>, the same kind of escape Session 4 taught for the editor.</div>
+      <p>Two more worth knowing: <code>gh pr list</code> shows every open pull request on the repository with its number, title and branch, and <code>gh pr checks</code> reports on any automated tests configured to run against the branch. With none set up it complains, on the error channel, that there are <code>no checks reported on the 'chart' branch</code>, which is what you should expect on a practice repository and is not a problem.</p>
+
+      <p><b>Reviewing.</b> A review is a comment plus, optionally, a verdict. There are three verdicts and the command names them plainly. <b>The two that must carry words need <code>-b</code></b>, short for <code>--body</code>, and refuse to run without it:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">gh pr review --comment -b "..."</span><span class="rd">Say something, without judging. Always available, including on your own pull request.</span></div>
+        <div class="refrow"><span class="rr">gh pr review --approve</span><span class="rd"><b>Needs to be somebody else.</b> GitHub does not accept an approval from the author.</span></div>
+        <div class="refrow"><span class="rr">gh pr review --request-changes -b "..."</span><span class="rd">The same, and also from somebody else: it is a verdict on another person's work.</span></div>
+      </div>
+      <p><b>That second row is not a convention, it is enforced</b>, and it is worth seeing refused rather than taking on trust:</p>
+      <div class="filebox">
+        <div class="fbh">on your own pull request &middot; gh pr review --approve</div>
+<pre><code><span class="cmd">&gt; gh pr review 1 --approve --body "Looks good to me."</span>
+<span class="rej">failed to create review: GraphQL: Review Can not approve your own pull request (addPullRequestReview)</span></code></pre>
+      </div>
+      <p><b>So on a solo project you can comment on your own pull request and that is all</b>, which is worth knowing before you go hunting for the approve button and conclude you have broken something. Reviewing your own work is still worth the ten minutes, for the reason section J gave: you read the change as a whole, on a screen, away from the editor you wrote it in.</p>
+      <p><b>If you have a second account</b>, that is the one case where the full thing is available to you. The owner invites the other account to the repository, and once the invitation is accepted that account can review properly, verdict included:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">as the owner</span><code>gh api -X PUT /repos/&lt;you&gt;/&lt;repo&gt;/collaborators/&lt;other&gt; -f permission=push</code></div>
+        <div class="srow"><span class="sl">as the other account</span><code>gh pr review 4 --repo &lt;you&gt;/&lt;repo&gt; --approve --body "Looks good."</code></div>
+      </div>
+      <p>The invitation has to be accepted before the second command works, which is done from the notification GitHub sends or from the repository page while signed in as that account. <b>Worth being honest about the payoff:</b> it is the same two things named at the top of this section, a real conversation and a real verdict, and nothing about the merge itself changes.</p>
+
+      <p><b>The merge, and the whole reason this section exists.</b> GitHub's merge button is a dropdown with three items in it, and you have now built all three by hand:</p>
+      <div class="tscroll">
+        <table class="ptable">
+          <thead>
+            <tr><th>The button says</th><th>Which is section</th><th>And by hand that was</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>Create a merge commit</th><td>E</td><td><code>git merge --no-edit chart</code></td></tr>
+            <tr><th>Squash and merge</th><td>F</td><td><code>git merge --squash chart</code>, then <code>git commit</code></td></tr>
+            <tr><th>Rebase and merge</th><td>G</td><td><code>git rebase</code>, then <code>git merge --ff-only chart</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>From the terminal those three are <code>gh pr merge --merge</code>, <code>gh pr merge --squash</code> and <code>gh pr merge --rebase</code>. Adding <code>--delete-branch</code> does section I for you, on both sides at once:</p>
+      <div class="filebox">
+        <div class="fbh">three pull requests, one per strategy, merged three different ways</div>
+<pre><code><span class="cmd">&gt; gh pr merge 1 --merge --delete-branch</span>
+&#10003; Merged pull request &lt;you&gt;/&lt;repo&gt;#1 (Add the chart)
+&#10003; Deleted local branch chart-merge
+&#10003; Deleted remote branch chart-merge
+
+<span class="cmd">&gt; gh pr merge 2 --squash --delete-branch</span>
+&#10003; Squashed and merged pull request &lt;you&gt;/&lt;repo&gt;#2 (Add the chart (squash lane))
+&#10003; Deleted local branch chart-squash
+&#10003; Deleted remote branch chart-squash
+
+<span class="cmd">&gt; gh pr merge 3 --rebase --delete-branch</span>
+&#10003; Rebased and merged pull request &lt;you&gt;/&lt;repo&gt;#3 (Add the chart (rebase lane))
+&#10003; Deleted local branch chart-rebase
+&#10003; Deleted remote branch chart-rebase</code></pre>
+      </div>
+      <p><b>Three branches, three buttons, one repository.</b> Pull <code>main</code> afterwards and every one of this session's three shapes is sitting in a single real history, which is the clearest possible proof that the buttons are the commands:</p>
+      <div class="filebox">
+        <div class="fbh">after git pull &middot; all three strategies in one history, newest at the top</div>
+<pre><code><span class="cmd">&gt; git log --oneline --graph --decorate=short -12</span>
+* 9c818f9 (HEAD -&gt; main, origin/main, origin/HEAD) Add the legend
+* c20de95 Add axis labels
+* 50fb276 Start the chart
+* c1b200b Add the chart (squash lane) (#2)
+*   b0ec2da Merge pull request #1 from &lt;you&gt;/chart-merge
+|\  
+| * 79650f3 Add the legend
+| * cd5a373 Add axis labels
+| * d731699 Start the chart
+* | 679fa05 Add readme.md
+|/  
+* fc568df Add roadmap.md</code></pre>
+      </div>
+      <p>Read it from the bottom and all three sections are there in order:</p>
+      <ul class="pts">
+        <li><b>The diamond is pull request 1</b>, merged with a merge commit. Its three branch commits sit off to one side and <code>Merge pull request #1 from ...</code> joins them back on. That is section E, and GitHub wrote the message for you.</li>
+        <li><b><code>Add the chart (squash lane) (#2)</code> is pull request 2</b>, squashed. One commit, no fork, and its branch commits appear nowhere. That is section F. GitHub appends the pull request number in brackets, which is the one cosmetic thing it adds that your own <code>git merge --squash</code> did not.</li>
+        <li><b>The top three commits are pull request 3</b>, rebased. Three separate commits, in a straight line, no merge commit. That is section G, and <b>their hashes are not the ones the branch had</b> before it was merged, for the reason you proved by hand.</li>
+      </ul>
+      <p><b>A repository owner can switch any of the three buttons off in the settings</b>, which is how a team standardises. If a project offers you only one, somebody decided that on purpose, and you now know both what they decided and why it might have been a perfectly reasonable call.</p>
+      <p><b>Then you are back on ground you know.</b> The merge happened on the shared copy, so your own <code>main</code> is behind until you ask, exactly as in Session 5. <code>git pull</code>, and you are level.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in <code>remote-lab</code>.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> you are in <code>work-a</code> with a clean working tree, a branch called <code>chart</code> holding <b>three</b> commits, and a <code>main</code> that has moved on by one commit since <code>chart</code> was made. <b>No drill grades a hash, a date or a path</b>, since all three differ per machine.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: run these in the wrong order and Git either refuses, or quietly does its work somewhere you did not mean.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> two of these six questions come from earlier sessions, because recalling older material on a delay is what makes it stick. Their review links open that session in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 06 of 10 &middot; Hit the milestone unassisted, then tick <b>S06</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; <b>You are done with <code>remote-lab</code>.</b> Session 7 builds its own small repository from scratch, so nothing is lost if you delete the folder.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, draw the fork: one commit at the bottom, your three commits going up one side, somebody else's going up the other. Now draw the result three times, once for each strategy, and write beside each one how many commits landed and whether the hashes changed. Underneath, write the one question that decides between them. Then check yourself in <code>remote-lab</code> by running whichever of the three you are least sure of, from scratch, without notes. &middot; Next: <b>Session 07, undo safely</b> (Level 4).
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s06-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words, branch names,
+     plain file names and yes/no words, where capitalisation is presentation rather
+     than the lesson. Marking "diverged" typed as "Diverged" wrong would be an unfair
+     grade. Git command case-sensitivity is taught in prose and tested in Parts 3 and 4. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 2 count, 2 seq, 1 set. No drill grades a hash, a date
+     or a path. The three "which strategy" drills use a fixed three-word vocabulary
+     stated in the ask, so the grader has something exact to compare against, and the
+     set drill names the same three words for the same reason. */
+  var DRILLS = [
+    { type: 'count',
+      scen: 'GitHub calls it a pull request. GitLab calls the same thing\na merge request. Bitbucket has one of its own.',
+      ask: 'How many of those three are a feature of Git itself, the program you installed in Session 1? Answer with a digit.',
+      code: '# is there a git command for this?', ans: '0',
+      why: 'None of them. A pull request lives on the hosting platform, not in Git, and there is no Git command that opens one. What sits underneath every version of it is the git merge you have had since Session 4. That is exactly why the same repository behaves identically whether it is hosted on GitHub or sitting in a bare folder next door, which is what the whole local half of this session relies on.' },
+
+    { type: 'count',
+      scen: "> git switch try-squash\nSwitched to branch 'try-squash'\n\n> git merge --squash chart\nAutomatic merge went well; stopped before committing as requested\nSquash commit -- not updating HEAD",
+      ask: 'The branch chart holds three commits. How many new commits now exist on try-squash? Answer with a digit.',
+      code: 'git merge --squash chart', ans: '0',
+      why: 'None yet, and that is the surprise in this command. The squash works out the combined change, puts it in the staging area from Session 1, and stops, which is precisely what stopped before committing as requested is telling you. Not updating HEAD is the same fact said again: you have not moved. Run git status and the change is sitting there staged, waiting for a git commit you type yourself.' },
+
+    { type: 'seq',
+      scen: 'A branch called chart holds three commits. The branch it is\nbeing joined onto has moved on by one commit since chart was\ncreated, so the two have genuinely forked.',
+      ask: 'How many NEW commits land on the target under each strategy, for merge commit, then squash, then rebase? Three digits in that order, separated by commas.',
+      code: '# merge commit, squash, rebase', ans: '4, 1, 3',
+      why: 'A merge commit keeps all three and adds one more on top to join the two histories, so four. A squash flattens all three into a single new commit, so one, however many the branch held. A rebase replays the three onto the new base so they stay three, and no extra commit is needed because the branch then sits directly on top and the last step is only a fast-forward.' },
+
+    { type: 'value',
+      ask: 'Which of the three strategies leaves the branch commits with brand new hashes? Answer with one word: merge, squash or rebase.',
+      code: '# merge, squash or rebase', ans: 'rebase',
+      why: 'Rebasing does not move commits, it builds new ones. Each commit is replayed onto a different starting point, and because a hash is computed from the content AND the parent, a new parent forces a new hash. The messages and the changes come out identical, which is what makes it look like nothing happened. A merge commit and a squash both leave the branch commits exactly where they were, untouched.' },
+
+    { type: 'value',
+      scen: 'Your branch history reads, oldest at the bottom:\n  actually fix the typo\n  fix typo\n  wip again\n  wip',
+      ask: 'Nobody will ever want to read those four commits on the target branch. Which strategy fits? Answer with one word: merge, squash or rebase.',
+      code: '# which strategy', ans: 'squash',
+      why: 'Squash exists for this exact branch. The four steps become one commit with a message you write, and the scrappy history stays behind on the branch where it belongs. The single question that decides all three of these is whether the branch commit history was worth keeping, and here it plainly was not. The cost, that the detail is gone from the target for good, costs you nothing when the detail was noise.' },
+
+    { type: 'value',
+      scen: 'Your three commits are each a clean, separate, reviewable\nstep, and worth reading later. Your team also insists that\nthe target branch reads as one straight line, with no merge\ncommits anywhere in it.',
+      ask: 'Which strategy satisfies both of those at once? Answer with one word: merge, squash or rebase.',
+      code: '# which strategy', ans: 'rebase',
+      why: 'Rebase is the only one that keeps the commits individually and also leaves no merge commit behind. A merge commit would keep the three steps but put a two-parent commit into the line, which is the thing the team ruled out. A squash would give the straight line but flatten three worthwhile steps into one. The price you accept for rebase is new hashes, which starts to matter the moment somebody else already holds the old ones.' },
+
+    { type: 'value',
+      scen: "*   b966400 (HEAD -> try-merge) Merge branch 'chart' into try-merge\n|\\  \n| * 0e70e9b (origin/chart, chart) Add the legend\n| * 239b290 Add axis labels\n| * b9f48f8 Start the chart\n* | a0c0add (origin/main, origin/HEAD, try-squash, try-rebase, main) Add readme.md\n|/  \n* bed2aaf Add roadmap.md",
+      ask: 'Which strategy produced this history? Answer with one word: merge, squash or rebase.',
+      code: 'git log --oneline --graph --decorate=short try-merge -6', ans: 'merge',
+      why: 'Two things give it away and either one is enough. The three branch commits are still individually present, which rules out squash, and the drawing forks and rejoins, which rules out rebase because a rebase leaves a straight line. The commit on top with two lines running into it is the merge commit, and it is the same diamond Session 4 drew between two branches you had made yourself.' },
+
+    { type: 'set',
+      ask: 'Which of the three leaves a commit on the target with two parents? Answer using exactly these words: merge, squash, rebase. List all that apply, separated by commas.',
+      code: 'git log -1 --format="%h has parents: %p"', ans: 'merge',
+      why: 'Only the merge commit, and having two parents is the entire definition of one: a commit whose job is to keep both lines of history reachable from a single point. A squash builds an ordinary one-parent commit that happens to contain the same changes, and a rebase replays ordinary one-parent commits onto a new base. Ask any of the three with %p and only the merge commit prints two hashes back.' },
+
+    { type: 'seq',
+      scen: 'You are about to run a whole pull request cycle, from having\nnothing to having the work landed.',
+      ask: 'Put these five into the order you do them: merge, review, branch, push, open. Type the five words in order, separated by commas.',
+      code: '# the pull request cycle', ans: 'branch, push, open, review, merge',
+      why: 'You need a branch before there is anything to commit onto, and the branch has to reach the shared copy before the platform can see it at all, which is why push comes before open. The review happens on the pull request once it is open, and the merge is last because it is the act of accepting what the review agreed to. Committing is not in the list because it happens throughout, and is the reason the branch exists.' },
+
+    { type: 'value',
+      scen: 'Somebody has just pressed the merge button on your pull\nrequest, so the work is now on the shared copy. Your own\nmain is still sitting exactly where it was.',
+      ask: 'Which single command brings the merged result into your local main? Type the command as you would type it, with nothing after it.',
+      code: '# your answer here', ans: 'git pull',
+      why: 'The merge happened on the shared copy and nothing on your disk knows yet, which is Session 5 in one sentence: origin/main is a note you wrote, and it goes stale the instant somebody else changes something. git pull fetches the new state and merges it into the branch you are on, and because you added nothing of your own in the meantime, it arrives as a fast-forward.' },
+
+    { type: 'value',
+      scen: 'Your branch chart was squash merged into main, and the copy\nof chart on the shared copy has already been deleted. You\nare standing on main, and you run the safe delete.',
+      ask: 'Does your local branch get deleted? Answer yes or no.',
+      code: 'git branch -d chart', ans: 'no',
+      why: 'Git refuses, and it is right to. It checks whether the commits on chart can be reached from where you are standing, and after a squash they cannot: the squash built one brand new commit holding the same changes, which is not the same thing as having those commits in your history. The capital -D from Session 3 forces it through, and after a squash merge that is usually the correct call, made deliberately rather than by accident.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both prompts narrate their steps in order, and every tile answers exactly one
+     narrated step, so there is no second arrangement that matches the description. */
+  var PARSONS = [
+    { prompt: 'Run a whole cycle by hand. Make a branch for the chart work and move onto it, stage the file, commit it, then publish the branch to the shared copy and pair it up in the same breath. Now go back to the branch it should join, which picked up a commit from somebody else while you were away, bring your work in as a merge commit without letting an editor open, and finally send the result.',
+      lines: ['git switch -c chart', 'git add chart.md', 'git commit -m "Add the chart"', 'git push -u origin chart', 'git switch main', 'git merge --no-edit chart', 'git push'] },
+    { prompt: 'You are standing on the branch that should receive the work, and you want it to end up with exactly one commit for the whole of chart rather than the three the branch holds. Combine the branch in without committing anything, check what is sitting staged, make the single commit yourself, and then draw the result to confirm it is one commit above where you started.',
+      lines: ['git merge --squash chart', 'git status', 'git commit -m "Add the chart"', 'git log --oneline --graph -3'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Every comment describes what the line DOES, never the token being blanked. */
+  var FADED = [
+    { prompt: 'Fill the blanks so the first line brings the branch in and stops before making any commit at all, the second replays the branch you are on so it starts from another one instead, and the third slides the pointer forward and refuses outright if that is not possible.',
+      code: 'git merge %% chart      # bring it in, stop before the commit\ngit %% try-rebase       # start this branch from that one instead\ngit merge %% chart      # slide the pointer forward, or fail', ans: ['--squash', 'rebase', '--ff-only'] },
+    { prompt: 'Fill the blanks so the first line sends a branch to the shared copy and pairs it up permanently in one go, the second takes that branch off the shared copy again, and the third removes your own copy of the name in the way that refuses when the work is not safely somewhere else.',
+      code: 'git push %% origin chart      # send it, and pair it up for good\ngit push origin %% chart      # take it off the shared copy\ngit branch %% chart           # remove your own name for it, safely', ans: ['-u', '--delete', '-d'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Build a small lab of your own, somewhere outside remote-lab so you do not disturb it. Make a folder called pr-lab holding a bare repository called hub.git as the shared copy, and an ordinary repository called desk beside it whose first branch is main. In desk, point at the bare one under the usual nickname, commit a file and publish main. Then make a branch called work, put two commits on it, and publish the branch as well. Finally make main move on by committing a change to a DIFFERENT file on main, so the two have genuinely forked, and draw the fork.',
+      sol: 'cd ~\nmkdir pr-lab\ncd pr-lab\ngit init --bare hub.git\ngit init -b main desk\ncd desk\ngit remote add origin ../hub.git\n# create notes.md with Set-Content or echo, then:\ngit add .\ngit commit -m "Add notes.md"\ngit push -u origin main\n\ngit switch -c work\n# two commits on work here, each one git add . then git commit -m "..."\ngit push -u origin work\n\ngit switch main\n# change a DIFFERENT file, then:\ngit add .\ngit commit -m "Main moves on"\n\ngit log --oneline --graph --decorate=short --all -5' },
+
+    { task: 'Staying in pr-lab, join work onto a lane branch rather than onto main, so that main is left untouched for the next two tasks. Make the lane off main, then combine work into it so the lane ends up with exactly ONE new commit for the whole branch. Do it in the two steps it actually takes, and check in between that nothing has been committed yet. Finish by showing that the new commit has only one parent.',
+      sol: 'git switch main\ngit switch -c lane-squash\n\ngit merge --squash work\ngit status                  # staged, and nothing committed yet\ngit commit -m "Add the work"\n\ngit log --oneline --graph --decorate=short -3\ngit log -1 --format="%h has parents: %p"    # one hash, not two' },
+
+    { task: 'Same lab, third strategy. Make a second lane off main called lane-rebase. Then replay work so that it starts from that lane instead of from where it was made, and finish the job with the merge that is only allowed to slide the pointer forward. Before you replay, capture the branch commit hashes, and capture them again afterwards, because proving they changed is the point of this task.',
+      sol: 'git switch main\ngit switch -c lane-rebase\n\ngit switch work\ngit log --oneline -3            # note these hashes\ngit rebase lane-rebase\ngit log --oneline -3            # all new hashes, same messages\n\ngit switch lane-rebase\ngit merge --ff-only work\ngit log --oneline --graph --decorate=short -4' },
+
+    { task: 'Now the whole cycle for real, on main, in pr-lab. Get level, make a branch called polish with one commit on it, and publish it. Read your own change back with a diff against main as if somebody else had written it. Choose ONE of the three strategies, carry it out on main, and push the result. Then remove the branch from the shared copy and remove your own copy of it, deciding deliberately what to do if Git refuses. Write the strategy you picked and your one-sentence reason as a comment at the top of your answer.',
+      sol: '# strategy chosen: squash\n# reason: the branch is one small tidy-up, and main does not\n# need a separate commit recording that it happened on a branch.\n\ngit switch main\ngit pull --no-edit\ngit switch -c polish\n# one commit here\ngit push -u origin polish\n\ngit diff main...polish          # three dots, from the merge base\n\ngit switch main\ngit merge --squash polish\ngit commit -m "Polish the notes"\ngit push\n\ngit push origin --delete polish\ngit branch -d polish            # refuses after a squash, so:\ngit branch -D polish            # forced, deliberately, work is safe on main' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'What a pull request actually is', b: 'a platform wrapper around a branch, a diff and a merge; Git has no such thing' },
+    { f: 'The three merge strategies', b: 'merge commit, squash, rebase' },
+    { f: 'The one question that decides between them', b: 'was the branch commit history worth keeping?' },
+    { f: 'Which strategy leaves a commit with two parents', b: 'the merge commit, and only that one' },
+    { f: 'Which strategy puts exactly one commit on the target', b: 'squash, however many the branch held' },
+    { f: 'Which strategy gives every commit a new hash', b: 'rebase, because the parent changed' },
+    { f: 'Which strategy records that a branch existed at all', b: 'only the merge commit' },
+    { f: 'Publish a branch and pair it up permanently', b: 'git push -u origin <branch>' },
+    { f: 'Combine a branch in without committing', b: 'git merge --squash <branch>' },
+    { f: 'What git merge --squash leaves behind', b: 'the combined change staged, and no commit at all' },
+    { f: 'Replay the branch you are on onto another one', b: 'git rebase <branch>' },
+    { f: 'Slide the pointer forward, or fail outright', b: 'git merge --ff-only <branch>' },
+    { f: 'Delete a branch on the shared copy', b: 'git push origin --delete <branch>' },
+    { f: 'What git branch -d is really checking', b: 'whether the branch commits are reachable from where you stand' },
+    { f: 'Why branch -d complains after a squash merge', b: 'the squash built a new commit; the branch commits never arrived' },
+    { f: 'The three questions that make a review useful', b: 'does it do what it says, could I change it in six months, what if the input is wrong' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  /* Four new Session-6 questions carry an in-page scrollIntoView backlink (part).
+     The two recall questions carry an external new-tab link (ext), since the
+     concept they test lives in the Session 4 and Session 5 artifacts, not here. */
+  var S4_URL = 'git-session-04.html';
+  var S5_URL = 'git-session-05.html';
+  var QUIZ = [
+    { q: 'What is a pull request, exactly?',
+      o: ['A request on a hosting platform to join one branch onto another, with a diff attached',
+          'A Git command that fetches another branch and merges it into the one you are standing on',
+          'A protected copy of a branch that the platform holds back until a reviewer has approved it',
+          'A special commit that Git writes whenever two branches are joined together on a server'],
+      c: 0,
+      e: 'It is not part of Git at all, and there is no Git command that opens one. The platform adds a diff view, a comment thread, a reviewer verdict and a merge button on top of an ordinary branch you pushed, and underneath the button the operation is the git merge you have had since Session 4. That is why the whole of this session works in a bare folder next door with no account anywhere.',
+      part: { id: 'concept-what', label: 'A. What a pull request actually is' } },
+
+    { q: 'Your branch held three commits. After the merge the target has exactly one new commit, and none of your three appear on it. Which strategy was used?',
+      o: ['Squash, which flattens every commit on the branch into a single new commit',
+          'A merge commit, which joins the two histories and keeps just one of them',
+          'Rebase, which replays the branch and then hides the original commits away',
+          'A fast-forward, which slides the pointer along and drops the extra commits'],
+      c: 0,
+      e: 'Squash is the only one that changes how many commits arrive. A merge commit would bring all three across plus one more on top, and a rebase would bring all three across as three. Your original commits still exist on the branch, untouched: the changes landed on the target but the record of how they were made did not, which is exactly the trade squashing offers.',
+      part: { id: 'concept-squash', label: 'F. Strategy two: the squash merge' } },
+
+    { q: 'You rebased your branch. The commit messages and the changes are identical to what they were before. So what actually happened to those commits?',
+      o: ['They are new commits with new hashes, because each one now has a new parent',
+          'They are the same commits, moved along to a new position in the history graph',
+          'They are the same commits, with a note recording where they used to sit',
+          'They are new commits, but Git keeps the old hashes so nothing else breaks'],
+      c: 0,
+      e: 'A rebase does not move commits, it builds replacements. A hash is computed from the content AND the parent, so giving a commit a new parent forces a new hash even when nothing you can see has changed. That is why git status -sb then reports your branch as both ahead and behind its own pair on the shared copy: the same changes are being counted twice, as two sets of different commits.',
+      part: { id: 'concept-rebase', label: 'G. Strategy three: the rebase merge' } },
+
+    { q: 'You squash merged chart, deleted it on the shared copy, then ran git branch -d chart. Git refused. Why?',
+      o: ['The squash built a new commit, so the branch commits are not in your history',
+          'The branch was removed on the shared copy first, which locks your local copy too',
+          'The branch still holds commits that were never pushed anywhere at any point',
+          'Git always refuses to delete a branch unless you are standing on it already'],
+      c: 0,
+      e: 'The safe delete asks one question: are this branch commits reachable from where I am standing? After a squash they are not. The squash made a single new commit holding the same changes, and Git has no way to know those changes came from anywhere in particular. Run the identical command from a branch where the commits really did arrive and it deletes without a murmur. The capital -D forces it, which after a squash is usually right.',
+      part: { id: 'concept-cleanup', label: 'I. After the merge: deleting the branch' } },
+
+    { q: 'Recall from Session 5: you run git fetch and it reports one new commit. What has changed in your copy?',
+      o: ['Your origin/main moved, and your own branch and your files did not',
+          'Your branch moved forward and the new files are now in your folder',
+          'Nothing yet, because fetch prints a report and must be run again',
+          'Your branch moved, but the files stay until you check them out'],
+      c: 0,
+      e: 'Fetch updates your remote-tracking branch and stops. The commits are downloaded and sit in your repository, but your own branch is untouched and not one file in your folder changes, which is exactly what makes fetch safe to run at any moment. To bring them into your branch you merge afterwards, and git pull is those two steps run back to back.',
+      ext: { url: S5_URL, label: 'Session 5: what fetch changes (opens in a new tab)' } },
+
+    { q: 'Recall from Session 4: Git is merging two branches. What is the merge base?',
+      o: ['The most recent commit that both of the branches can reach',
+          'The commit that the branch you are currently standing on points at',
+          'The first commit that was ever made in this repository',
+          'The commit that the branch being merged in points at'],
+      c: 0,
+      e: 'It is where the two lines parted, which is the commit at the bottom of the fork in the graph. It is the third input to a three-way merge, alongside the tip of each branch, and it is what lets Git tell your changes apart from theirs instead of just seeing two different files. It matters here because it is also the commit a rebase replays your work away from.',
+      ext: { url: S4_URL, label: 'Session 4: the merge base and three-way merges (opens in a new tab)' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S06 on your Hub and move on to Session 7.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

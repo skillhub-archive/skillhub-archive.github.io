@@ -1,0 +1,1812 @@
+<title>Git Sprint &middot; Session 8: Recovery &amp; rewriting history</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session needs it as badly as Session 7 did: Cascadia Code would otherwise
+     redraw the -> in (HEAD -> main), the -- in --amend, --hard and
+     --force-with-lease, and the ... in a forced-update push report. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code, .ptable
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  /* a refusal line, so the label stands out from the hint text around it */
+  .rej { color: var(--bad); font-weight: 700; }
+  /* the destructive-command warning banner */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the areas diagram: four boxes, carried forward from Session 7 */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .areas.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .areas.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; word-break: break-word; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas, .areas.plain, .areas.four { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* label / meaning rows: the reflog labels, the verbs, and the mistake-to-tool map */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the decision table: which of the four things each command moves */
+  .tscroll { overflow-x: auto; margin: 4px 0 14px; }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
+  .ptable th, .ptable td { border: 1px solid var(--border); padding: 9px 11px; text-align: left; background: var(--surface); }
+  .ptable thead th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 700; }
+  .ptable tbody th { font-size: 13px; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .ptable td.y { color: var(--good); font-weight: 700; }
+  .ptable td.n { color: var(--ink-faint); }
+  .ptable td.d { color: var(--bad); font-weight: 700; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 37 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 18ch because the longest answer here is "force-with-lease" */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 18ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 08 // Level 4 &middot; Undo, Recover, Rewrite</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Recovery &amp; rewriting history</h1>
+    <p class="goal">Git almost never deletes a commit. It stops pointing at it. There is a log of everywhere you have been, it is on your disk right now, and it is the reason "I lost it" is nearly always false. Once you believe that, rewriting history stops being frightening, which is exactly the moment you need the one rule that keeps rewriting safe.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Recover a lost commit and tidy a messy branch before sharing it.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>You do not need <code>undo-lab</code> or any other folder from an earlier session.</b> Step one below builds a small new repository called <code>rewrite-lab</code> from nothing. It gets its own folder because this session rewrites history on purpose, over and over, and a lab you can throw away is what makes that comfortable rather than nerve-racking. Session 7 already told you that <code>undo-lab</code> was finished with, so delete it whenever you like.</p>
+        <p><b>No account and no network.</b> Everything here is local, including the part about pushing to a shared copy, which uses a second repository on your own disk exactly as Session 5 did.</p>
+        <p><b>One thing is different about this session:</b> a text editor is going to open, on purpose, and it is part of the interface rather than an accident. Section F tells you what will open on your machine, how to drive it, and how to back out of it before you meet it. Read that section rather than skipping it.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. Three things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>98fe89a</code>), <b>dates</b>, and <b>paths</b>. Everything else should match.<br><br><b>Hashes matter more in this session than in any before it.</b> Every section from E onward creates commits with new hashes, so yours will diverge from the printed ones almost immediately and will keep diverging. That is correct and expected. <b>Read the printed hashes as shapes rather than as values</b>: what matters is whether a hash <em>changed</em>, not what it changed to. Nothing in this session is graded on a hash.</div>
+
+    <div class="block" id="concept-question">
+      <h3>A. The question Session 7 left you with, twice</h3>
+      <p><b>Session 7 asked you the same question two different ways, and then stopped.</b> The first time was after you threw a commit away with <code>git reset --hard HEAD~1</code> and got it back with <code>git reset --hard</code> and the hash. It worked only because you had written the hash down, and Session 7 said so plainly:</p>
+      <div class="note" style="border-style:solid;font-size:13.5px;color:var(--ink-soft)">"If you had not, the commit would still be sitting in the repository, unreachable and invisible to <code>git log</code>, and you would have no name to call it by. <b>There is a command that gives you that name back, and it is the first thing in Session 8.</b>"</div>
+      <p><b>The second time was sharper.</b> You stood on a detached HEAD, made a commit, and Git printed its hash on the way out so you could rescue it with <code>git branch rescued &lt;hash&gt;</code>. Session 7 closed the section by pointing at the obvious weakness of that:</p>
+      <div class="note" style="border-style:solid;font-size:13.5px;color:var(--ink-soft)">"That worked because Git printed the hash and you were still looking at the terminal. <b>Close the window, and you have no name for that commit and no way to list it.</b>"</div>
+      <p><b>Both are the same question: where do you get the name from when nobody wrote it down?</b> The answer is a command called <code>git reflog</code>, and you are going to run it in about two minutes. It is worth naming what it fixes first, because the fix is bigger than the command.</p>
+      <p><b>Session 7 established that <code>reset</code> never changes the repository.</b> It moves a branch pointer, and the commit carries on existing with nothing aimed at it. That fact is only useful if you can find the commit again, and until now finding it has depended on you having copied a hash somewhere. <b>The reflog removes that dependency</b>, and once it is gone, the sentence "almost nothing in Git is truly unrecoverable" stops being reassurance and starts being something you can act on.</p>
+      <p><b>And that is the hinge of this session.</b> The first half is recovery, so that you believe the safety net is real. The second half is rewriting history on purpose, which is the thing the net makes safe to attempt: fixing a commit message, folding a forgotten file into the commit it belonged in, and squashing six scrappy commits into one before anybody else sees them. <b>Recovery first, rewriting second, deliberately.</b> Nobody should be asked to jump before they have looked at the net.</p>
+      <p><b>Out of scope today, named so you know they exist:</b> <code>git rebase --onto</code>, which is a more surgical rebase; <code>rerere</code>, which memorises how you resolved a conflict so it can redo it for you; and submodules. Two more, <code>git filter-repo</code> and <b>BFG</b>, come up properly in section J, where they matter.</p>
+    </div>
+
+    <div class="block" id="concept-setup">
+      <h3>B. Build the lab</h3>
+      <p><b>This build block does more than the ones in earlier sessions, and the extra work is the point.</b> It makes three commits, then deliberately checks out an old commit, comes back, reverts something and resets it away again. That gives the repository a short history of <em>things that happened to it</em>, which is precisely what the next section reads. Paste the block for your shell and run the whole thing:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build rewrite-lab</div>
+<pre><code>cd ~
+mkdir rewrite-lab
+cd rewrite-lab
+git init -b main
+Set-Content a.txt "one"
+git add a.txt
+git commit -m "c1 add a"
+Set-Content b.txt "two"
+git add b.txt
+git commit -m "c2 add b"
+Set-Content c.txt "three"
+git add c.txt
+git commit -m "c3 add c"
+git checkout HEAD~1
+git switch -
+git revert --no-edit HEAD
+git reset --hard HEAD~1</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build rewrite-lab</div>
+<pre><code>cd ~
+mkdir rewrite-lab
+cd rewrite-lab
+git init -b main
+echo "one" &gt; a.txt
+git add a.txt
+git commit -m "c1 add a"
+echo "two" &gt; b.txt
+git add b.txt
+git commit -m "c2 add b"
+echo "three" &gt; c.txt
+git add c.txt
+git commit -m "c3 add c"
+git checkout HEAD~1
+git switch -
+git revert --no-edit HEAD
+git reset --hard HEAD~1</code></pre>
+      </div>
+      <p><b><code>git init -b main</code> rather than a bare <code>git init</code></b>, for the reason Session 1 gave: the <code>-b</code> flag names the first branch outright, so this works the same on any machine whatever that machine has configured as its default.</p>
+      <div class="note"><b>That block prints a lot, including a screen of text you have seen before.</b> The <code>git checkout HEAD~1</code> line produces Session 7's eighteen-line detached-HEAD advisory, starting <code>Note: switching to 'HEAD~1'.</code> and ending <code>HEAD is now at ... c2 add b</code>. <b>It is not an error and nothing has gone wrong</b>; <code>git switch -</code> on the next line walks straight back out of it. After that you will see the revert commit being made, then <code>HEAD is now at ... c3 add c</code> from the final reset. <b>If you are on Git Bash on Windows you will also see a <code>warning:</code> line about LF and CRLF after each <code>git add</code></b>, which is Session 1's line-ending note and is also not a problem. PowerShell writes files the way Git wants already and prints none of them.</div>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Already have a <code>rewrite-lab</code>, or something went wrong partway? Wipe it and start clean</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">This session rewrites history repeatedly, so starting over is a normal move rather than a failure. Delete the folder and run the build block above again. <b>Run this instead of the block above, not as well as it</b>, and check you are in your home directory first: it deletes a folder without asking.</p>
+          <div class="shells">
+            <div class="srow"><span class="sl">PowerShell</span><code>cd ~
+Remove-Item -Recurse -Force rewrite-lab</code></div>
+            <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ~
+rm -rf rewrite-lab</code></div>
+          </div>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Then paste the build block for your shell again. Everything after this point works identically.</p>
+        </div>
+      </details>
+      <p>Now confirm you have what everything below assumes, standing in <code>rewrite-lab</code>:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; the state everything below starts from</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+98fe89a (HEAD -&gt; main) c3 add c
+a202936 c2 add b
+3500f9d c1 add a
+
+<span class="cmd">&gt; git status</span>
+On branch main
+nothing to commit, working tree clean</code></pre>
+      </div>
+      <p><b>Three commits and a clean tree</b>, which is exactly where the build block started. The checkout, the revert and the reset all left the log looking untouched. <b>That is the interesting part</b>, and it is what the next section is about: four things happened to this repository and the log remembers none of them.</p>
+    </div>
+
+    <div class="block" id="concept-reflog">
+      <h3>C. <code>git reflog</code>: every position HEAD has held</h3>
+      <p><b><code>git log</code> answers "what is the history of this branch". <code>git reflog</code> answers a completely different question: "where has HEAD been".</b> Every time <code>HEAD</code> moves, for any reason, Git writes a line into a local file recording where it moved to and why. Committing moves it. So does checking out, switching, resetting, merging, reverting, rebasing and cherry-picking. Run it:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; the whole build block, played back</div>
+<pre><code><span class="cmd">&gt; git reflog</span>
+98fe89a HEAD@{0}: reset: moving to HEAD~1
+5d12590 HEAD@{1}: revert: Revert "c3 add c"
+98fe89a HEAD@{2}: checkout: moving from a20293697f10e2c3629cfd48e5a3190d2737a500 to main
+a202936 HEAD@{3}: checkout: moving from main to HEAD~1
+98fe89a HEAD@{4}: commit: c3 add c
+a202936 HEAD@{5}: commit: c2 add b
+3500f9d HEAD@{6}: commit (initial): c1 add a</code></pre>
+      </div>
+      <p><b>Read that from the bottom up and it is the build block, in order.</b> Three commits, a checkout out to an old commit, a checkout back to <code>main</code>, a revert, and a reset. <b>Seven lines for seven moves</b>, each labelled with the kind of operation that caused it. Nothing here was configured or turned on; Git has been keeping this record since Session 1 and simply never mentioned it.</p>
+      <p><b>Every line has the same three parts</b>, and reading them is a skill worth slowing down for:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">98fe89a</span><span class="rd">The hash of the commit HEAD was pointing at <b>after</b> that move. Not the commit that was made, necessarily: the position HEAD landed on.</span></div>
+        <div class="refrow"><span class="rr">HEAD@{0}</span><span class="rd">How many moves ago. <b>Zero is where you are now</b>, one is the position before that, and the numbers renumber every time HEAD moves again.</span></div>
+        <div class="refrow"><span class="rr">reset: moving to</span><span class="rd">The kind of operation, then its own description of what it did. The label before the colon is the command that caused the move.</span></div>
+      </div>
+      <p><b><code>HEAD@{0}</code> is not a special name for the reflog.</b> It is a name for a commit, and it works anywhere Git wants one, exactly as Session 2 said of <code>HEAD~1</code> and a raw hash. <code>git show HEAD@{4}</code>, <code>git log HEAD@{2}</code> and <code>git reset --hard HEAD@{1}</code> are all ordinary commands with an ordinary commit name in them. That is why the reflog rescues you: <b>it hands you a name for a commit that has no other name left.</b></p>
+      <p><b>Do not confuse <code>HEAD@{1}</code> with <code>HEAD~1</code>.</b> They look alike and they mean unrelated things. <code>HEAD~1</code> walks one step back along the <em>parent</em> link, which is a fact about history. <code>HEAD@{1}</code> means where HEAD was standing one move ago, which is a fact about <em>you</em>. In a repository you have just cloned and never touched they can point at wildly different commits, or <code>HEAD@{1}</code> may not exist at all.</p>
+      <p><b>Now the two caveats, and neither is optional.</b> The reflog is a safety net, not an archive, and it is a net with two specific holes:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">it is local only</span><span class="rd">The reflog lives in <b>your</b> <code>.git</code> folder and is never pushed, pulled or cloned. Nobody else can see yours and you cannot see theirs.</span></div>
+        <div class="refrow"><span class="rr">it expires</span><span class="rd">Entries are cleaned up eventually: Git defaults to <b>90 days</b> for entries still reachable from a branch and <b>30 days</b> for unreachable ones. A commit you orphaned two months ago may already be gone.</span></div>
+      </div>
+      <p><b>The locality one is easy to prove and worth proving</b>, because it is the half people get wrong. A fresh clone of a repository with a long and eventful history has a reflog exactly one line long:</p>
+      <div class="filebox">
+        <div class="fbh">a brand new clone of a repository that has been rewritten repeatedly</div>
+<pre><code><span class="cmd">&gt; git reflog</span>
+8d7ee70 HEAD@{0}: clone: from ../origin.git</code></pre>
+      </div>
+      <p><b>One entry, because from this clone the only thing that has ever happened is the clone itself.</b> Every commit, reset, amend and force push that produced the history it just downloaded happened in somebody else's folder and stayed there. <b>So the reflog will save you from your own mistakes and never from anyone else's</b>, and "it is in the reflog" is only ever a claim about the machine you are sitting at.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the lab and read your own reflog back</div>
+        <ol>
+          <li>You ran the build block in section B. Confirm it landed by running <code>git log --oneline --decorate=short</code> and checking you get <b>three</b> commits with <code>c3 add c</code> on top. <b>Do not run the block again</b>, or your reflog will hold two of everything and the count in step 2 will not match.</li>
+          <li>Run <code>git reflog</code>. <b>Count the entries before reading them.</b> You should have seven.</li>
+          <li>Go through them from the <b>bottom up</b> and match each one to a line of the build block you pasted. Every line of that block that moved HEAD has exactly one entry.</li>
+          <li><b>Count the labels.</b> How many say <code>commit:</code>, how many say <code>checkout:</code>, and how many say <code>reset:</code>? Say the three numbers out loud before you count, then check.</li>
+          <li>Run <code>git show --oneline --no-patch HEAD@{4}</code> and confirm it prints your <code>c3 add c</code> commit. <b>That is the whole idea in one command:</b> a reflog position used as an ordinary name for a commit.</li>
+          <li>Look at the two <code>checkout:</code> lines and notice that one names a branch and the other names a <b>full forty-character hash</b>. Git spells it out in full when it is leaving a commit rather than a branch. Nothing is wrong; it is just inconsistent.</li>
+        </ol>
+        <details><summary>Not sure what to expect from the label counts?</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">Three lines say <code>commit</code>, though one of them says <code>commit (initial)</code> because a repository's first commit has no parent and Git labels it differently. Two say <code>checkout</code>, one for leaving <code>main</code> and one for coming back. One says <code>revert</code> and one says <code>reset</code>.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> My reflog has seven entries and I can match each one to the build block</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-recover">
+      <h3>D. Getting a commit back when nobody wrote the hash down</h3>
+      <p><b>Now the situation Session 7 set up.</b> Make a commit that matters, then throw it away carelessly, without noting anything:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content d.txt "important work"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "important work" &gt; d.txt</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; commit it, then lose it</div>
+<pre><code><span class="cmd">&gt; git add d.txt</span>
+
+<span class="cmd">&gt; git commit -m "d4 important work"</span>
+[main f3f21a7] d4 important work
+ 1 file changed, 1 insertion(+)
+ create mode 100644 d.txt
+
+<span class="cmd">&gt; git reset --hard HEAD~1</span>
+HEAD is now at 98fe89a c3 add c
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+98fe89a (HEAD -&gt; main) c3 add c
+a202936 c2 add b
+3500f9d c1 add a</code></pre>
+      </div>
+      <p><b>Three commits again, and <code>d.txt</code> is no longer in the folder.</b> As far as <code>git log</code> is concerned that work never happened. Session 7 would have left you stuck here unless you had copied the hash somewhere. Ask the other question instead:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; where has HEAD been</div>
+<pre><code><span class="cmd">&gt; git reflog</span>
+98fe89a HEAD@{0}: reset: moving to HEAD~1
+f3f21a7 HEAD@{1}: commit: d4 important work
+98fe89a HEAD@{2}: reset: moving to HEAD~1
+5d12590 HEAD@{3}: revert: Revert "c3 add c"
+98fe89a HEAD@{4}: checkout: moving from a20293697f10e2c3629cfd48e5a3190d2737a500 to main
+a202936 HEAD@{5}: checkout: moving from main to HEAD~1
+98fe89a HEAD@{6}: commit: c3 add c
+a202936 HEAD@{7}: commit: c2 add b
+3500f9d HEAD@{8}: commit (initial): c1 add a</code></pre>
+      </div>
+      <p><b>There it is, on the second line.</b> Read the top two lines together and they tell the whole story: <code>HEAD@{0}</code> is the reset you just ran, and <code>HEAD@{1}</code> is the position HEAD held immediately before it, which is the commit the reset stepped off. <b>The commit you lost is almost always the entry directly below the operation that lost it</b>, and <code>f3f21a7</code> is a name you can now use even though you never wrote it down.</p>
+      <p><b>Having found it, there are two different things you might want</b>, and they are genuinely different rather than two spellings of one idea. Decide which before you type:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">git branch &lt;name&gt; &lt;hash&gt;</span><span class="rd"><b>Put it beside your current work.</b> Creates a name pointing at that commit and <b>does not move you</b>. Use this when you are unsure, because it changes nothing you already have.</span></div>
+        <div class="refrow"><span class="rr">git reset --hard &lt;hash&gt;</span><span class="rd"><b>Go back to it.</b> Moves your current branch onto that commit and makes your files match. Use this when you know the commit is what you want to be on.</span></div>
+      </div>
+      <p><b>Try the cautious one first.</b> <code>git branch &lt;name&gt; &lt;hash&gt;</code> is the command Session 7 met on the way out of a detached HEAD, and it behaves the same here:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; give the lost commit a name, without moving</div>
+<pre><code><span class="cmd">&gt; git branch rescued f3f21a7</span>
+
+<span class="cmd">&gt; git log --oneline --decorate=short rescued</span>
+f3f21a7 (rescued) d4 important work
+98fe89a (HEAD -&gt; main) c3 add c
+a202936 c2 add b
+3500f9d c1 add a
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+98fe89a (HEAD -&gt; main) c3 add c
+a202936 c2 add b
+3500f9d c1 add a</code></pre>
+      </div>
+      <p><b>Silence, and then two logs that disagree, which is the point.</b> Reading <code>rescued</code> shows four commits with the recovered one on top. Reading your own branch still shows three, because <code>main</code> has not moved and neither have you. <b>The commit is safe and nothing about your working situation changed</b>, which is exactly what you want from a first move when you are not yet sure what happened.</p>
+      <p><b>Now the committing one.</b> You have decided you do want to be back on that commit, so move <code>main</code> onto it:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; go back to it, and tidy the rescue name away</div>
+<pre><code><span class="cmd">&gt; git reset --hard f3f21a7</span>
+HEAD is now at f3f21a7 d4 important work
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+f3f21a7 (HEAD -&gt; main, rescued) d4 important work
+98fe89a c3 add c
+a202936 c2 add b
+3500f9d c1 add a
+
+<span class="cmd">&gt; git branch -d rescued</span>
+Deleted branch rescued (was f3f21a7).</code></pre>
+      </div>
+      <p><b><code>(HEAD -&gt; main, rescued)</code> on one line means two names now point at the same commit</b>, which is Session 3's definition doing its ordinary work. Having got <code>main</code> back where you want it, the rescue name has no job left, and <code>git branch -d</code> removes it. <code>d.txt</code> is back in your folder. <b>Four commits, nothing lost, and you never knew the hash.</b></p>
+      <div class="note"><b>A third route exists and you have already used it without noticing.</b> Because <code>HEAD@{n}</code> is an ordinary commit name, <code>git reset --hard HEAD@{1}</code> would have worked in place of the hash, straight off the reflog with no copying at all. It is convenient and it is also slightly treacherous, because <b>the numbers shift every time HEAD moves</b>: run one other command in between and <code>HEAD@{1}</code> means something else. <b>Read the reflog, then use the hash</b>, which never changes meaning.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Lose a commit on purpose and get it back with no hash written down</div>
+        <p><b>This one puts the lab back where it found it</b>, so the transcripts in the sections below keep matching. The last step is what does that, so do not skip it.</p>
+        <ol>
+          <li>In <code>rewrite-lab</code>, create a file called <code>t.txt</code> with any line in it, stage it, and commit it with the message <code>practice commit</code>. Confirm with <code>git log --oneline</code> that you now have <b>five</b> commits.</li>
+          <li><b>Without noting the hash anywhere</b>, run <code>git reset --hard HEAD~1</code>. Confirm you are back to four commits and that <code>t.txt</code> has gone from the folder.</li>
+          <li>Run <code>git reflog</code> and find the entry for <code>practice commit</code>. <b>Say which <code>HEAD@{n}</code> it is before you look for the hash</b>, and say why it sits where it does.</li>
+          <li>Use <code>git branch practice-rescue &lt;hash&gt;</code> with the hash from that line, then <code>git log --oneline practice-rescue</code> to prove the commit is alive. <b>Check that <code>git log --oneline</code> on its own still shows four</b>, because that command moved nothing.</li>
+          <li><b>Now put the lab back.</b> Run <code>git branch -D practice-rescue</code>, then <code>git log --oneline --decorate=short</code> and confirm you are on four commits with <code>d4 important work</code> on top and a clean <code>git status</code>. The practice commit is orphaned again, which is fine: it was practice, and section E starts from these four.</li>
+        </ol>
+        <details><summary>Why <code>-D</code> rather than <code>-d</code> in that last step?</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">Because <code>practice-rescue</code> holds a commit that is not merged into <code>main</code>, and <code>git branch -d</code> refuses to delete a branch in that state. Section L is about exactly that refusal and what to do with it. Using <code>-D</code> here is a small preview.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I recovered a commit from the reflog with nothing written down</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-amend">
+      <h3>E. <code>git commit --amend</code>, the gentlest rewrite</h3>
+      <p><b>Everything from here on rewrites history, and this is the smallest possible version of it.</b> You commit, and immediately notice the message has a typo, or that you left a file out. <code>git commit --amend</code> replaces the commit you just made with a better one.</p>
+      <p><b>Read that sentence again, because "replaces" is literal.</b> Git does not edit a commit. A commit cannot be edited: Session 1 established that a commit is a snapshot plus a parent plus the message and the author details, and its hash is computed from all of that. Change any part and it is a different commit with a different hash. <b><code>--amend</code> builds a new commit and points your branch at it</b>, leaving the old one behind exactly the way <code>reset</code> did. Make a commit with a deliberate typo in the message:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content notes.md "the notes"
+Set-Content extra.md "extra detail"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "the notes" &gt; notes.md
+echo "extra detail" &gt; extra.md</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; commit only notes.md, with a typo in the message</div>
+<pre><code><span class="cmd">&gt; git add notes.md</span>
+
+<span class="cmd">&gt; git commit -m "Add the notse"</span>
+[main ec66f8e] Add the notse
+ 1 file changed, 1 insertion(+)
+ create mode 100644 notes.md
+
+<span class="cmd">&gt; git commit --amend -m "Add the notes"</span>
+[main b963def] Add the notes
+ Date: Thu Aug 13 21:43:51 2026 -0500
+ 1 file changed, 1 insertion(+)
+ create mode 100644 notes.md
+
+<span class="cmd">&gt; git log --oneline --decorate=short -1</span>
+b963def (HEAD -&gt; main) Add the notes</code></pre>
+      </div>
+      <p><b><code>ec66f8e</code> became <code>b963def</code>.</b> One commit, two hashes, and the first one is now unreachable in exactly the sense section D taught: still stored, nothing pointing at it, findable in your reflog. <b>That single transcript is the entire reason the golden rule in section J exists</b>, and it is worth sitting with for a moment. You did not change a commit. You made a second commit and abandoned the first.</p>
+      <p><b>The <code>Date:</code> line is Session 7's, arriving for the same reason.</b> It appears when a commit's author date and its committer date differ. <code>--amend</code> keeps the original author date and stamps a new committer date, so they differ from now on. Nothing is wrong.</p>
+      <p><b>The second use is more common than the message fix.</b> You committed, then realised a file that belonged in that commit was never staged. Stage it and amend with <code>--no-edit</code>, which means "keep the message exactly as it is":</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; fold a forgotten file into the commit it belonged in</div>
+<pre><code><span class="cmd">&gt; git add extra.md</span>
+
+<span class="cmd">&gt; git commit --amend --no-edit</span>
+[main 821d00d] Add the notes
+ Date: Thu Aug 13 21:43:51 2026 -0500
+ 2 files changed, 2 insertions(+)
+ create mode 100644 extra.md
+ create mode 100644 notes.md
+
+<span class="cmd">&gt; git show --stat --oneline HEAD</span>
+821d00d Add the notes
+ extra.md | 1 +
+ notes.md | 1 +
+ 2 files changed, 2 insertions(+)</code></pre>
+      </div>
+      <p><b>One commit holding both files, and a third hash.</b> Compare this against Session 7's answer to the same problem, which was <code>git reset --soft HEAD~1</code> followed by <code>git add</code> and a fresh <code>git commit</code>. Both work. <b><code>--amend</code> is the one-step version</b>, and it is what you will actually reach for when the mistake is seconds old.</p>
+      <p><b>Where this fits in Session 7's table.</b> Session 7 mapped every undo command onto four things: the working tree, the staging area, the branch pointer and the repository. <code>--amend</code> fits without any new vocabulary. It leaves your files alone, it leaves the staging area alone, it <b>adds</b> a commit to the repository, and it <b>moves the branch pointer forward onto that new commit</b>. Every rewriting command in this session does the same shape of thing, which is why the frame still holds:</p>
+      <div class="tscroll">
+        <table class="ptable">
+          <thead>
+            <tr><th>command</th><th>working tree</th><th>staging area</th><th>branch pointer</th><th>repository</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>git commit --amend</th><td class="n">no</td><td class="n">no</td><td class="y">forward, onto a new commit</td><td class="y">adds one</td></tr>
+            <tr><th>git rebase -i</th><td class="n">no</td><td class="n">no</td><td class="y">forward, onto new commits</td><td class="y">adds them</td></tr>
+            <tr><th>git cherry-pick</th><td class="y">yes</td><td class="y">yes</td><td class="y">forward, onto a new commit</td><td class="y">adds one</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>Notice what is missing from that table: a "removes" column.</b> There is not one, because none of these commands remove anything. Rewriting history in Git means <b>building replacement commits and pointing at those instead</b>, and the originals sit exactly where they were until the reflog forgets them. That is why every rewrite in this session is recoverable.</p>
+      <div class="note"><b><code>--no-edit</code> and <code>-m</code> both keep an editor closed.</b> A bare <code>git commit --amend</code>, with neither, opens your text editor so you can rewrite the message by hand. That is often exactly what you want, and section F is about being ready for it. Until you have read that section, use <code>-m "new message"</code> to replace the message or <code>--no-edit</code> to keep it.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Amend twice and watch the hash move both times</div>
+        <p><b>Do this on a throwaway branch</b> so <code>main</code> is untouched and the later sections keep matching. The last step deletes the branch again.</p>
+        <ol>
+          <li>From <code>main</code>, run <code>git switch -c amend-practice</code> to make and move onto a new branch. Session 3 gave you that command.</li>
+          <li>Create a file called <code>draft.md</code>, stage it, and commit it with a message you know is wrong, for instance <code>Add teh draft</code>. <b>Write the short hash down.</b></li>
+          <li>Fix the message with <code>git commit --amend -m "Add the draft"</code>. Compare the new hash against the one you wrote down. <b>Say out loud what happened to the old commit</b>, using the words section D gave you.</li>
+          <li>Create a second file that should have been in that commit, stage it, and run <code>git commit --amend --no-edit</code>. Confirm with <code>git show --stat --oneline HEAD</code> that one commit now holds both files.</li>
+          <li>Run <code>git reflog</code> and find <b>all three</b> versions of that commit. They are all still there, which is the point.</li>
+          <li><b>Now put the lab back.</b> Run <code>git switch main</code>, then <code>git branch -D amend-practice</code>, then <code>git log --oneline --decorate=short</code> and confirm <code>main</code> still has five commits with <code>Add the notes</code> on top.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I amended twice and found all three hashes in my reflog</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-editor">
+      <h3>F. Before the todo list opens: the editor, and how to back out</h3>
+      <p><b>The next command opens a text editor, and there is no version of it that does not.</b> The editor is not a side effect to be avoided here; it <em>is</em> the interface. You edit a list of instructions, save it, and Git carries them out. So it is worth knowing three things before you meet it: what will open, how to change one line, and how to leave without doing any damage.</p>
+      <p><b>Find out what will open, on your machine, right now:</b></p>
+      <div class="filebox">
+        <div class="fbh">run anywhere &middot; ask Git which editor it will use</div>
+<pre><code><span class="cmd">&gt; git var GIT_EDITOR</span>
+vim</code></pre>
+      </div>
+      <p><b>Session 4 taught you this command and the escapes that go with it.</b> On a standard Git for Windows install, as here, the answer is <code>vim</code>, which opens inside your terminal window rather than in a separate program. That is why it looks like the terminal has frozen when it has not. If your machine prints something else, use that program instead; the Git side of this section is identical either way.</p>
+      <p><b>The three vim keystrokes you need, and nothing more:</b></p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">i</span><span class="rd"><b>Start typing.</b> Vim opens in a mode where letters are commands rather than text. Pressing <code>i</code> switches to inserting, and now the keyboard behaves normally.</span></div>
+        <div class="refrow"><span class="rr">Esc</span><span class="rd"><b>Stop typing.</b> Back to command mode, where the next two work.</span></div>
+        <div class="refrow"><span class="rr">:wq then Enter</span><span class="rd"><b>Save and close.</b> Write, then quit. This is what hands your edited list back to Git.</span></div>
+      </div>
+      <p><b>To change a line, that is the whole procedure:</b> move the cursor to it with the arrow keys, press <code>i</code>, edit the text, press <code>Esc</code>, then type <code>:wq</code> and Enter. You will be changing one word at the start of a line, which is about as small as an edit gets.</p>
+      <p><b>Now the important half: getting out without breaking anything.</b> There are two moments you might want to escape from, and they need different commands.</p>
+      <p><b>Moment one, the editor is open and you have changed your mind.</b> Delete every line in the list, save and close. Git reads an empty list as "do nothing" and stops:</p>
+      <div class="filebox">
+        <div class="fbh">what an emptied todo list produces</div>
+<pre><code><span class="cmd">&gt; git rebase -i HEAD~3</span>
+<span class="rej">error: nothing to do</span></code></pre>
+      </div>
+      <p><b>Nothing was changed and no rebase started.</b> The word <code>error</code> looks alarming and means only that Git had no instructions to carry out. In vim, deleting all the lines is <code>dG</code> from the top of the file, then <code>:wq</code>. <b>If that feels like too much to remember, quitting without saving works too</b>: <code>:q!</code> leaves the list exactly as Git wrote it, which says "keep all three commits as they are", and the result is a rebase that reports success and changes none of your hashes.</p>
+      <p><b>Moment two, the rebase has already started and something is going wrong.</b> This is the one to memorise:</p>
+      <div class="filebox">
+        <div class="fbh">the escape hatch, from anywhere inside a rebase</div>
+<pre><code><span class="cmd">&gt; git rebase --abort</span>
+</code></pre>
+      </div>
+      <p><b>It prints nothing and puts your branch back exactly as it was</b>, hashes included. It is this session's <code>git merge --abort</code>, and it deserves the same treatment Session 4 gave that one: learn it before you need it, because you will want it at the exact moment you are least inclined to go looking. Its opposite number, <code>git rebase --continue</code>, tells Git to carry on once you have dealt with whatever it stopped for.</p>
+      <div class="note"><b>Lost in the middle and not sure which state you are in?</b> <code>git status</code> knows. During a rebase it opens with <code>interactive rebase in progress</code> and then lists the commands already done and the ones still to come, which is usually enough to tell you whether to continue or abort.</div>
+    </div>
+
+    <div class="block" id="concept-rebase">
+      <h3>G. <code>git rebase -i</code> and the todo list</h3>
+      <p><b>An interactive rebase replays a stretch of your recent commits, one at a time, doing whatever you told it to do with each.</b> You choose the stretch, Git opens a list of those commits, you mark each line with a verb, and Git rebuilds them. Give the lab something worth tidying first, three scrappy commits of the kind everyone actually produces:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Set-Content w.txt "draft one"
+git add w.txt
+git commit -m "wip 1"
+Add-Content w.txt "draft two"
+git add w.txt
+git commit -m "wip 2"
+Add-Content w.txt "oops typo fix"
+git add w.txt
+git commit -m "wip 3"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "draft one" &gt; w.txt
+git add w.txt
+git commit -m "wip 1"
+echo "draft two" &gt;&gt; w.txt
+git add w.txt
+git commit -m "wip 2"
+echo "oops typo fix" &gt;&gt; w.txt
+git add w.txt
+git commit -m "wip 3"</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; three commits nobody should have to read</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+427cb4e (HEAD -&gt; main) wip 3
+d1d83ef wip 2
+9cf7fea wip 1
+821d00d Add the notes
+f3f21a7 d4 important work
+98fe89a c3 add c
+a202936 c2 add b
+3500f9d c1 add a</code></pre>
+      </div>
+      <p><b><code>git rebase -i HEAD~3</code> means "let me work on the last three commits".</b> The <code>-i</code> is short for interactive, and <code>HEAD~3</code> is Session 2's notation naming where the stretch starts. Run it and your editor opens on this:</p>
+      <div class="filebox">
+        <div class="fbh">the todo list, exactly as it opens &middot; git 2.54</div>
+<pre><code>pick 9cf7fea # wip 1
+pick d1d83ef # wip 2
+pick 427cb4e # wip 3
+
+# Rebase 821d00d..427cb4e onto 821d00d (3 commands)
+#
+# Commands:
+# p, pick &lt;commit&gt; = use commit
+# r, reword &lt;commit&gt; = use commit, but edit the commit message
+# e, edit &lt;commit&gt; = use commit, but stop for amending
+# s, squash &lt;commit&gt; = use commit, but meld into previous commit
+# f, fixup [-C | -c] &lt;commit&gt; = like "squash" but keep only the previous
+#                    commit's log message, unless -C is used, in which case
+#                    keep only this commit's message; -c is same as -C but
+#                    opens the editor
+# x, exec &lt;command&gt; = run command (the rest of the line) using shell
+# b, break = stop here (continue rebase later with 'git rebase --continue')
+# d, drop &lt;commit&gt; = remove commit
+# l, label &lt;label&gt; = label current HEAD with a name
+# t, reset &lt;label&gt; = reset HEAD to a label
+# m, merge [-C &lt;commit&gt; | -c &lt;commit&gt;] &lt;label&gt; [# &lt;oneline&gt;]
+#         create a merge commit using the original merge commit's
+#         message (or the oneline, if no original merge commit was
+#         specified); use -c &lt;commit&gt; to reword the commit message
+# u, update-ref &lt;ref&gt; = track a placeholder for the &lt;ref&gt; to be updated
+#                       to this position in the new commits. The &lt;ref&gt; is
+#                       updated at the end of the rebase
+#
+# These lines can be re-ordered; they are executed from top to bottom.
+#
+# If you remove a line here THAT COMMIT WILL BE LOST.
+#
+# However, if you remove everything, the rebase will be aborted.
+#</code></pre>
+      </div>
+      <p><b>That is the whole thing, unabridged, because an abridged version would not match what you see.</b> It is long and most of it is a reference card you can ignore. <b>Only the first three lines are the list.</b> Everything from <code>#&nbsp;Rebase</code> down is a comment: lines starting with <code>#</code> are notes to you and Git ignores them.</p>
+      <div class="danger"><b>The oldest commit is at the TOP.</b> This is the reverse of <code>git log</code>, which you have read newest-first since Session 2, and it is the single most common way beginners squash the wrong commits. In the list above, <code>wip 1</code> is the <b>oldest</b> of the three and it is on line one. Git applies the lines <b>from top to bottom</b>, oldest first, which is the order the commits were originally made. <b>Before you edit a single line, find the oldest commit and confirm it is at the top.</b></div>
+      <p><b>Four of those verbs are worth learning now.</b> The list is longer, as you can see, and the rest can wait until you have a reason for them:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">pick</span><span class="rd"><b>Keep this commit as it is.</b> The default on every line, so a list you do not edit changes nothing.</span></div>
+        <div class="refrow"><span class="rr">reword</span><span class="rd"><b>Keep the commit, change its message.</b> Git stops and opens the editor on that message when it reaches the line.</span></div>
+        <div class="refrow"><span class="rr">squash</span><span class="rd"><b>Merge this commit into the one above it, keeping both messages</b> so you can combine them into one.</span></div>
+        <div class="refrow"><span class="rr">fixup</span><span class="rd"><b>Merge this commit into the one above it and throw its message away.</b> Section H is about when to prefer this.</span></div>
+      </div>
+      <p><b><code>drop</code> is worth recognising too</b>: it removes a commit from the stretch entirely, and it is the polite spelling of what the legend warns about in capital letters. <b>Deleting a line does the same thing as writing <code>drop</code> in front of it</b>, which is why <code>If you remove a line here THAT COMMIT WILL BE LOST.</code> is there. Since you now know about the reflog, "lost" means "orphaned and findable for a few weeks", not "destroyed". <b>The verbs this session is not teaching</b> are <code>edit</code>, <code>exec</code>, <code>break</code>, <code>label</code>, <code>reset</code>, <code>merge</code> and <code>update-ref</code>. They exist, they solve real but narrower problems, and none of them is needed to tidy a branch.</p>
+      <p><b>Now do it.</b> Change the second and third lines from <code>pick</code> to <code>squash</code>, leaving the first alone, so the list reads:</p>
+      <div class="filebox">
+        <div class="fbh">the same three lines, edited</div>
+<pre><code>pick 9cf7fea # wip 1
+squash d1d83ef # wip 2
+squash 427cb4e # wip 3</code></pre>
+      </div>
+      <p><b>Save and close</b> (<code>Esc</code>, then <code>:wq</code>, then Enter). Because you used <code>squash</code>, Git now needs one message for the combined commit, so <b>a second editor opens</b> holding all three of the old ones:</p>
+      <div class="filebox">
+        <div class="fbh">the second editor: the combined message, as git prepares it</div>
+<pre><code># This is a combination of 3 commits.
+# This is the 1st commit message:
+
+wip 1
+
+# This is the commit message #2:
+
+wip 2
+
+# This is the commit message #3:
+
+wip 3
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# Date:      Thu Aug 13 21:44:16 2026 -0500
+#
+# interactive rebase in progress; onto 821d00d
+# Last commands done (3 commands done):
+#    squash d1d83ef # wip 2
+#    squash 427cb4e # wip 3
+# No commands remaining.
+# You are currently rebasing branch 'main' on '821d00d'.
+#
+# Changes to be committed:
+#	new file:   w.txt
+#</code></pre>
+      </div>
+      <p><b>Delete the three <code>wip</code> lines and write one real message instead</b>, for example <code>Add the w.txt draft</code>. The <code>#</code> lines can stay; Git strips them. Save and close, and the rebase finishes:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; what the terminal shows when it is done</div>
+<pre><code>[detached HEAD d598aa3] Add the w.txt draft
+ Date: Thu Aug 13 21:44:16 2026 -0500
+ 1 file changed, 3 insertions(+)
+ create mode 100644 w.txt
+Successfully rebased and updated refs/heads/main.
+
+<span class="cmd">&gt; git log --oneline --decorate=short</span>
+d598aa3 (HEAD -&gt; main) Add the w.txt draft
+821d00d Add the notes
+f3f21a7 d4 important work
+98fe89a c3 add c
+a202936 c2 add b
+3500f9d c1 add a</code></pre>
+      </div>
+      <p><b>Three commits became one, and the file has all three changes in it.</b> Nothing you wrote was lost; what went away were two commit boundaries and two useless messages.</p>
+      <div class="note"><b>Two things in that output that would otherwise puzzle you.</b> First, <b>a counter flickers past</b> reading <code>Rebasing (2/3)</code> and then <code>Rebasing (3/3)</code>, each overwriting the last in place. It is progress, not output, and it will be gone by the time the command finishes. Second, <b><code>[detached HEAD d598aa3]</code></b> rather than <code>[main ...]</code>. Session 7 taught you to read that: Git detaches HEAD internally while it rebuilds the commits, then points <code>main</code> at the result, which is what <code>Successfully rebased and updated refs/heads/main.</code> is telling you. <b>You are not left detached</b>, as the log line confirms.</div>
+    </div>
+
+    <div class="block" id="concept-squash">
+      <h3>H. <code>squash</code> against <code>fixup</code>, which is the distinction that matters</h3>
+      <p><b>The two verbs do the same thing to the commits and different things to the messages.</b> That is the whole difference and it decides which one you want:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">squash</span><span class="rd"><b>Keeps both messages</b> and opens an editor so you can write one message out of them. Use it when the second commit says something worth keeping.</span></div>
+        <div class="refrow"><span class="rr">fixup</span><span class="rd"><b>Discards the second message entirely</b> and opens no editor at all. Use it when the second commit was only ever a correction.</span></div>
+      </div>
+      <p><b><code>fixup</code> is the right answer far more often than beginners expect</b>, because most of the commits people want to squash are called things like "fix typo", "oops", "actually fix it" and "lint". Those messages have no value, and <code>squash</code> would make you sit in an editor deleting them by hand. Prove it on a pair of commits of exactly that shape:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>Add-Content w.txt "a second paragraph"
+git add w.txt
+git commit -m "Add a second paragraph"
+Add-Content w.txt "teh -&gt; the"
+git add w.txt
+git commit -m "fix typo"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "a second paragraph" &gt;&gt; w.txt
+git add w.txt
+git commit -m "Add a second paragraph"
+echo "teh -&gt; the" &gt;&gt; w.txt
+git add w.txt
+git commit -m "fix typo"</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; a real commit and a correction to it</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short -3</span>
+bde0f01 (HEAD -&gt; main) fix typo
+fa470c2 Add a second paragraph
+d598aa3 Add the w.txt draft</code></pre>
+      </div>
+      <p><b>Run <code>git rebase -i HEAD~2</code></b> and change the second line only, from <code>pick</code> to <code>fixup</code>:</p>
+      <div class="filebox">
+        <div class="fbh">the todo list, edited</div>
+<pre><code>pick fa470c2 # Add a second paragraph
+fixup bde0f01 # fix typo</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; save and close, and it is over</div>
+<pre><code>Successfully rebased and updated refs/heads/main.
+
+<span class="cmd">&gt; git log --oneline --decorate=short -2</span>
+597aec6 (HEAD -&gt; main) Add a second paragraph
+d598aa3 Add the w.txt draft</code></pre>
+      </div>
+      <p><b>No second editor opened.</b> That is the practical difference you will feel: <code>squash</code> stops and asks, <code>fixup</code> does not. The message <code>fix typo</code> no longer exists anywhere, the change it carried is folded into the commit above it, and <code>w.txt</code> holds every line you wrote. <b>The surviving commit has a new hash</b>, <code>597aec6</code>, for the reason section E gave: it is a different commit that happens to contain the same work.</p>
+      <p><b>The third verb, <code>reword</code>, in one pass.</b> Suppose the message on the older commit is not good enough either. Run <code>git rebase -i HEAD~2</code> again and change the <b>first</b> line to <code>reword</code>:</p>
+      <div class="filebox">
+        <div class="fbh">the todo list, edited</div>
+<pre><code>reword d598aa3 # Add the w.txt draft
+pick 597aec6 # Add a second paragraph</code></pre>
+      </div>
+      <p><b>Git stops when it reaches that line and opens the editor on that message alone</b>, with the old text ready to be changed. Replace it with something better, for instance <code>Add the first w.txt draft</code>, then save and close:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; the result</div>
+<pre><code>[detached HEAD 98a392a] Add the first w.txt draft
+ Date: Thu Aug 13 21:44:16 2026 -0500
+ 1 file changed, 3 insertions(+)
+ create mode 100644 w.txt
+Successfully rebased and updated refs/heads/main.
+
+<span class="cmd">&gt; git log --oneline --decorate=short -3</span>
+2fd81b5 (HEAD -&gt; main) Add a second paragraph
+98a392a Add the first w.txt draft
+821d00d Add the notes</code></pre>
+      </div>
+      <p><b>Both hashes changed, not just the reworded one.</b> That is worth pausing on, and it is the deepest idea in the session. A commit's hash is computed from its content <em>and its parent</em>, so rewriting a commit changes every commit built on top of it, all the way to the tip. <b>You cannot rewrite one commit in the middle and leave the ones above it alone</b>, because they name it as their parent. Rewriting is always "and everything after it too".</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Tidy three commits into one with <code>fixup</code>, and reword the survivor</div>
+        <p><b>Do this on a throwaway branch</b>, for the same reason as last time, and delete it at the end.</p>
+        <ol>
+          <li>From <code>main</code>, run <code>git switch -c rebase-practice</code>.</li>
+          <li>Make <b>three</b> commits on it, all touching the same file: one with a real message, then two with throwaway messages like <code>oops</code> and <code>fix</code>. Confirm with <code>git log --oneline</code>.</li>
+          <li>Run <code>git rebase -i HEAD~3</code>. <b>Before you edit anything, find the oldest of your three commits and confirm it is on the top line.</b></li>
+          <li>Mark the second and third lines <code>fixup</code>, leave the first as <code>pick</code>, then save and close. Confirm with <code>git log --oneline</code> that you have <b>one</b> commit where there were three, and open the file to confirm all three changes are still in it.</li>
+          <li>Run <code>git rebase -i HEAD~1</code> and mark the single line <code>reword</code>. Give the commit a message that describes the whole of the work rather than the first third of it.</li>
+          <li>Run <code>git reflog</code>. <b>Every version of every commit you just rewrote is in there</b>, which is what makes all of this safe. Find at least two of the originals.</li>
+          <li><b>Now put the lab back.</b> <code>git switch main</code>, then <code>git branch -D rebase-practice</code>, then confirm <code>main</code> still has <code>Add a second paragraph</code> on top.</li>
+        </ol>
+        <details><summary>Stuck getting out of the editor?</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">In vim: arrow keys to move, <code>i</code> to start typing, <code>Esc</code> when you have finished typing, then <code>:wq</code> and Enter to save and close. To abandon the whole thing instead, press <code>Esc</code> and type <code>:q!</code> then Enter, which changes nothing. If a rebase has already started and you want out, <code>git rebase --abort</code>.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I squashed three commits into one and reworded it</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-cherry">
+      <h3>I. <code>git cherry-pick</code>: one commit, copied somewhere else</h3>
+      <p><b><code>git cherry-pick &lt;hash&gt;</code> takes the change from one commit and applies it to the branch you are standing on.</b> It is what you want when a fix landed on the wrong branch, or when one commit out of a long feature branch is needed on <code>main</code> today. Set up the situation, a side branch with one commit on it, and a <code>main</code> that has moved on since:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>git switch -c side
+Set-Content s.txt "work done on the side branch"
+git add s.txt
+git commit -m "Add s.txt on side"
+git switch main
+Set-Content m.txt "main carried on"
+git add m.txt
+git commit -m "Add m.txt on main"</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>git switch -c side
+echo "work done on the side branch" &gt; s.txt
+git add s.txt
+git commit -m "Add s.txt on side"
+git switch main
+echo "main carried on" &gt; m.txt
+git add m.txt
+git commit -m "Add m.txt on main"</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; two branches that have diverged</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short -3</span>
+5ce57fc (HEAD -&gt; main) Add m.txt on main
+2fd81b5 Add a second paragraph
+98a392a Add the first w.txt draft
+
+<span class="cmd">&gt; git log --oneline --decorate=short side -3</span>
+26a48e3 (side) Add s.txt on side
+2fd81b5 Add a second paragraph
+98a392a Add the first w.txt draft</code></pre>
+      </div>
+      <p><b>Both branches share everything up to <code>2fd81b5</code> and then disagree.</b> You want that one commit from <code>side</code> on <code>main</code>, without merging the branch. Standing on <code>main</code>:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; copy one commit across</div>
+<pre><code><span class="cmd">&gt; git cherry-pick 26a48e3</span>
+[main 994b351] Add s.txt on side
+ Date: Thu Aug 13 21:46:16 2026 -0500
+ 1 file changed, 1 insertion(+)
+ create mode 100644 s.txt
+
+<span class="cmd">&gt; git log --oneline --decorate=short -3</span>
+994b351 (HEAD -&gt; main) Add s.txt on side
+5ce57fc Add m.txt on main
+2fd81b5 Add a second paragraph
+
+<span class="cmd">&gt; git log --oneline --decorate=short side -2</span>
+26a48e3 (side) Add s.txt on side
+2fd81b5 Add a second paragraph</code></pre>
+      </div>
+      <p><b>Look at the two hashes: <code>26a48e3</code> on <code>side</code>, <code>994b351</code> on <code>main</code>.</b> Same message, same file, same change, different commit. And the original is untouched, still sitting on <code>side</code> where it always was. <b>You now have two commits carrying the same change</b>, which is what "copy" means here.</p>
+      <p><b>Why the hash differs is the one sentence to take from this section, and it explains rebasing too.</b> Session 1 established that a commit is a snapshot <em>plus a parent</em>. The snapshot is identical. <b>The parent is not</b>: on <code>side</code> the commit sits on top of <code>2fd81b5</code>, and the copy on <code>main</code> sits on top of <code>5ce57fc</code>. Different parent means different commit means different hash. <b>That is also exactly what an interactive rebase does to every commit it touches</b>, and why section H saw two hashes change when only one commit was reworded.</p>
+      <div class="note"><b>The same reasoning covers something you might otherwise wonder about.</b> A commit's hash is computed from the whole commit, so the parent is not the only thing that can force a new one: the time the copy was made is in there too. That is why cherry-picking a commit onto a branch produces a new hash <b>even in the odd case where the parent happens to be the same commit</b>. The rule to carry forward is the simple one: <b>a copy of a commit is a new commit</b>, and the reason you will meet in practice is the parent.</div>
+    </div>
+
+    <div class="block" id="concept-golden">
+      <h3>J. The golden rule, stated as a question</h3>
+      <p><b>Everything since section E has replaced commits with different commits.</b> That is harmless while the commits are yours alone and it is a genuine problem the moment they are not. The rule that covers this is usually written as a commandment, <em>never rewrite public history</em>, which is easy to remember and slightly useless, because it does not tell you where the line is. <b>Ask a question instead:</b></p>
+      <div class="danger" style="background:var(--gold-soft);border-color:color-mix(in srgb, var(--gold-bright) 45%, transparent);color:var(--ink)"><b style="color:var(--gold)">Has anybody else got this commit?</b><br><br><b>If no:</b> rewrite it freely. Amend it, squash it, reword it, drop it. This is normal, safe and good practice.<br><b>If yes:</b> do not rewrite it. Undo its effect with <code>git revert</code>, which Session 7 taught, because that adds a commit rather than replacing one.</div>
+      <p><b>That is a decision rather than a taboo, and the honest version has a wide "yes, go ahead" side.</b> The commits on a branch only you have worked on, that you have never pushed, or that you pushed to your own feature branch that nobody has pulled, are <b>yours</b>. Tidying them before you open a pull request is not a dangerous exception to the rule; it is the single most common legitimate use of everything in this session.</p>
+      <p><b>Why it matters when the answer is yes.</b> Your teammate has commit <code>abc123</code>. You replace it with <code>def456</code> holding the same work. Their Git has no idea these are related: it sees a commit that has vanished and a stranger in its place. When they next pull, Git tries to reconcile two histories that genuinely disagree, and the usual outcome is that they end up with <b>both</b> copies of your work and a merge nobody wanted. <b>Nothing is destroyed and everything is confusing</b>, which in practice costs more time than losing the work would have.</p>
+      <p><b>This is also the other half of Session 6.</b> Session 6 offered rebase-and-merge as one of the ways to land a pull request and said the tidying belonged before the review, not after. This session is that tidying: squash your own scrappy commits into a reviewable shape <em>while the branch is still yours</em>, then push, then open the pull request. <b>Once review has started, other people have those commits</b>, and the answer to the question flips.</p>
+
+      <h3 style="font-size:16px;margin:22px 0 8px;color:var(--ink-soft)">The secret you committed in Session 2</h3>
+      <p><b>Session 2 left you with a promise, and this is where it comes due.</b> It asked whether an API key committed yesterday and deleted today is safe, and answered: no, it is still in yesterday's snapshot, and getting it out for real means rewriting history, which Session 8 would cover. So, plainly:</p>
+      <ul class="pts">
+        <li><b>Rewriting history can remove a secret from your local history.</b> <code>--amend</code> handles it if the commit is the most recent one and nothing else has happened since.</li>
+        <li><b>For anything older, the real tools are <code>git filter-repo</code> and <b>BFG Repo-Cleaner</b>.</b> Both rewrite every affected commit in the whole repository. Neither is built into Git, both need installing, and <b>this session is not going to teach them</b>: they are the correct tools and they deserve more room than a footnote.</li>
+        <li><b>It is disruptive for everyone who has the repository.</b> Rewriting every commit means every clone in existence now disagrees with the shared copy, and every one of your colleagues has to be told what to do about it.</li>
+        <li><b>None of it un-leaks a secret that was ever pushed.</b> Anybody who cloned, fetched, or read a notification still has it. Automated scrapers watch public repositories for exactly this.</li>
+      </ul>
+      <p><b>So the conclusion is the one Session 2 already gave you, and it does not soften with more knowledge: rotate the secret.</b> Change the key, revoke the old one, and treat the history rewrite as tidying up afterwards rather than as the fix. <b>A rewrite is not a remedy for a leak.</b> It is worth doing, and it is worth doing second.</p>
+    </div>
+
+    <div class="block" id="concept-force">
+      <h3>K. Pushing a rewrite: <code>--force-with-lease</code></h3>
+      <p><b>Rewriting a commit you have already pushed leaves your branch and the shared copy disagreeing</b>, and Git will not quietly resolve that for you. This section builds a second lab to show it, using Session 5's trick: a bare repository on your own disk standing in for GitHub, and two clones standing in for two people. No account, no network.</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build share-lab</div>
+<pre><code>cd ~
+mkdir share-lab
+cd share-lab
+git init --bare origin.git
+git clone ./origin.git work-a
+cd work-a
+Set-Content n.txt "the first note"
+git add n.txt
+git commit -m "Add n.txt"
+git push -u origin main
+Set-Content extra.txt "a second line"
+git add extra.txt
+git commit -m "Add a second line"
+git push
+cd ..
+git clone ./origin.git work-b
+cd work-b
+git config user.name "Rae Okafor"
+git config user.email "rae@example.com"
+cd ../work-a</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build share-lab</div>
+<pre><code>cd ~
+mkdir share-lab
+cd share-lab
+git init --bare origin.git
+git clone ./origin.git work-a
+cd work-a
+echo "the first note" &gt; n.txt
+git add n.txt
+git commit -m "Add n.txt"
+git push -u origin main
+echo "a second line" &gt; extra.txt
+git add extra.txt
+git commit -m "Add a second line"
+git push
+cd ..
+git clone ./origin.git work-b
+cd work-b
+git config user.name "Rae Okafor"
+git config user.email "rae@example.com"
+cd ../work-a</code></pre>
+      </div>
+      <p><b><code>work-a</code> is you and <code>work-b</code> is a colleague</b>, with her own name set so her commits are visibly hers. Session 5 built the same shape. The first clone prints <code>warning: You appear to have cloned an empty repository.</code>, which is true at that moment and stops being true one line later. <b>You end up standing in <code>work-a</code></b>, which is where the rest of this section runs.</p>
+      <div class="note"><b>Your paths will be longer than the ones printed below.</b> Git reports the full path of the shared repository in its push and fetch output. The transcripts here shorten that to <code>../origin.git</code> for readability, exactly as Sessions 5 and 6 did. Everything else matches.</div>
+      <p><b>Rewrite the commit you already pushed, then push normally:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the wall you hit first</div>
+<pre><code><span class="cmd">&gt; git commit --amend -m "Add a second line, reworded"</span>
+[main 552cbba] Add a second line, reworded
+ Date: Thu Aug 13 22:24:51 2026 -0500
+ 1 file changed, 1 insertion(+)
+ create mode 100644 extra.txt
+
+<span class="cmd">&gt; git push</span>
+To ../origin.git
+ <span class="rej">! [rejected]</span>        main -&gt; main (non-fast-forward)
+error: failed to push some refs to '../origin.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. If you want to integrate the remote changes,
+hint: use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.</code></pre>
+      </div>
+      <p><b>Session 5's rejected push, with a new cause.</b> There it happened because a colleague had pushed and you were behind; here it happens because you replaced a commit the shared copy still has. <b>Git cannot tell those two situations apart</b>, which is why the hint it prints is, in this case, actively bad advice: <code>git pull</code> would merge the old commit back into your branch and leave you holding both copies of the same work, which is the opposite of what a deliberate rewrite is for.</p>
+      <p><b>What you want is to tell the shared copy to take your version instead.</b> There are two flags for that and the difference between them is the whole section:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the safe one, when nothing has moved</div>
+<pre><code><span class="cmd">&gt; git push --force-with-lease</span>
+To ../origin.git
+ + bb4a33f...552cbba main -&gt; main (forced update)</code></pre>
+      </div>
+      <p><b>The report looks different from an ordinary push and it is worth learning to spot.</b> A normal push shows something like <code>552cbba..d0cb1e9</code>, with <b>two</b> dots and no marker, and you will see exactly that shape a few steps below when Rae pushes. A forced one shows a leading <code>+</code>, <b>three</b> dots, and <code>(forced update)</code> on the end. <b>Three dots mean the old commit is not an ancestor of the new one</b>, which is the machine-readable version of "history was rewritten here".</p>
+      <p><b>Now the case the flag exists for.</b> Rae picks up your rewrite, does her own work on top of it and pushes, all perfectly reasonably. Run this in a second terminal, or <code>cd ../work-b</code> and back again:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>cd ../work-b
+git fetch
+git reset --hard origin/main
+Set-Content r.txt "raes note"
+git add r.txt
+git commit -m "Rae adds r.txt"
+git push</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ../work-b
+git fetch
+git reset --hard origin/main
+echo "raes note" &gt; r.txt
+git add r.txt
+git commit -m "Rae adds r.txt"
+git push</code></div>
+      </div>
+      <p><b>Why Rae fetches and resets rather than simply pulling.</b> Her clone still holds the commit you replaced, so a <code>git pull</code> would try to merge your rewritten history with her copy of the old one and hand her a merge commit she never asked for, which is precisely the mess section J describes. <code>git fetch</code> followed by <code>git reset --hard origin/main</code> is her saying "throw my copy away and take the shared one", using Session 7's reset and Session 5's <code>origin/main</code>. <b>Her fetch reports <code>(forced update)</code></b>, which is the shared copy telling her that history was rewritten under her.</p>
+      <p><b>Meanwhile you, back in <code>work-a</code>, rewrite your commit again</b>, knowing nothing about Rae's push, and try the same safe flag:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-a &middot; the refusal this whole section exists for</div>
+<pre><code><span class="cmd">&gt; git commit --amend -m "Add a second line, reworded again"</span>
+[main 8d7ee70] Add a second line, reworded again
+ Date: Thu Aug 13 22:24:51 2026 -0500
+ 1 file changed, 1 insertion(+)
+ create mode 100644 extra.txt
+
+<span class="cmd">&gt; git push --force-with-lease</span>
+To ../origin.git
+ <span class="rej">! [rejected]</span>        main -&gt; main (stale info)
+error: failed to push some refs to '../origin.git'</code></pre>
+      </div>
+      <p><b><code>(stale info)</code> is the entire lesson</b>, and it is not self-explanatory, so translate it once and remember the translation: <b>"somebody moved this and you have not looked recently."</b> Notice what the message does <em>not</em> say. There is no mention of a lease, no mention of force, no hint text, and no suggestion of what to do. Two words in brackets are the whole warning, so learn to recognise them.</p>
+      <p><b>What the flag actually checks is narrower than it sounds</b>, and this is the part most explanations get wrong. <code>--force-with-lease</code> compares the shared copy against <b>your own remote-tracking branch</b>, the <code>origin/main</code> that Session 5 explained as your local record of where the shared branch was when you last looked. If those match, it pushes. If they do not, it refuses. So the honest description is:</p>
+      <div class="danger" style="background:var(--accent-soft);border-color:color-mix(in srgb, var(--accent) 45%, transparent);color:var(--ink)"><b style="color:var(--accent)"><code>--force-with-lease</code> refuses if the remote moved since you last fetched.</b></div>
+      <p><b>Say it that way rather than the way most tutorials do.</b> The common claim is that the flag makes it impossible to destroy someone else's work, and that is false.</p>
+      <p><b>There are two ways past that refusal, and the point of this section is that they end in exactly the same place.</b> Run <b>one</b> of them, not both: whichever you pick, the shared copy finishes identically, and the block after them is what Rae sees either way.</p>
+      <div class="filebox">
+        <div class="fbh">way one &middot; run in work-a &middot; no check at all</div>
+<pre><code><span class="cmd">&gt; git push --force</span>
+To ../origin.git
+ + d0cb1e9...8d7ee70 main -&gt; main (forced update)</code></pre>
+      </div>
+      <p><b>That one is unsurprising: you asked for no check and you got none.</b> The second way is the one worth knowing about, because it looks careful and is not. <b>Anything that updates <code>origin/main</code> renews the lease, including a bare <code>git fetch</code> whose output you never read.</b> From the same refused state, fetch and do nothing else, then run the identical safe push again:</p>
+      <div class="filebox">
+        <div class="fbh">way two &middot; run in work-a &middot; the footgun, verified</div>
+<pre><code><span class="cmd">&gt; git fetch</span>
+From ../origin
+   552cbba..d0cb1e9  main       -&gt; origin/main
+
+<span class="cmd">&gt; git push --force-with-lease</span>
+To ../origin.git
+ + d0cb1e9...8d7ee70 main -&gt; main (forced update)</code></pre>
+      </div>
+      <p><b>It succeeded, and Rae's commit is gone from the shared copy just as surely as the plain <code>--force</code> would have taken it.</b> The fetch updated the very thing the lease was measured against, so the check had nothing left to object to. <b>The flag protects you from pushing on stale information, not from pushing on information you never read.</b> Notice too that the fetch printed <code>552cbba..d0cb1e9</code> with two dots, Rae's commit arriving on top of yours, and you pushed straight over it without looking.</p>
+      <p><b>A success message is not evidence of harm, so go and look at the harm.</b> In <code>work-b</code>, Rae fetches:</p>
+      <div class="filebox">
+        <div class="fbh">run in work-b &middot; the other side of that push</div>
+<pre><code><span class="cmd">&gt; git fetch</span>
+From ../origin
+ + d0cb1e9...8d7ee70 main       -&gt; origin/main  (forced update)
+
+<span class="cmd">&gt; git log --oneline --decorate=short origin/main</span>
+8d7ee70 (origin/main, origin/HEAD) Add a second line, reworded again
+9a0cd71 Add n.txt
+
+<span class="cmd">&gt; git status</span>
+On branch main
+Your branch and 'origin/main' have diverged,
+and have 2 and 1 different commits each, respectively.
+  (use "git pull" if you want to integrate the remote branch with yours)
+
+nothing to commit, working tree clean</code></pre>
+      </div>
+      <p><b><code>Rae adds r.txt</code> is not in that list.</b> It was on the shared copy and now it is not. Her own clone still has it, so nothing has been destroyed on her disk, but <b>the shared copy no longer agrees with her</b> and Git is telling her the two histories have diverged. Untangling that is her problem now, caused by your push, and she got no warning of any kind.</p>
+      <p><b>So the habit is two-sided and neither half is optional.</b> Look at what you fetched before you force, because the flag cannot do that part for you. And prefer <code>--force-with-lease</code> over <code>--force</code> anyway, because it catches the case where you forgot to look at all. <b>It is a seatbelt, not a self-driving car.</b></p>
+    </div>
+
+    <div class="block" id="concept-milestone">
+      <h3>L. The milestone: destroy a branch, bring it back, and tidy one</h3>
+      <p><b>Two halves, and the first is the shortest recovery in Git.</b> Section K left you standing in <code>share-lab/work-a</code>, so the first thing to do is go back to the lab this section uses:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>cd ~/rewrite-lab</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ~/rewrite-lab</code></div>
+      </div>
+      <p><b>Confirm with <code>git log --oneline --decorate=short</code> that you are back on nine commits with <code>Add s.txt on side</code> on top.</b> Now make a branch with work on it and delete it on purpose:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">PowerShell</span><code>git switch -c doomed
+Set-Content p.txt "work I care about"
+git add p.txt
+git commit -m "Precious work"
+git switch main</code></div>
+        <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>git switch -c doomed
+echo "work I care about" &gt; p.txt
+git add p.txt
+git commit -m "Precious work"
+git switch main</code></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; Git protects you, then hands you the key</div>
+<pre><code><span class="cmd">&gt; git branch -d doomed</span>
+<span class="rej">error: the branch 'doomed' is not fully merged</span>
+hint: If you are sure you want to delete it, run 'git branch -D doomed'
+hint: Disable this message with "git config set advice.forceDeleteBranch false"
+
+<span class="cmd">&gt; git branch -D doomed</span>
+Deleted branch doomed (was 250d182).</code></pre>
+      </div>
+      <p><b>Read those two in order, because the order is the teaching.</b> <code>git branch -d</code> <em>refused</em>, and it refused for a good reason: <code>doomed</code> holds a commit that exists nowhere else, so deleting the name would leave that commit with nothing pointing at it. Session 3 taught that deleting a branch removes 41 bytes and no commits, and that is still true; what Git is objecting to is that those 41 bytes are the only way you have of finding this particular commit.</p>
+      <p><b>And then look at what <code>-D</code> printed as it did the thing you insisted on.</b> <code>Deleted branch doomed (was 250d182).</code> <b>That hash is the recovery key</b>, handed to you unasked, and it is the same generosity Session 7 saw when Git printed the hash of an orphaned commit on the way out of a detached HEAD. Putting the branch back is one command, the one from section D:</p>
+      <div class="filebox">
+        <div class="fbh">run in rewrite-lab &middot; back, in one command</div>
+<pre><code><span class="cmd">&gt; git branch doomed 250d182</span>
+
+<span class="cmd">&gt; git log --oneline --decorate=short doomed -2</span>
+250d182 (doomed) Precious work
+994b351 (HEAD -&gt; main) Add s.txt on side</code></pre>
+      </div>
+      <p><b>And if you had closed the terminal and lost that hash, the reflog has it too</b>, because making the commit moved HEAD and everything that moves HEAD is recorded. Run <code>git reflog</code> and you will find <code>commit: Precious work</code> one line down, at <code>HEAD@{1}</code>, directly below the checkout that carried you back to <code>main</code>. That is section D rule again: the commit sits underneath the operation that moved you off it. <b>Two independent routes to the same commit</b>, which is a fair summary of why this level claims that almost nothing is unrecoverable.</p>
+      <p><b>The second half is the one you will use every week.</b> Tidying a messy branch before anybody sees it is the whole of sections G and H put to work, and it is the reason to have learned them.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: recover a deleted branch, then tidy a messy one</div>
+        <p><b>Do not scroll back up.</b> Work in <code>rewrite-lab</code>. Both halves are graded on what you can say, not on which hashes you get.</p>
+        <p><b>Half one: destroy and recover.</b></p>
+        <ol>
+          <li>Make a branch called <code>scrap</code>, put one commit on it holding a file only it has, and switch back to <code>main</code>.</li>
+          <li>Try to delete it with <code>git branch -d scrap</code>. <b>Read the refusal out loud and say why Git is refusing</b>, in terms of what would be left with nothing pointing at it.</li>
+          <li>Delete it for real with <code>-D</code>. <b>Do not copy the hash it prints.</b></li>
+          <li>Get the branch back, with its commit, using the reflog rather than the printed hash. Prove it worked with <code>git log --oneline --decorate=short scrap</code>.</li>
+        </ol>
+        <p><b>Half two: tidy a branch for sharing.</b></p>
+        <ol start="5">
+          <li>Make a branch called <code>feature</code> and put <b>three</b> commits on it, all touching one file, with messages as scrappy as the ones you really write: something like <code>wip</code>, <code>more wip</code>, <code>fix typo</code>.</li>
+          <li>Before touching anything, <b>answer the golden rule question out loud</b>: has anybody else got these commits? Say what that answer permits.</li>
+          <li>Turn the three into <b>one</b> commit with a message that describes the finished work, using <code>git rebase -i HEAD~3</code>. Use <code>fixup</code> rather than <code>squash</code> for the two throwaway messages. Since fixup opens no editor at all, you get the message right in one of two ways: mark the first line <code>reword</code> in the same list, or run a second <code>git rebase -i HEAD~1</code> afterwards and reword it there.</li>
+          <li>Confirm the result three ways: <code>git log --oneline</code> shows <b>one</b> commit on top of <code>main</code>, the file contains <b>all three</b> of your changes, and <code>git status</code> is clean.</li>
+          <li><b>Say which command you would use to publish this if the branch had already been pushed</b>, and say what it would refuse to do and when.</li>
+        </ol>
+        <p><b>You have hit the milestone</b> when <code>scrap</code> is back without the printed hash, <code>feature</code> is one clean commit holding all three changes, and you can state the golden rule as a question with both of its branches.</p>
+        <details><summary>Stuck on the shape of it? The skeleton, without the answers</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">Order of operations only. Every command you need is in sections C, D, G, H and L.</p>
+<pre><code># half one
+git switch -c scrap
+# create a file, add it, commit it
+git switch main
+git branch -d scrap        # read the refusal
+git branch -D scrap        # ignore the hash it prints
+git reflog                 # find the commit here instead
+git branch scrap &lt;hash&gt;
+git log --oneline --decorate=short scrap
+
+# half two
+git switch -c feature
+# three commits on one file, scrappy messages
+git log --oneline          # confirm three, oldest at the bottom
+git rebase -i HEAD~3       # oldest is at the TOP of this list
+# mark lines 2 and 3, save and close
+git log --oneline          # confirm one
+git status                 # confirm clean</code></pre>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I recovered a deleted branch and tidied three commits into one</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in <code>rewrite-lab</code>.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a repository on <code>main</code> with a handful of commits and a clean working tree. <b>Where a drill names the four things, it means Session 7's four</b>: working tree, staging area, branch pointer, repository. <b>No drill grades a hash, a date or a path</b>, since all three differ per machine.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: recovery only works if you find the name before you need it, and a rewrite is only publishable after it exists.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> two of these six questions come from earlier sessions, because recalling older material on a delay is what makes it stick. Their review links open that session in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 08 of 10 &middot; Hit the milestone unassisted, then tick <b>S08</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; <b>You are done with <code>rewrite-lab</code> and <code>share-lab</code>.</b> Session 9 builds its own repositories, so nothing is lost if you delete both folders.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, write down the two questions this session turns on: <em>where has HEAD been</em>, and <em>has anybody else got this commit</em>. Under the first, list the three ways you can name a commit that <code>git log</code> will not show you (a hash Git printed, a reflog entry, and a branch you point at it), and the two limits of the reflog. Under the second, write the two branches of the golden rule and the command each one leads to. Then, from memory, write what <code>--amend</code>, <code>rebase -i</code> and <code>cherry-pick</code> each do to a commit hash, and one sentence saying why. Check yourself in <code>rewrite-lab</code> by making three scrappy commits on a new branch and tidying them into one without notes. &middot; Next: <b>Session 09, working like a professional</b> (Level 5).
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s08-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words, verbs,
+     command words and yes/no words, where capitalisation is presentation rather
+     than the lesson. Marking "fixup" typed as "Fixup" wrong would be an unfair
+     grade. Where case genuinely IS the lesson, namely the -d against -D flag
+     letters, the faded items opt out of folding through their own cs array;
+     see the FADED comment below. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 7 value, 1 set, 1 seq, 2 count. No drill grades a hash, a
+     date or a path. Every drill whose answer is a word or a label names the exact
+     vocabulary in the ask, so the grader has something exact to compare against and
+     a learner is never marked wrong for a synonym the session never asked for. */
+  var DRILLS = [
+    { type: 'value',
+      scen: '> git reflog\n1a2b3c4 HEAD@{0}: reset: moving to HEAD~1\n9f8e7d6 HEAD@{1}: commit: Add the parser\n1a2b3c4 HEAD@{2}: commit: Add the tests',
+      ask: 'Which HEAD@{n} names the commit that has just vanished from the log? Answer in the form HEAD@{0}.',
+      code: 'git reflog', ans: 'HEAD@{1}',
+      why: 'Every reflog line records where HEAD landed after that move, newest at the top. HEAD@{0} is the reset itself, so the position HEAD held immediately before it is the line directly below, HEAD@{1}. That is the general shape of a reflog rescue: find the operation that lost the commit, and the commit is the entry underneath it. From there, git branch rescued 9f8e7d6 names it without moving you, and git reset --hard 9f8e7d6 takes you back to it.' },
+
+    { type: 'count',
+      scen: 'A repository whose history has been rewritten dozens of\ntimes: amends, squashes, force pushes, the lot.\nYou clone it for the first time.',
+      ask: 'How many entries does git reflog show in your brand new clone? Answer with a digit.',
+      code: 'git reflog', ans: '1',
+      why: 'One, reading clone: from followed by the address. The reflog is a record of what HEAD did in one particular folder, it lives in that folder, and it is never pushed, pulled or cloned. Every rewrite in that repository happened on a machine belonging to somebody else and stayed there. This is the first of the two limits on the reflog, and it is why the reflog can save you from your own mistakes and never from those of anybody else.' },
+
+    { type: 'value',
+      scen: '> git log --oneline -1\n55db1ff (HEAD -> main) Add d.txt with a typpo\n\n> git commit --amend -m "Add d.txt"',
+      ask: 'Does the commit still have the hash 55db1ff afterwards? Answer yes or no.',
+      code: 'git commit --amend -m "Add d.txt"', ans: 'no',
+      why: 'No. A hash is computed from everything the commit contains, including the message, so changing the message must produce a different hash. Git did not edit the old commit, because a commit cannot be edited: it built a new one and moved the branch pointer onto it. The original is still stored with nothing aimed at it, which is why it turns up in the reflog. One commit, two hashes, and that fact is the entire reason the golden rule exists.' },
+
+    { type: 'set',
+      ask: 'Session 7 named four things a command can change. Which of them does git commit --amend change? Answer with one or more of these exact labels and nothing else, separated by commas: working tree, staging area, branch pointer, repository.',
+      code: 'git commit --amend --no-edit', ans: 'branch pointer, repository',
+      why: 'It adds a new commit to the repository and moves the branch pointer forward onto it. Your files are untouched and the staging area is left exactly as you had it. Notice the direction: like revert in Session 7, amend moves the pointer FORWARD onto something new rather than backwards over something old. Every rewriting command in this session has that same shape, which is why nothing here deletes a commit.' },
+
+    { type: 'seq',
+      scen: '> git reflog\n4c4c4c4 HEAD@{0}: reset: moving to HEAD~1\n7b7b7b7 HEAD@{1}: commit: Add the loader\n4c4c4c4 HEAD@{2}: checkout: moving from side to main\n2a2a2a2 HEAD@{3}: commit: Add the config\n1d1d1d1 HEAD@{4}: commit (initial): Add the readme',
+      ask: 'Which entries are commits being made, rather than moves between positions? List their HEAD@{n} labels newest first, separated by commas.',
+      code: 'git reflog', ans: 'HEAD@{1}, HEAD@{3}, HEAD@{4}',
+      why: 'Three of them, labelled commit: and commit (initial):. The other two are a reset and a checkout, which moved HEAD without creating anything. The first commit in a repository is labelled commit (initial) because it has no parent, so it is still a commit and still counts. Reading the label before the colon is how you tell at a glance what each line was, and it is the fastest way to find a lost commit in a long reflog.' },
+
+    { type: 'value',
+      scen: 'The todo list git opens for git rebase -i HEAD~3:\n\npick 9cf7fea # wip 1\npick d1d83ef # wip 2\npick 427cb4e # wip 3',
+      ask: 'Is the commit on the FIRST line the oldest or the newest of the three? Answer with one word.',
+      code: 'git rebase -i HEAD~3', ans: 'oldest',
+      why: 'The oldest, which is the reverse of git log and the single most common way people squash the wrong commits. Git applies the list from top to bottom, in the order the commits were originally made, so the top line is the earliest. Check which commit is on the top line before you edit anything, every time, because the list looks exactly like a log and is ordered the opposite way.' },
+
+    { type: 'value',
+      ask: 'One of squash and fixup keeps both commit messages and asks you to combine them; the other throws the second message away. Which one throws it away?',
+      code: '# squash or fixup?', ans: 'fixup',
+      why: 'Fixup keeps only the message of the commit above and discards the one on its own line, so no editor opens at all. Squash keeps both and stops to let you write one message out of the two. Fixup is the right answer whenever the second commit was only ever a correction, which is what commits called fix typo or oops always are, and it saves you deleting those messages by hand.' },
+
+    { type: 'count',
+      scen: 'Three commits, and the todo list is edited to read:\n\npick   9cf7fea # wip 1\nsquash d1d83ef # wip 2\nsquash 427cb4e # wip 3',
+      ask: 'After the rebase finishes, how many commits are there where those three were? Answer with a digit.',
+      code: 'git rebase -i HEAD~3', ans: '1',
+      why: 'One. Each squash melds its commit into the one above it, so the second folds into the first and the third folds into that result. All three sets of changes survive in the file; what disappears are two commit boundaries and two messages. The new commit has a hash none of the originals had, and all three originals are still in your reflog until it expires.' },
+
+    { type: 'value',
+      scen: 'Branch side has one commit on it, 26a48e3, and main has\ntwo commits that side does not have. Standing on main:\n\n> git cherry-pick 26a48e3',
+      ask: 'Is the commit now on main the same hash as 26a48e3, or a different one? Answer with one word: same or different.',
+      code: 'git cherry-pick 26a48e3', ans: 'different',
+      why: 'Different, and the reason is the whole concept. A commit is a snapshot plus a parent (Session 1). The snapshot is identical, but on side the commit sits on top of one thing and the copy on main sits on top of another, so the parent differs and therefore the hash differs. The original is untouched on side, so you end up with two commits carrying the same change. That is also exactly what a rebase does to every commit it replays.' },
+
+    { type: 'value',
+      scen: 'You have rewritten a commit that is already on the shared\ncopy, and a plain git push has just been rejected.',
+      ask: 'Which flag refuses to push if the shared copy moved since you last fetched? Answer with just the flag, starting with two dashes.',
+      code: 'git push ?', ans: '--force-with-lease',
+      why: 'It compares the shared copy against your own origin/main, the record of where that branch was when you last looked. If they match it pushes, and if they do not it refuses with (stale info). Say it as "refuses if the remote moved since you last fetched" rather than as a promise that it cannot destroy work belonging to somebody else, because that promise is false: a bare git fetch updates the very thing the check is measured against, and the next attempt goes straight through.' },
+
+    { type: 'value',
+      scen: 'Branch review holds one commit that is not merged\nanywhere else.',
+      ask: 'What does git branch -d review do? Answer with one word: deletes or refuses.',
+      code: 'git branch -d review', ans: 'refuses',
+      why: 'It refuses, with error: the branch review is not fully merged, because deleting the name would leave that commit with nothing pointing at it. Session 3 taught that deleting a branch removes 41 bytes and no commits, which is still true; what Git objects to is that those 41 bytes are your only way of finding this one. git branch -D overrides it, and helpfully prints the hash you would need to undo that.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both prompts narrate their steps in order, and every tile answers exactly one
+     narrated step, so there is no second arrangement that matches the description. */
+  var PARSONS = [
+    { prompt: 'You deleted a branch called doomed a moment ago and now want it back, and you did not keep the hash. Start by trying the safe delete, the one that refuses when a branch holds work that exists nowhere else. Then delete it for real, overriding that refusal. Now look up everywhere HEAD has been, to find the commit again. Point the old name back at it. Finally read that branch history to confirm the commit is there.',
+      lines: ['git branch -d doomed', 'git branch -D doomed', 'git reflog', 'git branch doomed 250d182', 'git log --oneline --decorate=short doomed'] },
+    { prompt: 'You pushed a commit, then noticed a file that belonged in it was never staged. Start by reading where your branch is standing. Put the forgotten file on the shortlist. Fold it into the commit that is already there, keeping the message it already has. Then publish the rewritten commit using the push that refuses if the shared copy has moved since you last fetched.',
+      lines: ['git log --oneline --decorate=short', 'git add forgotten.txt', 'git commit --amend --no-edit', 'git push --force-with-lease'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Every comment describes what the line DOES, never the token being blanked.
+     `cs` marks the blanks where CASE IS THE LESSON and must be graded exactly:
+     git branch -d and -D are different commands (one refuses, one does not), and
+     git rebase -i has no -I. Everywhere else the shared case-folding grader
+     applies, because there capitalisation is presentation rather than meaning. */
+  var FADED = [
+    { prompt: 'A commit has gone from your log and you never wrote its hash down. Fill the blanks so the first line lists every position HEAD has held here, the second gives the commit a name without moving you off what you are doing, the third moves your current branch back onto it instead, and the fourth removes a branch name even though its work is not merged anywhere.',
+      code: 'git %%                    # list every position HEAD has held in this repo\ngit branch rescued 4a4918e   # point a new name at the commit you found\ngit reset --%% 4a4918e       # or move your branch back onto it instead\ngit branch -%% rescued       # remove the name, refusal and all', ans: ['reflog', 'hard', 'D'], cs: [false, false, true] },
+    { prompt: 'Three rewrites, one per line. Fill the blanks so the first replaces the commit you just made with a corrected one, the second opens the editable list of your last three commits, and the third publishes a rewritten branch in the way that stops if the shared copy has moved since you last fetched.',
+      code: 'git commit --%% -m "Add the notes"   # replace the last commit\ngit rebase -%% HEAD~3                # open the list of the last three\ngit push --%%                        # publish it, but check first', ans: ['amend', 'i', 'force-with-lease'], cs: [false, true, false] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          // a cs-marked blank is a flag letter, where -d and -D are different commands
+          var ok = (f.cs && f.cs[i]) ? (b.value.trim() === f.ans[i]) : (norm(b.value) === norm(f.ans[i]));
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Build a throwaway repository of your own, somewhere outside rewrite-lab so you do not disturb it. Call it reflog-lab, make main its first branch, and put two commits in it. Now make a third commit that matters, and throw it away with the most destructive reset there is, WITHOUT noting its hash anywhere. Get it back twice over: first by giving it a name that sits beside your current work and leaves your own branch where it is, then, after checking that your branch really did not move, by putting your branch back onto it. Finish by writing down which reflog entry you took the hash from and why it was that one.',
+      sol: 'cd ~\nmkdir reflog-lab\ncd reflog-lab\ngit init -b main\n# create a.txt with Set-Content or echo, then:\ngit add a.txt\ngit commit -m "First commit"\n# create b.txt, then:\ngit add b.txt\ngit commit -m "Second commit"\n\n# the commit that matters:\n# create c.txt, then:\ngit add c.txt\ngit commit -m "Work I care about"\n\ngit reset --hard HEAD~1     # gone from the log, hash not written down\ngit log --oneline           # two commits\n\ngit reflog                  # HEAD@{0} is the reset, HEAD@{1} is the commit\ngit branch rescued <hash from HEAD@{1}>\ngit log --oneline rescued   # three commits\ngit log --oneline           # still two: branch moved nothing\n\ngit reset --hard <the same hash>\ngit log --oneline           # three again\ngit branch -d rescued       # the rescue name has no job left\n\n# to write down: HEAD@{1}, because the commit that vanished is\n# always the entry directly below the operation that lost it' },
+
+    { task: 'In reflog-lab, on a new branch called amend-lab so your main stays clean, commit a file with a message you know is wrong. Fix only the message, without making a second commit, and show that the hash changed. Then create a second file that should have been in that same commit, fold it in without being asked for a message at all, and prove with one command that a single commit now holds both files. Finally find every version of that commit in the reflog and say how many there are. Switch back to main and delete the branch when you are done.',
+      sol: 'git switch -c amend-lab\n# create draft.md, then:\ngit add draft.md\ngit commit -m "Add teh draft"\ngit log --oneline -1        # write this hash down\n\ngit commit --amend -m "Add the draft"\ngit log --oneline -1        # a different hash for the same work\n\n# create notes.md, then:\ngit add notes.md\ngit commit --amend --no-edit   # keeps the message, no editor\ngit show --stat --oneline HEAD # one commit, two files\n\ngit reflog                  # three versions of that commit are listed\n\ngit switch main\ngit branch -D amend-lab     # -D because it is not merged\n\n# the answer: three. The typo one, the message-fixed one, and the\n# one holding both files. Each amend built a new commit and left\n# the previous one behind with nothing pointing at it.' },
+
+    { task: 'Still in reflog-lab, on a fresh branch called tidy-lab, produce the mess most people really produce: four commits touching one file, where the first has a sensible message and the other three say something like wip, oops and fix. Before you rewrite anything, answer out loud whether anybody else has these commits and say what that permits. Then turn all four into a single commit whose message describes the finished work, choosing the verb that does not make you delete three useless messages by hand. Confirm the file still holds all four changes and that the log shows one commit. If you get lost inside the rebase, back out of it completely and start again rather than pressing on.',
+      sol: 'git switch -c tidy-lab\n# four commits on one file, e.g. notes.md:\n#   "Add the notes"  then  "wip"  then  "oops"  then  "fix"\ngit log --oneline           # four, newest at the top\n\ngit rebase -i HEAD~4\n# the list opens OLDEST FIRST, so it reads:\n#   pick  <a> # Add the notes\n#   pick  <b> # wip\n#   pick  <c> # oops\n#   pick  <d> # fix\n# change the last three to fixup, leave the first as pick:\n#   pick  <a> # Add the notes\n#   fixup <b> # wip\n#   fixup <c> # oops\n#   fixup <d> # fix\n# save and close (Esc, then :wq, then Enter in vim)\n\n# fixup keeps only the first message and opens no editor.\n# to change that message too, run:\ngit rebase -i HEAD~1        # mark the single line reword\n\ngit log --oneline           # one commit\ncat notes.md                # all four changes present\ngit status                  # clean\n\n# if it goes wrong at any point:\ngit rebase --abort          # prints nothing, puts everything back' },
+
+    { task: 'Build the shared-copy situation from scratch in a folder called push-lab: a bare repository standing in for the server, and one clone of it. Put a commit in the clone and push it. Now rewrite that pushed commit, and try an ordinary push. Read the rejection and say in one sentence why the hint it gives you is bad advice here. Get your rewrite published using the flag that checks before it forces. Then make a second clone, commit and push from it, come back to the first, rewrite again, and try the same safe flag. Write down the exact two words in brackets that come back, what they mean in plain English, and the one everyday command that would make the identical push succeed straight afterwards.',
+      sol: 'cd ~\nmkdir push-lab\ncd push-lab\ngit init --bare origin.git\ngit clone ./origin.git work-a\ncd work-a\n# create n.txt, then:\ngit add n.txt\ngit commit -m "Add n.txt"\ngit push -u origin main\n\ngit commit --amend -m "Add n.txt, reworded"\ngit push                    # ! [rejected] ... (non-fast-forward)\n\n# why the hint is bad advice: git pull would merge the OLD commit\n# back in, leaving two copies of the same work, which is the\n# opposite of what rewriting it was for.\n\ngit push --force-with-lease # + <old>...<new> main -> main (forced update)\n\ncd ..\ngit clone ./origin.git work-b\ncd work-b\n# create r.txt, then:\ngit add r.txt\ngit commit -m "A colleague commit"\ngit push\n\ncd ../work-a\ngit commit --amend -m "Add n.txt, reworded again"\ngit push --force-with-lease # ! [rejected] ... (stale info)\n\n# to write down:\n#   the two words: stale info\n#   plain English: somebody moved this and you have not looked recently\n#   the command that defeats it: git fetch, on its own, because the\n#   lease is measured against your own origin/main and fetch updates it' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'What git reflog records', b: 'every position HEAD has held in THIS repository, on your disk only' },
+    { f: 'What HEAD@{2} means', b: 'where HEAD was standing two moves ago' },
+    { f: 'How HEAD@{1} differs from HEAD~1', b: 'HEAD@{1} is where you were; HEAD~1 is a parent in the history' },
+    { f: 'The two limits of the reflog', b: 'it is local only, and it expires: 90 days, or 30 if unreachable' },
+    { f: 'Recover a commit and keep it BESIDE your work', b: 'git branch <name> <hash>, which moves nothing' },
+    { f: 'Recover a commit by going back to it', b: 'git reset --hard <hash>' },
+    { f: 'Where a lost commit sits in the reflog', b: 'directly below the operation that lost it' },
+    { f: 'What git commit --amend does to the hash', b: 'builds a REPLACEMENT commit, so the hash changes' },
+    { f: 'Add a forgotten file to the commit you just made', b: 'git add <file> then git commit --amend --no-edit' },
+    { f: 'Open the editable list of your last three commits', b: 'git rebase -i HEAD~3' },
+    { f: 'Which end of the rebase todo list is the OLDEST commit', b: 'the TOP line, the opposite way round from git log' },
+    { f: 'squash against fixup', b: 'squash keeps both messages and asks; fixup discards the second' },
+    { f: 'Get out of a rebase that has already started', b: 'git rebase --abort, which prints nothing and restores everything' },
+    { f: 'Why a cherry-picked commit gets a new hash', b: 'same snapshot, new parent, and a commit is both' },
+    { f: 'The golden rule, as a question', b: 'has anybody else got this commit? If yes, revert it instead' },
+    { f: 'What --force-with-lease actually checks', b: 'it refuses if the remote moved since YOU last fetched' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  /* Four new Session-8 questions carry an in-page scrollIntoView backlink (part).
+     The two recall questions carry an external new-tab link (ext), since the
+     concept they test lives in the Session 1 and Session 7 artifacts, not here. */
+  var S1_URL = 'git-session-01.html';
+  var S7_URL = 'git-session-07.html';
+  var QUIZ = [
+    { q: 'What does git reflog actually record?',
+      o: ['Every position HEAD has held in this one repository, kept only on your disk',
+          'Every commit ever pushed to the shared copy, downloaded when you clone it',
+          'Every change made to any file, including the ones you never committed',
+          'Every branch created or deleted, along with the person who did each one'],
+      c: 0,
+      e: 'It records moves of HEAD, in this folder, labelled by what caused each one: commit, checkout, reset, revert, rebase, cherry-pick. That is why it can name a commit git log will not show you. It is never pushed or cloned, so a fresh clone of a heavily rewritten repository has a reflog exactly one line long, and it expires: 90 days by default, 30 for entries nothing points at.',
+      part: { id: 'concept-reflog', label: 'C. git reflog: every position HEAD has held' } },
+
+    { q: 'You run git commit --amend to fix a typo in the message of the commit you just made. What happens to that commit?',
+      o: ['It is replaced by a new commit with a different hash, and the original is orphaned',
+          'It is edited in place, so the message changes and the hash stays exactly as it was',
+          'It is deleted from the repository and a fresh one is written in its place',
+          'It is kept as it was, and a second commit is added on top that corrects it'],
+      c: 0,
+      e: 'A commit cannot be edited. Its hash is computed from everything it contains, message included, so a different message means a different commit. Amend builds the replacement and moves your branch pointer onto it, leaving the original stored with nothing aimed at it, which is exactly where the reflog finds it. That is also what the last option describes, but that is revert from Session 7, and it makes the log longer rather than replacing anything.',
+      part: { id: 'concept-amend', label: 'E. git commit --amend, the gentlest rewrite' } },
+
+    { q: 'In a rebase todo list you mark a commit fixup rather than squash. What is the difference?',
+      o: ['Fixup throws that commit message away; squash keeps both and asks you to combine',
+          'Fixup discards the commit changes as well, where squash keeps all of the changes',
+          'Fixup works only on the very last commit, and squash can be used on any of them',
+          'Fixup leaves two commits in place, and squash is the one that merges them into one'],
+      c: 0,
+      e: 'Both fold the commit into the one above it and both keep every change. The difference is only the message: fixup keeps the earlier one and silently drops this one, so no editor opens at all, while squash keeps both and stops for you to write a single message. Fixup is the right answer for commits called fix typo or oops, which is most of the ones anybody wants to squash.',
+      part: { id: 'concept-squash', label: 'H. squash against fixup' } },
+
+    { q: 'What does git push --force-with-lease actually protect you against?',
+      o: ['Pushing over a shared branch that has moved since the last time you fetched it',
+          'Pushing over work belonging to anybody else, which it makes flatly impossible to do',
+          'Pushing a commit that would break the build, which it checks before sending',
+          'Pushing to the wrong branch, by comparing the branch name against the remote'],
+      c: 0,
+      e: 'It compares the shared copy against your own origin/main, the record of where that branch was when you last looked, and refuses with (stale info) if they differ. Note how narrow that is. It is not a guarantee that work belonging to somebody else is safe: a bare git fetch updates the very thing the check is measured against, so fetching and immediately retrying the identical push succeeds and takes their commit with it. Look at what you fetched.',
+      part: { id: 'concept-force', label: 'K. Pushing a rewrite: --force-with-lease' } },
+
+    { q: 'Recall from Session 7: a commit is already on the shared copy and a teammate has pulled it. Which command undoes its effect safely, and why?',
+      o: ['Revert, because it adds a new commit rather than replacing an existing one',
+          'Reset, because it moves your branch pointer without deleting any commit at all',
+          'Restore, because it works on files and therefore never touches shared history',
+          'Amend, because it corrects the commit in place without changing what it is'],
+      c: 0,
+      e: 'Revert writes a new commit whose content cancels the old one out, so the history only ever grows and your teammate can simply receive it. Everything else on that list rewrites or moves history that somebody else already holds, which leaves the two of you disagreeing about what the history is. This is the yes branch of the golden rule in this session: if anybody else has the commit, revert it instead of rewriting it.',
+      ext: { url: S7_URL, label: 'Session 7: it is already pushed, and git revert (opens in a new tab)' } },
+
+    { q: 'Recall from Session 1: what does a commit actually store?',
+      o: ['A complete snapshot of every tracked file, plus a pointer to its parent commit',
+          'Only the lines that changed since the previous commit, stored as a small diff',
+          'A copy of the files you edited, with the unchanged ones left out to save room',
+          'A list of the commands you ran, which Git replays to rebuild the project state'],
+      c: 0,
+      e: 'A snapshot plus a parent, not a diff. That is the reason every rewrite in this session produces new hashes: the hash is computed from the whole commit, parent included, so giving a commit a new parent makes it a genuinely different commit. It is why a cherry-picked copy differs from its original, and why rewording one commit changes every commit stacked above it.',
+      ext: { url: S1_URL, label: 'Session 1: a commit is a snapshot with a parent (opens in a new tab)' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S08 on your Hub and move on to Session 9.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>

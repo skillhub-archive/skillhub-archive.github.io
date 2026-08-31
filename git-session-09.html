@@ -1,0 +1,1660 @@
+<title>Git Sprint &middot; Session 9: Working like a professional</title>
+<style>
+  /* Palette inherited from git-hub.html: same role-named tokens, same values.
+     --on-accent exists because the dark accent is a light blue, so white text on
+     it would fail contrast; every accent-filled element uses it instead of #fff. */
+  :root {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+      --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+      --accent-soft: #16243A; --on-accent: #0E1218;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F4F8; --surface: #FFFFFF; --surface-2: #EAEEF4; --ink: #151A22;
+    --ink-soft: #48505F; --ink-faint: #646C7B; --border: #DEE3EB; --accent: #1B62C4;
+    --accent-soft: #E5EDFA; --on-accent: #FFFFFF;
+    --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(18,26,40,.04), 0 6px 20px rgba(18,26,40,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1218; --surface: #161B23; --surface-2: #1E242E; --ink: #EBEFF5;
+    --ink-soft: #AAB2C0; --ink-faint: #848A98; --border: #262D38; --accent: #7FB3FF;
+    --accent-soft: #16243A; --on-accent: #0E1218;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session needs it as badly as the ones before it: Cascadia Code would
+     otherwise redraw the -> in (HEAD -> main) and in upstream/HEAD -> upstream/main,
+     the -- in --show-scope, --global and --date, and the ... in a truncated path. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .fbh, .refrow .rr, .refrow .rd b, .pcl, .sch, .srow .sl, .reveal .lbl,
+  .reveal .verdict, .card .cn, .card .cd, .opt .key, .deck-meta, .task summary,
+  .crumb, .hublink, .milestone .flag, .prog .p .n, .prog .reset, .sec > .sh .tag,
+  .sec > .sh .part-reset, .flashcard .side-lbl, .area .an, .arrow code, .ptable
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* one shared column width: prose, cards, code and transcripts all align */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  .cm { color: var(--ink-faint); }
+  /* a typed line inside a transcript, so it is never confused with what Git printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  /* the removed / added lines inside a diff transcript, tinted so they read at a glance */
+  .dmin { color: var(--bad); }
+  .dplus { color: var(--good); }
+  /* a refusal line, so the label stands out from the hint text around it */
+  .rej { color: var(--bad); font-weight: 700; }
+  /* the destructive-command warning banner */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-shell command pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the areas diagram: four boxes, carried forward from Session 7 */
+  .areas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 8px; margin: 4px 0 14px; }
+  .areas.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .areas.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; word-break: break-word; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  .arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; }
+  .arrow .ah { font-size: 17px; color: var(--ink-faint); line-height: 1; }
+  .arrow code { font-size: 10.5px; padding: 1px 5px; }
+  @media (max-width: 760px) { .areas, .areas.plain, .areas.four { grid-template-columns: 1fr; } .arrow { flex-direction: row; gap: 7px; } .arrow .ah { transform: rotate(90deg); } }
+
+  /* label / meaning rows: the reflog labels, the verbs, and the mistake-to-tool map */
+  .refmap { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 14px; }
+  .refrow { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; }
+  .refrow .rr { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+  .refrow .rd { font-size: 13px; color: var(--ink-soft); }
+  .refrow .rd b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 560px) { .refrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the decision table: which of the four things each command moves */
+  .tscroll { overflow-x: auto; margin: 4px 0 14px; }
+  .ptable { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
+  .ptable th, .ptable td { border: 1px solid var(--border); padding: 9px 11px; text-align: left; background: var(--surface); }
+  .ptable thead th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 700; }
+  .ptable tbody th { font-size: 13px; color: var(--accent); font-weight: 700; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .ptable td.y { color: var(--good); font-weight: 700; }
+  .ptable td.n { color: var(--ink-faint); }
+  .ptable td.d { color: var(--bad); font-weight: 700; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already run" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+
+  /* Parsons: two side-by-side columns. Git command lines are short (the longest
+     tile here is 37 characters), so they fit the ~54 char budget a column gives.
+     minmax(0, 1fr) rather than 1fr so a long line cannot widen its own track. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 18ch, comfortably clear of this session longest answer, "reset" */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 18ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer b { color: var(--ink-soft); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 09 // Level 5 &middot; Git in the Real World</div>
+      <a class="hublink" href="git-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Working like a professional</h1>
+    <p class="goal">Every session so far quietly assumed two things: that the repository belonged to you, and that "you" meant one person with one email address. Both assumptions break the moment you work somewhere real. This session fixes the identity half, then hands you the three tools that separate somebody who uses Git from somebody who is comfortable in it: <code>stash</code>, tags, and <code>bisect</code>.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Work in a repository you do not own, and find the commit that introduced a bug.</span>
+
+    <div class="howto">
+      <span class="ic">git</span>
+      <div>
+        <p><b>You do not need any folder from an earlier session.</b> This session builds two: <code>config-lab</code>, a small repository of your own, and <code>rate-tool</code>, a repository written by two other people that you will treat as somebody else's property. You then make a third folder yourself, <code>rate-tool-clone</code>, by cloning the second. Both are built by paste-and-run blocks, both are disposable.</p>
+        <p><b>No account and no network.</b> The section on working in a repository you do not own uses a second folder on your own disk as the stand-in, exactly as Session 5 did with <code>origin</code>. Nothing here needs GitHub.</p>
+        <p><b>One task in this session changes a real setting on your real machine</b>, in section D, and that is deliberate rather than an accident: it is the one place where a lesson about configuration is worth more as an actual change. It is a per-repository setting and it is reversible in one command, <code>git config --unset user.email</code>, which the section shows you before it asks you to change anything.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/5</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">11</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Run each task in your own terminal before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in blue is what you type. Everything underneath it is what Git printed back. Do not type the <code>&gt;</code> itself. Three things will legitimately differ on your machine: <b>commit hashes</b> (short strings like <code>f975bb2</code>), <b>dates</b>, and <b>paths</b>. Where a transcript shows a path under <code>C:/Users/you/</code>, that stands for your own home folder. <b>A fourth thing differs in this session only:</b> the transcripts were captured under a made-up identity called Rae Okafor, so wherever a name or an email address appears in Git's output, yours will show your own. Nothing here is graded on any of the four.</div>
+
+    <div class="block" id="concept-assumption">
+      <h3>A. Everything so far assumed the repository was yours</h3>
+      <p><b>Look back at what you have built in eight sessions and one thing is true of every single repository in it:</b> you made it, you own it, and nobody could stop you doing anything to it. Session 5 gave you a remote, but the remote was yours too. Session 6 gave you a pull request, but you opened it against your own repository. Session 8 handed you <code>--force-with-lease</code> and a golden rule about not rewriting shared history, which was the first hint that other people exist.</p>
+      <p><b>That assumption breaks in two different places, and this session takes them in turn.</b></p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">one machine,<br>two people</span><span class="rd">You have a single global <code>user.email</code>. The moment you have work repositories and personal ones on the same laptop, that one address is wrong for half of them, and every commit you make records the wrong one permanently. Sections C and D.</span></div>
+        <div class="refrow"><span class="rr">a repository<br>you do not own</span><span class="rd">Cloning somebody else's project is easy. Working in it without doing something rude or destructive is a matter of choosing a posture up front, and there are four of them. Section H.</span></div>
+      </div>
+      <p><b>Between those two halves sit three tools</b>, and they are here because they are what people reach for daily and almost nobody teaches them in order. <code>git stash</code> handles being interrupted mid-edit. <b>Tags</b> mark the version you shipped. <code>git bisect</code> finds the commit that broke something, and it is the closest thing in Git to a superpower: it will search a hundred commits in seven steps.</p>
+      <p><b>Out of scope today, named so you know they exist:</b> <b>signing commits</b> with GPG or SSH, so a commit can prove it came from you rather than merely claiming to; <b>worktrees</b>, which let one repository have several folders checked out at once; <b>submodules</b>, a repository nested inside another; and <b>hooks</b>, scripts Git runs automatically at certain moments, which Session 10 meets on the deploy side. One more deserves a sentence here: <code>git blame</code> shows you who last touched each line of a file, and it is the natural complement to <code>bisect</code>. Blame answers "who wrote this line", bisect answers "which commit broke this behaviour", and the second question is the harder and more useful one.</p>
+    </div>
+
+    <div class="block" id="concept-setup">
+      <h3>B. Build the lab</h3>
+      <p><b>This one is small on purpose.</b> Sections C through G all run in the same little repository, because the point of those sections is configuration and side tools rather than history. Paste the block for your shell:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build config-lab</div>
+<pre><code>cd ~
+mkdir config-lab
+cd config-lab
+git init -b main
+Set-Content notes.md "Release notes"
+git add notes.md
+git commit -m "Start the notes"
+Set-Content app.txt "version 1"
+git add app.txt
+git commit -m "Add the app file"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build config-lab</div>
+<pre><code>cd ~
+mkdir config-lab
+cd config-lab
+git init -b main
+echo "Release notes" &gt; notes.md
+git add notes.md
+git commit -m "Start the notes"
+echo "version 1" &gt; app.txt
+git add app.txt
+git commit -m "Add the app file"</code></pre>
+      </div>
+      <p><b><code>git init -b main</code> rather than a bare <code>git init</code></b>, for Session 1's reason: the <code>-b</code> flag names the first branch outright, so this behaves identically on any machine whatever that machine has configured as its default. <b>Section C is about to explain why that flag matters more than it looks</b>, using this exact setting as its worked example.</p>
+      <details style="margin:0 0 12px">
+        <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Already have a <code>config-lab</code>, or something went wrong partway? Wipe it and start clean</summary>
+        <div style="margin-top:10px">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px"><b>Run this instead of the block above, not as well as it</b>, and check you are in your home directory first: it deletes a folder without asking.</p>
+          <div class="shells">
+            <div class="srow"><span class="sl">PowerShell</span><code>cd ~
+Remove-Item -Recurse -Force config-lab</code></div>
+            <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>cd ~
+rm -rf config-lab</code></div>
+          </div>
+          <p style="font-size:13px;color:var(--ink-soft);margin:0">Then paste the build block for your shell again.</p>
+        </div>
+      </details>
+      <p>Now confirm you have what everything below assumes, standing in <code>config-lab</code>:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; the state everything below starts from</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+ff2b677 (HEAD -&gt; main) Add the app file
+27449b1 Start the notes
+
+<span class="cmd">&gt; git status</span>
+On branch main
+nothing to commit, working tree clean</code></pre>
+      </div>
+      <p><b>Two commits and a clean tree.</b> If you are on Git Bash on Windows you will also have seen a <code>warning:</code> line about LF and CRLF after each <code>git add</code>, which is Session 1's line-ending note and is not a problem. <b>The same warning appears after <code>git stash</code> in section F</b>, for the same reason and just as harmlessly. PowerShell writes files the way Git wants already and prints none of them.</p>
+    </div>
+
+    <div class="block" id="concept-layers">
+      <h3>C. Three config files, and the most specific one wins</h3>
+      <p><b>Every setting you have ever given Git lives in a plain text file, and there is more than one of them.</b> Git reads three, in a fixed order, and each one can overrule the one before it. This is the entire idea, and once you have it, half of Git's "why is it doing that" moments dissolve.</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">system</span><span class="rd">One file for the whole machine, written by the installer. On Windows it is at <code>C:/Program Files/Git/etc/gitconfig</code>. You will rarely edit it and you did not write what is in it. <b>Read with</b> <code>--system</code>.</span></div>
+        <div class="refrow"><span class="rr">global</span><span class="rd">One file for <b>you</b>, at <code>.gitconfig</code> in your home folder. This is where your name and email went in Session 1. It applies to every repository you touch. <b>Read and written with</b> <code>--global</code>.</span></div>
+        <div class="refrow"><span class="rr">local</span><span class="rd">One file per repository, at <code>.git/config</code> inside it. It applies to that repository and nothing else. <b>Writing is what defaults here</b>: a <code>git config</code> command with no scope flag writes to this layer. <b>Reading with no flag is a different thing</b>, and the difference matters: it resolves across all three layers and hands back whichever value wins. <code>--local</code> is the flag that reads this layer alone.</span></div>
+      </div>
+      <p><b>Later beats earlier, so local beats global beats system.</b> That last sentence is worth reading twice, because the default with no flag is the <em>most</em> specific one, which is the opposite of what most people assume when they first meet these commands.</p>
+      <p><b>The command that makes all of this visible at once is <code>git config --list --show-scope</code></b>, which prints every setting Git can currently see with the layer it came from in front of it. Run it in <code>config-lab</code>. The output below is filtered to the settings this section is about, because the unfiltered list is long:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; who set what, and where</div>
+<pre><code><span class="cmd">&gt; git config --list --show-scope</span>
+system	init.defaultbranch=master
+global	user.name=Rae Okafor
+global	user.email=rae@example.com
+global	init.defaultbranch=main</code></pre>
+      </div>
+      <p><b>Look at <code>init.defaultbranch</code>, which appears twice.</b> The installer wrote <code>master</code> into the system file. Your global file says <code>main</code>. Global is more specific than system, so <code>main</code> wins and a bare <code>git init</code> gives you a branch called <code>main</code>. <b>That is the whole mechanism in one key</b>, and it is also the answer to something Session 1 raised: the reason this track always writes <code>git init -b main</code> is that a machine whose global file is missing that line silently falls through to the system layer and gets <code>master</code>, with no warning printed at all.</p>
+      <p><b>There is a second form of the same command</b>, <code>git config --list --show-origin</code>, which prints the file path instead of the layer name. Use <code>--show-scope</code> when you want to know <em>which layer</em>, which is usually the question, and <code>--show-origin</code> when you want to know <em>which file to open</em>. They are otherwise identical.</p>
+      <p><b>Any setting layers this way, not just that one.</b> <code>core.editor</code>, which decides what opens when Git needs a message from you, is a common example: an installer may set one machine-wide, you may prefer another for everything you do, and a single repository may need a third. Whichever layer is most specific is the one that answers.</p>
+      <p><b>No <code>local</code> line appears above, and that is not an error.</b> The filter accounts for part of it and the repository accounts for the rest: a brand new one has a <code>.git/config</code> holding only bookkeeping Git wrote for itself, keys like <code>core.repositoryformatversion</code> and <code>core.filemode</code>. Run the command unfiltered and you will see those, tagged <code>local</code>. <b>What is missing is a local setting of your own</b>, and section D is about putting one there.</p>
+    </div>
+
+    <div class="block" id="concept-identity">
+      <h3>D. More than one identity on one machine</h3>
+      <p><b>Here is the problem, and it is probably sitting on your laptop right now.</b> Your global <code>user.email</code> was set once, in Session 1, and every commit you have made since has been stamped with it. That is correct for exactly one category of repository. The moment you have a work project and a personal project on the same machine, one of those two categories is getting the wrong address on every commit, forever, because <b>a commit records the author email as part of the commit itself</b> and changing the setting afterwards does not go back and fix it.</p>
+      <p><b>What it looks like when it goes wrong</b> is worth naming, because the symptom is not an error message. Push a commit to GitHub with an email GitHub does not recognise and the commit still arrives, still shows your typed name, and simply is not linked to your account: no avatar, no profile link, and it does not appear in your contribution graph. Push one with your <em>other</em> account's email and it is attributed to that other account. <b>Nothing fails, which is exactly why people do it for months without noticing.</b></p>
+      <p><b>The fix is one line, and it uses the local layer from section C.</b> Inside a repository, <code>git config user.email</code> with no scope flag writes to that repository's own <code>.git/config</code>, where it beats the global setting for that repository alone. Run this in <code>config-lab</code>:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; give this one repository its own email</div>
+<pre><code><span class="cmd">&gt; git config user.email</span>
+rae@example.com
+
+<span class="cmd">&gt; git config user.email "rae@personal.example"</span>
+
+<span class="cmd">&gt; git config user.email</span>
+rae@personal.example
+
+<span class="cmd">&gt; git config --global user.email</span>
+rae@example.com</code></pre>
+      </div>
+      <p><b>Setting it printed nothing</b>, which is normal for <code>git config</code> when it writes. <b>Now look at the first and third commands, which are identical and give different answers.</b> A read with no flag does not mean "read the local file", it means "resolve this key across all three layers and tell me which value wins": before the change that was the global address, afterwards it is the local one. The fourth command asks specifically for the machine-wide file, and shows it sitting exactly where it was. <b>You have not changed your identity, you have overridden it in one place.</b> And the file it wrote to is one you can open:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; all three layers, filtered as before</div>
+<pre><code><span class="cmd">&gt; git config --list --show-scope</span>
+system	init.defaultbranch=master
+global	user.name=Rae Okafor
+global	user.email=rae@example.com
+global	init.defaultbranch=main
+local	user.email=rae@personal.example</code></pre>
+      </div>
+      <p><b>Now the single most useful non-obvious fact in this session</b>, and the one that produces the confusing half-broken cases. Make a third commit, using this exact message, because every transcript from here to the end of section G quotes it back at you:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; a third commit, message and all</div>
+        <div class="shells">
+          <div class="srow"><span class="sl">PowerShell</span><code>Add-Content notes.md "a second line"
+git add notes.md
+git commit -m "Add a second line"</code></div>
+          <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "a second line" &gt;&gt; notes.md
+git add notes.md
+git commit -m "Add a second line"</code></div>
+        </div>
+      </div>
+      <p>Now read back who Git says made it:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; whose name, whose email?</div>
+<pre><code><span class="cmd">&gt; git log -1 --pretty="%an &lt;%ae&gt;"</span>
+Rae Okafor &lt;rae@personal.example&gt;</code></pre>
+      </div>
+      <p><b>The name came from the global file and the email came from the local one.</b> Git resolves configuration <b>per key</b>, not per section and not per file: it looks for <code>user.email</code> through all three layers and takes the most specific answer, then does the same thing separately for <code>user.name</code>. Nothing inherits as a block. <b>That is exactly the mistake that produces half-attributed commits</b>, where somebody sets a personal email on a work laptop and their commits go out with their work display name attached to their personal address.</p>
+      <p><b>And the commits you already made keep the old address</b>, which the log shows plainly:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; config applies forwards only</div>
+<pre><code><span class="cmd">&gt; git log --pretty="%h  %an &lt;%ae&gt;  %s"</span>
+f975bb2  Rae Okafor &lt;rae@personal.example&gt;  Add a second line
+ff2b677  Rae Okafor &lt;rae@example.com&gt;  Add the app file
+27449b1  Rae Okafor &lt;rae@example.com&gt;  Start the notes</code></pre>
+      </div>
+      <p><b>Two addresses in one history.</b> Fixing the old ones means rewriting every one of those commits, which is Session 8's territory and its golden rule, and it is the reason this is worth getting right early rather than tidying later.</p>
+      <div class="note"><b>The advanced form, named but not taught:</b> a <code>[includeIf]</code> block in your global config can pull in a different config file automatically based on the folder a repository sits in, so everything under <code>~/work/</code> gets one identity and everything under <code>~/personal/</code> gets another, with no per-repository step at all. It is the right answer once you have more than a handful of repositories. Set the local value by hand a few times first, because <code>includeIf</code> is much easier to trust once you have watched the plain version work.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Override an identity in one repository, then do it for real</div>
+        <ol>
+          <li>In <code>config-lab</code>, run <code>git config --list --show-scope</code> and find the line that supplies your <code>user.email</code>. <b>Note which layer it comes from</b> before you change anything.</li>
+          <li>Run <code>git config user.email "you@personal.example"</code>, using any address you like. Run <code>git config --list --show-scope</code> again and find the new <code>local user.email=</code> line, with the <code>global</code> one still there and unchanged. <b>Look for that exact key</b> rather than for the word local on its own, because Git bookkeeping already puts several <code>local</code> lines in the unfiltered list.</li>
+          <li>Open <code>.git/config</code> in an editor and read the <code>[user]</code> section you just created. <b>This is the whole feature</b>: a text file with one setting in it.</li>
+          <li>Make the third commit using the block above, with the message <code>Add a second line</code> exactly as written, then run <code>git log -1 --pretty="%an &lt;%ae&gt;"</code>. <b>Predict the answer before you run it.</b> Which of the two values is the name, and which is the email? <b>Keep the message as given</b>, because sections F and G both print it back.</li>
+          <li><b>Now the real one, and the undo first:</b> anything you set here comes straight back out with <code>git config --unset user.email</code>, which step 6 has you practise. Pick an actual personal repository on your machine, one that is yours rather than your employer's, and run <code>git config user.email</code> inside it to see what it would currently stamp on a commit. If that is your work address, set the local override the same way you just did. If you have no personal repository yet, skip this step rather than inventing one.</li>
+          <li><b>To undo any of it</b>, run <code>git config --unset user.email</code> in that repository. The local line disappears and the global default takes over again. Try it in <code>config-lab</code>, confirm with <code>--show-scope</code>, then set it back.</li>
+        </ol>
+        <details><summary>How do I tell whether a repository is "personal" if they are all just folders?</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">Run <code>git remote -v</code> in it and read the address. A repository whose <code>origin</code> points at your employer's organisation is a work one; a repository whose <code>origin</code> points at your own account, or which has no remote at all, is personal. If you are not sure, leave it alone: setting the wrong local email is harmless and reversible, but there is no point guessing.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I set a repo-local email, saw local beat global, and saw the name and the email come from different layers</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-credentials">
+      <h3>E. Credential helpers: what that line in your config is doing</h3>
+      <p><b>This section is here to make one line in your config stop being magic.</b> It is descriptive rather than hands-on, and there is nothing to run and nothing to set.</p>
+      <p><b>Start with the problem.</b> When you push to a remote over HTTPS, the server has to know who you are. Modern GitHub does not accept your account password for this; it wants a token, which is a long generated string. <b>Typing a long generated string on every single push is not a workflow</b>, so Git has a mechanism for delegating the question: a <b>credential helper</b>, which is simply a program Git asks whenever it needs an answer to "who are you and what is your secret".</p>
+      <p><b>You almost certainly have at least one already.</b> On Windows the installer sets one machine-wide, in the system layer from section C:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">manager</span><span class="rd">The Git Credential Manager, the Git for Windows default. It stores credentials in the operating system's own vault (Windows Credential Manager) and can open a browser window to log you in the first time. It arrives in the <b>system</b> layer, which is why you never configured it.</span></div>
+        <div class="refrow"><span class="rr">the <code>gh</code> CLI</span><span class="rd">If you have installed GitHub's command line tool and run <code>gh auth login</code>, it can register itself as a helper for GitHub addresses specifically. Git then asks <code>gh</code> for credentials, and <code>gh</code> answers from whichever account it is currently logged in as.</span></div>
+        <div class="refrow"><span class="rr">store</span><span class="rd">Writes the token to a plain text file in your home folder, unencrypted. It exists, it works, and it is worth recognising in somebody else's config so you can point out that it is a poor idea on a shared machine.</span></div>
+      </div>
+      <p><b>Which one is answering for you is a config question like any other</b>, and you can read it with what section C gave you: <code>git config --list --show-scope</code> and look for <code>credential.helper</code>. If you see a line in the system layer saying <code>credential.helper=manager</code>, that is the installer's default doing its job. If you see a longer one in your global layer naming a program, something you installed has taken over for a particular host.</p>
+      <div class="note"><b>The one rule that matters here.</b> A credential helper exists so that a secret is stored somewhere designed to hold secrets, rather than pasted into things. <b>Never put a token into a repository, a config file you might commit, a screenshot, or a message to anybody</b>, and if you ever print your config in front of another person, check what is in it first. A token is a password that does not look like one, which is precisely why it gets leaked.</div>
+      <p><b>The practical upshot for the rest of this session:</b> nothing below needs a credential helper, because every remote is a folder on your own disk. The reason it is in the session at all is that section H is about repositories belonging to other people, and "how does my machine prove who I am to their server" is the question sitting directly underneath that.</p>
+    </div>
+
+    <div class="block" id="concept-stash">
+      <h3>F. <code>git stash</code>: the interruption tool</h3>
+      <p><b>The situation is always the same.</b> You are half way through an edit, nothing is finished, nothing is worth committing, and you need to be on another branch right now. Committing rubbish to get it out of the way is what most people do and it leaves a commit called <code>wip</code> in the history forever. <b><code>git stash</code> is the tool for exactly this</b>: it takes your uncommitted changes to files Git is already tracking, stores them somewhere Git manages, and leaves you with a clean tree. <b>That qualifier about tracked files is doing real work</b>, and the end of this section is about what it costs you if you miss it.</p>
+      <p><b>Run it in <code>config-lab</code>.</b> Change something in <code>notes.md</code> first, so there is an edit to put away:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; put an edit away and get it back</div>
+<pre><code><span class="cmd">&gt; git status --short</span>
+ M notes.md
+
+<span class="cmd">&gt; git stash</span>
+Saved working directory and index state WIP on main: f975bb2 Add a second line
+
+<span class="cmd">&gt; git status</span>
+On branch main
+nothing to commit, working tree clean
+
+<span class="cmd">&gt; git stash list</span>
+stash@{0}: WIP on main: f975bb2 Add a second line</code></pre>
+      </div>
+      <p><b>The tree is clean and the edit is not lost</b>, it is in a list. <code>stash@{0}</code> is a name you can use, and the numbering works like Session 8's reflog: <b>zero is the most recent</b>, and stashing again pushes everything down so what was <code>stash@{0}</code> becomes <code>stash@{1}</code>. It is a stack.</p>
+      <p><b>Getting it back is <code>git stash pop</code></b>, which applies the top stash and removes it from the list in one move. Be ready for the volume of output, because pop prints a full status report and then tells you what it dropped:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; git stash pop</div>
+<pre><code><span class="cmd">&gt; git stash pop</span>
+On branch main
+Changes not staged for commit:
+  (use "git add &lt;file&gt;..." to update what will be committed)
+  (use "git restore &lt;file&gt;..." to discard changes in working directory)
+	modified:   notes.md
+
+no changes added to commit (use "git add" and/or "git commit -a")
+Dropped refs/stash@{0} (e80349328060f89b07da2cfbc9468d0c975ff281)</code></pre>
+      </div>
+      <p><b><code>apply</code> is the sibling of <code>pop</code> and the difference is one word: <code>pop</code> removes the stash from the list, <code>apply</code> leaves it there.</b> Use <code>apply</code> when you want the same set of changes on two branches, or when you are not yet sure the stash applied cleanly and want the safety of still having it. The cost is that you then have to remove it yourself with <code>git stash drop</code>, and stashes nobody ever dropped are how people end up with eleven of them.</p>
+      <p><b>A stash with no message is labelled <code>WIP on main</code>, which tells you nothing once you have three.</b> Give it one with <code>git stash push -m</code>, and notice that the prefix in the listing changes from <code>WIP on</code> to <code>On</code> when you do:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; a named stash, and apply rather than pop</div>
+<pre><code><span class="cmd">&gt; git stash push -m "half-written release notes"</span>
+Saved working directory and index state On main: half-written release notes
+
+<span class="cmd">&gt; git stash list</span>
+stash@{0}: On main: half-written release notes
+
+<span class="cmd">&gt; git stash apply</span>
+On branch main
+Changes not staged for commit:
+  (use "git add &lt;file&gt;..." to update what will be committed)
+  (use "git restore &lt;file&gt;..." to discard changes in working directory)
+	modified:   notes.md
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+<span class="cmd">&gt; git stash list</span>
+stash@{0}: On main: half-written release notes
+
+<span class="cmd">&gt; git stash drop</span>
+Dropped refs/stash@{0} (6f6e2c57921dd3b5a82b58683c5a978c7a1ee8ea)</code></pre>
+      </div>
+      <p><b>The stash was still listed after <code>apply</code> and only went away when told to.</b> That is the whole distinction. <b>Note what that has left behind:</b> <code>apply</code> put the edit back onto <code>notes.md</code> and <code>drop</code> removed only the list entry, so the stash list is empty while your working tree is dirty again. Discard the edit before going on, because the next section needs a genuinely clean tree to make its point:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; back to a clean tree</div>
+<pre><code><span class="cmd">&gt; git restore notes.md</span>
+
+<span class="cmd">&gt; git status --short</span></code></pre>
+      </div>
+      <p><b><code>git restore</code> is the Session 7 command for discarding an unstaged edit</b>, and it prints nothing when it works. The empty <code>git status --short</code> underneath it is the confirmation, and it is what the next block depends on.</p>
+      <p><b>Now the thing that must not be missed</b>, because it is a genuine data surprise rather than a detail. <b><code>git stash</code> does not stash untracked files.</b> A file Git has never been told about is invisible to a plain stash, and the command does not warn you that it ignored anything. Create a brand new file, so that it is the only thing in the working tree, and watch:</p>
+      <div class="filebox">
+        <div class="fbh">create the file first &middot; pick your shell</div>
+        <div class="shells">
+          <div class="srow"><span class="sl">PowerShell</span><code>Set-Content scratch.md "notes I have not committed yet"</code></div>
+          <div class="srow"><span class="sl">Git Bash / macOS / Linux</span><code>echo "notes I have not committed yet" &gt; scratch.md</code></div>
+        </div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; the trap</div>
+<pre><code><span class="cmd">&gt; git status --short</span>
+?? scratch.md
+
+<span class="cmd">&gt; git stash</span>
+No local changes to save
+
+<span class="cmd">&gt; git status --short</span>
+?? scratch.md</code></pre>
+      </div>
+      <p><b>"No local changes to save", and the file is still sitting there.</b> Git means it precisely: an untracked file is not a change to anything, because there is nothing to compare it against. <b>The reason this matters is what happens next.</b> A learner who stashes, switches branch, and finds their new file still in the folder concludes that stash is broken or that branches do not really isolate anything. Neither is true; the file was never in the stash, and it was never on either branch, because it is not in Git at all yet.</p>
+      <p><b>The fix is <code>-u</code>, for untracked:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; git stash -u</div>
+<pre><code><span class="cmd">&gt; git stash -u</span>
+Saved working directory and index state WIP on main: f975bb2 Add a second line
+
+<span class="cmd">&gt; git status --short</span>
+
+<span class="cmd">&gt; git stash pop</span>
+Already up to date.
+On branch main
+Untracked files:
+  (use "git add &lt;file&gt;..." to include in what will be committed)
+	scratch.md
+
+nothing added to commit but untracked files present (use "git add" to track)
+Dropped refs/stash@{0} (f546c658fe6eb13a09f10711f117bfcb17373271)</code></pre>
+      </div>
+      <p><b>This time the status printed nothing at all</b>, because the file really was taken off disk, and popping brought it back as an untracked file exactly as it was. The <code>Already up to date.</code> line at the top of the pop is Git reporting on the tracked half, which had nothing in it; it is not an error.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Stash an edit, then prove the untracked trap to yourself</div>
+        <ol>
+          <li>In <code>config-lab</code>, edit <code>notes.md</code> and stash it with a message: <code>git stash push -m "my first stash"</code>. Run <code>git status</code> and confirm the tree is clean.</li>
+          <li>Run <code>git stash list</code> and read the label. <b>Predict whether it starts <code>WIP on</code> or <code>On</code></b> before you look.</li>
+          <li>Run <code>git stash apply</code>, then <code>git stash list</code> again. <b>Is the stash still there?</b> Now run <code>git stash drop</code> and check the list is empty.</li>
+          <li><b>The trap.</b> With a clean tree, create a brand new file that Git has never seen: <code>Set-Content scratch.md "notes"</code> in PowerShell, or <code>echo "notes" &gt; scratch.md</code> in Git Bash. Run <code>git stash</code> and <b>read what Git says</b>. Then run <code>git status --short</code> and confirm the file is still there.</li>
+          <li>Now run <code>git stash -u</code> and check <code>git status --short</code> again. The file should be gone from the folder entirely. Run <code>git stash pop</code> to bring it back.</li>
+          <li><b>Put the lab back the way you found it</b> before moving on: delete <code>scratch.md</code>, and run <code>git restore notes.md</code> to discard the edit, which is Session 7's command for exactly that. <code>git status</code> should be clean and <code>git stash list</code> should be empty.</li>
+        </ol>
+        <details><summary>Step 4 did nothing at all. Is that right?</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">Yes, and that is the lesson. If <code>scratch.md</code> is the only thing in your working tree, Git prints <code>No local changes to save</code> and stops, because from its point of view there are no changes: an untracked file is not a modification of anything it is tracking. If you had also had an edit to <code>notes.md</code> outstanding, the stash would have succeeded, taken the edit, and silently left <code>scratch.md</code> behind, which is the more dangerous version of the same behaviour.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I stashed and restored an edit, and watched a plain stash ignore an untracked file</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-tags">
+      <h3>G. Tags: marking the version you shipped</h3>
+      <p><b>A branch name moves and a tag name does not.</b> That is the whole difference. Every time you commit on <code>main</code>, the name <code>main</code> slides forward onto the new commit, which is what Session 3 meant by calling a branch a pointer. <b>A tag is a name that gets attached to one specific commit and stays there permanently</b>, which is what you want for "this exact commit is what we released as version 1.0".</p>
+      <p><b>There are two kinds, and the difference is real rather than cosmetic.</b></p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">lightweight</span><span class="rd"><code>git tag v0.1.0</code>. Just a name pointing at a commit. Nothing else is recorded: no author, no date, no message. Fine for a private bookmark you will delete next week.</span></div>
+        <div class="refrow"><span class="rr">annotated</span><span class="rd"><code>git tag -a v1.0.0 -m "First real release"</code>. A genuine object stored in the repository, carrying <b>who tagged it, when, and why</b>. This is what you want for anything anybody else will see.</span></div>
+      </div>
+      <div class="note"><b>Always pass <code>-m</code> when you use <code>-a</code>.</b> <code>git tag -a v1.0.0</code> on its own opens a text editor to ask for the message, the same way a bare <code>git commit</code> does. Session 4 covered what opens on your machine and how to get out of it; the simple move here is to supply the message on the command line and never meet the editor at all.</div>
+      <p><b>Make one of each in <code>config-lab</code> and then prove the difference</b>, rather than taking it on trust:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; two tags, and the proof they differ</div>
+<pre><code><span class="cmd">&gt; git tag v0.1.0</span>
+
+<span class="cmd">&gt; git tag -a v1.0.0 -m "First real release"</span>
+
+<span class="cmd">&gt; git tag</span>
+v0.1.0
+v1.0.0
+
+<span class="cmd">&gt; git cat-file -t v0.1.0</span>
+commit
+
+<span class="cmd">&gt; git cat-file -t v1.0.0</span>
+tag</code></pre>
+      </div>
+      <p><b><code>git cat-file -t</code> prints what type of object a name resolves to</b>, and Session 4 already used it. The lightweight tag resolves straight through to a <b>commit</b>, because that is all it is: a label on a commit. The annotated tag resolves to an object of type <b>tag</b>, which is a thing in its own right that in turn points at the commit. <b>Two words of output, and they settle it.</b></p>
+      <p><b><code>git show</code> makes the same point in a way you will actually notice day to day.</b> On the annotated tag it prints a header block first, then the commit; on the lightweight one it goes straight to the commit with no header at all:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; git show on the annotated tag</div>
+<pre><code><span class="cmd">&gt; git show v1.0.0 --stat</span>
+tag v1.0.0
+Tagger: Rae Okafor &lt;rae@personal.example&gt;
+Date:   Thu Aug 20 11:39:24 2026 -0500
+
+First real release
+
+commit f975bb20afa12e22ad4a3cb7e42c425b4b9b0f1b
+Author: Rae Okafor &lt;rae@personal.example&gt;
+Date:   Thu Aug 20 11:38:23 2026 -0500
+
+    Add a second line
+
+ notes.md | 1 +
+ 1 file changed, 1 insertion(+)</code></pre>
+      </div>
+      <p><b>Note the Tagger line carries the email you set in section D</b>, which is the per-repository identity doing its job on a completely different kind of object.</p>
+      <p><b><code>git tag -n</code> lists tags with a message beside each one, and quietly shows the difference too:</b></p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; git tag -n</div>
+<pre><code><span class="cmd">&gt; git tag -n</span>
+v0.1.0          Add a second line
+v1.0.0          First real release</code></pre>
+      </div>
+      <p><b>The annotated tag shows its own message. The lightweight one shows the commit's message</b>, because it has no message of its own and Git falls back to the only text available. If you ever see a tag list where some entries look like release notes and others look like commit subjects, that is what you are looking at.</p>
+      <p><b>Tags show up in the log decoration</b> alongside the branch names Session 3 taught, labelled so you can tell them apart:</p>
+      <div class="filebox">
+        <div class="fbh">run in config-lab &middot; tags in the log</div>
+<pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
+f975bb2 (HEAD -&gt; main, tag: v1.0.0, tag: v0.1.0) Add a second line
+ff2b677 Add the app file
+27449b1 Start the notes</code></pre>
+      </div>
+      <p><b>Two things to know about tags and remotes, both of which surprise people.</b> First: <b><code>git push</code> does not push tags.</b> You can tag a release, push, and find that nothing on the server knows about the tag, because tags travel only when asked. <code>git push origin v1.0.0</code> sends one; <code>git push --tags</code> sends all of them. Second: <b>a GitHub release is a tag with extra material attached to it.</b> The tag is the part Git knows about; the title, the notes and any downloadable files are GitHub's layer on top. There is no such thing as a release without a tag underneath it.</p>
+      <div class="note"><b>This is the hook into Session 10.</b> Deploying something raises the question "which exact commit is live right now", and a tag is how that question gets a permanent answer. Session 10 uses one.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make both kinds of tag and prove which is which</div>
+        <ol>
+          <li>In <code>config-lab</code>, create a lightweight tag: <code>git tag v0.1.0</code>. It prints nothing.</li>
+          <li>Create an annotated one: <code>git tag -a v1.0.0 -m "First real release"</code>. <b>Include the <code>-m</code></b>, or an editor opens.</li>
+          <li>Run <code>git tag</code> and confirm both are listed. Nothing in that output distinguishes them, which is the point of the next step.</li>
+          <li>Run <code>git cat-file -t v0.1.0</code> and <code>git cat-file -t v1.0.0</code>. <b>Say what each will print before you press enter.</b> One word each.</li>
+          <li>Run <code>git tag -n</code> and work out why the two message columns look like they came from different places, then run <code>git show v0.1.0</code> and <code>git show v1.0.0</code> and find the header that only one of them has.</li>
+          <li>Run <code>git log --oneline --decorate=short</code> and find both tags in the decoration next to <code>HEAD -&gt; main</code>.</li>
+          <li><b>Tidy up if you like:</b> <code>git tag -d v0.1.0</code> deletes a tag locally. Leave <code>v1.0.0</code> in place, it does no harm.</li>
+        </ol>
+        <details><summary>Which kind should I actually use?</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">Annotated, for anything anyone else will ever see, and for anything you might want to understand six months later. It costs one extra flag and one message, and in exchange the tag can answer who made this release and when. Lightweight tags are for temporary private bookmarks, for example marking where you were before an experiment so you can find your way back.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I made both kinds of tag and used cat-file to prove which one is its own object</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-postures">
+      <h3>H. Repositories you do not own: four postures</h3>
+      <p><b>You are about to clone something you did not write, which every section before this one has avoided.</b> The risk is not that you will break their repository, because you almost certainly cannot: their copy lives on their server and your permissions there are whatever they chose. The real risks are smaller and more embarrassing. <b>Accidentally creating a merge commit in a history that was clean. Pushing to a branch you should not have. Rewriting something and finding out afterwards that four people had it.</b></p>
+      <p><b>The defence is to decide your posture before you start, rather than discovering it halfway through.</b> There are four, in order of how much they let you do:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr">1. read-only<br>clone</span><span class="rd"><code>git clone</code> and then never push. Everything you do is local, and nothing you do can reach anybody. This is the correct posture for reading code, running it, and searching its history, which is most of what you will ever do in somebody else's repository.</span></div>
+        <div class="refrow"><span class="rr">2. fast-forward<br>only</span><span class="rd">A read-only clone plus <code>git config pull.ff only</code>, so a pull can never quietly create a merge commit. Set it in any clone you intend to keep in step with somebody else's work.</span></div>
+        <div class="refrow"><span class="rr">3. a fork</span><span class="rd">A server-side copy of their repository that belongs to <b>you</b>. You can push to it freely because it is yours. This is the standard way to contribute to a project you have no write access to, and it is what Session 6's pull request model runs on.</span></div>
+        <div class="refrow"><span class="rr">4. fork plus<br><code>upstream</code></span><span class="rd">A clone of your fork with a second remote pointing at the original, so you can keep pulling in their new work while pushing your own to your copy. This is the full working setup.</span></div>
+      </div>
+      <p><b>Posture 2 is worth setting up properly, because it defends against a specific and common accident.</b> Session 5 taught that <code>git pull</code> is fetch plus merge. When your branch and theirs have both moved, that merge is a real merge and it makes a merge commit, in a history that may have been deliberately kept linear. <code>pull.ff only</code> tells Git to refuse in that situation instead:</p>
+      <div class="filebox">
+        <div class="fbh">what an ff-only pull does when the branches have diverged</div>
+<pre><code><span class="cmd">&gt; git config pull.ff only</span>
+
+<span class="cmd">&gt; git pull</span>
+From C:/Users/you/./rate-tool
+   db323bc..b259a2e  main       -&gt; origin/main
+hint: Diverging branches can't be fast-forwarded, you need to either:
+hint:
+hint: 	git merge --no-ff
+hint:
+hint: or:
+hint:
+hint: 	git rebase
+hint:
+hint: Disable this message with "git config set advice.diverging false"
+fatal: Not possible to fast-forward, aborting.</code></pre>
+      </div>
+      <p><b>Read what actually happened there.</b> The fetch half succeeded, so their new commits are now on your disk and <code>origin/main</code> has moved. The merge half refused. <b>Nothing was lost and nothing was created</b>; Git downloaded the news and then declined to make a decision on your behalf, which is exactly what you want from a repository you do not own. The two hints are Git telling you how to proceed deliberately if you meant to.</p>
+      <p><b>Postures 3 and 4 are the fork model, and it is Session 5's picture with one more remote.</b> Session 5 gave you a single remote called <code>origin</code>, which was the shared copy. A fork setup has two, and the names are a convention rather than a rule:</p>
+      <div class="refmap">
+        <div class="refrow"><span class="rr"><code>origin</code></span><span class="rd"><b>Your fork.</b> You own it, you can push to it, and it is where your branches go before they become a pull request.</span></div>
+        <div class="refrow"><span class="rr"><code>upstream</code></span><span class="rd"><b>Their repository.</b> The one you forked from. You fetch from it to stay current and you never push to it.</span></div>
+      </div>
+      <p><b>Adding the second remote is one command</b>, <code>git remote add &lt;name&gt; &lt;url&gt;</code>, which takes a name you choose and an address. After that <code>git fetch upstream</code> downloads their work under names like <code>upstream/main</code>, and you merge or rebase it into your own branch exactly as Session 5 taught. <b>The transcript below was run against folders on one disk rather than against GitHub</b>, using a bare repository as the stand-in for the fork, so that it can be checked without an account. <b>With a real fork the two addresses would be GitHub URLs</b> and every line would otherwise be identical:</p>
+      <div class="filebox">
+        <div class="fbh">the fork setup, run against folders rather than GitHub</div>
+<pre><code><span class="cmd">&gt; git remote -v</span>
+origin	C:/Users/you/./my-fork.git (fetch)
+origin	C:/Users/you/./my-fork.git (push)
+
+<span class="cmd">&gt; git remote add upstream ../rate-tool</span>
+
+<span class="cmd">&gt; git remote -v</span>
+origin	C:/Users/you/./my-fork.git (fetch)
+origin	C:/Users/you/./my-fork.git (push)
+upstream	../rate-tool (fetch)
+upstream	../rate-tool (push)
+
+<span class="cmd">&gt; git fetch upstream</span>
+From ../rate-tool
+ * [new branch]      main       -&gt; upstream/main
+
+<span class="cmd">&gt; git branch -r</span>
+  origin/HEAD -&gt; origin/main
+  origin/main
+  upstream/HEAD -&gt; upstream/main
+  upstream/main</code></pre>
+      </div>
+      <p><b>Four lines, two of them theirs.</b> The two <code>HEAD -&gt;</code> lines are pointers to each side default branch rather than branches in their own right, and on older versions of Git the <code>upstream/HEAD</code> one may not appear at all until you ask for it with <code>git remote set-head upstream -a</code>. Three lines instead of four is not a fault. From here, keeping current is <code>git fetch upstream</code> then <code>git merge upstream/main</code> on your <code>main</code>, and contributing is a branch, a push to <code>origin</code>, and a pull request as in Session 6.</p>
+      <div class="note"><b>Forking itself is a button on a website, not a Git command</b>, and this session does not ask you to press it. The commands above are the part that is Git, and they are what you will need the first time you contribute to somebody's project. Part 4 has a write-it that walks the whole setup, so you have written it once before you need it.</div>
+    </div>
+
+    <div class="block" id="concept-bisect">
+      <h3>I. <code>git bisect</code>: binary search over history</h3>
+      <p><b>Here is the situation bisect is for.</b> Something worked in March and it is broken now. There are eighty commits in between, written by several people, and none of the messages says "break the totals". You could read all eighty. You could check out commits at random and hope. <b>Or you could halve the problem seven times.</b></p>
+      <p><b>That is exactly what bisect does, and the idea is worth stating before the commands.</b> You tell Git one commit where the thing was broken and one where it was fine. Git checks out the commit in the middle and asks you which it is. Your answer eliminates half the remaining range. Repeat. <b>A range of eight commits is settled in three tests; a range of a thousand takes ten.</b> The search does not care how big the history is, which is why this scales in a way reading does not.</p>
+      <p><b>Build the repository you are going to search, and note that this one is not yours.</b> It has eight commits, written in March by two people called Rae Okafor and Dmitri Vance, and you are about to treat it as somebody else's property. Paste the block for your shell:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell (Windows default) &middot; build rate-tool</div>
+<pre><code>cd ~
+mkdir rate-tool
+cd rate-tool
+git init -b main
+Set-Content calc.txt "TOTAL: 100"
+Set-Content rates.txt "rate table v1"
+git add .
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" --date="2026-03-02T09:02:00-0600" -m "Set up the rate table"
+Add-Content rates.txt "note: reviewed"
+git add .
+git commit --author="Dmitri Vance &lt;dmitri@example.com&gt;" --date="2026-03-04T09:04:00-0600" -m "Note the review pass"
+Add-Content rates.txt "note: second pass"
+git add .
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" --date="2026-03-06T09:06:00-0600" -m "Add a second review note"
+Add-Content rates.txt "rate table v2"
+git add .
+git commit --author="Dmitri Vance &lt;dmitri@example.com&gt;" --date="2026-03-09T09:09:00-0600" -m "Bump the rate table to v2"
+Set-Content calc.txt "TOTAL: 0"
+git add .
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" --date="2026-03-11T09:11:00-0600" -m "Recalculate the totals"
+Add-Content rates.txt "note: third pass"
+git add .
+git commit --author="Dmitri Vance &lt;dmitri@example.com&gt;" --date="2026-03-13T09:13:00-0600" -m "Add a third review note"
+Add-Content rates.txt "rate table v3"
+git add .
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" --date="2026-03-16T09:16:00-0600" -m "Bump the rate table to v3"
+Add-Content rates.txt "note: ready to ship"
+git add .
+git commit --author="Dmitri Vance &lt;dmitri@example.com&gt;" --date="2026-03-18T09:18:00-0600" -m "Mark the table ready to ship"
+cd ~</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; build rate-tool</div>
+<pre><code>cd ~
+mkdir rate-tool
+cd rate-tool
+git init -b main
+echo "TOTAL: 100" &gt; calc.txt
+echo "rate table v1" &gt; rates.txt
+git add .
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" --date="2026-03-02T09:02:00-0600" -m "Set up the rate table"
+echo "note: reviewed" &gt;&gt; rates.txt
+git add .
+git commit --author="Dmitri Vance &lt;dmitri@example.com&gt;" --date="2026-03-04T09:04:00-0600" -m "Note the review pass"
+echo "note: second pass" &gt;&gt; rates.txt
+git add .
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" --date="2026-03-06T09:06:00-0600" -m "Add a second review note"
+echo "rate table v2" &gt;&gt; rates.txt
+git add .
+git commit --author="Dmitri Vance &lt;dmitri@example.com&gt;" --date="2026-03-09T09:09:00-0600" -m "Bump the rate table to v2"
+echo "TOTAL: 0" &gt; calc.txt
+git add .
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" --date="2026-03-11T09:11:00-0600" -m "Recalculate the totals"
+echo "note: third pass" &gt;&gt; rates.txt
+git add .
+git commit --author="Dmitri Vance &lt;dmitri@example.com&gt;" --date="2026-03-13T09:13:00-0600" -m "Add a third review note"
+echo "rate table v3" &gt;&gt; rates.txt
+git add .
+git commit --author="Rae Okafor &lt;rae@example.com&gt;" --date="2026-03-16T09:16:00-0600" -m "Bump the rate table to v3"
+echo "note: ready to ship" &gt;&gt; rates.txt
+git add .
+git commit --author="Dmitri Vance &lt;dmitri@example.com&gt;" --date="2026-03-18T09:18:00-0600" -m "Mark the table ready to ship"
+cd ~</code></pre>
+      </div>
+      <p><b>Two flags in there are new and both are doing the same job.</b> <code>--author</code> records somebody else as the person who wrote the commit, and <code>--date</code> back-dates it. Together they let a paste-and-run block fabricate a repository that looks like it was written by two colleagues over a fortnight in March, which is what makes the exercise feel like the real thing rather than a toy. <b>You will not normally use either flag.</b></p>
+      <p><b>Now take the read-only posture from section H.</b> You do not work in somebody's repository directly, you clone it:</p>
+      <div class="filebox">
+        <div class="fbh">run in your home folder &middot; clone it and look at who wrote it</div>
+<pre><code><span class="cmd">&gt; git clone ./rate-tool rate-tool-clone</span>
+Cloning into 'rate-tool-clone'...
+done.
+
+<span class="cmd">&gt; cd rate-tool-clone</span>
+
+<span class="cmd">&gt; git log --pretty="%h  %an  %ad  %s" --date=short</span>
+db323bc  Dmitri Vance  2026-03-18  Mark the table ready to ship
+8aa2372  Rae Okafor  2026-03-16  Bump the rate table to v3
+febf56f  Dmitri Vance  2026-03-13  Add a third review note
+b741382  Rae Okafor  2026-03-11  Recalculate the totals
+8bbe841  Dmitri Vance  2026-03-09  Bump the rate table to v2
+ca5e39f  Rae Okafor  2026-03-06  Add a second review note
+37bc1e7  Dmitri Vance  2026-03-04  Note the review pass
+f35c86d  Rae Okafor  2026-03-02  Set up the rate table
+
+<span class="cmd">&gt; git config pull.ff only</span></code></pre>
+      </div>
+      <p><b>Eight commits, two authors, none of them you, and a safety rail set on the way in.</b> Cloning a folder rather than a URL works exactly the same way and gives you a real <code>origin</code>, which is Session 5's local-remote trick.</p>
+      <p><b>The bug: <code>calc.txt</code> should say <code>TOTAL: 100</code> and it says <code>TOTAL: 0</code>.</b> Confirm the symptom at the tip before searching, because a bisect that starts from a wrong assumption gives a confident wrong answer:</p>
+      <div class="filebox">
+        <div class="fbh">run in rate-tool-clone &middot; confirm the symptom</div>
+<pre><code><span class="cmd">&gt; cat calc.txt</span>
+TOTAL: 0</code></pre>
+      </div>
+      <p><b>On PowerShell use <code>Get-Content calc.txt</code></b>, which does the same thing. <code>cat</code> also works there as a built-in alias.</p>
+      <p><b>Now the search. Three commands start it</b>, and Git narrates what it still needs as you go:</p>
+      <div class="filebox">
+        <div class="fbh">run in rate-tool-clone &middot; opening a bisect</div>
+<pre><code><span class="cmd">&gt; git bisect start</span>
+status: waiting for both good and bad commits
+
+<span class="cmd">&gt; git bisect bad</span>
+status: waiting for good commit(s), bad commit known
+
+<span class="cmd">&gt; git bisect good HEAD~7</span>
+Bisecting: 3 revisions left to test after this (roughly 2 steps)
+[8bbe841b01e87d2f54ac46539524b6346465de7f] Bump the rate table to v2</code></pre>
+      </div>
+      <p><b>Read those three lines as a conversation.</b> <code>git bisect bad</code> with no argument means "the commit I am standing on is broken", which is true because you are on the tip. <code>git bisect good HEAD~7</code> means "seven commits back it was fine", naming the oldest commit using Session 2's <code>~</code> notation. <b>The instant Git has one of each it can start</b>, and it tells you how much work is left: three revisions to test, roughly two steps.</p>
+      <p><b>Git has now checked out a commit in the middle and is waiting for your verdict.</b> Your job at each step is to test and answer. Look at the file, then say the word:</p>
+      <div class="filebox">
+        <div class="fbh">run in rate-tool-clone &middot; three tests, three answers</div>
+<pre><code><span class="cmd">&gt; cat calc.txt</span>
+TOTAL: 100
+
+<span class="cmd">&gt; git bisect good</span>
+Bisecting: 1 revision left to test after this (roughly 1 step)
+[febf56fad33933bdb585a4b19237a929aeb28d8c] Add a third review note
+
+<span class="cmd">&gt; cat calc.txt</span>
+TOTAL: 0
+
+<span class="cmd">&gt; git bisect bad</span>
+Bisecting: 0 revisions left to test after this (roughly 0 steps)
+[b741382706bc734707172614ef06b7022cf6c665] Recalculate the totals
+
+<span class="cmd">&gt; cat calc.txt</span>
+TOTAL: 0
+
+<span class="cmd">&gt; git bisect bad</span>
+b741382706bc734707172614ef06b7022cf6c665 is the first bad commit
+commit b741382706bc734707172614ef06b7022cf6c665
+Author: Rae Okafor &lt;rae@example.com&gt;
+Date:   Wed Mar 11 09:11:00 2026 -0600
+
+    Recalculate the totals
+
+ calc.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)</code></pre>
+      </div>
+      <p><b>Three tests, and Git names the commit, its author, its date, its message and the file it touched.</b> "Recalculate the totals" is the one that broke the totals, which reads as obvious in hindsight and was invisible in a list of eight subject lines.</p>
+      <p><b>Two things about the state you are in while bisecting.</b> Git moves you around by checking out commits directly, so you are on a <b>detached HEAD</b>, which Session 7 taught. That is expected, and <code>git status</code> tells you where you are and how to leave:</p>
+      <div class="filebox">
+        <div class="fbh">run in rate-tool-clone &middot; git status during a bisect</div>
+<pre><code><span class="cmd">&gt; git status</span>
+HEAD detached at b741382
+You are currently bisecting, started from branch 'main'.
+  (use "git bisect reset" to get back to the original branch)
+
+nothing to commit, working tree clean</code></pre>
+      </div>
+      <p><b>And when you are finished you must say so</b>, because until you do you are still parked on whatever commit you were last testing:</p>
+      <div class="filebox">
+        <div class="fbh">run in rate-tool-clone &middot; ending the search</div>
+<pre><code><span class="cmd">&gt; git bisect reset</span>
+Previous HEAD position was b741382 Recalculate the totals
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.</code></pre>
+      </div>
+      <p><b><code>git bisect reset</code> puts you back on the branch you started from</b>, and it is the command to reach for if you get lost, answer wrongly, or simply want to start again. There is no state to clean up by hand.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Clone a repository you do not own, and find the bug by hand</div>
+        <ol>
+          <li>Build <code>rate-tool</code> with the block above, then go back to your home folder and clone it: <code>git clone ./rate-tool rate-tool-clone</code>. <b>Work in the clone from here on</b>, and leave <code>rate-tool</code> alone entirely; it is standing in for somebody else's server.</li>
+          <li>In the clone, run <code>git config pull.ff only</code>, then <code>git config --get pull.ff</code> to confirm it reads back <code>only</code>. <b>That is posture 2 from section H</b>, set before you touch anything.</li>
+          <li>Run <code>git log --pretty="%h  %an  %ad  %s" --date=short</code> and confirm eight commits by two people who are not you.</li>
+          <li>Confirm the symptom: <code>calc.txt</code> should say <code>TOTAL: 0</code> and it ought to say <code>TOTAL: 100</code>.</li>
+          <li>Start the search: <code>git bisect start</code>, then <code>git bisect bad</code>, then <code>git bisect good HEAD~7</code>. <b>Read the line that tells you how many steps are left</b> and write the number down.</li>
+          <li>At each step, look at <code>calc.txt</code> and answer <code>git bisect good</code> or <code>git bisect bad</code>. <b>Count how many times you have to answer.</b> Predict the number before you start, using the halving idea rather than guessing.</li>
+          <li>When Git names the first bad commit, read the whole block it prints: hash, author, date, message, and the file that changed.</li>
+          <li>Run <code>git bisect reset</code> and confirm with <code>git status</code> that you are back on <code>main</code> and no longer detached.</li>
+        </ol>
+        <details><summary>I answered one wrong and the result looks nonsense. What now?</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">Run <code>git bisect reset</code> and start over. It costs three answers. There is no partial-credit repair worth learning here, and a bisect built on one wrong verdict will confidently name the wrong commit, which is worse than no answer at all. This is also the honest reason the next section exists: a human answering by eye gets tired and makes mistakes, and a script does not.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I cloned a repository I did not write, set the ff-only rail, and bisected to the bad commit by hand</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-bisectrun">
+      <h3>J. Automating the search, and the milestone</h3>
+      <p><b><code>git bisect run</code> hands the good-or-bad judgement to a program.</b> You give it a command, and Git runs that command at every step instead of asking you. The contract is the one every command line tool already uses: <b>exit code 0 means good, and 1 through 124 mean bad.</b> Two ranges are reserved: <b>125 means this commit cannot be tested</b> and asks Git to skip it, and anything above 127 aborts the search outright.</p>
+      <p><b>An "exit code" is a number a program returns when it finishes</b>, invisible unless you look for it, which the shell uses to tell success from failure. You do not need to know more than the two cases above.</p>
+      <p><b>The hard part of this is not the flag, it is the test.</b> Bisect run needs a check that can be stated <em>mechanically</em>: something a machine can perform with no judgement. "The totals look wrong" is not one. "<code>calc.txt</code> contains the text <code>TOTAL: 100</code>" is. <b>Writing that test is the actual skill</b>, and on a real bug it is most of the work: you are converting a symptom somebody described in words into a question a script can answer the same way every time. The lab below uses a marker in a file, which keeps the focus on bisect rather than on debugging, but do not let that hide the real cost.</p>
+      <p><b>Write the test script in the clone.</b> The two shells need different files, so use the one for your shell:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell &middot; create test.ps1 in rate-tool-clone</div>
+<pre><code>Set-Content test.ps1 'if (Select-String -Path calc.txt -Pattern "TOTAL: 100" -Quiet) { exit 0 }'
+Add-Content test.ps1 'exit 1'</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; create test.sh in rate-tool-clone</div>
+<pre><code>printf '#!/bin/sh\ngrep -q "TOTAL: 100" calc.txt &amp;&amp; exit 0\nexit 1\n' &gt; test.sh
+chmod +x test.sh</code></pre>
+      </div>
+      <p><b>Both scripts say the same thing in two dialects:</b> if <code>calc.txt</code> contains <code>TOTAL: 100</code> exit 0, meaning this commit is good; otherwise exit 1, meaning it is bad. <b>The <code>chmod +x</code> on the Git Bash version marks the file executable</b>, which is a permission thing on Unix-like systems and has no PowerShell equivalent.</p>
+      <p><b>Then start the bisect exactly as before and hand it the script.</b> On PowerShell you invoke it through <code>powershell</code> itself, because a <code>.ps1</code> file is not something Git can execute directly:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell &middot; run in rate-tool-clone</div>
+<pre><code><span class="cmd">&gt; git bisect start</span>
+status: waiting for both good and bad commits
+
+<span class="cmd">&gt; git bisect bad</span>
+status: waiting for good commit(s), bad commit known
+
+<span class="cmd">&gt; git bisect good HEAD~7</span>
+Bisecting: 3 revisions left to test after this (roughly 2 steps)
+[8bbe841b01e87d2f54ac46539524b6346465de7f] Bump the rate table to v2
+
+<span class="cmd">&gt; git bisect run powershell -NoProfile -ExecutionPolicy Bypass -File test.ps1</span>
+running 'powershell' '-NoProfile' '-ExecutionPolicy' 'Bypass' '-File' 'test.ps1'
+Bisecting: 1 revision left to test after this (roughly 1 step)
+[febf56fad33933bdb585a4b19237a929aeb28d8c] Add a third review note
+running 'powershell' '-NoProfile' '-ExecutionPolicy' 'Bypass' '-File' 'test.ps1'
+Bisecting: 0 revisions left to test after this (roughly 0 steps)
+[b741382706bc734707172614ef06b7022cf6c665] Recalculate the totals
+running 'powershell' '-NoProfile' '-ExecutionPolicy' 'Bypass' '-File' 'test.ps1'
+b741382706bc734707172614ef06b7022cf6c665 is the first bad commit
+commit b741382706bc734707172614ef06b7022cf6c665
+Author: Rae Okafor &lt;rae@example.com&gt;
+Date:   Wed Mar 11 09:11:00 2026 -0600
+
+    Recalculate the totals
+
+ calc.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+bisect found first bad commit</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Git Bash / macOS / Linux &middot; the same run, different echo</div>
+<pre><code><span class="cmd">&gt; git bisect run ./test.sh</span>
+running './test.sh'
+Bisecting: 1 revision left to test after this (roughly 1 step)
+[febf56fad33933bdb585a4b19237a929aeb28d8c] Add a third review note
+running './test.sh'
+Bisecting: 0 revisions left to test after this (roughly 0 steps)
+[b741382706bc734707172614ef06b7022cf6c665] Recalculate the totals
+running './test.sh'
+b741382706bc734707172614ef06b7022cf6c665 is the first bad commit
+commit b741382706bc734707172614ef06b7022cf6c665
+Author: Rae Okafor &lt;rae@example.com&gt;
+Date:   Wed Mar 11 09:11:00 2026 -0600
+
+    Recalculate the totals
+
+ calc.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+bisect found first bad commit</code></pre>
+      </div>
+      <p><b>Same three tests, same answer, and you answered none of them.</b> The only visible difference between the shells is the <code>running</code> line: Git echoes each argument in its own quotes, so the PowerShell invocation looks busier while doing exactly the same thing. <b>Finish with <code>git bisect reset</code> as before.</b></p>
+      <p><b>Scale is the point.</b> Three tests for eight commits is a nice demonstration and not obviously worth the setup. The same script over <b>a thousand commits takes ten tests</b>, which is the version of this you will actually want, and it is the same three commands. Once a real project has a test suite, the command becomes <code>git bisect run npm test</code> or the equivalent, and finding the commit that broke a build turns into something you start and walk away from.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: find the bug again without answering a single question</div>
+        <ol>
+          <li>In <code>rate-tool-clone</code>, confirm you are on <code>main</code> and clean with <code>git status</code>. If you are still mid-bisect from the last task, run <code>git bisect reset</code> first.</li>
+          <li>Create the test script for your shell using the block above. <b>Then run it once by hand, standing on the tip</b>, and check it reports failure: in PowerShell run <code>powershell -NoProfile -ExecutionPolicy Bypass -File test.ps1</code> then <code>echo $LASTEXITCODE</code>, and in Git Bash run <code>./test.sh</code> then <code>echo $?</code>. You should see <code>1</code>, because the tip is broken. <b>A test you have not tested is not a test.</b></li>
+          <li>Start the bisect: <code>git bisect start</code>, <code>git bisect bad</code>, <code>git bisect good HEAD~7</code>.</li>
+          <li>Hand it the script with <code>git bisect run</code>. <b>Predict how many <code>running</code> lines you will see</b> before you press enter.</li>
+          <li>Confirm it names <code>Recalculate the totals</code>, the same commit you found by hand.</li>
+          <li>Run <code>git bisect reset</code>, then delete the test script.</li>
+          <li><b>Now the part that makes it a skill rather than a recipe.</b> Write one sentence, on paper, describing a bug you have actually seen at work or in your own projects. Then write the mechanical test for it: the exact check a script would perform to decide good or bad. <b>If you cannot write the test, bisect cannot help you yet</b>, and knowing that is worth as much as the command.</li>
+        </ol>
+        <details><summary>My run ended saying every commit is bad, or every commit is good.</summary>
+          <div style="margin-top:10px">
+            <p style="font-size:13px;color:var(--ink-soft);margin:0">Your script is almost certainly returning the same exit code everywhere, which is what step 2 is there to catch. Check it by hand at the tip (expect <code>1</code>) and then at the oldest commit: run <code>git switch --detach HEAD~7</code>, run the script, expect <code>0</code>, then <code>git switch main</code> to come back. If both give the same number, the check inside the script is wrong rather than the bisect. The other classic cause is running the script from the wrong folder, so the path <code>calc.txt</code> finds nothing and the check fails everywhere.</p>
+          </div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I wrote a mechanical test and let git bisect run find the bad commit for me</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">This is the whole track in miniature: <b>work out what the command will do before you run it</b>, type your answer, then check. Do not run it first, committing to a guess is what builds the model. Each drill tells you the shape of answer it wants, a single value, a count, or a list. They get harder toward the end, and after you check you can reproduce any of them in <code>config-lab</code> or <code>rate-tool-clone</code>.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a repository on <code>main</code> with a handful of commits and a clean working tree. <b>No drill grades a hash, a date, a path, an email address or a token</b>, since all of those differ per machine.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: you take a posture before you touch somebody else's repository, and you put an edit away before you go anywhere.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the commands in the box, reveal the reference to compare, then actually run yours in a terminal. The workbook cannot run Git for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each one without scrolling back up to Part 1; that is the whole point of this part.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review:</b> two of these six questions come from earlier sessions, because recalling older material on a delay is what makes it stick. Their review links open that session in a new tab.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 09 of 10 &middot; Hit the milestone unassisted, then tick <b>S09</b> on your <a href="git-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; <b>Keep <code>config-lab</code> if you want somewhere safe to try config changes; nothing later needs it.</b> Session 10 builds its own project, so <code>rate-tool</code> and <code>rate-tool-clone</code> can go whenever you like.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, write the three config layers in order and say which one wins, then write the one-line command that shows you all three at once. Under that, answer from memory: which layer supplies your name and which supplies your email, if you set only the email locally? Then write the four postures for a repository you do not own, and next to the fork one, name the two remotes and say which is theirs. Finish with bisect: write the four commands of a manual search in order, say roughly how many tests a thousand commits would need, and write one sentence on why the test is the hard part. Then go back to <code>rate-tool-clone</code>, plant a different bug yourself by editing a file on a new branch a few commits back, and bisect for it without notes. &middot; Next: <b>Session 10, ship it, break it, fix it</b> (Level 5).
+  </footer>
+</div>
+
+<script>
+  var STORE = "git-s09-workbook-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: the drill answers are state words, verbs,
+     command words and yes/no words, where capitalisation is presentation rather
+     than the lesson. Marking "annotated" typed as "Annotated" wrong would be an
+     unfair grade. The per-item cs opt-out that Session 8 used for the -d against
+     -D flag letters still exists in gradeDrill and buildFaded, but NO item in
+     this session needs it: none of -u, -a or -t has a case-paired sibling.
+     See the FADED comment below. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
+       its state words with a colon (modified:   notes.md), so a learner who copies
+       that form must not be graded wrong. Only strip when something survives, or the
+       answer "." (the git add . dot) would normalize to the empty string and then
+       ";" and "..." would grade as correct. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function gradeDrill(d, val) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(d.ans);  // count / single value: exact match
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 7 value, 2 count, 1 seq, 1 set. No drill grades a hash, a
+     date, a path, an email address or a token. Every drill whose answer is a word or
+     a label names the exact form it wants in the ask, so the grader has something
+     exact to compare against and a learner is never marked wrong for a synonym the
+     session never asked for. */
+  var DRILLS = [
+    { type: 'value',
+      scen: '> git config --list --show-scope\nsystem  core.editor=notepad\nglobal  core.editor=code --wait\nlocal   core.editor=vim',
+      ask: 'Standing in this repository, what does the command below print? Answer with the value only.',
+      code: 'git config core.editor', ans: 'vim',
+      why: 'Git reads the three files in order, system then global then local, and each one can overrule the one before it. Local is the most specific, so it wins. The catch that bites people is that local is also the DEFAULT: a git config command with no scope flag reads and writes the local layer, which is the opposite of what most people assume the first time they meet it. Reads are different, though, and it is worth being precise: a bare git config core.editor does not read the local file, it resolves across all three layers and returns the winner. Use --local, --global or --system to interrogate one layer on its own.' },
+
+    { type: 'value',
+      scen: '> git config --list --show-scope\nglobal  user.name=Rae Okafor\nglobal  user.email=rae@example.com\nlocal   user.email=rae@personal.example',
+      ask: 'You make a commit here. Does the recorded NAME come from the global layer or the local one? Answer global or local.',
+      code: 'git commit -m "Add the notes"', ans: 'global',
+      why: 'Global, because nothing local was ever set for user.name. Git resolves configuration per KEY, not per file and not per section: it looks up user.email through all three layers and takes the most specific answer, then starts again from scratch for user.name. Nothing inherits as a block. That is exactly what produces half-attributed commits, where a work display name goes out attached to a personal address, and it is why setting one of the pair is rarely what you actually wanted.' },
+
+    { type: 'value',
+      scen: '> git status --short\n?? draft.md',
+      ask: 'The only thing in the working tree is a file Git has never been told about. After the command below, is draft.md stored in the stash? Answer yes or no.',
+      code: 'git stash', ans: 'no',
+      why: 'No, and Git says so rather than failing: it prints No local changes to save and leaves the file exactly where it was. An untracked file is not a change to anything, because Git has no earlier version of it to compare against, so a plain stash does not consider it. The dangerous version of this is when you ALSO have a real edit outstanding: the stash then succeeds, takes the edit, and silently leaves the new file behind. Pass -u to include untracked files.' },
+
+    { type: 'count',
+      scen: '> git stash push -m "release notes"\n> git stash push -m "config tidy-up"',
+      ask: 'How many entries does git stash list show now? Answer with a digit.',
+      code: 'git stash list', ans: '2',
+      why: 'Two. The stash is a stack rather than a single slot, so stashing again does not overwrite what was already there. Each new stash goes on top and pushes the others down, which is also why the numbering shifts under you: what was stash@{0} becomes stash@{1} the moment you stash again. Note the labels too, since a stash made with push -m reads On main: rather than the WIP on main: you get with no message.' },
+
+    { type: 'value',
+      scen: '> git stash list\nstash@{0}: On main: config tidy-up\nstash@{1}: On main: release notes',
+      ask: 'You stashed the release notes, then later stashed the config tidy-up. Which name refers to the release notes? Answer in the form stash@{0}.',
+      code: 'git stash list', ans: 'stash@{1}',
+      why: 'stash@{1}. Zero is always the most recent, exactly as it is in Session 8 reflog entries, so the oldest stash sits at the highest number. Both are ordinary names you can hand to other commands: git stash apply stash@{1} takes that one rather than the top, and git stash drop stash@{1} removes it. Numbers renumber every time you stash or drop, so read the list rather than trusting a number you remember.' },
+
+    { type: 'value',
+      scen: '> git stash list\nstash@{0}: On main: half-written notes',
+      ask: 'Which single word completes the command below, so that it restores the top stash AND removes it from the list in one move?',
+      code: 'git stash ___', ans: 'pop',
+      why: 'pop. The sibling command, apply, does the restoring half and leaves the stash sitting in the list, which is what you want when you mean to put the same changes on a second branch, or when you are not yet sure it applied cleanly. The cost of apply is that you then have to run git stash drop yourself, and stashes nobody ever dropped are how people end up with eleven of them.' },
+
+    { type: 'value',
+      scen: '> git tag v0.1.0\n> git tag -a v1.0.0 -m "First real release"',
+      ask: 'One of these two tags is an object in its own right rather than only a name. Which one? Answer lightweight or annotated.',
+      code: 'git cat-file -t v0.1.0\ngit cat-file -t v1.0.0', ans: 'annotated',
+      why: 'Annotated. cat-file -t prints the type of object a name resolves to, and it settles this in one word each: the lightweight tag prints commit, because it is nothing but a label pointing straight at one, while the annotated tag prints tag, because it is a stored object carrying who tagged it, when, and why, which in turn points at the commit. Use annotated for anything anybody else will see.' },
+
+    { type: 'count',
+      scen: 'A repository with eight commits.\nThe tip is broken. Seven commits back it was fine.\nYou answer good or bad at each step yourself.',
+      ask: 'Roughly how many times will you have to answer before Git names the bad commit? Answer with a digit.',
+      code: 'git bisect start\ngit bisect bad\ngit bisect good HEAD~7', ans: '3',
+      why: 'Three. Each answer throws away half of the range still in play, so the work grows with the logarithm of the history rather than its length: eight commits take three tests, a thousand take ten, and a million take twenty. That is the whole argument for bisect, and Git prints its own version of it as it goes, in the roughly N steps line it shows after every verdict. Reading eight commit messages might beat this; reading a thousand does not.' },
+
+    { type: 'seq',
+      scen: 'A manual search, from a clean checkout of the tip\nthrough to being back on your branch afterwards.',
+      ask: 'Put these four bisect words into the order you type them: bad, good, reset, start. Answer as four words separated by spaces.',
+      code: 'git bisect ___   (four times, in order)', ans: 'start bad good reset',
+      why: 'start opens the search, and Git replies that it is waiting for both a good and a bad commit. bad marks the commit you are standing on as broken. good names one that was fine, usually with a name like HEAD~7. Only once Git has one of each can it begin, which is why the two status: lines appear in that order. reset is the one people forget: until you run it you are parked on whatever commit you were last testing, on a detached HEAD.' },
+
+    { type: 'set',
+      scen: 'You have forked a project belonging to somebody else\nand cloned YOUR fork to your machine. You now add a second\nremote so you can keep receiving their new work.',
+      ask: 'Name the two remotes in this setup, by their conventional names. Answer as two words, any order.',
+      code: 'git remote -v', ans: 'origin upstream',
+      why: 'origin and upstream. origin is your fork, the copy you own and the only one you push to. upstream is their repository, which you fetch from to stay current and never push to. Both names are convention rather than rule, and Git will accept anything, but these two are what every project README assumes you used. This is the Session 5 model with one more remote bolted on, so git fetch upstream then git merge upstream/main is the whole sync.' },
+
+    { type: 'value',
+      scen: 'You have cloned a repository you do not own and want a\npull to refuse rather than quietly invent a merge commit\nwhen your branch and theirs have both moved.',
+      ask: 'Which configuration KEY, set to only, does that? Answer in the form section.name.',
+      code: 'git config ___ only', ans: 'pull.ff',
+      why: 'pull.ff, set to only. Session 5 established that git pull is a fetch followed by a merge, and it is the merge half that is the hazard here: when both branches have moved, that merge is a real one and it writes a merge commit into a history somebody else may have deliberately kept linear. With pull.ff set to only, the fetch still happens and origin/main still moves, but Git then stops with Not possible to fast-forward, aborting rather than deciding for you.' }
+  ];
+
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already run</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both prompts narrate their steps in order, and every tile answers exactly one
+     narrated step, so there is no second arrangement that matches the description. */
+  var PARSONS = [
+    { prompt: 'A colleague reports that the totals in a shared tool have been wrong since March. You have never touched this project and you do not own it. Copy it onto your machine. Move into the copy. Set the rail that makes a pull refuse rather than quietly build a merge commit. Then open a bisect, tell Git that the commit you are standing on is the broken one, and last of all tell it that seven commits back things were still fine.',
+      lines: ['git clone ./rate-tool rate-tool-clone', 'cd rate-tool-clone', 'git config pull.ff only', 'git bisect start', 'git bisect bad', 'git bisect good HEAD~7'] },
+    { prompt: 'You are midway through an edit and you have also created a brand new file that Git has never been told about. Somebody asks you to look at the release branch right now. Put everything away in one command, including that new file. Check the tree really did come out clean. Go over to the other branch. Come back to your own when you are done. Finally take your work out again and clear it off the list in the same move.',
+      lines: ['git stash -u', 'git status', 'git switch release', 'git switch main', 'git stash pop'] }
+  ];
+
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled lines</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        // put the line back in its original scrambled slot, not at the end
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     No blank in this session is a case-paired flag letter (there is no -U, -A or -T
+     to distinguish from -u, -a and -t), so no item opts out of caseFold through a cs
+     array. Grading D against d would be an unfair grade here, not a lesson. */
+  var FADED = [
+    { prompt: 'Four configuration commands. Fill the blanks so the first prints every setting Git can see with the layer it came from, the second gives this one repository its own email address, the third reads back what the machine-wide default still says, and the fourth makes a pull stop rather than build a merge commit when the two branches have both moved.',
+      code: 'git config --list --show-%%              # every setting, labelled by layer\ngit config user.email "me@home.example"   # this repository only\ngit config --%% user.email                 # the machine-wide default\ngit config pull.%% only                    # stop rather than merge', ans: ['scope', 'global', 'ff'] },
+    { prompt: 'Four commands from the second half of the session. Fill the blanks so the first puts away the brand new file as well as the edited ones, the second creates a tag that carries a tagger and a message rather than being only a name, the third prints what kind of thing a name resolves to, and the fourth ends a search and puts you back on the branch you started from.',
+      code: 'git stash -%%                           # put the brand new file away too\ngit tag -%% v1.0.0 -m "First release"    # make it a real object\ngit cat-file -%% v1.0.0                  # commit, or something else?\ngit bisect %%                            # end the search, back to your branch', ans: ['u', 'a', 't', 'reset'] }
+  ];
+
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return; btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          // a cs-marked blank is a flag letter, where -d and -D are different commands
+          var ok = (f.cs && f.cs[i]) ? (b.value.trim() === f.ans[i]) : (norm(b.value) === norm(f.ans[i]));
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Somewhere outside config-lab, build a throwaway repository called identity-lab with main as its first branch, and put one commit in it. Now give that repository its own email address, different from your machine-wide one, without touching the machine-wide setting. Prove three things in turn: that the repository-level value is what a fresh read returns, that the machine-wide value is still exactly what it was, and that a commit made afterwards records your usual NAME alongside the new address. Finish by removing the repository-level setting again and confirming the machine-wide one has taken back over.',
+      sol: 'cd ~\nmkdir identity-lab\ncd identity-lab\ngit init -b main\n# create a.txt with Set-Content or echo, then:\ngit add a.txt\ngit commit -m "First commit"\n\ngit config --list --show-scope    # no local user.email yet\n\ngit config user.email "me@personal.example"\ngit config user.email             # resolves across layers: now the local one\ngit config --global user.email    # unchanged, still your usual one\n\n# create b.txt, then:\ngit add b.txt\ngit commit -m "Second commit"\ngit log -1 --pretty="%an <%ae>"\n# your usual NAME from global, the new EMAIL from local:\n# config resolves per key, so nothing inherits as a block\n\ngit config --unset user.email\ngit config user.email             # back to the global answer\ngit config --list --show-scope    # the local user.email line has gone' },
+
+    { task: 'In any repository of your own, produce the interruption that stash exists for, and prove the trap on the way through. Make an edit to a file that is already tracked, and also create a second file that Git has never been told about. Try to put everything away with the plain command first, and look carefully at what is left behind before you fix it. Then put both away properly, confirm with one command that the working tree really is empty, and bring both back in a single move. Say out loud which of the two files the plain command ignored, and why.',
+      sol: '# edit a tracked file, then create an untracked one:\n# Set-Content scratch.md "notes"   (PowerShell)\n# echo "notes" > scratch.md        (Git Bash)\n\ngit status --short          # one M line, one ?? line\n\ngit stash                   # the plain one\ngit status --short          # the ?? line is STILL THERE\n\ngit stash pop               # put the edit back first\ngit stash -u                # now take both\ngit status --short          # prints nothing at all\n\ngit stash list              # one entry\ngit stash pop               # both come back\n\n# the answer: the plain stash ignored scratch.md, because an\n# untracked file is not a change to anything Git is tracking.\n# It printed no warning about skipping it, which is the trap.' },
+
+    { task: 'In a repository of your own with at least one commit, mark the current commit as a release in both of the two available ways: once as a bare name and once as a proper object carrying who made it and why. Do not let an editor open at any point. Then, without looking anything up, prove which of the two is which using a single command per tag, and find the second, quieter place in Git output where the difference between them also shows. Finish by writing down what you would have to run to send only the proper one to a remote, given that an ordinary push will not take it.',
+      sol: 'git tag v0.1.0                         # lightweight: just a name\ngit tag -a v1.0.0 -m "First release"   # annotated: -m keeps the editor shut\n\ngit tag                                # both listed, nothing tells them apart\n\ngit cat-file -t v0.1.0                 # commit\ngit cat-file -t v1.0.0                 # tag\n# the lightweight one resolves straight to a commit;\n# the annotated one is its own object, which points at the commit\n\ngit tag -n                             # the quieter place\n# the annotated tag shows ITS OWN message; the lightweight one\n# falls back to showing the commit subject, having none of its own\n\n# git show v1.0.0 also prints a tag/Tagger/Date header\n# that git show v0.1.0 has no equivalent of\n\n# to send it, since a plain git push takes no tags at all:\ngit push origin v1.0.0                 # that one tag\n# or git push --tags                    # all of them' },
+
+    { task: 'WRITTEN ONLY: this is the one item here you cannot run, since it needs a GitHub account and a fork, so draft it, compare it against the reference, and mark it done on the strength of the draft. Write out the full setup for contributing to a project you have no write access to, as commands, assuming you have already pressed Fork on the website and that your fork is at your-name/project and theirs is at their-org/project. Clone the copy that belongs to you. Add a second remote pointing at the original under the name every project README assumes. Download their branches without merging anything. List all four remote-tracking branches to confirm both sides are visible. Then write the two commands you would run on your main to bring yourself up to date with them, and say which of your two remotes you must never push to.',
+      sol: 'git clone https://github.com/your-name/project.git\ncd project\n\ngit remote -v\n# origin is YOUR fork, both fetch and push\n\ngit remote add upstream https://github.com/their-org/project.git\ngit remote -v\n# now four lines: origin twice, upstream twice\n\ngit fetch upstream\n# * [new branch]  main  ->  upstream/main\n\ngit branch -r\n#   origin/HEAD -> origin/main\n#   origin/main\n#   upstream/HEAD -> upstream/main\n#   upstream/main\n\n# to bring your own main up to date with theirs:\ngit switch main\ngit merge upstream/main\n\n# never push to upstream. It is their repository and your\n# permissions there are whatever they chose to give you.\n# Your work goes to origin, then becomes a pull request.' }
+  ];
+
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your commands here, one per line, then run them in your terminal"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After running yours in your terminal:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      // gate Reveal until the learner has drafted something (attempt before you peek)
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ---------- */
+  var CARDS = [
+    { f: 'The three config layers, in the order Git reads them', b: 'system, then global, then local. The most specific one wins' },
+    { f: 'Show every setting with the layer it came from', b: 'git config --list --show-scope (use --show-origin for file paths)' },
+    { f: 'Where a repository-level setting is stored', b: 'in .git/config inside that repository' },
+    { f: 'Which layer a bare git config command writes to', b: 'local, the most specific one. Add --global for the machine-wide file' },
+    { f: 'How Git resolves user.name and user.email', b: 'per KEY, separately. Nothing inherits as a block' },
+    { f: 'Give one repository its own email address', b: 'git config user.email "me@personal.example", with no scope flag' },
+    { f: 'What a credential helper is', b: 'a program Git asks for your login secret, so you do not retype a token' },
+    { f: 'Does git stash save untracked files', b: 'no. A plain stash takes tracked changes only, and never warns. Pass -u' },
+    { f: 'git stash apply against git stash pop', b: 'pop removes the stash from the list, apply leaves it there' },
+    { f: 'What git bisect actually does', b: 'binary search over history: each answer discards half the range' },
+    { f: 'Stop a pull inventing a merge commit', b: 'git config pull.ff only, so it aborts instead' },
+    { f: 'In a fork setup, origin against upstream', b: 'origin is YOUR fork and you push to it; upstream is theirs and you do not' },
+    { f: 'Lightweight against annotated tag', b: 'annotated is its own object, carrying tagger, date and message' },
+    { f: 'Prove which kind of tag you are looking at', b: 'git cat-file -t <tag>: prints commit for lightweight, tag for annotated' },
+    { f: 'Do tags travel with an ordinary git push', b: 'no. git push origin <tag> for one, or git push --tags for all' },
+    { f: 'The exit code contract for git bisect run', b: '0 good, 1-124 bad, 125 skip. Finish with git bisect reset' }
+  ];
+
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ---------- */
+  /* Four new Session-9 questions carry an in-page scrollIntoView backlink (part).
+     The two recall questions carry an external new-tab link (ext), since the
+     concept they test lives in the Session 5 and Session 8 artifacts, not here. */
+  var S5_URL = 'git-session-05.html';
+  var S8_URL = 'git-session-08.html';
+  var QUIZ = [
+    { q: 'The system file says one thing, your global file says another, and the repository you are standing in says a third. Which value does Git use?',
+      o: ['The one in the repository, because the most specific layer wins',
+          'The one in the system file, since it was written first',
+          'The one in your global file, since that is where your own settings live',
+          'None of them, because Git refuses to guess and reports the conflict'],
+      c: 0,
+      e: 'Git reads system, then global, then local, and each layer overrules the one before it. Local is the most specific and therefore wins. The part that catches people is that local is also where a WRITE lands by default, so --global is the flag you have to remember rather than the other way round. A bare READ is not layer-specific at all: it resolves across all three and returns the winner. Nothing is ever reported as a conflict, which is why a setting you forgot you made can quietly govern one repository for months.',
+      part: { id: 'concept-layers', label: 'C. Three config files, and the most specific one wins' } },
+
+    { q: 'Your working tree holds one edited file and one file Git has never been told about. You run a plain git stash. What happens?',
+      o: ['The edit is stashed and the brand new file is silently left behind',
+          'Both are stashed, since stash always takes everything not committed',
+          'Git refuses to stash at all until the new file is added or ignored',
+          'Both are stashed but the new file comes back as an ordinary edit'],
+      c: 0,
+      e: 'A plain stash takes tracked changes only. An untracked file is not a change to anything, because Git holds no earlier version to compare it against, so it is skipped with no warning printed. The version people meet first is gentler: with ONLY an untracked file present, stash says No local changes to save and does nothing at all. The mixed case above is the dangerous one, because it looks like it worked. Pass -u to include untracked files.',
+      part: { id: 'concept-stash', label: 'F. git stash: the interruption tool' } },
+
+    { q: 'What is the real difference between git tag v1.0 and git tag -a v1.0 -m "Release"?',
+      o: ['The second is an object recording who tagged it, when, and why',
+          'The second can be pushed to a remote, where the first is local only',
+          'The second points at a branch, where the first points at one commit',
+          'The second can be moved later on, the first cannot'],
+      c: 0,
+      e: 'A lightweight tag is only a name pointing at a commit. An annotated one is a stored object carrying a tagger, a date and a message, which then points at the commit. Prove it with git cat-file -t: the lightweight name prints commit and the annotated one prints tag. Neither kind is pushed by an ordinary git push, both point at commits rather than branches, and both can be moved with enough force, so the recorded metadata is the whole of the difference.',
+      part: { id: 'concept-tags', label: 'G. Tags: marking the version you shipped' } },
+
+    { q: 'Why can git bisect search a thousand commits in about ten tests?',
+      o: ['Each answer discards half of the commits still in play',
+          'It reads every commit message and matches them against the bug',
+          'It tests only commits that touched your file',
+          'It remembers verdicts from previous searches in the same repository'],
+      c: 0,
+      e: 'It is a binary search over history. You supply one bad commit and one good one, Git checks out the middle of that range, and your verdict eliminates half of what is left. Halving repeatedly means the work grows with the logarithm of the history: eight commits take three tests, a thousand take ten, a million take twenty. Git prints its own count of the remaining work in the roughly N steps line after each answer. It reads no messages and needs no history of earlier searches.',
+      part: { id: 'concept-bisect', label: 'I. git bisect: binary search over history' } },
+
+    { q: 'Recall from Session 5: in a repository you cloned, what is origin?',
+      o: ['A saved nickname for the address you cloned from, nothing more',
+          'A special protected branch that Git creates in every new clone',
+          'A copy of the full history, kept in your .git folder as a backup',
+          'The account that owns the repository on the hosting service'],
+      c: 0,
+      e: 'origin is a remote, which is a short name saved in your config standing in for a URL, and clone sets it up for you automatically. It is a name for a place, not a branch and not a person. That matters directly here: a fork setup keeps origin pointing at YOUR fork and adds a second remote called upstream for the original, and the whole model collapses if origin is still fuzzy. Check either one with git remote -v, which prints the address behind each name.',
+      ext: { url: S5_URL, label: 'Session 5: remotes, and what origin actually is (opens in a new tab)' } },
+
+    { q: 'Recall from Session 8: you rewrite a commit with git commit --amend. What happens to its hash?',
+      o: ['It changes, because a hash is computed from the whole commit',
+          'It stays the same, since amending edits it in place',
+          'It stays the same unless the amend also changes the parent commit',
+          'It changes only when the amend adds or removes a tracked file'],
+      c: 0,
+      e: 'A commit cannot be edited. Its hash is computed from everything it holds, message and parent included, so any change at all produces a genuinely different commit; amend builds the replacement and moves your branch onto it, leaving the original with nothing pointing at it. That is why the reflog matters, and it is also the reason for the caution in this session about repositories you do not own: rewriting history somebody else already holds leaves the two of you disagreeing about what the history is.',
+      ext: { url: S8_URL, label: 'Session 8: recovery and rewriting history (opens in a new tab)' } }
+  ];
+
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      // shuffle the options so the correct answer is not always in slot A
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          var bl = rev.querySelector('.backlink');
+          if (item.ext) {
+            // external concept: open the earlier session in a new tab (a hash jump would not reach another artifact)
+            bl.innerHTML = '<a target="_blank" rel="noopener" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8599; Review: ' + esc(item.ext.label) + '</a>';
+            bl.querySelector('a').href = item.ext.url;
+          } else if (item.part) {
+            bl.innerHTML = '<a class="pt" href="#' + item.part.id + '" style="font-family:var(--mono);font-size:11.5px;color:var(--accent);text-decoration:none">&#8593; Review: ' + esc(item.part.label) + '</a>';
+            bl.querySelector('a').addEventListener('click', function (e) {
+              // scroll in-page instead of navigating to the hash (which reloads the sandboxed iframe)
+              e.preventDefault();
+              var target = document.getElementById(item.part.id);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S09 on your Hub and move on to Session 10.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+</script>
