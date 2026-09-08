@@ -505,6 +505,11 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
   if (!state.drills) state.drills = {};
   if (!state.cards) state.cards = {};
   if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
@@ -673,14 +678,33 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
         bank.appendChild(b);
       }
       order.forEach(function (t, idx) { mkLine(t, idx); });
-      btn.addEventListener('click', function () {
-        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
-        var ok = current.join('\n') === p.lines.join('\n');
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
         checked = true; btn.disabled = true;
         Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
         rev.classList.add('show', ok ? 'right' : 'wrong');
         rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
       });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (savedText) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var ai = 0; ai < avail.length; ai++) {
+            if (avail[ai].textContent === savedText) { sol.appendChild(avail[ai]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
       wrap.appendChild(el);
     });
   }
@@ -711,8 +735,10 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
       var blanks = el.querySelectorAll('.blank');
       btn.disabled = true;
       Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
-      btn.addEventListener('click', function () {
-        if (btn.disabled) return; btn.disabled = true;
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
@@ -722,7 +748,19 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
         });
         rev.classList.add('show', allOk ? 'right' : 'wrong');
         rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
       });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, bi2) { b.value = savedF.vals[bi2] || ''; });
+        markFadedDone();
+      }
       wrap.appendChild(el);
     });
   }
@@ -956,6 +994,7 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
     document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
   }
   function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
     document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
     buildParsons(); buildFaded();
   }
