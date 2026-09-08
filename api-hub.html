@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs &amp; Integrations // 20-Hour Sprint</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+<style>
+  /* Track family house style, inherited from python-hub.html / sql-hub.html /
+     git-hub.html / canva-hub.html. Differentiated ONLY by accent colour,
+     favicon, copy and the hero specimen. Do not diverge structurally: the
+     family's consistency is the design.
+
+     Track 5 accent is violet (hue ~288), chosen because it is the one
+     genuinely open hue gap in the family: python indigo sits at ~242, canva
+     magenta at ~323, so violet lands roughly midway between them rather than
+     crowding either. It also stays well clear of the shared semantic tokens
+     used on every track (gold ~35, good-green ~152), which a green accent
+     would not have: a green brand colour would visually merge with the
+     "correct answer" green used throughout every drill and quiz. Neutrals
+     carry a slight cool violet bias, the same pattern canva used with mauve. */
+  :root {
+    --bg: #F5F4FA;
+    --surface: #FFFFFF;
+    --surface-2: #F1EFFA;
+    --ink: #18162A;
+    --ink-soft: #4C4863;
+    --ink-faint: #67637F;
+    --border: #E1DEEF;
+    --accent: #A82FC6;
+    --accent-soft: #F7E9FC;
+    --on-accent: #FFFFFF;
+    --gold: #95590E;
+    --gold-bright: #C77F1A;
+    --gold-soft: #FBF1DF;
+    --good: #1C7B51;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126;
+      --surface: #1B1830;
+      --surface-2: #24213C;
+      --ink: #EFEDF7;
+      --ink-soft: #B7B2CC;
+      --ink-faint: #948DAF;
+      --border: #2E2A48;
+      --accent: #EB99FF;
+      --accent-soft: #3A1F45;
+      --on-accent: #2A1030;
+      --gold: #E6A94B;
+      --gold-bright: #E6A94B;
+      --gold-soft: #2A2213;
+      --good: #3FBE82;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF; --gold: #95590E; --gold-bright: #C77F1A;
+    --gold-soft: #FBF1DF; --good: #1C7B51;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030; --gold: #E6A94B; --gold-bright: #E6A94B;
+    --gold-soft: #2A2213; --good: #3FBE82;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, pre { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+  }
+
+  /* ---- Header ---- */
+  header.hero { padding: 56px 0 32px; border-bottom: 1px solid var(--border); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+  }
+  .trackback { display: inline-block; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; margin-bottom: 14px; }
+  .trackback:hover { color: var(--accent); }
+  h1 {
+    font-size: clamp(32px, 5vw, 52px); line-height: 1.05; margin: 14px 0 10px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .lede { font-size: 18px; color: var(--ink-soft); max-width: 62ch; margin: 0; }
+
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; }
+  @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; gap: 24px; } }
+
+  /* ---- Hero specimen: the smallest honest example of what you will produce.
+     Static on purpose, matching python/sql/git: an API response is text, so
+     it is shown as text. A request line plus its real JSON response, styled
+     like an API client's response pane. Colours: method/URL in the accent,
+     JSON keys in gold, exactly like the session pages' transcripts. ---- */
+  .specimen {
+    margin: 0; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px;
+    box-shadow: var(--shadow);
+  }
+  .specimen-cmd {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
+    padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--border);
+  }
+  .specimen-cmd b { color: var(--ink); font-weight: 600; }
+  .specimen-out {
+    margin: 0; overflow-x: auto; font-family: var(--mono);
+    font-size: 12.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .specimen-out .g { color: var(--accent); }
+  .specimen-out .h { color: var(--gold); }
+  .specimen-note {
+    margin-top: 11px; padding-top: 9px; border-top: 1px dashed var(--border);
+    font-size: 12.5px; color: var(--ink-faint);
+  }
+
+  /* ---- Progress panel ---- */
+  .progress-panel {
+    margin-top: 32px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 1fr auto; gap: 18px 32px; align-items: center;
+  }
+  .pp-stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .pp-stat .num {
+    font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .pp-stat .lbl {
+    font-size: 12px; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: .08em; margin-top: 6px;
+  }
+  .pp-stat .num.accent { color: var(--accent); }
+  .bar-wrap { grid-column: 1 / -1; }
+  .bar-track { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--gold-bright)); border-radius: 99px; transition: width .5s ease; }
+  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-faint); }
+  .reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--ink-faint);
+    font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 7px;
+    cursor: pointer; letter-spacing: .04em;
+  }
+  .reset-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  /* ---- Section headings ---- */
+  .sec { margin-top: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .sec-head h2 { font-size: 24px; margin: 0; letter-spacing: -.01em; font-weight: 750; }
+  .sec-kicker { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: .1em; }
+  .sec-sub { color: var(--ink-soft); margin: 0 0 26px; max-width: 68ch; }
+
+  /* ---- How it works strip ---- */
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .fact {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .fact .k { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); }
+  .fact .v { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* ---- Levels ---- */
+  .level { margin-top: 30px; }
+  .level-head {
+    display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px;
+    padding-left: 4px;
+  }
+  .level-badge {
+    flex: none; width: 52px; height: 52px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-family: var(--mono);
+    font-weight: 700; font-size: 16px; text-align: center; line-height: 1.1;
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .level-badge small { display: block; font-size: 11px; letter-spacing: .1em; opacity: .8; }
+  .level-title { font-size: 19px; font-weight: 750; margin: 2px 0 4px; }
+  .level-milestone {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 15px;
+    color: var(--gold); background: var(--gold-soft); border-radius: 8px;
+    padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent);
+    font-weight: 600;
+  }
+  .level-milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; opacity: .85; text-transform: uppercase; }
+
+  .sessions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 20px 18px; box-shadow: var(--shadow); position: relative;
+    display: flex; flex-direction: column; transition: border-color .2s, transform .2s;
+  }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+  .card.done::after {
+    content: "\2713 done"; position: absolute; top: 16px; right: 16px;
+    font-family: var(--mono); font-size: 11px; color: var(--good); font-weight: 700;
+  }
+  .card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .snum {
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; letter-spacing: .03em;
+  }
+  .sdur { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
+  .card h3 { font-size: 17px; margin: 0 0 10px; letter-spacing: -.01em; line-height: 1.25; padding-right: 44px; }
+  .learn { margin: 0 0 12px; padding-left: 18px; }
+  .learn li { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .card-meta { margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .mrow { font-size: 12.5px; display: flex; gap: 8px; }
+  .mrow .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); flex: none; width: 62px; padding-top: 1px; }
+  .mrow .txt { color: var(--ink-soft); }
+  .mrow .txt b { color: var(--gold); font-weight: 600; }
+  .check {
+    margin-top: 14px; display: flex; align-items: center; gap: 9px; cursor: pointer;
+    font-size: 13px; color: var(--ink-soft); user-select: none;
+  }
+  .check input { width: 16px; height: 16px; accent-color: var(--good); cursor: pointer; }
+  .check:hover { color: var(--ink); }
+  .card-open { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 8px 14px; border-radius: 8px; text-decoration: none; }
+  .card-open:hover { filter: brightness(1.06); }
+  .card-pending { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); border: 1px dashed var(--border); padding: 7px 11px; border-radius: 8px; letter-spacing: .02em; }
+
+  /* ---- Resources ---- */
+  .res-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .res {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .res .rnum { font-family: var(--mono); font-size: 12px; color: var(--gold); font-weight: 700; }
+  .res h4 { margin: 6px 0 2px; font-size: 16px; }
+  .res .cost { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--good); margin-bottom: 8px; }
+  .res .cost.paid { color: var(--ink-faint); }
+  .res p { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 10px; }
+  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .res a { color: var(--accent); text-decoration: none; font-size: 12.5px; font-family: var(--mono); word-break: break-all; }
+  .res a:hover { text-decoration: underline; }
+
+  /* ---- callout ---- */
+  .callout {
+    margin-top: 40px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 12px; padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .callout h3 { margin: 0 0 8px; font-size: 16px; }
+  .callout p { margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; }
+  .callout code {
+    font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
+    padding: 2px 6px; border-radius: 5px; color: var(--ink);
+  }
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+
+  @media (max-width: 720px) {
+    .progress-panel { grid-template-columns: 1fr; }
+    .facts { grid-template-columns: 1fr 1fr; }
+    .sessions { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <a class="trackback" href="index.html">&#8592; Learning Hub</a>
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">APIs &amp; Integrations // 20-Hour Sprint</div>
+        <h1>APIs, both sides of the wire</h1>
+        <p class="lede">You already call APIs at work without always knowing why a call fails or how to design one yourself. This sprint gives you both halves: consuming an API well, and designing one a stranger could integrate against. Ten two-hour sessions, five levels, a milestone at every step.</p>
+      </div>
+
+      <div class="specimen">
+        <div class="specimen-cmd"><b>GET</b> <span style="color:var(--ink-faint)">https://jsonplaceholder.typicode.com/posts/1</span></div>
+<pre class="specimen-out"><span class="g">200 OK</span>
+{
+  <span class="h">"userId"</span>: 1,
+  <span class="h">"id"</span>: 1,
+  <span class="h">"title"</span>: "sunt aut facere repellat provident&hellip;",
+  <span class="h">"body"</span>: "quia et suscipit&hellip;"
+}</pre>
+        <div class="specimen-note">A real request against a real public API, and the real response it sent back. By Session 10 you read this fluently and design the other side of it.</div>
+      </div>
+    </div>
+
+    <div class="progress-panel">
+      <div class="pp-stats">
+        <div class="pp-stat"><div class="num accent" id="stat-sessions">0/10</div><div class="lbl">Sessions done</div></div>
+        <div class="pp-stat"><div class="num" id="stat-level">Level 1</div><div class="lbl">Current level</div></div>
+        <div class="pp-stat"><div class="num" id="stat-hours">0h</div><div class="lbl">Hours invested</div></div>
+      </div>
+      <button class="reset-btn" id="reset">reset progress</button>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+        <div class="bar-caption"><span id="bar-label">Not started, tick a session when you finish it</span><span id="bar-pct">0%</span></div>
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the shape</span><h2>How this Sprint Works</h2></div>
+    <p class="sec-sub">Each session is about 1h45 of hands-on work in a real API client plus a built-in 15-minute review. No programming language is used anywhere in this track: the client you install in Session 1 is the whole practice environment, for both sending requests and, later, designing them. The arc: speak HTTP fluently, then consume APIs the way a professional does, then design a contract of your own, then wire two systems together, then ship one real integration end to end.</p>
+    <div class="facts">
+      <div class="fact"><div class="k">5</div><div class="v">Levels, beginner &rarr; advanced, each with a clear "you can now&hellip;" milestone.</div></div>
+      <div class="fact"><div class="k">10</div><div class="v">Two-hour hands-on workbooks you complete in a real API client. New sessions ship over time; Session 1 is live now.</div></div>
+      <div class="fact"><div class="k">6</div><div class="v">Practice modes each session: learn-and-do, predict, arrange &amp; fill, write, recall, quick check.</div></div>
+      <div class="fact"><div class="k">&sum;</div><div class="v">Cumulative review, later sessions re-test earlier ones (spaced practice).</div></div>
+    </div>
+  </section>
+
+  <!-- LEVELS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the path</span><h2>The Five Levels</h2></div>
+    <p class="sec-sub">Sessions ship one at a time, so each can absorb what was learned building the last one. Work them in order, Session 1 through 10, since later sessions build on earlier ones and re-test them. Tick the box when you finish a session so this page tracks where you are. Nothing here needs a paid tier; the one thing Level 3 needs beyond Session 1's setup is a free account, and Session 1 tells you exactly when that becomes necessary.</p>
+
+    <div id="level-track"></div>
+  </section>
+
+  <div class="callout">
+    <h3>Using this Hub</h3>
+    <p><b>Go in order.</b> Every session assumes the one before it. Levels 3 through 5 in particular build directly on the request/response fluency Level 1 sets up.</p>
+    <p><b>One real API client, all ten sessions.</b> Session 1 walks you into Postman with no account at all, and you stay in the same tool the whole way through: sending requests through Level 2, then designing and mocking your own through Levels 3 to 5.</p>
+    <p><b>Nothing here is tied to one employer's API.</b> Every session practices against free, public services built for exactly this, so what you learn transfers to any API you meet afterward, not just the one you use at work.</p>
+    <p><b>Two hours is a guide, not a target.</b> Finishing in ninety minutes is fine, and so is taking three hours.</p>
+    <p><b>Tick sessions as you finish them</b> so the panel above stays honest, and export a copy if you switch machines.</p>
+  </div>
+
+  <!-- RESOURCES -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// keep going</span><h2>Top 5 Resources</h2></div>
+    <p class="sec-sub">Four of these five are free. Each is here for a specific job, so use them where they help rather than reading them end to end.</p>
+    <div class="res-grid">
+      <div class="res">
+        <div class="rnum">01</div>
+        <h4>Postman Academy</h4>
+        <div class="cost">Free &middot; official</div>
+        <p>Postman's own free, self-paced learning platform, covering everything from sending your first request to building automated test collections. The API Fundamentals path lines up closely with this track's Levels 1 and 2, from Postman's own angle.</p>
+        <a href="https://academy.postman.com/" target="_blank" rel="noopener">academy.postman.com</a>
+        <div class="when">During: alongside Levels 1&ndash;2 if you want a second explanation of the same ideas.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">02</div>
+        <h4>MDN Web Docs: HTTP</h4>
+        <div class="cost">Free &middot; the reference</div>
+        <p>Mozilla's HTTP documentation is the closest thing the web has to an authoritative, vendor-neutral reference for methods, status codes and headers. Dense and not a teaching text, which is exactly why it belongs here: once you know what a thing is called, this is where you learn everything about it.</p>
+        <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP" target="_blank" rel="noopener">developer.mozilla.org/&hellip;/Web/HTTP</a>
+        <div class="when">After: for precision on a status code or header, not for learning a concept.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">03</div>
+        <h4>REST API Tutorial (restfulapi.net)</h4>
+        <div class="cost">Free</div>
+        <p>A focused, free guide to REST's actual design principles: resources, verbs, statelessness, HATEOAS. Most useful once you reach Level 3, where you go from calling APIs to designing one of your own.</p>
+        <a href="https://restfulapi.net/" target="_blank" rel="noopener">restfulapi.net</a>
+        <div class="when">During: Level 3, when you start designing rather than just consuming.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">04</div>
+        <h4>JSONPlaceholder</h4>
+        <div class="cost">Free &middot; practice API</div>
+        <p>The free fake REST API this track practices against from Session 1 onward. Worth bookmarking on its own: whenever you want to test an API client, a script, or an idea, this is a safe, stable target that accepts every verb and never needs a key.</p>
+        <a href="https://jsonplaceholder.typicode.com/" target="_blank" rel="noopener">jsonplaceholder.typicode.com</a>
+        <div class="when">During: every session in Levels 1&ndash;2, then anytime you want a quick real target.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">05</div>
+        <h4>Designing Web APIs</h4>
+        <div class="cost paid">Paid &middot; Jin, Sahni &amp; Shevat &middot; O'Reilly</div>
+        <p>The best single book for the design half of this track: how to model resources, choose a shape developers will actually enjoy using, and manage an API once it has real callers. Case studies from Slack, Stripe and GitHub throughout.</p>
+        <a href="https://www.oreilly.com/library/view/designing-web-apis/9781492026914/" target="_blank" rel="noopener">oreilly.com &middot; Designing Web APIs</a>
+        <div class="when">During: Levels 3 and 4, alongside designing your own contract.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    APIs &amp; Integrations // 20-Hour Sprint &middot; ten sessions, five levels, about twenty hours. Your progress lives in this browser; use Export to keep a copy.
+  </footer>
+</div>
+
+<script>
+  var BUILT = [1];  /* session numbers whose workbook has shipped; add as each is built */
+
+  /* Session links. null means derive local site filenames, which is what the site
+     wants. The internal claude.ai variant is generated by
+     tools/learning-hub-hosting/build-artifact-variant.js, which replaces this one
+     declaration with an {n: artifactUrl} map. Keep it on its own line: it is the
+     single swap point between the two publish targets. */
+  var LINKS = null;
+
+  var LEVELS = [
+    { n: 1, title: "The shape of a request",
+      milestone: "Make your first GET and POST against a live public API and read the response correctly.",
+      sessions: [
+        { n: 1, title: "Your first request, from zero",
+          learn: ["Installing a real API client with no account needed, and sending your first request",
+                  "The anatomy of a request: method, URL, headers, and an optional body",
+                  "Status codes and their five families, and what each one is actually telling you",
+                  "Reading and writing JSON: objects, arrays, and the shape almost every API speaks"],
+          ms: "Make your first GET and POST against a live public API and read the response correctly.",
+          res: "Postman Academy (free)",
+          rev: "Send all three milestone requests again from a blank tab, with no notes open." },
+        { n: 2, title: "Reading a response like an engineer",
+          learn: ["Response headers beyond the status code: Content-Type, caching hints, what to ignore",
+                  "Content negotiation: the Accept header, and asking a server for a different shape",
+                  "Redirects, the 3xx family, and following one on purpose",
+                  "Building the habit of reading a response fully before deciding what went wrong"],
+          ms: "Read any response's headers and body and explain exactly what happened, redirects included.",
+          res: "MDN Web Docs: HTTP (free)",
+          rev: "Take a response you got wrong in Session 1 and re-explain every header in it." }
+      ] },
+    { n: 2, title: "Consuming APIs like a professional",
+      milestone: "Build a Postman collection that pulls a full paginated dataset and handles a rate-limit response gracefully.",
+      sessions: [
+        { n: 3, title: "Auth: proving who you are",
+          learn: ["API keys: where they go, and why a query-string key is worse than a header",
+                  "Bearer tokens and the Authorization header",
+                  "OAuth2 in outline: what problem it solves and where this track stops short of implementing it",
+                  "Storing a credential safely in Postman instead of pasting it into every request"],
+          ms: "Authenticate against a real API three different ways and explain the tradeoffs.",
+          res: "Postman Academy: authorization (free)",
+          rev: "Re-send Session 1's milestone requests, this time behind a Postman environment variable." },
+        { n: 4, title: "Pagination, rate limits and retries",
+          learn: ["Why an API paginates, and the two common shapes: page numbers and cursors",
+                  "Reading rate-limit headers, and what a 429 actually means",
+                  "Retrying with backoff instead of hammering a struggling server",
+                  "Building a Postman collection that walks every page of a dataset automatically"],
+          ms: "Build a Postman collection that pulls a full paginated dataset and handles a rate-limit response gracefully.",
+          res: "MDN Web Docs: HTTP (free)",
+          rev: "Time how long a naive un-paced retry loop takes versus a backed-off one, on paper." }
+      ] },
+    { n: 3, title: "Designing the contract",
+      milestone: "Design and mock a small REST API in Postman's Mock Server that a stranger could integrate against from your docs alone.",
+      sessions: [
+        { n: 5, title: "Modeling a resource",
+          learn: ["Naming resources and URLs so they read as nouns, not actions",
+                  "Choosing the right verb and status code for each operation on a resource",
+                  "Versioning a contract before anyone else depends on it",
+                  "Writing a request/response contract a stranger could implement against"],
+          ms: "Model a small resource and write a contract for it that names every field and status code.",
+          res: "restfulapi.net (free)",
+          rev: "Model a resource from your own job as if you were designing its API from scratch." },
+        { n: 6, title: "Mocking your API",
+          learn: ["Setting up a free Postman account, the one signup this track needs",
+                  "Building a Mock Server from your Session 5 contract",
+                  "Handing a mock's URL to someone else and watching them integrate against your docs alone",
+                  "What a mock does and does not prove about a real implementation"],
+          ms: "Design and mock a small REST API in Postman's Mock Server that a stranger could integrate against from your docs alone.",
+          res: "Designing Web APIs (paid)",
+          rev: "Hand your mock's URL to a friend or teammate with no explanation beyond your docs." }
+      ] },
+    { n: 4, title: "Integration patterns",
+      milestone: "Design a webhook receiver contract and trace an idempotent retry scenario end to end.",
+      sessions: [
+        { n: 7, title: "Webhooks, both directions",
+          learn: ["What a webhook is: an API call the OTHER system makes, to you",
+                  "Designing a webhook payload someone else's system can implement against",
+                  "Verifying a webhook actually came from who it claims to",
+                  "Receiving one in Postman's Mock Server to see the shape without standing up a server"],
+          ms: "Design a webhook receiver contract that a stranger could implement against.",
+          res: "Designing Web APIs (paid)",
+          rev: "Sketch a webhook payload for an event from your own job, with every field named." },
+        { n: 8, title: "Idempotency and multi-call workflows",
+          learn: ["Why a retried request can silently double-create something, and the idempotency key pattern",
+                  "Chaining several calls into one workflow, and what happens when call three of four fails",
+                  "Designing for partial failure instead of assuming every call succeeds",
+                  "Tracing a retry scenario end to end on paper before building anything"],
+          ms: "Design a webhook receiver contract and trace an idempotent retry scenario end to end.",
+          res: "restfulapi.net (free)",
+          rev: "Trace what happens to your Session 7 webhook if the receiver times out and the sender retries." }
+      ] },
+    { n: 5, title: "Ship it",
+      milestone: "Ship a documented, mocked integration combining a designed API and a real public API.",
+      sessions: [
+        { n: 9, title: "Put it together",
+          learn: ["Combining a consumed public API with your own designed and mocked API into one workflow",
+                  "Documenting an integration so someone else could pick it up cold",
+                  "Handling errors from BOTH sides of an integration, not just your own",
+                  "A pre-ship checklist: auth, pagination, retries, idempotency, all in one place"],
+          ms: "Wire a real public API and your own mocked API together into one working integration.",
+          res: "Postman Academy (free)",
+          rev: "Walk your Session 7 and 8 partner through your integration using only your written docs." },
+        { n: 10, title: "Capstone and comprehensive final",
+          learn: ["The capstone: ship one real, documented, mocked integration end to end",
+                  "A final review pass against everything the track covered",
+                  "Where this track stops, and what a production integration adds beyond it",
+                  "The comprehensive final, covering all ten sessions"],
+          ms: "Ship a documented, mocked integration combining a designed API and a real public API.",
+          res: "Designing Web APIs (paid)",
+          rev: "The comprehensive final, covering all ten sessions." }
+      ] }
+  ];
+
+  /* Level track rendered from data, matching python-hub / sql-hub / git-hub / canva-hub.
+     MUST run before the progress IIFE, which queries input[data-check] immediately. */
+  (function renderLevels() {
+    var track = document.getElementById("level-track");
+    if (!track) { return; }
+
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+    function sessionHref(n) {
+      return LINKS ? LINKS[n] : "api-session-" + pad(n) + ".html";
+    }
+
+    function sessionCard(s, levelNo) {
+      var bullets = s.learn.map(function (b) { return "<li>" + b + "</li>"; }).join("");
+      var isBuilt = BUILT.indexOf(s.n) !== -1;
+      var action = isBuilt
+        ? '<a class="card-open" href="' + sessionHref(s.n) + '" target="_blank" rel="noopener">Open workbook &#8599;</a>'
+        : '<span class="card-pending">Not built yet</span>';
+      return '<div class="card" data-session="' + s.n + '" data-level="' + levelNo + '">' +
+               '<div class="card-top"><span class="snum">S' + pad(s.n) + '</span>' +
+               '<span class="sdur">1h45 + 15m review</span></div>' +
+               "<h3>" + s.title + "</h3>" +
+               '<ul class="learn">' + bullets + "</ul>" +
+               '<div class="card-meta">' +
+                 '<div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>' + s.ms + "</b></span></div>" +
+                 '<div class="mrow"><span class="tag">Resource</span><span class="txt">' + s.res + "</span></div>" +
+                 '<div class="mrow"><span class="tag">Review</span><span class="txt">' + s.rev + "</span></div>" +
+               "</div>" +
+               '<label class="check"><input type="checkbox" data-check="' + s.n + '"> Mark session complete</label>' +
+               action +
+             "</div>";
+    }
+
+    var html = LEVELS.map(function (lv) {
+      var cards = lv.sessions.map(function (s) { return sessionCard(s, lv.n); }).join("");
+      return '<div class="level">' +
+               '<div class="level-head">' +
+                 '<div class="level-badge">LVL<small>' + pad(lv.n) + "</small></div>" +
+                 "<div>" +
+                   '<div class="level-title">' + lv.title + "</div>" +
+                   '<span class="level-milestone"><span class="flag">Milestone</span> ' + lv.milestone + "</span>" +
+                 "</div>" +
+               "</div>" +
+               '<div class="sessions">' + cards + "</div>" +
+             "</div>";
+    }).join("");
+
+    track.innerHTML = html;
+  })();
+
+  (function () {
+    var KEY = "api-sprint-progress-v1";
+    var TOTAL = 10;
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+      catch (e) { return {}; }
+    }
+    function save(state) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    var boxes = Array.prototype.slice.call(document.querySelectorAll(".check input"));
+    var elSessions = document.getElementById("stat-sessions");
+    var elLevel = document.getElementById("stat-level");
+    var elHours = document.getElementById("stat-hours");
+    var elBar = document.getElementById("bar");
+    var elBarLabel = document.getElementById("bar-label");
+    var elBarPct = document.getElementById("bar-pct");
+
+    function render() {
+      var state = load();
+      var done = 0;
+
+      boxes.forEach(function (b) {
+        var id = b.getAttribute("data-check");
+        var on = !!state[id];
+        b.checked = on;
+        if (on) { done++; }
+        var card = b.closest(".card");
+        if (card) { card.classList.toggle("done", on); }
+      });
+
+      var pct = Math.round(done / TOTAL * 100);
+      elSessions.textContent = done + "/" + TOTAL;
+      elHours.textContent = (done * 2) + "h";
+      elBar.style.width = pct + "%";
+      elBarPct.textContent = pct + "%";
+
+      if (done === 0) {
+        elLevel.textContent = "Level 1";
+        elBarLabel.textContent = "Not started, tick a session when you finish it";
+      } else if (done >= TOTAL) {
+        elLevel.textContent = "Complete";
+        elBarLabel.textContent = "All ten sessions done";
+      } else {
+        elLevel.textContent = "Level " + Math.min(5, Math.floor(done / 2) + 1);
+        elBarLabel.textContent = done + " of " + TOTAL + " sessions done";
+      }
+    }
+
+    boxes.forEach(function (b) {
+      b.addEventListener("change", function () {
+        var state = load();
+        var id = b.getAttribute("data-check");
+        if (b.checked) { state[id] = true; } else { delete state[id]; }
+        save(state);
+        render();
+      });
+    });
+
+    document.getElementById("reset").addEventListener("click", function () {
+      if (!window.confirm("Clear your progress for this track?")) { return; }
+      save({});
+      render();
+    });
+
+    render();
+
+    // File-based export / import of ALL progress on this origin, every track.
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById("save-hint");
+    document.getElementById("export-btn").addEventListener("click", function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = "learning-hub-progress.json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      sHint.textContent = "Downloaded learning-hub-progress.json";
+    });
+    var sFile = document.getElementById("import-file");
+    document.getElementById("import-btn").addEventListener("click", function () { sFile.click(); });
+    sFile.addEventListener("change", function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) { return; }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); }
+        catch (e) { sHint.textContent = "That file is not a valid progress file."; return; }
+        if (!data || typeof data !== "object") { sHint.textContent = "That file is not a valid progress file."; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        sHint.textContent = "Imported " + n + " entries. Reloading...";
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = "";
+    });
+  })();
+</script>
+</body>
+</html>

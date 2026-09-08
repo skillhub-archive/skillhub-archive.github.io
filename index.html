@@ -19,6 +19,7 @@
     --track-py: #4B47D6; --track-py-soft: #EEEDFB; --track-py-ink: #FFFFFF;
     --track-sql: #0D7C88; --track-sql-soft: #E1F0F2; --track-sql-ink: #FFFFFF;
     --track-git: #1B62C4; --track-git-soft: #E5EDFA; --track-git-ink: #FFFFFF;
+    --track-api: #A82FC6; --track-api-soft: #F7E9FC; --track-api-ink: #FFFFFF;
     --shadow: 0 1px 2px rgba(40,32,20,.05), 0 6px 20px rgba(40,32,20,.07);
     --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
@@ -34,6 +35,7 @@
       --track-py: #8A85FF; --track-py-soft: #211F3A; --track-py-ink: #14162A;
       --track-sql: #17A093; --track-sql-soft: #0E2A2A; --track-sql-ink: #05201E;
       --track-git: #7FB3FF; --track-git-soft: #16243A; --track-git-ink: #0E1218;
+      --track-api: #EB99FF; --track-api-soft: #3A1F45; --track-api-ink: #2A1030;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
     }
   }
@@ -50,6 +52,7 @@
     --track-py: #4B47D6; --track-py-soft: #EEEDFB; --track-py-ink: #FFFFFF;
     --track-sql: #0D7C88; --track-sql-soft: #E1F0F2; --track-sql-ink: #FFFFFF;
     --track-git: #1B62C4; --track-git-soft: #E5EDFA; --track-git-ink: #FFFFFF;
+    --track-api: #A82FC6; --track-api-soft: #F7E9FC; --track-api-ink: #FFFFFF;
     --shadow: 0 1px 2px rgba(40,32,20,.05), 0 6px 20px rgba(40,32,20,.07);
   }
   :root[data-theme="dark"] {
@@ -60,6 +63,7 @@
     --track-py: #8A85FF; --track-py-soft: #211F3A; --track-py-ink: #14162A;
     --track-sql: #17A093; --track-sql-soft: #0E2A2A; --track-sql-ink: #05201E;
     --track-git: #7FB3FF; --track-git-soft: #16243A; --track-git-ink: #0E1218;
+    --track-api: #EB99FF; --track-api-soft: #3A1F45; --track-api-ink: #2A1030;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
   }
 
@@ -90,6 +94,7 @@
   .track.t-py  { --track: var(--track-py);  --track-soft: var(--track-py-soft);  --track-ink: var(--track-py-ink); }
   .track.t-sql { --track: var(--track-sql); --track-soft: var(--track-sql-soft); --track-ink: var(--track-sql-ink); }
   .track.t-git { --track: var(--track-git); --track-soft: var(--track-git-soft); --track-ink: var(--track-git-ink); }
+  .track.t-api { --track: var(--track-api); --track-soft: var(--track-api-soft); --track-ink: var(--track-api-ink); }
 
   /* The inset shadow draws the track-coloured bar inside the rounded top edge. */
   .track { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: inset 0 3px 0 var(--track, transparent), var(--shadow); display: flex; flex-direction: column; }
@@ -173,6 +178,17 @@
         </div>
       </div>
 
+      <div class="track t-api">
+        <div class="icon">&#128268;</div>
+        <h3>APIs &amp; Integrations</h3>
+        <p>Both sides of the wire. Consuming an API well: methods and status codes, auth, pagination, rate limits and retries. Then designing one a stranger could build against: modeling a resource, choosing the right verb and code, mocking a contract, webhooks and idempotency, and shipping a documented integration end to end.</p>
+        <div class="meta">10 sessions + a bonus &middot; 5 levels &middot; ~20 hours</div>
+        <div class="foot">
+          <a class="open" href="api-hub.html">Open track &#8599;</a>
+          <span class="prog none" id="api-prog">Not started</span>
+        </div>
+      </div>
+
       <div class="track soon">
         <span class="tag">Coming soon</span>
         <div class="icon">&#127919;</div>
@@ -222,6 +238,16 @@
       var p = JSON.parse(localStorage.getItem('sql-sprint-progress-v1')) || {};
       var done = 0; for (var k in p) if (p[k]) done++;
       var el = document.getElementById('sql-prog');
+      if (done > 0) { el.textContent = done + '/10 sessions done'; el.className = 'prog'; }
+    } catch (e) {}
+  })();
+
+  // Reflect APIs track progress (read the API sprint Hub's own saved state)
+  (function () {
+    try {
+      var p = JSON.parse(localStorage.getItem('api-sprint-progress-v1')) || {};
+      var done = 0; for (var k in p) if (p[k]) done++;
+      var el = document.getElementById('api-prog');
       if (done > 0) { el.textContent = done + '/10 sessions done'; el.className = 'prog'; }
     } catch (e) {}
   })();
