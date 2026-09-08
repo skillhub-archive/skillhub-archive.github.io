@@ -56,7 +56,19 @@
   body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
   /* Disable programming ligatures so code shows the exact characters you type.
      JSON leans on : and {} which some fonts otherwise redraw as ligatures. */
-  code, pre, pre code, textarea, input, .pline, .fc-back { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* Rule 15: this must cover EVERYTHING using var(--mono), not just code blocks.
+     Cascadia Code is first in the --mono stack and ligates // as well as != and
+     ->, and the eyebrow crumb literally reads "Session 01 // Level 1", so a list
+     that stops at code/pre leaves a joined double-slash on the first line of the
+     page. CSS cannot select on font-family, so the list is explicit: add to it
+     whenever a new selector takes var(--mono). Broadened 2026-09-08. */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .crumb, .hublink, .milestone .flag, .howto .ic, .prog .p .n, .prog .reset,
+  .sec > .sh .tag, .sec > .sh .part-reset, .filebox .fbh, .srow .sl, .area .an,
+  .cnode .cy, .cnode .cpar, .task .th .k, .task summary, .card .cn, .card .cd,
+  .scen .sch, .reveal .verdict, .reveal .lbl, .pcol .pcl, .opt .key,
+  .flashcard .side-lbl, .deck-meta
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
   .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
 
   header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
@@ -104,7 +116,10 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, which is prose
+     the learner has to read, so it takes a prose-weight token. Fixed 2026-09-08. */
+  .cm { color: var(--ink-soft); }
   /* a typed/sent line inside a transcript, so it is never confused with what came back */
   .cmd { color: var(--accent); font-weight: 700; }
   .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
@@ -186,7 +201,9 @@
   .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
   .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
   .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
-  .reveal .sg-q { font-size: 13px; color: var(--ink-faint); }
+  /* Rule 28: this reads "After sending yours in Postman:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
 
   /* Parsons: two side-by-side columns. Postman/JSON lines here are short (the
      longest tile is well under 54 characters), so the two-column default fits.
@@ -222,7 +239,9 @@
   .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
   .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
   .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
-  .flashcard .hint { font-size: 12.5px; color: var(--ink-faint); }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
   .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
   .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
   .deck-meta b { color: var(--ink); }
@@ -231,8 +250,10 @@
   .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
   .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
   .note b { color: var(--ink); }
-  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
-  footer b { color: var(--ink-soft); }
+  /* Rule 28: the footer holds the 15-minute review assignment, which is an
+     instruction, not a receding label. Prose-weight token. Fixed 2026-09-08. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
   footer a { color: var(--accent); text-decoration: none; }
 
   @media (max-width: 600px) {
@@ -554,7 +575,7 @@
     <p class="sub">The bridge between reading a request and building one from scratch. First put scrambled request pieces into working order, then fill the blanks. This is where "I recognise that shape" becomes "I can build the request."</p>
 
     <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
-    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the same way it does in Postman: set the method after the body, or the header before you have opened the Body tab, and you have not actually broken anything, but read these as "what you would do, in the order a beginner would naturally do it."</p>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the same way it does in Postman: set the method after the body, or the header before you have opened the Body tab, and you have not actually broken anything, but read these as "what you would do, in the order a beginner would naturally do it."</p>
     <div id="parsons"></div>
 
     <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded requests)</h3>

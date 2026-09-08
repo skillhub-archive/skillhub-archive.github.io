@@ -77,7 +77,18 @@
     font-family: var(--sans); line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
-  code, pre { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  /* Rule 15: this must cover EVERYTHING using var(--mono), not just code blocks.
+     Cascadia Code is first in the --mono stack and ligates //, and the eyebrow
+     reads "APIs & Integrations // 20-Hour Sprint", so a list that stops at
+     code/pre leaves a joined double-slash on the first line of the page. CSS
+     cannot select on font-family, so the list is explicit: add to it whenever a
+     new selector takes var(--mono). Broadened 2026-09-08. */
+  code, pre,
+  .eyebrow, .trackback, .specimen-cmd, .specimen-out, .pp-stat .num, .reset-btn,
+  .save-btn, .sec-kicker, .fact .k, .level-badge, .level-milestone .flag,
+  .card.done::after, .snum, .sdur, .mrow .tag, .card-open, .card-pending,
+  .res .rnum, .res .cost, .res .when, .res a
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
   .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
   a:focus-visible, button:focus-visible, input:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
@@ -110,8 +121,10 @@
     border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px;
     box-shadow: var(--shadow);
   }
+  /* Rule 28: this line carries the specimen's actual request URL, which is content
+     the reader is meant to read, not a receding label. Fixed 2026-09-08. */
   .specimen-cmd {
-    font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft);
     padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--border);
   }
   .specimen-cmd b { color: var(--ink); font-weight: 600; }
@@ -121,9 +134,11 @@
   }
   .specimen-out .g { color: var(--accent); }
   .specimen-out .h { color: var(--gold); }
+  /* Rule 28: prose explaining what the specimen is and what the reader will be
+     able to do by Session 10. Prose-weight token. */
   .specimen-note {
     margin-top: 11px; padding-top: 9px; border-top: 1px dashed var(--border);
-    font-size: 12.5px; color: var(--ink-faint);
+    font-size: 12.5px; color: var(--ink-soft);
   }
 
   /* ---- Progress panel ---- */
@@ -145,7 +160,8 @@
   .bar-wrap { grid-column: 1 / -1; }
   .bar-track { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
   .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--gold-bright)); border-radius: 99px; transition: width .5s ease; }
-  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-faint); }
+  /* Rule 28: reads "Not started, tick a session when you finish it", an instruction. */
+  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
   .reset-btn {
     background: none; border: 1px solid var(--border); color: var(--ink-faint);
     font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 7px;
@@ -155,7 +171,9 @@
   .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
   .save-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .save-hint { font-size: 12px; color: var(--ink-faint); }
+  /* Rule 28: explains what Export/Import does, and reports the result after a
+     click ("Imported N entries"), so the reader has to be able to read it. */
+  .save-hint { font-size: 12px; color: var(--ink-soft); }
 
   /* ---- Section headings ---- */
   .sec { margin-top: 56px; }
@@ -240,9 +258,12 @@
   .res .rnum { font-family: var(--mono); font-size: 12px; color: var(--gold); font-weight: 700; }
   .res h4 { margin: 6px 0 2px; font-size: 16px; }
   .res .cost { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--good); margin-bottom: 8px; }
-  .res .cost.paid { color: var(--ink-faint); }
+  /* Rule 28: carries the price signal plus the authors and publisher, all content. */
+  .res .cost.paid { color: var(--ink-soft); }
   .res p { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 10px; }
-  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
+  /* Rule 28: this is the "when to use this resource" guidance, the whole reason the
+     resource block is more useful than a list of links. Prose-weight token. */
+  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
   .res a { color: var(--accent); text-decoration: none; font-size: 12.5px; font-family: var(--mono); word-break: break-all; }
   .res a:hover { text-decoration: underline; }
 
@@ -258,7 +279,9 @@
     font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
     padding: 2px 6px; border-radius: 5px; color: var(--ink);
   }
-  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  /* Rule 28: the footer explains where progress is stored and tells the reader to
+     use Export to keep a copy, which is an instruction. Fixed 2026-09-08. */
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
 
   @media (max-width: 720px) {
     .progress-panel { grid-template-columns: 1fr; }
@@ -281,7 +304,7 @@
       </div>
 
       <div class="specimen">
-        <div class="specimen-cmd"><b>GET</b> <span style="color:var(--ink-faint)">https://jsonplaceholder.typicode.com/posts/1</span></div>
+        <div class="specimen-cmd"><b>GET</b> <span style="color:var(--ink-soft)">https://jsonplaceholder.typicode.com/posts/1</span></div>
 <pre class="specimen-out"><span class="g">200 OK</span>
 {
   <span class="h">"userId"</span>: 1,
