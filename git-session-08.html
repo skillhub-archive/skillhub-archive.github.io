@@ -1309,8 +1309,14 @@ git status                 # confirm clean</code></pre>
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
-  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
-  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  /* Split an answer into comparable tokens; commas, spaces, dots, semicolons and
+     COLONS all separate. The colon matches what norm() already strips, and for the
+     same reason: git prints its state words with one (modified:   notes.md,
+     HEAD@{1}: commit: ...), so a learner who copies that form back must not be
+     graded wrong. Both sides of the compare run through here, so this only ever
+     makes the colon optional, never changes which answer is correct. Fixed
+     2026-09-10; norm() had the colon from the start and toks() was missed. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:]+/).filter(Boolean); }
   function gradeDrill(d, val) {
     if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
     if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
