@@ -458,7 +458,7 @@ ETag: W/"124-yiKdLzqO5gfBrJFrcdJ8Yq0LGnU"
         <div class="hrow keep"><div class="hn">Cache-Control</div><div class="hv">How long the answer stays fresh.</div></div>
         <div class="hrow keep"><div class="hn">ETag</div><div class="hv">The fingerprint you send back in If-None-Match.</div></div>
         <div class="hrow keep"><div class="hn">X-RateLimit-Limit</div><div class="hv">Requests you are allowed. This one is 1000.</div></div>
-        <div class="hrow keep"><div class="hn">X-RateLimit-Remaining</div><div class="hv">Requests you have left. Session 3 acts on this.</div></div>
+        <div class="hrow keep"><div class="hn">X-RateLimit-Remaining</div><div class="hv">Requests you have left. Session 4 acts on this.</div></div>
         <div class="hrow keep"><div class="hn">X-RateLimit-Reset</div><div class="hv">When the allowance refills, as a timestamp.</div></div>
         <div class="hrow keep"><div class="hn">Age</div><div class="hv">Seconds this copy sat in a cache. Section C.</div></div>
         <div class="hrow keep"><div class="hn">Vary</div><div class="hv">Which request headers changed the answer. Section F.</div></div>
@@ -473,7 +473,7 @@ ETag: W/"124-yiKdLzqO5gfBrJFrcdJ8Yq0LGnU"
         <div class="hrow skip"><div class="hn">Access-Control-Allow-Credentials</div><div class="hv">A browser-security rule. Irrelevant from Postman.</div></div>
         <div class="hrow skip"><div class="hn">Accept-Ranges, Connection, Date</div><div class="hv">Routine protocol bookkeeping.</div></div>
       </div>
-      <p><b>The exception is the rate-limit group, and it is a big exception.</b> An <code>X-RateLimit-</code> prefix means the server is counting your requests and will start refusing them when the count runs out. That refusal is a <code>429 Too Many Requests</code>, and a client that never read the header has no idea why a request that worked a minute ago suddenly does not. Session 3 is where you handle it; today it is enough to know the headers exist and that they are the one group in a wall of plumbing that is genuinely about you.</p>
+      <p><b>The exception is the rate-limit group, and it is a big exception.</b> An <code>X-RateLimit-</code> prefix means the server is counting your requests and will start refusing them when the count runs out. That refusal is a <code>429 Too Many Requests</code>, and a client that never read the header has no idea why a request that worked a minute ago suddenly does not. Session 4 is where you handle it; today it is enough to know the headers exist and that they are the one group in a wall of plumbing that is genuinely about you.</p>
       <p>Two things about that <code>X-</code> prefix worth knowing so it does not mislead you later. It originally meant "not an official header, an extension someone invented", and rate limiting still has no single official header, so different APIs spell it differently: <code>X-RateLimit-Remaining</code>, <code>RateLimit-Remaining</code>, and <code>X-Rate-Limit-Remaining</code> are all in the wild and all mean the same thing. So the skill is not memorising one spelling; it is scanning for the word "limit" in the header list.</p>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> Sort a real header list yourself</div>
@@ -484,7 +484,7 @@ ETag: W/"124-yiKdLzqO5gfBrJFrcdJ8Yq0LGnU"
         </ol>
         <details><summary>What you should see happen to the rate-limit number, and why it is strange</summary>
           <p style="font-size:13px;margin:10px 0 0">It will not count down neatly, and it may not move at all. Four requests sent back to back while building this session, to <code>/posts/1</code> through <code>/posts/4</code>, returned <code>999</code>, <code>867</code>, <code>766</code> and <code>999</code>. That is not a bug and it is worth understanding rather than shrugging at: this service sits behind a cache, so most responses are <b>stored copies</b>, and a stored copy carries whatever the counter happened to say at the moment it was stored. The <code>Age</code> header is the tell, and those four responses had ages ranging from about 19 minutes to about 7 hours.</p>
-          <p style="font-size:13px;margin:10px 0 0">So the honest lesson is narrower than "watch your quota": on a cached public practice API, treat rate-limit headers as something to <b>recognise</b>, not something to trust as a live count. On an API you authenticate against, which is Session 3, your requests are not shared with anyone and the numbers are genuinely yours.</p>
+          <p style="font-size:13px;margin:10px 0 0">So the honest lesson is narrower than "watch your quota": on a cached public practice API, treat rate-limit headers as something to <b>recognise</b>, not something to trust as a live count. On an API you authenticate against with a key issued to you, which is Session 3, your requests are not shared with anyone and the numbers are genuinely yours. Watch for the exception Session 3 meets: a key handed out for everyone to try is counted per network address, so those numbers are shared after all.</p>
         </details>
         <label class="did"><input type="checkbox" data-task="4"> I read a full header list and separated the signal from the plumbing</label>
       </div>

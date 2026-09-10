@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Session 3: Auth, proving who you are</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-02.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Disable programming ligatures so code shows the exact characters you type.
+     This session leans on -> and W/"..." and :, all of which some fonts redraw. */
+  /* Rule 15: this must cover EVERYTHING using var(--mono), not just code blocks.
+     Cascadia Code is first in the --mono stack and ligates // as well as != and
+     ->, and the eyebrow crumb literally reads "Session 03 // Level 2", so an
+     enumerated list that stops at code/pre leaves a joined double-slash on the
+     first line of the page. CSS cannot select on font-family, so the list is
+     explicit: add to it whenever a new selector takes var(--mono). */
+  code, pre, pre code, textarea, input, .pline, .fc-back,
+  .crumb, .hublink, .milestone .flag, .srow .sl, .area .an,
+  .hrow .hn, .hrow.lbl .hn, .hrow.lbl .hv, .frow .fc, .frow .fn,
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd, .hop .hi, .hop .hb b,
+  .card .cn, .card .cd, .scen .sch, .reveal .verdict, .reveal .lbl,
+  .pcol .pcl, .flashcard .side-lbl, .deck-meta, .opt .key,
+  .prog .p .n, .prog .reset, .sec > .sh .tag, .sec > .sh .part-reset,
+  .task .th .k, .task summary, .filebox .fbh, .pt, .howto .ic
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After sending yours in Postman:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 43 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 16ch, the longest answer here is If-None-Match (13 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 16ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the two things in this session that can actually cost the
+     learner something: burning the shared demo key, and leaking a real credential.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 03 // Level 2 &middot; Consuming APIs Like A Professional</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Auth: proving who you are</h1>
+    <p class="goal">Every request so far has been anonymous, and every service answered anyway because it had nothing to protect. Real APIs want to know who is asking before they hand over private data, spend your money, or let you change anything. Today you authenticate three genuinely different ways, learn where a credential must never be put, and send your first requests that are shaped to change something.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Authenticate against a real API three different ways and explain the tradeoffs.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start.</b> Everything graded here still needs no account, no signup and no payment details. If you skipped Sessions 1 and 2, go back: this session assumes you can send a GET and a POST, add a header, and read a status line, headers and body without being walked through it.</p>
+        <p><b>One new practice service joins today, and it is the only one on this track that keeps count.</b> <code>api.nasa.gov</code> is a real, public, US-government API that genuinely requires a key, which is the one thing the other two services cannot show you. It publishes a shared demo key needing no signup. Read the box in section B before you use it, because that key has a small budget and it is the only thing in this track you can actually run out of.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">5</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Send each request against a real service before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. Everything underneath came back over the network, copied from real requests run while building this session. Values that legitimately differ when you retry: <b><code>Date</code>, request-id headers, <code>X-Ratelimit-Remaining</code>, <code>Retry-After</code></b>, and NASA&rsquo;s picture of the day, which changes daily. <b>Every credential printed in this session is either a public demo credential or an obvious placeholder.</b> There is no real secret anywhere on this page, and section G is about why that matters.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. Why an API asks who you are</h3>
+      <p>Sessions 1 and 2 sent perhaps forty anonymous requests and never met a refusal, because both practice services are built to answer anybody. That is unusual. Most APIs want proof of identity before they will act, and the reasons sort into three kinds:</p>
+      <div class="areas">
+        <div class="area"><div class="an">Private data</div><div class="ad">Your messages, your orders, your customer list. The server has to know whose data to hand over, and that you are that person.</div></div>
+        <div class="area"><div class="an">Cost and limits</div><div class="ad">Someone pays per request, and Session 2&rsquo;s rate-limit headers only mean something once the count belongs to a known caller.</div></div>
+        <div class="area"><div class="an">Changing things</div><div class="ad">Creating, replacing and deleting are not reversible by the server. Section F is those requests, and this is why they need proof first.</div></div>
+      </div>
+      <p>Two words get used loosely and are worth separating once, because the rest of the session depends on the difference:</p>
+      <ul class="pts">
+        <li><b>Authentication</b> is <i>who are you</i>. You present a credential and the server decides whether it believes you.</li>
+        <li><b>Authorisation</b> is <i>what are you allowed to do</i>. A server can believe exactly who you are and still refuse, because that account is not permitted to do this particular thing.</li>
+      </ul>
+      <p>That distinction has a visible consequence in status codes, and it is the most commonly muddled pair in HTTP:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Code</div><div class="fn">Name</div><div class="fd">What it is actually saying</div></div>
+        <div class="frow"><div class="fc">401</div><div class="fn">Unauthorized</div><div class="fd">"I do not know who you are." You sent no credential, or one the server rejected. It should carry a <code>WWW-Authenticate</code> header naming what it wants. Despite the name, this is the <b>authentication</b> failure.</div></div>
+        <div class="frow"><div class="fc">403</div><div class="fn">Forbidden</div><div class="fd">"I am not letting you do that." Usually you are known and simply not permitted. This is the <b>authorisation</b> failure.</div></div>
+      </div>
+      <p><b>The names are the wrong way round and you cannot fix that</b>, so learn the pair rather than the words: <code>401</code> is about identity, <code>403</code> is about permission. You will see both live in this session, from two different services, within about five minutes of each other.</p>
+      <p><b>And a warning that will save you real debugging time:</b> plenty of production APIs do not follow that rule. You will meet a <code>403</code> that really means "you forgot your key" and a <code>401</code> that really means "your plan does not include this". So read the response <i>body</i> as well as the status, exactly as Session 2 taught, because the body is usually where the server says which of the two it meant. One of the two examples in this session gets it arguably wrong, and section B says which.</p>
+      <p>This session covers <b>three mechanisms</b>, in the order of how much machinery each needs:</p>
+      <div class="hdrs">
+        <div class="hrow lbl"><div class="hn">Mechanism</div><div class="hv">In one line</div></div>
+        <div class="hrow keep"><div class="hn">API key</div><div class="hv">One long string identifying an account or app. Sections B and C.</div></div>
+        <div class="hrow keep"><div class="hn">Basic auth</div><div class="hv">A username and password, encoded into one header. Section D.</div></div>
+        <div class="hrow keep"><div class="hn">Bearer token</div><div class="hv">A string standing for a granted permission, usually short-lived. Section E, and what OAuth2 hands out.</div></div>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. The API key, and a service that genuinely requires one</h3>
+      <p>An <b>API key</b> is a single long opaque string identifying the account or application making a request. <b>Opaque</b> means you never parse it or read anything out of it: it is a name the server recognises, nothing more. It is the simplest credential there is, which is why it is everywhere, and its simplicity is also its weakness: anyone holding the string is you, for as long as it is valid.</p>
+      <p>Neither postman-echo nor jsonplaceholder has keys, and that is the reason a third service joins today. <b>Both of them answer every request no matter what you send</b>, so neither can show you a credential actually gating access. NASA&rsquo;s public API can.</p>
+      <div class="danger"><b>Read this before you send a NASA request.</b> NASA publishes a shared key, literally the string <code>DEMO_KEY</code>, so anybody can try the API with no signup. It is deliberately small: the responses in this session showed <code>X-Ratelimit-Limit: 10</code>, and building this session exhausted it in about ten requests. <b>When it runs out you get a <code>429</code> and a <code>Retry-After</code> measured in hours, not minutes</b>, and it is shared with everyone else on your network. So: <b>you need exactly two successful NASA requests in this whole session</b>, one here and one in section C. Send those, read them, and do your repeating and experimenting against postman-echo, which has no limit at all. <b>Nothing that gets marked right or wrong today needs a live NASA call</b>: every NASA question in Parts 2 to 6 is answerable from the transcripts in this section, and the two tasks that ask you to send one accept a <code>429</code> just as readily as a <code>200</code>.</div>
+      <p>First, ask for something with no key, which costs nothing against the budget:</p>
+      <div class="filebox">
+        <div class="fbh">no credential at all &middot; the refusal</div>
+<pre><code><span class="cmd">&gt; GET https://api.nasa.gov/planetary/apod</span>
+403 Forbidden
+{
+  <span class="jk">"error"</span>: {
+    <span class="jk">"code"</span>: "API_KEY_MISSING",
+    <span class="jk">"message"</span>: "No api_key was supplied. Get one at https://api.nasa.gov:443"
+  }
+}</code></pre>
+      </div>
+      <p>Read that against section A and you can see the inconsistency being warned about. <b>Nothing was supplied, so by the letter of the spec this should be a <code>401</code></b> with a <code>WWW-Authenticate</code> header saying what to send. NASA answers <code>403</code>. It is not a bug and NASA is not unusual; it is what a large share of real APIs do. <b>The body is what saves you</b>: <code>API_KEY_MISSING</code> says plainly which of the two problems it is, and that is why Session 2 spent a whole session on reading the whole response rather than the status alone.</p>
+      <p>Now spend one request. <code>api_key</code> goes on the end of the URL as a query string, which Session 1 taught:</p>
+      <div class="filebox">
+        <div class="fbh">the same URL, with the demo key &middot; costs 1 of your 10</div>
+<pre><code><span class="cmd">&gt; GET https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY</span>
+200 OK
+X-Ratelimit-Limit: 10
+X-Ratelimit-Remaining: 8
+
+{
+  <span class="jk">"date"</span>: "2026-09-10",
+  <span class="jk">"title"</span>: "LDN 1295: The Giraffe Nebula",
+  <span class="jk">"media_type"</span>: "image",
+  <span class="jk">"url"</span>: "https://apod.nasa.gov/apod/image/2609/LDN1295_giraffe_1024.jpg",
+  <span class="jk">"service_version"</span>: "v1"
+}</code></pre>
+      </div>
+      <p>A real credential, a real API, and the picture NASA published that day. <b>Look at the two rate-limit headers</b>, because they are the ones Session 2 named as plumbing you must not ignore and then told you not to trust on jsonplaceholder, where caching made them meaningless. <b>Here they are real</b> and they count down as you spend. They are not, however, personal: the demo key is limited per network address, so the number you see is what your whole address has left, not what you have left. That is why the transcript above reads <code>8</code> and not <code>9</code> after a single request, and why yours will read something else again. Session 4 is about what to do when they reach zero; today they are simply proof that a keyed request is a counted request.</p>
+      <p>If you do run out, this is what you get, and it is worth recognising on sight:</p>
+      <div class="filebox">
+        <div class="fbh">what running out looks like</div>
+<pre><code><span class="cmd">&gt; GET https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY</span>
+429 Too Many Requests
+Retry-After: 22797
+X-Ratelimit-Limit: 10
+X-Ratelimit-Remaining: 0
+
+{
+  <span class="jk">"error"</span>: {
+    <span class="jk">"code"</span>: "OVER_RATE_LIMIT",
+    <span class="jk">"message"</span>: "You have exceeded your rate limit. Try again later..."
+  }
+}</code></pre>
+      </div>
+      <p><code>Retry-After: 22797</code> is a number of seconds, so a little over six hours. <b>The keyless <code>403</code> above keeps working while you are rate-limited</b>, which is a small mercy: you can always go back and look at that one.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Meet a refusal, then spend one key</div>
+        <ol>
+          <li>Send <code>GET https://api.nasa.gov/planetary/apod</code> with no key. Confirm <code>403</code>, then <b>read the body</b> and find the <code>code</code> field.</li>
+          <li>Say out loud which of <code>401</code> and <code>403</code> the spec would have used here, and why the body matters more than the status in this particular case.</li>
+          <li>Now send <code>GET https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY</code>. Confirm <code>200</code>, find the <code>title</code>, and <b>find <code>X-Ratelimit-Remaining</code> on the Headers tab</b>. <b>If you get a <code>429</code> instead, that is not your mistake and not a failed step</b>: the demo key is shared per network address, so someone else on yours spent the last of it. Read the <code>429</code> and its <code>Retry-After</code> above instead, which is the same lesson from the other end, and carry on.</li>
+          <li><b>Stop there either way.</b> Do not send it repeatedly to watch the number fall, and do not retry a <code>429</code> hoping it clears: <code>Retry-After</code> is measured in hours. You have exactly one more NASA request budgeted, in section C.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> I got a real 403 for a missing key, and I know what the demo key answered: a 200, or the 429 that means it was already spent</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Where the key goes, and why a query string is the worst place</h3>
+      <p>The key in section B rode in the query string, because that is what NASA&rsquo;s own documentation shows and it is the easiest thing to type. <b>It is also the least safe place to put a credential</b>, and the reason is not cryptographic. HTTPS encrypts the whole request including the query string, so the key is not readable in transit. The problem is what happens at both ends, after the encryption is undone.</p>
+      <p><b>A URL is treated as an identifier, not as a secret, by almost every piece of software that touches it.</b> That means a key in a query string reliably ends up written down in places nobody thought about:</p>
+      <ul class="pts">
+        <li><b>Server access logs.</b> Web servers log the full path and query of every request, as plain text, by default. Your key is now in a log file, and log files get shipped to third-party monitoring tools.</li>
+        <li><b>Browser history and bookmarks</b>, if the URL is ever opened in a browser.</li>
+        <li><b>Proxy and gateway logs</b>, on any hop between you and the server.</li>
+        <li><b>Copy and paste.</b> A URL is the thing people paste into chat, tickets and screenshots when asking for help. A header is not.</li>
+      </ul>
+      <p>A header avoids all of that, because headers are not logged by default and are not part of the thing people share. <b>You can watch the difference rather than take it on trust</b>, using postman-echo, which costs nothing and echoes your request back. Send a made-up key in the query string first:</p>
+      <div class="filebox">
+        <div class="fbh">a key in the query string &middot; note where it turns up</div>
+<pre><code><span class="cmd">&gt; GET https://postman-echo.com/get?api_key=SECRET123</span>
+200 OK
+{
+  <span class="jk">"args"</span>: { "api_key": "SECRET123" },
+  <span class="jk">"headers"</span>: { <span class="cm">... nothing about the key here ...</span> },
+  <span class="jk">"url"</span>: "https://postman-echo.com/get?api_key=SECRET123"
+}</code></pre>
+      </div>
+      <p><b>The key appears twice, and the second one is the problem.</b> It is in <code>args</code>, which is just echo parsing your query string. It is also inside <code>url</code>, and <code>url</code> is exactly the string that gets logged, bookmarked, and pasted. Now send the same key as a header instead:</p>
+      <div class="filebox">
+        <div class="fbh">the same key in a header &middot; and the URL is clean</div>
+<pre><code><span class="cmd">&gt; GET https://postman-echo.com/get</span>
+<span class="cmd">&gt; header:  X-Api-Key: SECRET123</span>
+200 OK
+{
+  <span class="jk">"args"</span>: {},
+  <span class="jk">"headers"</span>: { <span class="cm">...</span> "x-api-key": "SECRET123" },
+  <span class="jk">"url"</span>: "https://postman-echo.com/get"
+}</code></pre>
+      </div>
+      <p><b><code>args</code> is empty and <code>url</code> has nothing secret in it.</b> The key arrived, the server can read it, and the URL is now safe to paste into a ticket. That is the whole argument, and you just watched both halves of it.</p>
+      <p><b>Which header name?</b> There is no standard one, which is the honest answer and a mildly annoying fact about the industry. <code>X-Api-Key</code> is the most common convention, but you will meet <code>Api-Key</code>, <code>X-Auth-Token</code>, and plenty of APIs that put their key in the <code>Authorization</code> header instead. <b>The API&rsquo;s own documentation is the only authority</b>, so the skill is not memorising a name, it is knowing to look for one.</p>
+      <p><b>NASA settles that for itself, and you can see it without spending anything.</b> Do not send these yourself, because you have one budgeted request left; this is what came back when the same call was made five times over, changing only the header name:</p>
+      <div class="filebox">
+        <div class="fbh">one request, five header names &middot; do not run these, just read them</div>
+<pre><code><span class="cmd">&gt; GET https://api.nasa.gov/planetary/apod   (header name varied)</span>
+X-Api-Key: DEMO_KEY              429   OVER_RATE_LIMIT
+Api-Key: DEMO_KEY                403   API_KEY_MISSING
+X-Auth-Token: DEMO_KEY           403   API_KEY_MISSING
+Authorization: DEMO_KEY          403   API_KEY_MISSING
+Authorization: Bearer DEMO_KEY   403   API_KEY_MISSING</code></pre>
+      </div>
+      <p><b>Only the first name was read at all.</b> The other four are perfectly reasonable conventions and NASA simply does not look at them, so as far as it is concerned no key was supplied, which is exactly what <code>API_KEY_MISSING</code> says. <b>The first line is the interesting one</b>: a <code>429</code> means the key was found, recognised and counted, and the quota happened to be spent when this was captured. So the status alone tells you whether the server even read your header, which is a diagnostic worth keeping: <code>403</code> with a missing-key body when you know you sent one usually means the name is wrong, not the key.</p>
+      <p>Now spend your second and last NASA request, to prove this is not a postman-echo trick. <b>NASA accepts the identical key either way</b>, so you can move it out of the URL with no other change:</p>
+      <div class="filebox">
+        <div class="fbh">the same NASA call, key moved into a header &middot; costs your last budgeted request</div>
+<pre><code><span class="cmd">&gt; GET https://api.nasa.gov/planetary/apod</span>
+<span class="cmd">&gt; header:  X-Api-Key: DEMO_KEY</span>
+200 OK
+{
+  <span class="jk">"title"</span>: "LDN 1295: The Giraffe Nebula",
+  <span class="cm">... the same object as before, from a URL with no credential in it ...</span>
+}</code></pre>
+      </div>
+      <p>Same key, same data, and the URL you could now paste anywhere. <b>That pair of requests is one of the three ways this session&rsquo;s milestone asks for</b>, and the tradeoff you can state about it is exactly the list above.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Move a key out of the URL and watch it disappear</div>
+        <ol>
+          <li>Send <code>GET https://postman-echo.com/get?api_key=SECRET123</code>. Find the key in <b>both</b> <code>args</code> and <code>url</code>.</li>
+          <li>Remove the query string, add a header <code>X-Api-Key</code> with value <code>SECRET123</code>, and send again. Confirm <code>args</code> is empty, <code>url</code> is clean, and the key is now in <code>headers</code>.</li>
+          <li>Repeat step 2 with a different header name, say <code>Api-Key</code>, and confirm echo reports whatever you chose. <b>Echo accepts any name, which is the point:</b> the server decides which name is real, and only its documentation can tell you.</li>
+          <li>Now the last NASA request: <code>GET https://api.nasa.gov/planetary/apod</code> with header <code>X-Api-Key: DEMO_KEY</code>. Confirm <code>200</code> and the same <code>title</code> as section B. <b>A <code>429</code> here counts as done too</b>: it still proves the header carried the key, because a request NASA did not recognise would have come back <code>403</code> with <code>API_KEY_MISSING</code> rather than being counted at all.</li>
+          <li>Name two places the query-string version of that key would have been written down.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> I moved a key from the URL into a header and confirmed the URL came out clean</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Basic auth: a username and password, encoded and not encrypted</h3>
+      <p><b>Basic auth</b> is the oldest mechanism in HTTP and the one that shows the machinery most clearly. You send a username and password on every single request, joined by a colon, and the pair is put through <b>base64</b>, which is a way of rewriting arbitrary text using only safe characters so it survives being carried in a header. The whole credential goes into one header:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">the shape</span><code>Authorization: Basic &lt;base64 of username:password&gt;</code></div>
+      </div>
+      <p><b>Those angle brackets are a stand-in, not something you type.</b> <code>&lt;base64 of username:password&gt;</code> means "the real value goes here, brackets and all replaced". You will see this convention in every API document you ever read, and the rest of this session uses it without comment.</p>
+      <p>That <code>Authorization</code> header is the one Session 1 named and deferred: "carries proof of who you are (Session 3)". This is it. <b>The first word is the <em>scheme</em></b>, meaning which kind of credential follows, and <code>Basic</code> is one scheme. Section E is another.</p>
+      <p>postman-echo has an endpoint that genuinely checks a username and password, with a published pair anyone can use: <code>postman</code> and <code>password</code>. Ask for it with nothing first:</p>
+      <div class="filebox">
+        <div class="fbh">no credential &middot; and this one gets the status code right</div>
+<pre><code><span class="cmd">&gt; GET https://postman-echo.com/basic-auth</span>
+401 Unauthorized
+WWW-Authenticate: Basic realm="Users"
+
+Unauthorized</code></pre>
+      </div>
+      <p><b>Compare that with NASA&rsquo;s <code>403</code> from section B, because this is the same situation answered correctly.</b> A <code>401</code>, because the server does not know who you are, plus a <code>WWW-Authenticate</code> header that names the scheme it wants. <b>That header is the server telling you how to try again</b>, which is why a well-behaved <code>401</code> is more useful than a <code>403</code>: it does not just refuse, it says what would work. <code>realm="Users"</code> is a label for the protected area, and you can ignore it. <b>Note the body, too</b>, which is the bare word <code>Unauthorized</code> as plain text rather than JSON: not every error body is structured, and NASA&rsquo;s <code>API_KEY_MISSING</code> object from section B is the more helpful of the two shapes.</p>
+      <p>Now build the credential. <code>postman:password</code> in base64 is <code>cG9zdG1hbjpwYXNzd29yZA==</code>, and you can send that header by hand:</p>
+      <div class="filebox">
+        <div class="fbh">the credential, sent as a header you built yourself</div>
+<pre><code><span class="cmd">&gt; GET https://postman-echo.com/basic-auth</span>
+<span class="cmd">&gt; header:  Authorization: Basic cG9zdG1hbjpwYXNzd29yZA==</span>
+200 OK
+{ <span class="jk">"authenticated"</span>: true }</code></pre>
+      </div>
+      <p><b>Postman will do the encoding for you</b>, and in normal work you would let it: look for an <b>Authorization</b> tab alongside the Headers and Body tabs under the URL bar, pick the Basic type, and type the username and password into the two boxes. The exact wording and position of that tab have moved between Postman versions, so look for the word "Authorization" rather than a specific spot. <b>Doing it by hand once is worth it anyway</b>, because it shows you that the tab is a convenience and not a different mechanism: both produce the identical header, and the server cannot tell which you used.</p>
+      <p><b>Now the part that matters most in this whole section.</b> Base64 is <b>not</b> encryption, and it is not obfuscation. It is a reversible rewriting with no key and no secret involved, so anybody who sees the header can turn it back:</p>
+      <div class="filebox">
+        <div class="fbh">the credential, read straight back out</div>
+<pre><code><span class="cmd">&gt; decode  cG9zdG1hbjpwYXNzd29yZA==</span>
+postman:password</code></pre>
+      </div>
+      <p>Any online base64 decoder does that in a second, with no cleverness at all. <b>So Basic auth sends your actual password, in effectively readable form, on every request.</b> Two consequences follow, and they are the tradeoffs you should be able to state:</p>
+      <ul class="pts">
+        <li><b>HTTPS is not optional with Basic auth, it is the only thing protecting the password.</b> Over plain <code>http://</code> the credential is readable by anything on the network path. This is the clearest case in the whole track for why the <code>s</code> in <code>https</code> matters.</li>
+        <li><b>The credential is long-lived and total.</b> It is your real password, it does not expire on its own, it grants everything your account can do, and revoking it means changing your password everywhere. Bearer tokens in section E exist largely to fix exactly that.</li>
+      </ul>
+      <p>You can watch the header arrive, too, which makes the point concrete. Send the same credential to the ordinary echo endpoint:</p>
+      <div class="filebox">
+        <div class="fbh">what the server actually receives</div>
+<pre><code><span class="cmd">&gt; GET https://postman-echo.com/get</span>
+<span class="cmd">&gt; header:  Authorization: Basic cG9zdG1hbjpwYXNzd29yZA==</span>
+200 OK
+{
+  <span class="jk">"headers"</span>: { <span class="cm">...</span> "authorization": "Basic cG9zdG1hbjpwYXNzd29yZA==" },
+  <span class="jk">"url"</span>: "https://postman-echo.com/get"
+}</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Get a real 401, then authenticate, then decode your own credential</div>
+        <ol>
+          <li>Send <code>GET https://postman-echo.com/basic-auth</code> with nothing attached. Confirm <code>401</code> and <b>find <code>WWW-Authenticate</code> on the Headers tab.</b> Say what that header is for.</li>
+          <li>Add a header <code>Authorization</code> with the value <code>Basic cG9zdG1hbjpwYXNzd29yZA==</code> and send again. Confirm <code>200</code> and <code>authenticated: true</code>.</li>
+          <li>Now do it the other way: remove your header, find Postman&rsquo;s <b>Authorization</b> tab, choose Basic, and enter <code>postman</code> and <code>password</code>. Confirm you get the same <code>200</code>.</li>
+          <li><b>Prove the encoding is not protection.</b> Paste <code>cG9zdG1hbjpwYXNzd29yZA==</code> into any online base64 decoder and read the result. Then say out loud why HTTPS is mandatory here.</li>
+          <li>Send the same header to <code>https://postman-echo.com/get</code> and find your credential sitting in the echoed <code>headers</code>, exactly as the server saw it.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I got a 401 with a challenge, authenticated with Basic, and decoded the credential myself</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Bearer tokens, and OAuth2 in outline</h3>
+      <p>A <b>bearer token</b> is a string that stands for a granted permission rather than for your identity. The name is the idea: whoever bears it may use it, so the server does not ask who you are, only whether the token is valid. It rides in the same <code>Authorization</code> header as Basic, under a different scheme:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">the shape</span><code>Authorization: Bearer &lt;token&gt;</code></div>
+      </div>
+      <p><b>Compare that with Basic and the improvements are the whole reason it exists:</b></p>
+      <div class="hdrs">
+        <div class="hrow lbl"><div class="hn">Property</div><div class="hv">Basic versus Bearer</div></div>
+        <div class="hrow keep"><div class="hn">What you send</div><div class="hv">Basic sends your real password every time. Bearer sends a token that is not your password, so the password never leaves the place you typed it.</div></div>
+        <div class="hrow keep"><div class="hn">Lifetime</div><div class="hv">A password lasts until changed. A token is usually short-lived, often an hour, so a stolen one stops working on its own.</div></div>
+        <div class="hrow keep"><div class="hn">Scope</div><div class="hv">A password grants everything. A token can be issued for a narrow permission, say read-only access to one thing.</div></div>
+        <div class="hrow keep"><div class="hn">Revoking it</div><div class="hv">Killing a password affects everywhere it is used. A single token can be revoked on its own, leaving everything else working.</div></div>
+      </div>
+      <p><b>Where the honesty has to come in:</b> neither of this track&rsquo;s no-account services validates a bearer token, so this session cannot show you one being accepted and rejected the way section D showed Basic. What it can show you is <b>exactly what leaves your machine</b>, which is the part you control:</p>
+      <div class="filebox">
+        <div class="fbh">a bearer token, as the server receives it</div>
+<pre><code><span class="cmd">&gt; GET https://postman-echo.com/get</span>
+<span class="cmd">&gt; header:  Authorization: Bearer your-token-here</span>
+200 OK
+{
+  <span class="jk">"headers"</span>: { <span class="cm">...</span> "authorization": "Bearer your-token-here" },
+  <span class="jk">"url"</span>: "https://postman-echo.com/get"
+}</code></pre>
+      </div>
+      <p><b>Note that echo answered <code>200</code>, and would have answered <code>200</code> for any token at all, including nonsense.</b> It is echoing, not checking. That is worth saying plainly so you do not mistake a success here for a validated credential: <b>the only thing this proves is that your header was well formed and arrived.</b> When you meet a real token-protected API, the same header shape is what it will want.</p>
+
+      <h3 style="font-size:16px;margin:22px 0 8px;color:var(--ink-soft)">Where those tokens come from: OAuth2, in outline</h3>
+      <p><b>OAuth2 is not a way of logging in. It is a way of granting an application limited access to something of yours without giving it your password.</b> That is the entire problem it solves, and it is worth stating as a scenario: you want a scheduling app to read your calendar. You do not want to hand that app your Google password, because that would give it your email, your files and everything else, forever. OAuth2 is the arrangement that lets you say "this app, my calendar, read only" and hand over nothing else.</p>
+      <p>Three parties, and naming them makes the sequence readable:</p>
+      <div class="areas">
+        <div class="area"><div class="an">you</div><div class="ad">The resource owner. The calendar is yours and only you can approve access to it.</div></div>
+        <div class="area"><div class="an">the app</div><div class="ad">The client. It wants access, and it must never see your password.</div></div>
+        <div class="area"><div class="an">the provider</div><div class="ad">The authorisation server, Google here. It already knows your password and can vouch for you.</div></div>
+      </div>
+      <p>The most common arrangement is the <b>authorisation code flow</b>, and it is genuinely a sequence rather than a single request, which is why it is one of Part 3&rsquo;s ordering exercises:</p>
+      <div class="hops">
+        <div class="hop"><div class="hi">1</div><div class="hb"><b>The app sends you to the provider.</b> It redirects your browser to Google, using the 3xx machinery from Session 2, saying which app is asking and for what.</div></div>
+        <div class="hop"><div class="hi">2</div><div class="hb"><b>You log in and approve, at the provider.</b> This is the crucial step: you type your password into Google, never into the app.</div></div>
+        <div class="hop"><div class="hi">3</div><div class="hb"><b>The provider redirects you back with a short-lived code.</b> A single-use string, not a token, and useless on its own.</div></div>
+        <div class="hop"><div class="hi">4</div><div class="hb"><b>The app exchanges the code for an access token</b>, server to server, proving it is really that app. This is where the token is issued, and it is why the code alone is not enough for a thief.</div></div>
+        <div class="hop"><div class="hi">5</div><div class="hb"><b>The app calls the API with <code>Authorization: Bearer &lt;token&gt;</code></b>, which is the header you sent by hand above.</div></div>
+      </div>
+      <p><b>The dependency running through those five steps is what makes it safe:</b> the code cannot be exchanged by anyone who did not register as that app, and the token cannot be obtained without your approval at step 2.</p>
+      <div class="note"><b>Where this track stops, stated plainly.</b> Implementing that flow needs a registered application, a client secret and a redirect URL you control, which means an account and a server, and this session is deliberately account-free. <b>So you will not implement OAuth2 here, today or later in this track.</b> What you should carry away is the shape: which party holds your password (the provider, never the app), what the code is for, and that the thing you finally send is an ordinary <code>Authorization: Bearer</code> header, identical to the one you just sent by hand. When you meet a real OAuth2 API, Postman has a helper that walks the flow for you, and you will recognise every step of it.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Send a bearer token and read the flow back</div>
+        <ol>
+          <li>Send <code>GET https://postman-echo.com/get</code> with a header <code>Authorization</code> set to <code>Bearer your-token-here</code>. Find it in the echoed <code>headers</code>.</li>
+          <li>Change the token to complete nonsense and send again. <b>Confirm you still get <code>200</code></b>, and say in one sentence why that is not evidence of anything.</li>
+          <li>Send it once more with the scheme word removed, so the header value is just the token. Confirm echo still reports whatever you sent: <b>echo never validates, which is exactly why section D used <code>/basic-auth</code> for the real thing.</b></li>
+          <li>Without looking, say the five steps of the authorisation code flow in order, and name which party your password is typed into.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I sent a bearer token, saw it arrive, and can state the OAuth2 flow in order</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. The requests that change things: PUT, PATCH and DELETE</h3>
+      <p>Session 1 named three methods and deferred them to this session, and they belong here for a reason worth stating: <b>these are the requests auth exists to gate.</b> A wrong <code>GET</code> wastes a moment. A wrong <code>DELETE</code> removes something.</p>
+      <p>You already know <code>POST</code> from Session 1, which creates something new. The other three change or remove something that already exists:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Verb</div><div class="fn">Means</div><div class="fd">What you send</div></div>
+        <div class="frow"><div class="fc">PUT</div><div class="fn">Replace it</div><div class="fd">The <b>whole</b> new version of the thing. Anything you leave out is genuinely left out.</div></div>
+        <div class="frow"><div class="fc">PATCH</div><div class="fn">Change part of it</div><div class="fd">Only the fields you want changed. Everything else is left as it was.</div></div>
+        <div class="frow"><div class="fc">DELETE</div><div class="fn">Remove it</div><div class="fd">Nothing. The URL says which thing, and that is the whole request.</div></div>
+      </div>
+      <p><b>The PUT-versus-PATCH difference is the one that catches people</b>, and it is not a matter of taste: sending a partial body with <code>PUT</code> is how fields get silently wiped. jsonplaceholder answers both faithfully enough to show it. Send only a title with <code>PUT</code>:</p>
+      <div class="filebox">
+        <div class="fbh">PUT with only one field &middot; watch what is missing from the answer</div>
+<pre><code><span class="cmd">&gt; PUT https://jsonplaceholder.typicode.com/posts/1</span>
+<span class="cmd">&gt; header:  Content-Type: application/json</span>
+<span class="cmd">&gt; body:    { "title": "only a title" }</span>
+200 OK
+{
+  <span class="jk">"title"</span>: "only a title",
+  <span class="jk">"id"</span>: 1
+}</code></pre>
+      </div>
+      <p><b><code>userId</code> and <code>body</code> are gone.</b> Post 1 has had four fields since Session 1, and the answer has two. That is <code>PUT</code> doing exactly what it promises: you said "replace it with this", this had one field, so the rest no longer exists. Now the same body with <code>PATCH</code>:</p>
+      <div class="filebox">
+        <div class="fbh">PATCH with the identical body &middot; and nothing else moves</div>
+<pre><code><span class="cmd">&gt; PATCH https://jsonplaceholder.typicode.com/posts/1</span>
+<span class="cmd">&gt; header:  Content-Type: application/json</span>
+<span class="cmd">&gt; body:    { "title": "only a title" }</span>
+200 OK
+{
+  <span class="jk">"userId"</span>: 1,
+  <span class="jk">"id"</span>: 1,
+  <span class="jk">"title"</span>: "only a title",
+  <span class="jk">"body"</span>: "quia et suscipit\nsuscipit recusandae consequuntur expedita et cum..."
+}</code></pre>
+      </div>
+      <p><b>Four fields, one of them changed.</b> Same URL, same header, same body, different verb, and the difference is whether three fields survived. <b>If you remember one thing from this section, make it that.</b></p>
+      <p>And <code>DELETE</code>, which needs no body at all:</p>
+      <div class="filebox">
+        <div class="fbh">DELETE &middot; the URL is the whole request</div>
+<pre><code><span class="cmd">&gt; DELETE https://jsonplaceholder.typicode.com/posts/1</span>
+200 OK
+{}</code></pre>
+      </div>
+      <p>An empty object, and a <code>200</code>. <b>Real APIs very often answer <code>204 No Content</code> instead</b>, which means "done, and there is deliberately nothing to tell you". That is the same idea as Session 2&rsquo;s <code>304</code>: a successful response with no body, where reading only the body would make it look like nothing happened. Both are worth recognising as success.</p>
+      <div class="note"><b>The honest caveat, carried forward from Session 1.</b> jsonplaceholder answers all three verbs convincingly and <b>persists none of them</b>. Send that <code>PUT</code>, then <code>GET https://jsonplaceholder.typicode.com/posts/1</code> again, and you will find the original title back, exactly as Session 1 warned about its POST. That is what makes it a safe place to practise a <code>DELETE</code>: you cannot break anything, for anybody. It also means the response bodies above are the service telling you what <em>would</em> have happened, which is enough to learn the verbs and not enough to learn what a real destructive call feels like. Sessions 5 and 6 are where you design and mock an API whose writes you control. <b>One correction while we are here:</b> Session 1 said this session would cover a service where a write genuinely sticks. That was optimistic. Practising a real destructive call needs an API whose data is actually yours, and getting one means an account, which nothing before Session 6 asks you for.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Replace, patch, delete, and prove none of it stuck</div>
+        <ol>
+          <li>Send the <code>PUT</code> above with a body of only <code>{ "title": "only a title" }</code>. <b>Count the keys in the answer</b> before you read on.</li>
+          <li>Change the method to <code>PATCH</code>, leaving everything else identical, and send again. <b>Count the keys now</b> and say which fields <code>PUT</code> discarded.</li>
+          <li>Send <code>DELETE https://jsonplaceholder.typicode.com/posts/1</code> with no body at all. Note the status and the empty object.</li>
+          <li>Now send <code>GET https://jsonplaceholder.typicode.com/posts/1</code>. <b>Confirm post 1 is exactly as it always was</b>, title and all, and say why that is a feature of this practice service rather than a bug.</li>
+          <li>Say which of these three verbs you would most want an API to demand a credential for, and why.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="5"> I sent a PUT, a PATCH and a DELETE, and saw that PUT dropped the fields I omitted</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Keeping the credential out of the request you share</h3>
+      <p>Every credential on this page is public on purpose. <b>The moment one is real, three habits stop being tidiness and start being the job.</b></p>
+      <p><b>First: never type a live secret into a request you might share.</b> A Postman request holds its headers, so a shared request, an exported collection, a screenshot or a pasted URL carries the credential with it. The fix is to keep the secret in one place and refer to it by name everywhere else. Postman calls that a <b>variable</b>, written in double curly braces, and you would use it exactly where the literal went:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">the literal, do not share this</span><code>X-Api-Key: DEMO_KEY</code></div>
+        <div class="srow"><span class="sl">the same request, by reference</span><code>X-Api-Key: {{nasa_key}}</code></div>
+      </div>
+      <p>The value lives once, in what Postman calls an <b>environment</b>, and every request that needs it points at the name. Change the key in one place and every request follows. Share the request and the name goes, not the secret. <b>Postman&rsquo;s own no-account mode limits what you can save</b>, which Session 1 disclosed, so treat the mechanics here as something to recognise rather than something to set up today: look for "Environment" or "Variables", and expect the exact wording to have moved between versions. <b>The habit is the lesson, not the menu path.</b></p>
+      <p><b>Second: a key in a URL is a key you have already shared</b>, which is section C&rsquo;s whole argument. Once you are using variables, this gets easier rather than harder, because <code>{{nasa_key}}</code> in a header is no more effort than a literal in a query string.</p>
+      <p><b>Third, and the one people learn the hard way: a leaked credential is not fixed by deleting the message.</b> If a real key ends up in a chat, a ticket, a screenshot or a commit, the only reliable response is to <b>rotate it</b>: issue a new one, then revoke the old one, in that order so nothing breaks in between. Deleting the message does nothing, because you cannot know who already read it, and automated scanners watch public places for exactly this.</p>
+      <div class="danger"><b>The one that would actually cost you something.</b> Nothing in this session uses a credential of yours, so nothing here can leak. But the first time you use a real key, you will be pasting a request into a chat to ask a colleague why it fails. <b>Replace the credential with an obvious placeholder before you paste, every time</b>, and get in the habit now while the stakes are zero. If you ever paste a real one by accident: rotate first, apologise second.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the habit while nothing is at stake</div>
+        <ol>
+          <li>Take your section C request, the one with <code>X-Api-Key: DEMO_KEY</code>, and replace the value with <code>{{nasa_key}}</code>. <b>Send it and watch it fail</b>, because you have not defined that variable: Postman will send the literal text or flag it as unresolved. You are looking for <code>403</code> with <code>API_KEY_INVALID</code> in the body, which is a different error from section B&rsquo;s <code>API_KEY_MISSING</code>: something was supplied, it was just not a key. <b>This one costs nothing against your two-request budget</b>, because an invalid key is refused before the rate-limit counter is consulted, which is why the response carries no <code>X-Ratelimit</code> headers.</li>
+          <li><b>That failure is the exercise.</b> Say what would have to exist for it to work, and why a request that fails this way is safer to share than one that works.</li>
+          <li>Write down, in one sentence each, the three habits above. Then say what you would do first if you found a real key in a screenshot you had already posted.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="6"> I swapped a credential for a variable reference and can state the rotate-then-revoke rule</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: three ways, and the tradeoffs</h3>
+      <p>The milestone is to authenticate three genuinely different ways and explain what each costs you. You have already sent all three; this is doing it without the scaffolding and being able to say why each one is the way it is.</p>
+      <p><b>Explaining is the graded half.</b> Anyone can copy a header. The thing worth having is being able to say, when an API hands you a choice, which one you want and what you are accepting.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: authenticate three ways, then justify each</div>
+        <p>Work in a blank Postman tab. Do not scroll back up. <b>Budget note: use the <code>403</code> route for NASA if you have already spent your two successful calls</b>, and do the key-placement half against postman-echo, which is unlimited.</p>
+        <ol>
+          <li><b>An API key in a header.</b> Send a request that carries a key as a header rather than in the URL, and confirm from the response that the URL came out clean.</li>
+          <li><b>Basic auth.</b> Get a <code>401</code> with a challenge from <code>postman-echo.com/basic-auth</code>, then authenticate and get <code>authenticated: true</code>. Say which header carried it and what the first word of its value was.</li>
+          <li><b>A bearer token.</b> Send a well-formed <code>Authorization: Bearer</code> header and confirm from the echo exactly what the server received. Say why a <code>200</code> here proves less than the <code>200</code> in step 2.</li>
+          <li><b>Now the explaining.</b> For each of the three, say in one sentence: what the server learns about you, how long the credential lasts, and what happens if somebody else gets hold of it.</li>
+          <li><b>And one comparison.</b> Say why moving a key from a query string into a header changes nothing about encryption and still matters a great deal.</li>
+        </ol>
+        <p>You have hit the milestone when you can do all three from a blank tab and answer step 4 for each without looking.</p>
+        <details><summary>Show the answers to check yourself against</summary>
+<pre><code><span class="cmd">&gt; 1. api key in a header</span>
+GET https://postman-echo.com/get
+header:  X-Api-Key: SECRET123
+-> args {} and url with no credential in it
+
+<span class="cmd">&gt; 2. basic auth</span>
+GET https://postman-echo.com/basic-auth        -> 401 + WWW-Authenticate
+header:  Authorization: Basic cG9zdG1hbjpwYXNzd29yZA==
+-> 200  { "authenticated": true }
+carried by: Authorization; first word: Basic
+
+<span class="cmd">&gt; 3. bearer token</span>
+GET https://postman-echo.com/get
+header:  Authorization: Bearer your-token-here
+-> 200, and echo reports the header back. It would have said 200
+   for nonsense too, because echo does not validate. Step 2 was a
+   real check: the wrong password there genuinely returns 401.
+
+<span class="cmd">&gt; 4. the tradeoffs</span>
+api key    identifies an app or account, not a person. Lasts until
+           rotated. Whoever holds it is you, with everything the
+           key can do.
+basic      your real username and password, base64-encoded and so
+           readable. Lasts until the password changes. A thief gets
+           the account itself, everywhere.
+bearer     a granted permission, not your password. Usually expires
+           within hours. A thief gets only what that token was
+           scoped to, and only until it expires or is revoked.
+
+<span class="cmd">&gt; 5. query string against header</span>
+HTTPS encrypts both, so nothing changes in transit. It matters
+because a URL is treated as an identifier and gets written down:
+server logs, browser history, proxy logs, and whatever people
+paste into chat. A header is in none of those.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I authenticated three ways from a blank tab and explained all three tradeoffs</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from reading a status code to tracing a whole challenge-response exchange. Every one is reproducible afterwards, and none of them needs a NASA request.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a fresh request from Postman with no credential attached and no special headers beyond what Postman adds automatically. Where a drill needs something to have happened first, it is shown in the grey <i>already sent</i> box.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between recognising an auth exchange and reasoning about one. First put two genuinely ordered exchanges back into order, then fill the blanks in requests you have already sent.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Both exchanges below run in one order for a real reason, not an arbitrary one: each is a conversation where a step cannot happen until the one before it has, so there is exactly one order that works.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded requests)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the request in the box, reveal the reference to compare, then actually send yours in Postman. The workbook cannot send a request for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 5 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the five questions below come from <b>Sessions 1 and 2</b> rather than from today, because recalling something after a delay is what moves it from "I read that" to "I know that". Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 03 of 10 &middot; Hit the milestone unassisted, then tick <b>S03</b> on your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>.
+    <br><br>
+    <b>Your 15-minute review:</b> from a blank tab and with this page closed, authenticate against <code>postman-echo.com/basic-auth</code> starting from the <code>401</code>, then send the same credential to <code>/get</code> and read it back off the wire. Then write out, from memory, the difference between <code>401</code> and <code>403</code>, and what <code>PUT</code> does to a field you leave out. Keep <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication" target="_blank" rel="noopener">MDN Web Docs: HTTP authentication</a> open beside you for anything you cannot name. &middot; Next: <b>Session 04, pagination, rate limits and retries</b>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-s03-workbook-v1";
+  /* Spaced review: two Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, scheme words,
+     status numbers and short words, where capitalisation is presentation. HTTP
+     header names really are case-insensitive, which Session 1 taught, so grading
+     Authorization against authorization would be an unfair grade. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "x-api-key: SECRET123", so a copied answer is
+     "args:, url:", and JSON field names as "userId", so a copied answer is
+     "\"userId\", \"id\"". norm() strips both; toks() stripped neither until
+     2026-09-10. Whenever a session prints an answer token inside punctuation, that
+     punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"\u2018\u2019\u201c\u201d']+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer, so a learner who
+     understands the concept is not graded on a wording coin-flip. It never accepts a
+     different answer, only a different spelling of the correct one. */
+  /* One candidate compared with the comparator this drill type calls for. Kept
+     separate from gradeDrill so `alt` reaches set and seq as well: the old shape
+     returned inside the set and seq branches, which made d.alt dead code for
+     exactly the two types whose answers have the most spellings. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(ans);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 2 set, 1 count, 1 seq. No drill needs a live NASA
+     call: the two that involve NASA are answered from the transcripts in section B. */
+  var DRILLS = [
+    { type: 'value',
+      scen: 'GET https://postman-echo.com/basic-auth\n(no credential of any kind attached)',
+      ask: 'What three-digit status code comes back?',
+      code: '(the response to the request above)', ans: '401',
+      why: '401 Unauthorized, because the server does not know who you are. Despite its name that is the authentication failure, not the permission one. It is also the more useful of the two refusals, because a well-behaved 401 does not merely say no: it tells you how to try again. The next drill but two asks with what.' },
+
+    { type: 'value',
+      scen: 'GET https://api.nasa.gov/planetary/apod\n(no api_key at all)\n\nresponse body:\n { "error": { "code": "API_KEY_MISSING", ... } }',
+      ask: 'What three-digit status code does NASA actually answer with here?',
+      code: '(the response to the request above)', ans: '403',
+      why: '403, even though nothing was supplied and the spec would call that a 401. NASA is not unusual in this; a large share of real APIs answer 403 for a missing credential. It is exactly why the body matters: API_KEY_MISSING states which of the two problems it really is, where the status code alone would have misled you.' },
+
+    { type: 'value',
+      scen: 'A request arrives at the server carrying:\n\n Authorization: Basic cG9zdG1hbjpwYXNzd29yZA==',
+      ask: 'What is the username in that credential? Answer with the username alone.',
+      code: '(the header above)', ans: 'postman',
+      why: 'postman, because the decoded value is postman:password and Basic auth joins the two with a colon. Nothing was broken to read that: base64 is a reversible rewriting with no key involved, so it is encoding and not encryption. That is why HTTPS is not optional with Basic auth, and why a bearer token, which is not your password, is an improvement.' },
+
+    { type: 'value',
+      ask: 'Which response header does a well-behaved 401 use to tell you which authentication scheme it wants? Answer with the header name.',
+      code: 'GET https://postman-echo.com/basic-auth', ans: 'www-authenticate',
+      why: 'WWW-Authenticate. On the postman-echo endpoint its value is Basic realm="Users": the first word is the scheme, and realm is just a label for the protected area that you can ignore. A 403 has no equivalent header, which is part of why a 401 is the more helpful refusal.' },
+
+    { type: 'set',
+      scen: 'GET https://postman-echo.com/get?api_key=SECRET123\n\n(postman-echo echoes your whole request back as JSON)',
+      ask: 'Two fields of that response body contain the key. Give both field names separated by a comma, names only. Order does not matter.',
+      code: '(the response to the request above)', ans: 'args, url',
+      why: 'args, because echo parses your query string into it, and url, because the key is part of the address you sent. The second one is the problem: url is the exact string that gets written into server logs, browser history and proxy logs, and that people paste into chat when asking for help. Send the same key as a header and args comes back empty and url has nothing secret in it.' },
+
+    { type: 'value',
+      scen: 'You have been issued a bearer token whose value is abc123.',
+      ask: 'What is the full VALUE of the Authorization header you would send? Give the whole value, not the header name.',
+      code: 'GET https://api.example.com/me', ans: 'Bearer abc123',
+      why: 'Bearer abc123. The first word is the scheme, exactly as Basic was in section D, and the rest is the token. Getting the scheme word wrong or leaving it out is the most common mistake here, and a server will refuse a bare token with no scheme even though the token itself is valid.' },
+
+    { type: 'count',
+      scen: 'PUT https://jsonplaceholder.typicode.com/posts/1\nheader:  Content-Type: application/json\nbody:    { "title": "only a title" }\n\n(post 1 is the same one you read in section F)',
+      ask: 'How many keys does the response object come back with?',
+      code: '(the response to the request above)', ans: '2', alt: ['two'],
+      why: 'Two, title and id. PUT means replace the whole thing, so the fields you did not send are genuinely gone: userId and body are absent from the answer. The fields you did not send are absent because you told the server this was the whole resource. This is how fields get silently wiped in real work, and it is the entire reason PATCH exists.' },
+
+    { type: 'set',
+      scen: 'PATCH https://jsonplaceholder.typicode.com/posts/1\nheader:  Content-Type: application/json\nbody:    { "title": "only a title" }',
+      ask: 'List every key in the response object, separated by commas. Order does not matter.',
+      code: '(the response to the request above)', ans: 'userId, id, title, body',
+      why: 'All four survive, because PATCH changes only the fields you name and leaves everything else exactly as it was. Compare that with the previous drill: identical URL, identical header, identical body, one different verb, and the difference is whether three fields still exist.' },
+
+    { type: 'value',
+      scen: 'GET https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY\n\n429 Too Many Requests\n{ "error": { "code": "OVER_RATE_LIMIT", ... } }',
+      ask: 'Which response header tells you how long to wait before trying again? Answer with the header name.',
+      code: '(the response to the request above)', ans: 'retry-after',
+      why: 'Retry-After, given in seconds. On the shared demo key it came back as 22797, which is a little over six hours rather than the few minutes people assume. That is why this session budgets exactly two successful NASA calls and puts everything repeatable on postman-echo, which has no limit.' },
+
+    { type: 'seq',
+      scen: 'A client wants postman-echo.com/basic-auth and does not know\nyet what the endpoint requires. It sends a request with no\ncredential, reads the answer, then sends a second request\ncarrying an Authorization header built from the challenge.',
+      ask: 'Type the status code of both responses, in the order they arrive, separated by a comma.',
+      code: '(the two responses above)', ans: '401, 200',
+      why: '401 then 200. The first refusal is not a failure of the exchange, it is the first half of it: the server answers 401 with WWW-Authenticate, which tells the client which scheme to use, and the client can then build a credential and succeed. That challenge-then-respond shape is why the mechanism has a WWW-Authenticate header at all.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already sent</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both sequences are genuinely dependency-ordered rather than conventionally
+     ordered: every step consumes something the previous step produced, so there is
+     exactly one working order. See the build contract, section 4. */
+  var PARSONS = [
+    { prompt: 'A client wants a protected endpoint and does not yet know what it requires. Put the exchange in the order it actually happens, which is the only order the exchange makes sense in.',
+      lines: ['Client sends the request with no credential',
+              'Server answers 401 with WWW-Authenticate',
+              'Client reads which scheme the server wants',
+              'Client base64-encodes username:password',
+              'Client resends with an Authorization header',
+              'Server answers 200 and authenticated: true'] },
+    { prompt: 'An app wants read-only access to your calendar and must never see your password. Put the OAuth2 authorisation code flow in order. Note that one step is impossible until an earlier step has handed it a value.',
+      lines: ['App redirects you to the provider to log in',
+              'You approve the access the app asked for',
+              'Provider redirects back with a one-time code',
+              'App exchanges that code for an access token',
+              'App calls the API with Authorization: Bearer'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ---------- */
+  var FADED = [
+    { prompt: 'Fill the blanks so this request carries a username and password to the endpoint that checks them, and name the single body field that comes back on success.',
+      code: 'GET https://postman-echo.com/basic-auth\n%%: Basic cG9zdG1hbjpwYXNzd29yZA==\n\n200 OK\n{ "%%": true }', ans: ['Authorization', 'authenticated'] },
+    { prompt: 'Fill the blanks with the exact header name NASA reads for its key, the one section C sent and the only one of the five it answers to, and give the three-digit code only for the status a valid key earns.',
+      code: 'GET https://api.nasa.gov/planetary/apod\n%%: DEMO_KEY\n\nexpected status:  %%', ans: ['X-Api-Key', '200'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = norm(b.value) === norm(f.ans[i]);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Write the PAIR of requests that shows a credential actually gating access on NASA: one that is refused because it carries no key, and one that succeeds with the public demo key. Name the status each returns and the body field that tells you which problem the refusal really was.',
+      sol: 'GET https://api.nasa.gov/planetary/apod\n  -> 403 Forbidden\n  -> body: { "error": { "code": "API_KEY_MISSING", ... } }\n     the code field is what names the real problem, since the\n     status by itself suggests a permission issue rather than\n     a missing credential\n\nGET https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY\n  -> 200 OK, and X-Ratelimit-Remaining counts down' },
+    { task: 'Write the request that takes an API key out of the URL and puts it somewhere a server log will not record it, against postman-echo so it costs nothing. Then say which two fields of the echoed response you would check to prove the URL came out clean.',
+      sol: 'GET https://postman-echo.com/get\nX-Api-Key: SECRET123\n\nthen check, in the echoed response:\n  args -> {}                                  (empty)\n  url  -> https://postman-echo.com/get        (no credential)\n\nThe header name is a convention, not a standard. X-Api-Key is\nthe most common, but only the API documentation is authoritative.' },
+    { task: 'Write the two requests that authenticate with Basic auth as a challenge and response: one that earns the refusal, and one that answers it. Say which response header on the first one tells you how to build the second, and what the first word of your Authorization value has to be.',
+      sol: 'GET https://postman-echo.com/basic-auth\n  -> 401 Unauthorized\n  -> WWW-Authenticate: Basic realm="Users"\n     that header names the scheme, so it is what tells you to\n     build a Basic credential rather than guess\n\nGET https://postman-echo.com/basic-auth\nAuthorization: Basic cG9zdG1hbjpwYXNzd29yZA==\n  -> 200 OK  { "authenticated": true }\n\nfirst word of the value: Basic (the scheme).\ncG9zdG1hbjpwYXNzd29yZA== decodes to postman:password, which is\nwhy HTTPS is the only thing protecting it.' },
+    { task: 'Write the two requests that show the difference between replacing a thing and changing part of it: send only a title to practice post 1 as a replacement, then send the identical body as a partial change. Say how many fields come back each time and which ones the replacement discarded. Then say what you would check to prove neither request actually persisted.',
+      sol: 'PUT https://jsonplaceholder.typicode.com/posts/1\nContent-Type: application/json\n{ "title": "only a title" }\n  -> 200, and the body has TWO keys: title and id\n  -> userId and body were discarded, because PUT replaces\n     the whole thing with what you sent\n\nPATCH https://jsonplaceholder.typicode.com/posts/1\nContent-Type: application/json\n{ "title": "only a title" }\n  -> 200, and the body has FOUR keys: userId, id, title, body\n  -> only title changed\n\nGET https://jsonplaceholder.typicode.com/posts/1\n  -> the original title is back. This service answers writes\n     convincingly and persists none of them, which is what\n     makes it safe to practise a DELETE on.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write the method, URL, headers and body here, then send it in Postman"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After sending yours in Postman:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Sixteen cards, sized to the atoms THIS session has. Earlier sessions are
+     deliberately absent: the deck stays session-local and re-testing earlier
+     material is Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'Authentication against authorisation', b: 'authentication is who are you; authorisation is what may you do' },
+    { f: 'What 401 Unauthorized actually means', b: 'I do not know who you are: the authentication failure' },
+    { f: 'What 403 Forbidden actually means', b: 'I am not letting you do that: the authorisation failure' },
+    { f: 'The response header a well-behaved 401 carries', b: 'WWW-Authenticate, naming the scheme it wants' },
+    { f: 'What an API key is', b: 'one long opaque string identifying an account or app' },
+    { f: 'Why a key in a query string is worse than in a header', b: 'a URL gets logged, bookmarked, proxied and pasted; a header does not' },
+    { f: 'The most common header name for an API key', b: 'X-Api-Key, but it is a convention only; check the docs' },
+    { f: 'The Authorization header shape for Basic auth', b: 'Authorization: Basic <base64 of username:password>' },
+    { f: 'What base64 does to a Basic credential', b: 'encodes it reversibly, so it is readable: NOT encryption' },
+    { f: 'Why HTTPS is mandatory with Basic auth', b: 'it is the only thing protecting a password sent on every request' },
+    { f: 'The Authorization header shape for a bearer token', b: 'Authorization: Bearer <token>' },
+    { f: 'Three ways a bearer token beats a password', b: 'it is not your password, it expires, and it can be scoped and revoked alone' },
+    { f: 'The problem OAuth2 actually solves', b: 'granting an app limited access without giving it your password' },
+    { f: 'In an OAuth2 flow, who do you type your password into', b: 'the provider, never the app' },
+    { f: 'PUT against PATCH', b: 'PUT replaces the whole thing, so omitted fields are lost; PATCH changes only what you send' },
+    { f: 'What a DELETE usually answers with', b: '200 with an empty body, or very often 204 No Content' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Q4 and Q5 are spaced review, from Sessions 2 and 1 respectively, and their
+     backlinks carry `ext` so they open that session rather than scrolling here. */
+  var QUIZ = [
+    { q: 'A request comes back 401 with a WWW-Authenticate header. A different one comes back 403 with no such header. What is the difference actually telling you?',
+      o: ['401 is about identity; 403 is about permission',
+          'They are interchangeable',
+          '401 means the server is overloaded; 403 means it is offline',
+          '403 is about identity and 401 is about what you may do'],
+      c: 0,
+      e: 'A 401 says the server does not know who you are, and the WWW-Authenticate header is it telling you which scheme would work. A 403 says it will not let you do this, usually because it does know you and you are not permitted. The names are the wrong way round, so learn the pair rather than the words. And read the body: plenty of real APIs answer 403 for a missing credential, which NASA does in section B.',
+      part: { id: 'concept-a', label: 'A. Why an API asks who you are' } },
+
+    { q: 'Your API key works both in the query string and in a header, over HTTPS either way. Why does moving it into the header matter?',
+      o: ['A URL gets logged and pasted around; a header does not',
+          'The header is encrypted and the URL is not',
+          'Query strings have a length limit that a header does not have',
+          'Servers parse headers faster, so the request finishes sooner'],
+      c: 0,
+      e: 'HTTPS encrypts the whole request either way, so nothing changes in transit, which is exactly why the second option is the tempting wrong answer. What changes is what happens at the ends: a URL is treated as an identifier rather than a secret, so it lands in server access logs, browser history, proxy logs, and whatever people paste into a ticket when asking for help. A header is in none of those.',
+      part: { id: 'concept-c', label: 'C. Where the key goes' } },
+
+    { q: 'A Basic auth credential arrives as Authorization: Basic cG9zdG1hbjpwYXNzd29yZA==. What has been done to the username and password?',
+      o: ['Encoded, so anybody who sees it can read it straight back',
+          'Encrypted with a key that only the real server holds',
+          'Hashed one way, so the password cannot be recovered from it',
+          'Signed, which proves the request was not altered on the way'],
+      c: 0,
+      e: 'Base64 is a reversible rewriting with no key and no secret involved, so it is encoding, not any form of protection. Any online decoder turns that string back into postman:password in a second. Two things follow: HTTPS is the only thing actually protecting a Basic credential, and since it is your real password it is long-lived and grants everything, which is the gap bearer tokens exist to close.',
+      part: { id: 'concept-d', label: 'D. Basic auth, encoded and not encrypted' } },
+
+    { q: 'Spaced review, from Session 2. You add Accept: application/xml to a request and still get JSON. What is the relationship between Accept and Content-Type?',
+      o: ['Accept asks for a shape; Content-Type states what was sent',
+          'They are the same header known by two different names',
+          'Accept describes the response body and Content-Type the URL',
+          'Content-Type is the request header and Accept the response one'],
+      c: 0,
+      e: 'Accept is a request header stating what you would like back, and the server is free to ignore it, which that one does. Content-Type is a statement of fact about what is actually in the message it sits on, whichever direction that message is going. Today added a third request header to the same family: Authorization, which states who is asking rather than what shape you want.',
+      part: { ext: S02_URL + '#concept-f', label: 'Session 2, F. Content negotiation' } },
+
+    { q: 'Spaced review, from Session 1. A POST creates something and it works. Which status code says specifically that something new now exists?',
+      o: ['201 Created',
+          '200 OK',
+          '202 Accepted',
+          '204 No Content'],
+      c: 0,
+      e: '201 Created is the success code specifically for "and now this exists", as distinct from the general-purpose 200 a GET returns, or a 202 Accepted, which promises only that the server took the request and will deal with it later. It matters more from today onward, because this session is where you started sending requests that change things: 201 for a creation, 200 or very often 204 No Content for a delete. A 204 is a success with a deliberately empty body, the same trap as Session 2 explained for 304.',
+      part: { ext: S01_URL + '#concept-d', label: 'Session 1, D. Reading a response: the status code' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet, which is how rule 15's ligature list
+               loses track of a selector that uses the mono stack. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 4
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S03 on your Hub and move on to Session 4.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>

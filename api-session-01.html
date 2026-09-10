@@ -458,7 +458,7 @@
 }</code></pre>
       </div>
       <p>Four keys, all inside one object, no nesting or arrays yet: <code>userId</code> and <code>id</code> are numbers (no quotes), <code>title</code> and <code>body</code> are strings (quoted). The <code>\n</code> characters inside <code>body</code> are an escaped line break sitting inside one JSON string, not four separate lines; Postman's Pretty view renders it as one paragraph with breaks.</p>
-      <p>Drop the <code>/1</code> and you get every post back at once, which is where arrays enter the picture: a top-level <code>[ ]</code> holding a hundred objects shaped exactly like the one above, back to back. Pagination, meaning fetching a huge collection like this a page at a time instead of all at once, is Session 3's problem, not today's; for now the shape is what matters, an array of objects, each object built from the same keys.</p>
+      <p>Drop the <code>/1</code> and you get every post back at once, which is where arrays enter the picture: a top-level <code>[ ]</code> holding a hundred objects shaped exactly like the one above, back to back. Pagination, meaning fetching a huge collection like this a page at a time instead of all at once, is Session 4's problem, not today's; for now the shape is what matters, an array of objects, each object built from the same keys.</p>
       <p>Ask for a post that does not exist and you get the 404 family from section D, JSON-shaped:</p>
       <div class="filebox">
         <div class="fbh">asking for a post id that was never created</div>
@@ -519,7 +519,7 @@
   <span class="jk">"id"</span>: 101
 }</code></pre>
       </div>
-      <p>This time the status is <code>201 Created</code>, from section D: something new exists as a direct result of this request. The response body hands back everything you sent, plus a new <code>id</code> the server assigned. One honest caveat about this particular practice API, so it does not mislead you: jsonplaceholder answers every POST convincingly, including the new id, but nothing is actually persisted on its servers; send that same GET for post <code>101</code> afterwards and you will get a 404, not the post you just "created". That trade-off is exactly why it is a safe place to practice writes, and Session 3 covers services where a write genuinely sticks.</p>
+      <p>This time the status is <code>201 Created</code>, from section D: something new exists as a direct result of this request. The response body hands back everything you sent, plus a new <code>id</code> the server assigned. One honest caveat about this particular practice API, so it does not mislead you: jsonplaceholder answers every POST convincingly, including the new id, but nothing is actually persisted on its servers; send that same GET for post <code>101</code> afterwards and you will get a 404, not the post you just "created". That trade-off is exactly why it is a safe place to practice writes. No session in this track writes to a service that keeps the change, because practising a real destructive call means owning the data, and owning it means an account: Sessions 5 and 6 are where you design and mock an API whose data is yours.</p>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> Send a POST with a JSON body</div>
         <ol>
