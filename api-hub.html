@@ -77,17 +77,17 @@
     font-family: var(--sans); line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
-  /* Rule 15: this must cover EVERYTHING using var(--mono), not just code blocks.
-     Cascadia Code is first in the --mono stack and ligates //, and the eyebrow
-     reads "APIs & Integrations // 20-Hour Sprint", so a list that stops at
-     code/pre leaves a joined double-slash on the first line of the page. CSS
-     cannot select on font-family, so the list is explicit: add to it whenever a
-     new selector takes var(--mono). Broadened 2026-09-08. */
-  code, pre,
-  .eyebrow, .trackback, .specimen-cmd, .specimen-out, .pp-stat .num, .reset-btn,
-  .save-btn, .sec-kicker, .fact .k, .level-badge, .level-milestone .flag,
-  .card.done::after, .snum, .sdur, .mrow .tag, .card-open, .card-pending,
-  .res .rnum, .res .cost, .res .when, .res a
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
   { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
   .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
   a:focus-visible, button:focus-visible, input:focus-visible {

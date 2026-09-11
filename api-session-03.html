@@ -54,22 +54,17 @@
 
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-  /* Disable programming ligatures so code shows the exact characters you type.
-     This session leans on -> and W/"..." and :, all of which some fonts redraw. */
-  /* Rule 15: this must cover EVERYTHING using var(--mono), not just code blocks.
-     Cascadia Code is first in the --mono stack and ligates // as well as != and
-     ->, and the eyebrow crumb literally reads "Session 03 // Level 2", so an
-     enumerated list that stops at code/pre leaves a joined double-slash on the
-     first line of the page. CSS cannot select on font-family, so the list is
-     explicit: add to it whenever a new selector takes var(--mono). */
-  code, pre, pre code, textarea, input, .pline, .fc-back,
-  .crumb, .hublink, .milestone .flag, .srow .sl, .area .an,
-  .hrow .hn, .hrow.lbl .hn, .hrow.lbl .hv, .frow .fc, .frow .fn,
-  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd, .hop .hi, .hop .hb b,
-  .card .cn, .card .cd, .scen .sch, .reveal .verdict, .reveal .lbl,
-  .pcol .pcl, .flashcard .side-lbl, .deck-meta, .opt .key,
-  .prog .p .n, .prog .reset, .sec > .sh .tag, .sec > .sh .part-reset,
-  .task .th .k, .task summary, .filebox .fbh, .pt, .howto .ic
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
   { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
   .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
 
