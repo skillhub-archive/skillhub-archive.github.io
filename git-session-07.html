@@ -1061,11 +1061,20 @@ git commit -m "My undo decision table"</code></pre>
   var LETTERS = ['A', 'B', 'C', 'D'];
 
   // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
-  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* One shared comparator so `alt` reaches EVERY drill type. Backported 2026-09-10.
+     The branch-and-return shape this replaced returned inside the set and seq branches
+     before the alt loop, which made `alt` dead code for exactly the two types whose
+     answers have the most valid spellings. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).slice().sort(), b = toks(ans).slice().sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(ans);   // count / single value: exact match after normalizing
+  }
   function gradeDrill(d, val) {
-    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
-    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
-    return norm(val) === norm(d.ans);  // count / single value: exact match
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
   }
 
   var drillCorrect = {};

@@ -798,11 +798,20 @@ Deleted branch drafts (was 312f23c).
   var LETTERS = ['A', 'B', 'C', 'D'];
 
   // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
-  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* One shared comparator so `alt` reaches EVERY drill type. Backported 2026-09-10.
+     The branch-and-return shape this replaced returned inside the set and seq branches
+     before the alt loop, which made `alt` dead code for exactly the two types whose
+     answers have the most valid spellings. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).slice().sort(), b = toks(ans).slice().sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(ans);   // count / single value: exact match after normalizing
+  }
   function gradeDrill(d, val) {
-    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
-    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
-    return norm(val) === norm(d.ans);  // count / single value: exact match
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
   }
 
   var drillCorrect = {};
@@ -880,7 +889,7 @@ Deleted branch drafts (was 312f23c).
 
     { type: 'set',
       scen: "You are on main. feature has one commit that main does not\nhave, and main has not moved. You run:\n git merge feature\nGit prints:\n Updating eae0405..c73c51d\n Fast-forward",
-      ask: 'Which branch names now point at commit c73c51d? feature has not been deleted. List them separated by commas, any order.',
+      ask: 'Which branch names now point at commit c73c51d? feature has not been deleted. List them separated by commas, any order, writing each name plain with no parentheses around it.',
       code: 'git log --oneline --graph --all --decorate=short', ans: 'main, feature',
       why: 'A fast-forward moves the pointer of the branch you are on, and leaves the other branch exactly where it was. feature was already on c73c51d and main has just been slid up to it, so both names hold the same hash. Merging does not move or remove the branch you merged from.' },
 

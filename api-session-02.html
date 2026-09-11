@@ -790,18 +790,25 @@ The header that proves it looked: Vary: Accept, Accept-Encoding</code></pre>
      shown answers "content-type:, etag:" and every token carries a trailing
      colon. norm() strips those; toks() did not, which failed a fully correct
      answer on both set drills. */
-  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:]+/).filter(Boolean); }
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
   /* `alt` holds additional accepted spellings of the SAME answer, so a learner
      who understands the concept is not graded on a wording coin-flip. This
      session needs it because a quantity can honestly be typed as a digit or a
      word ("0" or "zero", "2" or "two") and no format nudge makes one of those
      the obviously-intended form. It never accepts a different answer, only a
      different spelling of the correct one. */
+  /* One shared comparator so `alt` reaches EVERY drill type. Backported 2026-09-10.
+     The branch-and-return shape this replaced returned inside the set and seq branches
+     before the alt loop, which made `alt` dead code for exactly the two types whose
+     answers have the most valid spellings. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).slice().sort(), b = toks(ans).slice().sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(ans);   // count / single value: exact match after normalizing
+  }
   function gradeDrill(d, val) {
-    if (d.type === 'set') { var a = toks(val).sort(), b = toks(d.ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
-    if (d.type === 'seq') { var p = toks(val), q = toks(d.ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
-    if (norm(val) === norm(d.ans)) return true;
-    if (d.alt) { for (var i = 0; i < d.alt.length; i++) { if (norm(val) === norm(d.alt[i])) return true; } }
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
     return false;
   }
 

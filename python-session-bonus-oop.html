@@ -527,16 +527,20 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
     return s;
   }
   // token-based compare for multi-value answers (case, spacing and punctuation forgiven)
-  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;]+/).filter(Boolean); }
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* One shared comparator so `alt` reaches EVERY drill type. Backported 2026-09-10.
+     The branch-and-return shape this replaced returned inside the set and seq branches
+     before the alt loop, which made `alt` dead code for exactly the two types whose
+     answers have the most valid spellings. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).slice().sort(), b = toks(ans).slice().sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(ans);   // count / single value: exact match after normalizing
+  }
   function gradeDrill(d, val) {
-    if (d.type === 'set' || d.type === 'seq') {
-      var a = toks(val), b = toks(d.ans);
-      if (a.length !== b.length) return false;
-      if (d.type === 'set') { a = a.slice().sort(); b = b.slice().sort(); }
-      for (var i = 0; i < b.length; i++) { if (a[i] !== b[i]) return false; }
-      return true;
-    }
-    return norm(val) === norm(d.ans);   // count / value: exact match after normalizing
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
