@@ -257,8 +257,8 @@
   .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
   .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
   .note b { color: var(--ink); }
-  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
-  footer b { color: var(--ink-soft); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
   footer a { color: var(--accent); text-decoration: none; }
 
   @media (max-width: 600px) {
@@ -318,7 +318,7 @@
         <div class="refrow"><span class="rr">plumbing</span><span class="rd">Built for <b>programs</b>. <code>hash-object</code>, <code>cat-file</code>, <code>rev-parse</code>, <code>ls-tree</code>, <code>ls-files</code>, <code>for-each-ref</code>. Terse output, no colour, no hints, and <b>a format that is kept stable on purpose</b>, because scripts depend on it.</span></div>
       </div>
       <p><b>That last row is the whole reason this workbook is worth two hours.</b> Porcelain output is not a contract. Plumbing output is. If you write a script that parses <code>git status</code>, a future Git may reword it and quietly break you. If you write one that reads <code>git ls-files -s</code>, it will still work in ten years, because that is what the command is for.</p>
-      <p><b>You have already used plumbing once without being told.</b> Session 9 proved an annotated tag was a real object with <code>git cat-file -t</code>, and Session 3 had you open <code>.git/refs/heads/main</code> and read the hash inside. Both were plumbing. This workbook names the set and fills it in.</p>
+      <p><b>You have already used plumbing without being told.</b> Session 4 printed a raw commit with <code>git cat-file -p</code>, Session 9 proved an annotated tag was a real object with <code>git cat-file -t</code>, and Session 3 had you open <code>.git/refs/heads/main</code> and read the hash inside. All of that was plumbing. This workbook names the set and fills it in.</p>
       <div class="note"><b>Out of scope, so you know where the edges are.</b> Packfiles and delta compression, beyond one sentence in section C. <code>git gc</code>, the commit-graph file, and SHA-256 repositories. And the <b>write half</b> of plumbing, meaning <code>update-index</code>, <code>write-tree</code>, <code>commit-tree</code> and <code>update-ref</code>, which build objects and move refs by hand. They exist, they are how porcelain is implemented, and <b>you do not need any of them in order to read a repository</b>, which is what this session is for.</div>
     </div>
 
@@ -586,7 +586,7 @@ refs/heads/main
 <span class="cmd">&gt; git rev-list --count HEAD</span>
 2</code></pre>
       </div>
-      <p><b><code>symbolic-ref</code> prints the ref name <code>HEAD</code> points at</b>, in full, which is the machine-readable version of "which branch am I on". It is what Session 10's deploy hook was comparing against. <b><code>rev-list --count</code> counts commits</b> reachable from a starting point, which is how a build number gets generated in about a hundred thousand projects.</p>
+      <p><b><code>symbolic-ref</code> prints the ref name <code>HEAD</code> points at</b>, in full, which is the machine-readable version of "which branch am I on". The <code>refs/heads/main</code> form it prints is the same full ref-name form Session 10's deploy hook compared the pushed ref against. <b><code>rev-list --count</code> counts commits</b> reachable from a starting point, which is how a build number gets generated in about a hundred thousand projects.</p>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> Read a commit, then walk it down to file content</div>
         <ol>
@@ -710,7 +710,7 @@ Update the published rate table</code></pre>
       </div>
       <p><b>Three things are the same and two are different.</b> Same tree, same parent, same author line including its timestamp. <b>The message changed, which you asked for. And the committer timestamp moved</b>, from <code>...131</code> to <code>...141</code>, ten seconds later, which you did not ask for and could not have prevented.</p>
       <div class="note"><b>Author and committer are two different people, and Git has always tracked both.</b> The <b>author</b> is whoever wrote the change; the <b>committer</b> is whoever put it into the repository. They differ when somebody applies a patch on your behalf, and the <code>--author</code> flag you have seen in earlier lab blocks sets the first without touching the second. An amend keeps the original author date, because you did not rewrite the work, and updates the committer date, because the commit object was created just now.</div>
-      <p><b>This corrects an intuition Session 8 could have left you with.</b> Session 8 explained a cherry-picked commit getting a new hash by saying the parent changed, which is the usual reason and is true. <b>But it is not the only reason, and it is not even necessary</b>: the amend above kept the same parent and still produced a new hash, because the committer timestamp is part of the object. Two commits made a second apart with identical content, message, author and parent are still different objects.</p>
+      <p><b>Session 8 mentioned the timestamp in passing; the amend above proves it.</b> Session 8 explained a cherry-picked commit getting a new hash mainly by saying the parent changed, which is the usual reason and is true. <b>But it is not the only reason, and it is not even necessary</b>: the amend above kept the same parent and still produced a new hash, because the committer timestamp is part of the object. Two commits made a second apart with identical content, message, author and parent are still different objects.</p>
       <p><b>So the rule, stated precisely enough to script against:</b></p>
       <div class="tscroll">
         <table class="ptable">
@@ -809,7 +809,7 @@ git cat-file -s HEAD:hello.txt</code></pre>
     <p class="sub">The bridge between reading plumbing commands and writing them. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the pipeline."</p>
 
     <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
-    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: each step produces the name the next step needs.</p>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: each step produces the name the next step needs.</p>
     <div id="parsons"></div>
 
     <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
@@ -987,7 +987,7 @@ git cat-file -s HEAD:hello.txt</code></pre>
       scen: 'You run git commit --amend and change only the message. No file\nwas edited, nothing was staged, and the parent is unchanged.',
       ask: 'One of the commit hash and the tree hash changes and the other does not. Which one changes? Answer with one word: commit or tree.',
       code: 'git commit --amend -m "A better message"', ans: 'commit',
-      why: 'The commit hash. No file changed, so no blob changed, so no tree changed, and the new commit points at a tree that is identical character for character. What differs is the message you asked for and the committer timestamp you did not, since the replacement object was created just now. That last part corrects an intuition Session 8 could have left you with: it explained a new hash by saying the parent changed, which is usually true, but here the parent is the same and the hash still moved.' },
+      why: 'The commit hash. No file changed, so no blob changed, so no tree changed, and the new commit points at a tree that is identical character for character. What differs is the message you asked for and the committer timestamp you did not, since the replacement object was created just now. That last part is what Session 8 mentioned in passing, now proved: the usual reason for a new hash is a changed parent, but here the parent is the same and the hash still moved.' },
 
     { type: 'seq',
       scen: 'Reading a repository means walking one chain, and every command\nin this session works on some hop along it.',

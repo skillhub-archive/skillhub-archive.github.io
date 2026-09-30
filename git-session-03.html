@@ -240,8 +240,8 @@
   .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
   .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
   .note b { color: var(--ink); }
-  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
-  footer b { color: var(--ink-soft); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
   footer a { color: var(--accent); text-decoration: none; }
 
   @media (max-width: 600px) {
@@ -711,7 +711,7 @@ Deleted branch drafts (was 312f23c).
     <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
 
     <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
-    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: run these in the wrong order and Git either errors, refuses, or records the work on the wrong branch.</p>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here in a way it genuinely does at the terminal: run these in the wrong order and Git either errors, refuses, or records the work on the wrong branch.</p>
     <div id="parsons"></div>
 
     <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
@@ -785,7 +785,8 @@ Deleted branch drafts (was 312f23c).
      grade. Git command case-sensitivity is taught in prose and tested in Parts 3 and 4. */
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    /* (curly pair added 2026-09-30 to match the grader contract) */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     /* A trailing period, semicolon or COLON is punctuation, not a mistake: git prints
        its state words with a colon (modified:   notes.md), so a learner who copies
        that form must not be graded wrong. Only strip when something survives, or the

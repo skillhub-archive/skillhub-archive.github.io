@@ -257,8 +257,8 @@
   .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
   .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
   .note b { color: var(--ink); }
-  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
-  footer b { color: var(--ink-soft); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
   footer a { color: var(--accent); text-decoration: none; }
 
   @media (max-width: 600px) {
@@ -365,7 +365,7 @@ git switch -
 git revert --no-edit HEAD
 git reset --hard HEAD~1</code></pre>
       </div>
-      <p><b><code>git init -b main</code> rather than a bare <code>git init</code></b>, for the reason Session 1 gave: the <code>-b</code> flag names the first branch outright, so this works the same on any machine whatever that machine has configured as its default.</p>
+      <p><b><code>git init -b main</code> rather than a bare <code>git init</code></b>, for the reason Session 3 gave: the <code>-b</code> flag names the first branch outright, so this works the same on any machine whatever that machine has configured as its default.</p>
       <div class="note"><b>That block prints a lot, including a screen of text you have seen before.</b> The <code>git checkout HEAD~1</code> line produces Session 7's eighteen-line detached-HEAD advisory, starting <code>Note: switching to 'HEAD~1'.</code> and ending <code>HEAD is now at ... c2 add b</code>. <b>It is not an error and nothing has gone wrong</b>; <code>git switch -</code> on the next line walks straight back out of it. After that you will see the revert commit being made, then <code>HEAD is now at ... c3 add c</code> from the final reset. <b>If you are on Git Bash on Windows you will also see a <code>warning:</code> line about LF and CRLF after each <code>git add</code></b>, which is Session 1's line-ending note and is also not a problem. PowerShell writes files the way Git wants already and prints none of them.</div>
       <details style="margin:0 0 12px">
         <summary style="cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--accent)">Already have a <code>rewrite-lab</code>, or something went wrong partway? Wipe it and start clean</summary>
@@ -951,7 +951,7 @@ git commit -m "Add m.txt on main"</code></div>
       <div class="danger" style="background:var(--gold-soft);border-color:color-mix(in srgb, var(--gold-bright) 45%, transparent);color:var(--ink)"><b style="color:var(--gold)">Has anybody else got this commit?</b><br><br><b>If no:</b> rewrite it freely. Amend it, squash it, reword it, drop it. This is normal, safe and good practice.<br><b>If yes:</b> do not rewrite it. Undo its effect with <code>git revert</code>, which Session 7 taught, because that adds a commit rather than replacing one.</div>
       <p><b>That is a decision rather than a taboo, and the honest version has a wide "yes, go ahead" side.</b> The commits on a branch only you have worked on, that you have never pushed, or that you pushed to your own feature branch that nobody has pulled, are <b>yours</b>. Tidying them before you open a pull request is not a dangerous exception to the rule; it is the single most common legitimate use of everything in this session.</p>
       <p><b>Why it matters when the answer is yes.</b> Your teammate has commit <code>abc123</code>. You replace it with <code>def456</code> holding the same work. Their Git has no idea these are related: it sees a commit that has vanished and a stranger in its place. When they next pull, Git tries to reconcile two histories that genuinely disagree, and the usual outcome is that they end up with <b>both</b> copies of your work and a merge nobody wanted. <b>Nothing is destroyed and everything is confusing</b>, which in practice costs more time than losing the work would have.</p>
-      <p><b>This is also the other half of Session 6.</b> Session 6 offered rebase-and-merge as one of the ways to land a pull request and said the tidying belonged before the review, not after. This session is that tidying: squash your own scrappy commits into a reviewable shape <em>while the branch is still yours</em>, then push, then open the pull request. <b>Once review has started, other people have those commits</b>, and the answer to the question flips.</p>
+      <p><b>This is also the tidying you do before opening a pull request.</b> Squash your own scrappy commits into a reviewable shape <em>while the branch is still yours</em>, then push, then open the pull request. <b>Once review has started, other people have those commits</b>, and the answer to the question flips.</p>
 
       <h3 style="font-size:16px;margin:22px 0 8px;color:var(--ink-soft)">The secret you committed in Session 2</h3>
       <p><b>Session 2 left you with a promise, and this is where it comes due.</b> It asked whether an API key committed yesterday and deleted today is safe, and answered: no, it is still in yesterday's snapshot, and getting it out for real means rewriting history, which Session 8 would cover. So, plainly:</p>
@@ -1223,7 +1223,7 @@ git status                 # confirm clean</code></pre>
     <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
 
     <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
-    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: recovery only works if you find the name before you need it, and a rewrite is only publishable after it exists.</p>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: recovery only works if you find the name before you need it, and a rewrite is only publishable after it exists.</p>
     <div id="parsons"></div>
 
     <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>

@@ -196,8 +196,8 @@
   .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
   .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
   .note b { color: var(--ink); }
-  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
-  footer b { color: var(--ink-soft); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
   footer a { color: var(--accent); text-decoration: none; }
 
   @media (max-width: 600px) {
@@ -245,7 +245,7 @@
 
     <div class="block" id="concept-a">
       <h3>A. From a dict + a function to a class</h3>
-      <p>In <b>Session 3</b> you stored one job as a dictionary, and in <b>Session 4</b> you wrote a standalone function like <code>total_with_tax(job)</code> that took that dict and computed a number. The data lived in one place and the behavior in another, connected only by you remembering to pass the right dict to the right function. A <b>class</b> closes that gap: it is a blueprint for a kind of thing that <b>bundles the data together with the functions that act on it</b>, in one named type.</p>
+      <p>In <b>Session 3</b> you stored one job as a dictionary, and in <b>Session 4</b> you wrote a standalone function, <code>total_with_tax(price, rate=0.1)</code>, which you fed <code>job["price"]</code> by hand to compute a number. The data lived in one place and the behavior in another, connected only by you remembering to pass the right piece of the dict to the right function. A <b>class</b> closes that gap: it is a blueprint for a kind of thing that <b>bundles the data together with the functions that act on it</b>, in one named type.</p>
       <p>Five words to name up front, because the rest of the session uses them constantly:</p>
       <ul class="pts">
         <li>A <b>class</b> is the blueprint (the kind of thing, e.g. "a Job").</li>
@@ -267,7 +267,7 @@
 print(j.customer)       <span class="cm"># read an attribute off the instance -&gt;</span> <span class="out">Amy</span>
 print(j.total())        <span class="cm"># call a method on the instance -&gt;</span> <span class="out">110.00000000000001</span>
 print(round(j.total(), 2))   <span class="cm"># round it for clean money -&gt;</span> <span class="out">110.0</span></code></pre>
-      <p>Notice <code>j.total()</code> returns <code>110.00000000000001</code>, not <code>110.0</code>. That is the same float wobble you met in Sessions 1 and 4: <code>100 * 1.1</code> cannot be stored exactly in binary. So any method that reports money should <b>round or format</b> it, exactly as before, with <code>round(value, 2)</code> or an f-string to two decimals.</p>
+      <p>Notice <code>j.total()</code> returns <code>110.00000000000001</code>, not <code>110.0</code>. That is ordinary float imprecision: a computer stores decimals in binary, and <code>1.1</code> has no exact binary form, so <code>100 * 1.1</code> lands a hair off. Session 4&#39;s <code>total_with_tax(100)</code> hit exactly this, and the <code>:.2f</code> formatting you learned in Session 1 quietly hid it at print time (<code>f"{100 * 1.1:.2f}"</code> shows <code>110.00</code>). The other way to tidy it is <code>round(value, 2)</code>, which gives back the number rounded to two decimals. So any method that reports money should <b>round or format</b> it, with <code>round(value, 2)</code> or an f-string with <code>:.2f</code>.</p>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> Write your first class</div>
         <p>In VS Code, define the <code>Job</code> class above with <code>__init__</code> and <code>total</code>. Create <code>j = Job("Amy", 100)</code>, then print <code>j.customer</code> and <code>round(j.total(), 2)</code>. Confirm you see <code>Amy</code> and <code>110.0</code>.</p>
@@ -905,7 +905,7 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
           'The method is broken and must be rewritten without self',
           'Python stores every price as text rather than as a number, so the total that comes back is wrong',
           'A method can never return a number, only a string'], c: 0,
-      e: 'A method is just a function that lives on the class and runs on the instance data (here self.price). The messy digits are the same float wobble from Sessions 1 and 4, so wrap money in round(..., 2) or format it to two decimals with an f-string.',
+      e: 'A method is just a function that lives on the class and runs on the instance data (here self.price). The messy digits are ordinary float imprecision (1.1 has no exact binary form, so 100 * 1.1 lands a hair off; the :.2f formatting from Session 1 hides it at print time), so wrap money in round(..., 2) or format it with :.2f in an f-string.',
       part: { id: 'concept-a', label: 'A. From dict + function to a class' } },
     { q: 'RushJob(Job) overrides total() as return super().total() + self.rush_fee. What is super() doing?',
       o: ['Calling the parent Job version of total(), so RushJob reuses that calculation and only adds its fee',

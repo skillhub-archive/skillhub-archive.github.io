@@ -257,8 +257,8 @@
   .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
   .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
   .note b { color: var(--ink); }
-  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
-  footer b { color: var(--ink-soft); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
   footer a { color: var(--accent); text-decoration: none; }
 
   @media (max-width: 600px) {
@@ -397,7 +397,7 @@ global	user.name=Rae Okafor
 global	user.email=rae@example.com
 global	init.defaultbranch=main</code></pre>
       </div>
-      <p><b>Look at <code>init.defaultbranch</code>, which appears twice.</b> The installer wrote <code>master</code> into the system file. Your global file says <code>main</code>. Global is more specific than system, so <code>main</code> wins and a bare <code>git init</code> gives you a branch called <code>main</code>. <b>That is the whole mechanism in one key</b>, and it is also the answer to something Session 1 raised: the reason this track always writes <code>git init -b main</code> is that a machine whose global file is missing that line silently falls through to the system layer and gets <code>master</code>, with no warning printed at all.</p>
+      <p><b>Look at <code>init.defaultbranch</code>, which appears twice.</b> The installer wrote <code>master</code> into the system file. Your global file says <code>main</code>. Global is more specific than system, so <code>main</code> wins and a bare <code>git init</code> gives you a branch called <code>main</code>. <b>That is the whole mechanism in one key</b>, and it is also the answer to something Session 3 raised: the reason this track always writes <code>git init -b main</code> is that a machine whose global file is missing that line silently falls through to the system layer and gets <code>master</code>, with no warning printed at all.</p>
       <p><b>There is a second form of the same command</b>, <code>git config --list --show-origin</code>, which prints the file path instead of the layer name. Use <code>--show-scope</code> when you want to know <em>which layer</em>, which is usually the question, and <code>--show-origin</code> when you want to know <em>which file to open</em>. They are otherwise identical.</p>
       <p><b>Any setting layers this way, not just that one.</b> <code>core.editor</code>, which decides what opens when Git needs a message from you, is a common example: an installer may set one machine-wide, you may prefer another for everything you do, and a single repository may need a third. Whichever layer is most specific is the one that answers.</p>
       <p><b>No <code>local</code> line appears above, and that is not an error.</b> The filter accounts for part of it and the repository accounts for the rest: a brand new one has a <code>.git/config</code> holding only bookkeeping Git wrote for itself, keys like <code>core.repositoryformatversion</code> and <code>core.filemode</code>. Run the command unfiltered and you will see those, tagged <code>local</code>. <b>What is missing is a local setting of your own</b>, and section D is about putting one there.</p>
@@ -644,7 +644,7 @@ commit
 <span class="cmd">&gt; git cat-file -t v1.0.0</span>
 tag</code></pre>
       </div>
-      <p><b><code>git cat-file -t</code> prints what type of object a name resolves to</b>, and Session 4 already used it. The lightweight tag resolves straight through to a <b>commit</b>, because that is all it is: a label on a commit. The annotated tag resolves to an object of type <b>tag</b>, which is a thing in its own right that in turn points at the commit. <b>Two words of output, and they settle it.</b></p>
+      <p><b><code>git cat-file -t</code> prints what type of object a name resolves to</b>, which is new: Session 4 used <code>cat-file -p</code>, and <code>-t</code> prints only the type. The lightweight tag resolves straight through to a <b>commit</b>, because that is all it is: a label on a commit. The annotated tag resolves to an object of type <b>tag</b>, which is a thing in its own right that in turn points at the commit. <b>Two words of output, and they settle it.</b></p>
       <p><b><code>git show</code> makes the same point in a way you will actually notice day to day.</b> On the annotated tag it prints a header block first, then the commit; on the lightweight one it goes straight to the commit with no header at all:</p>
       <div class="filebox">
         <div class="fbh">run in config-lab &middot; git show on the annotated tag</div>
@@ -1061,7 +1061,7 @@ bisect found first bad commit</code></pre>
     <p class="sub">The bridge between reading Git commands and writing them from scratch. First put scrambled sequences into working order, then fill the blanks. This is where "I recognise that command" becomes "I can build the sequence."</p>
 
     <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
-    <p style="font-size:13px;color:var(--ink-faint);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: you take a posture before you touch somebody else's repository, and you put an edit away before you go anywhere.</p>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Order matters here the way it does at the terminal: you take a posture before you touch somebody else's repository, and you put an edit away before you go anywhere.</p>
     <div id="parsons"></div>
 
     <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>

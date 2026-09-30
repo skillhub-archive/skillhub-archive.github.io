@@ -195,8 +195,8 @@
   .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
   .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
   .note b { color: var(--ink); }
-  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
-  footer b { color: var(--ink-soft); }
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
   footer a { color: var(--accent); text-decoration: none; }
 
   @media (max-width: 600px) {
@@ -535,7 +535,7 @@ print(f"Wrote {len(results)} rows")   <span class="cm"># with the sample data -&
     { code: 'line = "  hello \\n"\nprint(line.strip())', ans: 'hello', why: '.strip() removes whitespace from both ends, including the trailing newline \\n (the "start a new line" character), leaving just "hello".' },
     { code: 'import csv\nfor row in csv.reader(["a,b", "c,d"]):\n    print(row)', ans: "['a', 'b']\n['c', 'd']", why: 'csv.reader walks any list of text lines and splits each into a LIST of strings. Two lines in, two lists out.' },
     { code: 'import csv\nlines = ["name,age", "Ada,42"]\nfor row in csv.DictReader(lines):\n    print(row["name"])', ans: 'Ada', why: 'DictReader uses the first line ("name,age") as headers, so the next row becomes {"name": "Ada", "age": "42"}. row["name"] pulls out "Ada".' },
-    { code: 'import csv\nlines = ["n", "5", "7"]\ntotal = 0\nfor row in csv.DictReader(lines):\n    total += int(row["n"])\nprint(total)', ans: '12', why: 'Header is "n", so the two rows are {"n": "5"} and {"n": "7"}. Each value is a STRING, so int() converts before adding: 5 + 7 = 12 (+= means add-into, from Session 2).' },
+    { code: 'import csv\nlines = ["n", "5", "7"]\ntotal = 0\nfor row in csv.DictReader(lines):\n    total += int(row["n"])\nprint(total)', ans: '12', why: 'Header is "n", so the two rows are {"n": "5"} and {"n": "7"}. Each value is a STRING, so int() converts before adding: 5 + 7 = 12 (+= is shorthand for total = total + ..., the running-total pattern from Session 2).' },
     { code: 'text = "a,b\\nc,d\\n"\nprint(text.strip().split("\\n"))', ans: "['a,b', 'c,d']", why: 'strip() removes the trailing newline, then split("\\n") cuts on the remaining newline between the two rows, giving a list of two row-strings.' },
     { code: 'line = "3,4,5"\nnums = [int(x) for x in line.split(",")]\nprint(sum(nums))', ans: '12', why: 'split gives ["3","4","5"]; the list comprehension (from Session 3) runs int() on each to get [3, 4, 5]; sum() adds them: 3+4+5 = 12. Split, convert, calculate, the whole CSV-number workflow in one line.' }
   ];
@@ -892,7 +892,7 @@ print(f"Wrote {len(results)} rows")   <span class="cm"># with the sample data -&
           if (answered === QUIZ.length) {
             var f = document.getElementById('final');
             f.textContent = quizCorrect >= 5
-              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Strong. Tick S05 on your Hub and ask for Session 6.'
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Strong. Tick S05 on your Hub and open Session 6.'
               : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then retry.';
           }
         });
