@@ -1100,8 +1100,9 @@ To ../origin-repo.git
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
-  // split an answer into comparable tokens; commas, spaces, dots and semicolons all separate
-  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  // split an answer into comparable tokens; commas, spaces, dots, semicolons, colons, quotes
+  // and parentheses all separate (git log --decorate prints branch names as (feature))
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”()]+/).filter(Boolean); }
   /* One shared comparator so `alt` reaches EVERY drill type. Backported 2026-09-10.
      The branch-and-return shape this replaced returned inside the set and seq branches
      before the alt loop, which made `alt` dead code for exactly the two types whose
@@ -1109,7 +1110,15 @@ To ../origin-repo.git
   function matchesOne(d, val, ans) {
     if (d.type === 'set') { var a = toks(val).slice().sort(), b = toks(ans).slice().sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
     if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
-    return norm(val) === norm(ans);   // count / single value: exact match after normalizing
+    /* count / single value: exact match after normalizing. Parentheses wrapping the
+       WHOLE answer are then dropped, because that is how git prints a label (a rejected
+       push ends "(fetch first)"). Drills only, deliberately NOT in norm(): faded blanks
+       share norm(), and "git (fetch)" typed into a command blank is a shell syntax
+       error the grader must reject. Added 2026-09-30. */
+    var v = norm(val), w = norm(ans);
+    if (v.length > 2 && v[0] === '(' && v[v.length-1] === ')') { var iv = norm(v.slice(1, -1)); if (iv) v = iv; }
+    if (w.length > 2 && w[0] === '(' && w[w.length-1] === ')') { var iw = norm(w.slice(1, -1)); if (iw) w = iw; }
+    return v === w;
   }
   function gradeDrill(d, val) {
     var cands = [d.ans].concat(d.alt || []);
