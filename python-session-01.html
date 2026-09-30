@@ -103,7 +103,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
   .pt:hover { text-decoration: underline; }
@@ -468,8 +468,27 @@ print(f"Tip: ${tip:.2f}  |  Total: ${bill + tip:.2f}")
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ');
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in job[%%] the answer
+     "name" is a string key, and bare name would be a NameError. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight (a device may auto-curl
+     them); a MATCHED outer pair of " counts the same as ' (the same Python string), but
+     a mismatched pair like "name' does not. Spaces next to brackets and commas are
+     ignored ({ name } and (100, ) are valid code). Case and punctuation stay exact, as in
+     norm(). Added 2026-09-30; replaces a quoted-key special case in S9 and S10. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') s = "'" + s.slice(1, -1) + "'";
+      return s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -556,7 +575,7 @@ print(f"Tip: ${tip:.2f}  |  Total: ${bill + tip:.2f}")
   var PARSONS = [
     { prompt: 'Ask for an age, convert it, and print next year’s age.',
       lines: ['raw = input("Age? ")', 'age = int(raw)', 'next_age = age + 1', 'print(f"Next year: {next_age}")'] },
-    { prompt: 'Build a full name from two parts and print it uppercased.',
+    { prompt: 'Store a first name, then a last name, join them with a space, and print the result uppercased.',
       lines: ['first = "grace"', 'last = "hopper"', 'full = first + " " + last', 'print(full.upper())'] }
   ];
   function shuffle(a) {
@@ -665,7 +684,7 @@ print(f"Tip: ${tip:.2f}  |  Total: ${bill + tip:.2f}")
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -805,10 +824,10 @@ print(f"Tip: ${tip:.2f}  |  Total: ${bill + tip:.2f}")
       e: 'input() returns "5"; "5" + 1 mixes str and int, which Python refuses. Convert with int() first.', part: { id: 'concept-e', label: 'E. Input, output & conversion' } },
     { q: 'What does print("20" * 3) output?', o: ['202020', '60', '20 20 20', 'an error'], c: 0,
       e: 'The value is a string, so * repeats it. int("20") * 3 would give 60.', part: { id: 'concept-d', label: 'D. Strings & f-strings' } },
-    { q: 'What is the type of the value 7.0?', o: ['float', 'int', 'str', 'bool'], c: 0,
-      e: 'The decimal point makes it a float, even though it equals seven.', part: { id: 'concept-c', label: 'C. Numbers & math operators' } },
-    { q: 'Which prints exactly: Hi Sam  (given name = "Sam")', o: ['print(f"Hi {name}")', 'print("Hi {name}")', 'print(f"Hi name")', 'print("Hi" name)'], c: 0,
-      e: 'An f-string needs both the f prefix and {braces}. Miss either and nothing is substituted.', part: { id: 'concept-d', label: 'D. Strings & f-strings' } },
+    { q: 'What is the type of the value 7.0?', o: ['float', 'int', 'bool', 'double'], c: 0,
+      e: 'The decimal point makes it a float, even though it equals seven. Python has no double type; its float is what some other languages call a double.', part: { id: 'concept-c', label: 'C. Numbers & math operators' } },
+    { q: 'Which prints exactly: Hi Sam  (given name = "Sam")', o: ['print(f"Hi {name}")', 'print("Hi {name}")', 'print("Hi " + {name})', 'print("Hi" name)'], c: 0,
+      e: 'An f-string needs both the f prefix and {braces}. Miss either and nothing is substituted, and braces outside a string build a set, which + cannot join to text (TypeError).', part: { id: 'concept-d', label: 'D. Strings & f-strings' } },
     { q: 'What does print(9 % 4) output?', o: ['1', '2', '2.25', '0'], c: 0,
       e: '% is the remainder. 9 = 4+4+1, so 1 is left over.', part: { id: 'concept-c', label: 'C. Numbers & math operators' } }
   ];

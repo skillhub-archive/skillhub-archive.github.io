@@ -662,7 +662,7 @@ Changes to be committed:
     <div class="block" id="concept-milestone">
       <h3>I. The milestone: investigate a repository you did not write</h3>
       <p>Everything so far has been on a repository you built yourself. The real test of reading history is a repository you have <b>never seen</b>: a project a colleague hands you, or one you just downloaded. You cannot ask the files what happened; you ask the history.</p>
-      <p>Since cloning from the internet is Session 5, you will fabricate a small, realistic one locally. This block creates <code>inherited-repo</code> with three commits by two different people, back-dated across a month, so it looks exactly like a project that existed before you arrived. Paste the block for your shell and run it. (Do not worry about the parts you have not seen: <code>--author</code> stamps someone else's name on a commit, and the date lines set when it was made.)</p>
+      <p>Since copying an existing repository with git clone is Session 5, you will fabricate a small, realistic one locally. This block creates <code>inherited-repo</code> with three commits by two different people, back-dated across a month, so it looks exactly like a project that existed before you arrived. Paste the block for your shell and run it. (Do not worry about the parts you have not seen: <code>--author</code> stamps someone else's name on a commit, and the date lines set when it was made.)</p>
       <div class="filebox">
         <div class="fbh">PowerShell (Windows default) &middot; build the repository to investigate</div>
 <pre><code>cd ~
@@ -1250,18 +1250,18 @@ GIT_AUTHOR_DATE="2026-04-01T11:30:00-0600" GIT_COMMITTER_DATE="2026-04-01T11:30:
       part: { id: 'concept-head', label: 'C. What HEAD points at' } },
 
     { q: 'You committed secrets.env last week. Today you add the line secrets.env to your .gitignore. What happens to the copy Git already tracks?',
-      o: ['Nothing changes; .gitignore does not untrack it. It stays tracked until you run git rm --cached secrets.env',
+      o: ['Nothing; it stays tracked until you run git rm --cached secrets.env',
           'Git removes it from every past commit',
           'Git deletes the file from your disk',
-          'It becomes untracked immediately'],
+          'Git stops tracking it at your next commit, though earlier commits keep their copy'],
       c: 0,
       e: '.gitignore only stops Git from picking up files it is not already tracking. A file that is already tracked keeps being tracked, edits and all, until you run git rm --cached to stop tracking it. .gitignore never edits history and never deletes your file.',
       part: { id: 'concept-gitignore', label: 'G. .gitignore and git rm --cached' } },
 
     { q: 'You accidentally commit an API key, notice right away, and remove it in the very next commit. Is the key safe?',
-      o: ['No; it is still sitting in the earlier commit in your history, so the only real fix is to rotate (replace) the key',
+      o: ['No; it is still in the earlier commit, so rotate (replace) the key',
           'Yes, the newer commit overwrote it',
-          'Yes, because it is no longer in the latest version',
+          'Yes, because Git only keeps the latest version of each file once you commit again',
           'Yes, as long as you never send the repository anywhere'],
       c: 0,
       e: 'A commit is a permanent snapshot, so the key lives on in the earlier commit even after you remove it later. Deleting it going forward does not erase the past. Scrubbing it out means rewriting history (Session 8), and anyone who already saw it still has it, so the only reliable fix is to rotate the key.',
@@ -1277,10 +1277,10 @@ GIT_AUTHOR_DATE="2026-04-01T11:30:00-0600" GIT_COMMITTER_DATE="2026-04-01T11:30:
       ext: { url: S1_URL, label: 'Session 1: git add is a snapshot (opens in a new tab)' } },
 
     { q: 'Recall from Session 1: what does a single commit actually store?',
-      o: ['A complete snapshot of every tracked file, plus author, date, message, and a pointer to its parent',
+      o: ['A full snapshot of all tracked files, with author, date, message and parent',
           'Only the lines that changed since the previous commit (a diff)',
           'A copy of the whole .git folder',
-          'Just the commit message and the date'],
+          'Just the commit message, author and date; file contents live in the working folder'],
       c: 0,
       e: 'A commit stores a whole snapshot plus a parent pointer, not a diff. Because Git keeps snapshots, it can compute the difference between any two of them on demand, which is precisely what git diff and git show did throughout this session.',
       ext: { url: S1_URL, label: 'Session 1: a commit is a snapshot, not a diff (opens in a new tab)' } }

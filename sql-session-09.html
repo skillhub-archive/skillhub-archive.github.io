@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .bad-out { color: var(--bad); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
@@ -586,9 +586,32 @@ conn.close()</code></pre>
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -758,11 +781,11 @@ conn.close()</code></pre>
 
   /* ---------- Part 3b: faded ---------- */
   var FADED = [
-    { prompt: "Fill the blanks to complete the standard read: get the object that runs statements from the connection, run the query on it, then collect every matching row into a list.",
+    { cs: true, prompt: "Fill the blanks to complete the standard read: get the object that runs statements from the connection, run the query on it, then collect every matching row into a list.",
       code: 'import sqlite3\nconn = sqlite3.connect("shop.db")\ncur = conn.%%()\ncur.%%("SELECT name FROM customers")\nrows = cur.%%()\nprint(rows)', ans: ['cursor', 'execute', 'fetchall'] },
-    { prompt: "Fill the blanks so this safely passes 100 into the query as data (not spliced into the string) and prints the single count it returns.",
+    { prompt: "Fill the blanks so this safely passes 100 into the query as data (not spliced into the string), using the positional placeholder this session teaches and a one-item tuple, and prints the single count it returns.",
       code: 'cur.execute("SELECT COUNT(*) FROM orders WHERE amount > %%", %%)\nprint(cur.fetchone()[0])', ans: ['?', '(100,)'] },
-    { prompt: "Fill the blanks so this changes every Boston customer to the Pro plan, prints how many rows changed, and makes the change permanent.",
+    { cs: true, prompt: "Fill the blanks so this changes every Boston customer to the Pro plan, prints how many rows changed, and makes the change permanent.",
       code: 'cur.execute("UPDATE customers SET plan = ? WHERE city = ?", ("Pro", "Boston"))\nprint(cur.%%)\nconn.%%()', ans: ['rowcount', 'commit'] }
   ];
   function buildFaded() {
@@ -791,7 +814,7 @@ conn.close()</code></pre>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -939,11 +962,11 @@ conn.close()</code></pre>
       e: "fetchone() hands back one row as a tuple, or None when there is nothing left to read. fetchall() hands back every matching row as a list of tuples. Each row is a tuple whose values are in the SELECT order.",
       part: { id: 'concept-a', label: 'A. connect, cursor, execute, fetch' } },
     { q: "You run an UPDATE from Python, then your script ends without calling conn.commit(). What happens to the change?",
-      o: ["It is lost: sqlite3 opens a transaction for the write, and with no commit the change is rolled back when the connection closes", "It is saved anyway; commit is optional", "SQLite raises an error at the end of the script", "Only half the matching rows are changed"], c: 0,
+      o: ["It is lost; the uncommitted write rolls back", "It is saved anyway; commit is optional", "SQLite raises an error at the end of the script", "Only half the matching rows are changed"], c: 0,
       e: "The sqlite3 module wraps your write in a transaction, just like BEGIN in Session 8. conn.commit() is the COMMIT that makes it permanent; conn.rollback() (or simply never committing) throws it away. No commit, no saved change.",
       part: { id: 'concept-d', label: 'D. writing data and commit' } },
     { q: "What does pd.read_sql_query(sql, conn) give you back?",
-      o: ["A pandas DataFrame whose columns come from the SELECT list", "A list of tuples, one per row", "A single number", "Nothing; it only prints the rows"], c: 0,
+      o: ["A pandas DataFrame", "A list of tuples, one per row", "A single number", "Nothing; it only prints the rows"], c: 0,
       e: "read_sql_query runs the query on the connection and loads the whole result into a DataFrame, with the columns named from your SELECT list. That is the doorway from SQL into the pandas analysis track.",
       part: { id: 'concept-e', label: 'E. the pandas bridge' } },
     { q: "Recall from Session 6: you want to combine the rows of two SELECTs into one result and remove any duplicate rows. Which operator does that?",
@@ -951,7 +974,7 @@ conn.close()</code></pre>
       e: "UNION stacks the rows of two SELECTs and removes duplicates; UNION ALL keeps every row, duplicates included. A JOIN combines columns side by side, not rows, so it is a different tool. A UNION is the kind of query you might pass as the string to cur.execute.",
       part: { url: S6_URL, label: 'Session 6 · set operations' } },
     { q: "Recall from Session 3: SELECT city, COUNT(*) FROM customers GROUP BY city returns how many rows?",
-      o: ["One row per city (one per group)", "One row for the whole table", "One row per customer", "Ten rows, one per customer"], c: 0,
+      o: ["One row per distinct city", "One row for the whole table", "One row per customer", "Ten rows, one per customer"], c: 0,
       e: "GROUP BY collapses the rows into one row per group, so a per-city grouping returns one row for each distinct city. That is exactly the shape read_sql_query loads into a DataFrame when you wrap an aggregate, which is why the per-city count came back with four rows.",
       part: { url: S3_URL, label: 'Session 3 · GROUP BY and aggregation' } }
   ];

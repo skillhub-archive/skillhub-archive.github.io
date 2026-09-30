@@ -103,7 +103,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
   .pt:hover { text-decoration: underline; }
@@ -476,8 +476,27 @@ print(f"Average: ${statistics.mean(totals):.2f}")   <span class="cm"># a module 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ');
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in job[%%] the answer
+     "name" is a string key, and bare name would be a NameError. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight (a device may auto-curl
+     them); a MATCHED outer pair of " counts the same as ' (the same Python string), but
+     a mismatched pair like "name' does not. Spaces next to brackets and commas are
+     ignored ({ name } and (100, ) are valid code). Case and punctuation stay exact, as in
+     norm(). Added 2026-09-30; replaces a quoted-key special case in S9 and S10. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') s = "'" + s.slice(1, -1) + "'";
+      return s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -640,8 +659,8 @@ print(f"Average: ${statistics.mean(totals):.2f}")   <span class="cm"># a module 
 
   /* ---------- Part 3b: faded ---------- */
   var FADED = [
-    { prompt: 'Fill the blanks so this function multiplies and gets called with the default height.',
-      code: 'def area(w, h=1):        # h defaults to 1\n    return w %% h        # multiply the two\nprint(area(%%))          # w=5, h defaults -> 5', ans: ['*', '5'] },
+    { prompt: 'Fill the blanks so this function multiplies and is called with one positional argument, letting h default.',
+      code: 'def area(w, h=1):        # h defaults to 1\n    return w %% h        # multiply the two\nprint(area(%%))          # one positional argument; h defaults -> 5', ans: ['*', '5'] },
     { prompt: 'Fill the blanks so this imports sqrt and defines a function that uses it.',
       code: 'from math import %%       # bring in just sqrt\ndef hyp(a, b):\n    return sqrt(a*a + b*b)\nprint(%%(3, 4))           # -> 5.0', ans: ['sqrt', 'hyp'] }
   ];
@@ -671,7 +690,7 @@ print(f"Average: ${statistics.mean(totals):.2f}")   <span class="cm"># a module 
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -812,9 +831,9 @@ print(f"Average: ${statistics.mean(totals):.2f}")   <span class="cm"># a module 
   var QUIZ = [
     { q: 'A function uses print but has no return statement. What does the caller get back from it?', o: ['None', 'The printed text as a string', '0', 'An error'], c: 0,
       e: 'print only displays text; with no return, the function hands back None. To reuse a result you must return it.', part: { id: 'concept-c', label: 'C. Return vs print' } },
-    { q: 'What is a "default argument"?', o: ['A parameter with a fallback value so the caller can omit it', 'The first argument you must always pass', 'A value the function returns automatically', 'An argument that must be named'], c: 0,
+    { q: 'What is a "default argument"?', o: ['A parameter with a fallback value', 'The first argument you must always pass', 'A value the function returns automatically', 'An argument that must be named'], c: 0,
       e: 'A default (like size="medium" in the def) lets the caller leave that argument out and fall back to the given value.', part: { id: 'concept-b', label: 'B. Arguments: positional, keyword & default' } },
-    { q: 'A variable created inside a function is:', o: ['Local: it exists only inside that function', 'Global: visible everywhere in the file', 'Saved permanently to disk', 'Shared with every other function'], c: 0,
+    { q: 'A variable created inside a function is:', o: ['Local: only inside that function', 'Global: visible everywhere in the file', 'Saved permanently to disk', 'Shared with every other function'], c: 0,
       e: 'Variables made inside a function are local, they vanish when the function ends and cannot be seen from outside (that would be a NameError).', part: { id: 'concept-d', label: 'D. Scope: local vs global' } },
     { q: 'Which line lets you call sqrt() directly, without a math. prefix?', o: ['from math import sqrt', 'import math', 'import sqrt from math', 'math.sqrt()'], c: 0,
       e: 'from math import sqrt pulls just that name into your file so you can call sqrt() directly. Plain import math would need math.sqrt().', part: { id: 'concept-e', label: 'E. Docstrings, modules & imports' } },

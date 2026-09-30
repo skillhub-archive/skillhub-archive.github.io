@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .bad-out { color: var(--bad); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
@@ -634,9 +634,32 @@ Iris    Austin  200      Hiro    Denver  200</code></pre></div>
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -836,7 +859,7 @@ Iris    Austin  200      Hiro    Denver  200</code></pre></div>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -988,15 +1011,15 @@ Iris    Austin  200      Hiro    Denver  200</code></pre></div>
       e: "On a tie, RANK repeats the rank then skips (1, 1, 3), DENSE_RANK repeats without skipping (1, 1, 2), and ROW_NUMBER refuses to tie at all, handing out distinct 1, 2, 3 (so among equal values its order is arbitrary unless you add a tiebreaker to the window's ORDER BY).",
       part: { id: 'concept-c', label: 'C. Ranking and ties' } },
     { q: "You add ORDER BY total DESC inside SUM(total) OVER (...). What changes?",
-      o: ["The aggregate becomes cumulative: each row shows a running total of itself plus all earlier rows in that order", "It just sorts the final result, but the sum stays the grand total on every row", "It raises an error, because ORDER BY is not allowed inside OVER", "It removes the total column"], c: 0,
-      e: "An ORDER BY inside the window turns a plain aggregate into a running one: each row sums itself and everything before it in that order, climbing toward the grand total. That is different from the query's final ORDER BY, which only arranges the output rows.",
+      o: ["It becomes a running total in that order", "It just sorts the final result, but the sum stays the grand total on every row", "It raises an error, because ORDER BY is not allowed inside OVER", "It removes the total column"], c: 0,
+      e: "An ORDER BY inside the window turns a plain aggregate into a running one: each row sums itself and everything before it in that order, climbing toward the grand total (rows that tie on total are summed together, so they share the same running value). That is different from the query's final ORDER BY, which only arranges the output rows.",
       part: { id: 'concept-d', label: 'D. Running totals' } },
     { q: "Recall from Session 3: what does GROUP BY city return for a table of ten customers spread across three cities?",
-      o: ["Three rows, one summary row per city, with the individual customer rows collapsed away", "Ten rows, one per customer, each with a city total added", "One row for the whole table", "Three rows, but every customer row is also kept"], c: 0,
+      o: ["Three rows, one summary row per city", "Ten rows, one per customer, each with a city total added", "One row for the whole table", "Three rows, but every customer row is also kept"], c: 0,
       e: "GROUP BY collapses each group to a single row, so three cities give three rows and the individual customers are gone. That collapse is exactly what a window function avoids: PARTITION BY city would attach the city total to all ten rows instead.",
       part: { url: S3_URL, label: 'Session 3 · GROUP BY' } },
     { q: "Recall from Session 6: what does WITH cust AS (SELECT ...) create, the base that every example here builds on?",
-      o: ["A CTE: a named, readable subquery you can SELECT from as if it were a table", "A new permanent table saved in the database", "An index on the customers table", "A copy of the customers table that must be dropped afterward"], c: 0,
+      o: ["A CTE, a named subquery you read like a table", "A new permanent table saved in the database", "An index on the customers table", "A copy of the customers table that must be dropped afterward"], c: 0,
       e: "WITH name AS (...) defines a CTE, a named subquery that exists just for the query it leads. Here it packages the per-customer totals once so the window functions can read from cust as if it were a plain table, without repeating the JOIN and GROUP BY.",
       part: { url: S6_URL, label: 'Session 6 · CTEs' } }
   ];

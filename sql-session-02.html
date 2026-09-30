@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
   .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
@@ -499,9 +499,32 @@ Diego  2021</span></code></pre>
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -704,7 +727,7 @@ Diego  2021</span></code></pre>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -851,7 +874,7 @@ Diego  2021</span></code></pre>
       e: 'AND has higher precedence than OR, so the AND pair groups first. Add parentheses when you want the OR to group first.',
       part: { id: 'concept-b', label: 'B. AND, OR, NOT and precedence' } },
     { q: 'Some customers have a NULL referrer, yet WHERE referrer = NULL returns zero rows. Why?',
-      o: ['Comparing anything to NULL gives unknown, never true, so no row passes; use IS NULL', 'The = operator only works on numbers', 'NULL is stored as the text NULL, so you need quotes', 'referrer has no NULLs; those cells are empty strings'], c: 0,
+      o: ['A comparison with NULL is never true; use IS NULL', 'The = operator only works on numbers', 'NULL is stored as the text NULL, so you need quotes', 'referrer has no NULLs; those cells are empty strings'], c: 0,
       e: 'NULL means unknown, and every comparison with it (=, <>, <) evaluates to unknown, not true. A row is kept only when the condition is true, so IS NULL and IS NOT NULL are the reliable tests.',
       part: { id: 'concept-d', label: 'D. NULL and three-valued logic' } },
     { q: 'What does ORDER BY monthly_fee DESC, name LIMIT 2 return?',
@@ -859,11 +882,11 @@ Diego  2021</span></code></pre>
       e: 'ORDER BY sorts highest fee first, the name tiebreaker settles the rows that share a fee, then LIMIT 2 keeps the first 2 of that sorted result. Because ORDER BY fully fixes the order, this is deterministic.',
       part: { id: 'concept-e', label: 'E. ORDER BY, LIMIT and OFFSET' } },
     { q: 'Recall from Session 1: what does SELECT DISTINCT city FROM customers; return?',
-      o: ['Each distinct city once, with duplicate cities removed', 'Every row, including repeated cities', 'The cities sorted alphabetically', 'Only the city in the first row'], c: 0,
+      o: ['Each city once, duplicates removed', 'Every row, including repeated cities', 'The cities sorted alphabetically', 'Only the city in the first row'], c: 0,
       e: 'DISTINCT collapses duplicate result rows so each value appears once. With Austin and Denver repeating, three distinct cities come back.',
       part: { url: S1_URL, label: 'Session 1 · DISTINCT' } },
     { q: 'Recall from Session 1: in SQLite, what does SELECT 7 / 2; return?',
-      o: ['3, because two whole numbers divide as whole numbers and drop the remainder', '3.5', '4, rounded up', 'An error'], c: 0,
+      o: ['3, with the remainder dropped', '3.5, the exact quotient', '4, rounded up', 'An error, since 7 is not divisible by 2'], c: 0,
       e: 'When both sides of / are integers, SQLite does integer division and discards the remainder. Write 7.0 / 2 to get 3.5.',
       part: { url: S1_URL, label: 'Session 1 · computed columns' } }
   ];

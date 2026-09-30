@@ -103,7 +103,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
   .filebox .fl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px; }
@@ -494,8 +494,27 @@ print(f"Wrote {len(results)} rows")   <span class="cm"># with the sample data -&
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ');
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in job[%%] the answer
+     "name" is a string key, and bare name would be a NameError. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight (a device may auto-curl
+     them); a MATCHED outer pair of " counts the same as ' (the same Python string), but
+     a mismatched pair like "name' does not. Spaces next to brackets and commas are
+     ignored ({ name } and (100, ) are valid code). Case and punctuation stay exact, as in
+     norm(). Added 2026-09-30; replaces a quoted-key special case in S9 and S10. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') s = "'" + s.slice(1, -1) + "'";
+      return s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -689,7 +708,7 @@ print(f"Wrote {len(results)} rows")   <span class="cm"># with the sample data -&
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -829,11 +848,11 @@ print(f"Wrote {len(results)} rows")   <span class="cm"># with the sample data -&
   var S3_URL = 'python-session-03.html';
   var S4_URL = 'python-session-04.html';
   var QUIZ = [
-    { q: 'Why open a file with a with block instead of a bare open()?', o: ['It closes the file for you automatically, even if the code errors', 'It makes the file load faster', 'It converts the text to numbers', 'It prevents the file from ever being edited'], c: 0,
+    { q: 'Why open a file with a with block instead of a bare open()?', o: ['It closes the file for you automatically', 'It makes the file load faster', 'It converts the text to numbers', 'It prevents the file from ever being edited'], c: 0,
       e: 'A with block is a context manager: it guarantees the file is closed when the block ends, so you never leak a resource or lose unwritten data, even on a crash.', part: { id: 'concept-a', label: 'A. Opening a file the safe way' } },
-    { q: 'You open a file with mode "w" and write to it. What happens to the text that was already in the file?', o: ['It is erased first, "w" starts the file empty', 'It is kept, your text is added to the end', 'It is moved to a backup file', 'Nothing, "w" is read-only'], c: 0,
+    { q: 'You open a file with mode "w" and write to it. What happens to the text that was already in the file?', o: ['It is erased before your text goes in', 'It is kept, your text is added to the end', 'It is moved to a backup file', 'Nothing, "w" is read-only'], c: 0,
       e: '"w" (write) truncates the file to empty before writing. To keep the old contents and add on, use "a" (append) instead.', part: { id: 'concept-c', label: 'C. Writing: "w" overwrites, "a" appends' } },
-    { q: 'You read the cell "42" from a CSV and want to add 8 to it. What must you do first?', o: ['Convert it with int() or float(); CSV cells arrive as strings', 'Nothing, "42" is already a number', 'Wrap it in a list', 'Open the file in "a" mode'], c: 0,
+    { q: 'You read the cell "42" from a CSV and want to add 8 to it. What must you do first?', o: ['Convert it with int() or float()', 'Nothing, "42" is already a number', 'Wrap it in a list', 'Open the file in "a" mode'], c: 0,
       e: 'Every CSV cell comes in as text, so "42" + 8 would error and "42" + "8" would give "428". Convert with int()/float() before doing math. This is the session\'s big trap.', part: { id: 'concept-e', label: 'E. The string trap' } },
     { q: 'Which reads each CSV row as a dict keyed by the header row (e.g. {"name": "Move"})?', o: ['csv.DictReader', 'csv.reader', 'csv.writer', 'open("f.csv", "d")'], c: 0,
       e: 'csv.DictReader uses the first row as headers and returns each later row as a dict. csv.reader would give a plain list of strings instead.', part: { id: 'concept-d', label: 'D. CSV: rows in, rows out' } },

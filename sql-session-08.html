@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .bad-out { color: var(--bad); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
@@ -543,9 +543,32 @@ SELECT sku, price FROM products ORDER BY id;   <span class="cm">-- back to 2.5, 
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -717,7 +740,7 @@ SELECT sku, price FROM products ORDER BY id;   <span class="cm">-- back to 2.5, 
   var FADED = [
     { prompt: "Fill the blanks so this raises the monthly_fee of every Team-plan customer by 5, and only those customers.",
       code: "UPDATE customers %% monthly_fee = monthly_fee + 5 %% plan = 'Team';", ans: ['SET', 'WHERE'] },
-    { prompt: "Fill the blanks so this starts a transaction, removes the out-of-stock products, then undoes the change so nothing is lost.",
+    { prompt: "Fill each blank with a single keyword so this starts a transaction, removes the out-of-stock products, then undoes the change so nothing is lost.",
       code: "%%;\nDELETE %% products WHERE in_stock = 0;\n%%;", ans: ['BEGIN', 'FROM', 'ROLLBACK'] },
     { prompt: "Fill the blanks so this builds a lookup structure on orders.customer_id, then reveals how SQLite will run a query that filters on it.",
       code: "CREATE %% idx_orders_customer ON orders(customer_id);\nEXPLAIN QUERY %%\nSELECT * FROM orders WHERE customer_id = 3;", ans: ['INDEX', 'PLAN'] }
@@ -748,7 +771,7 @@ SELECT sku, price FROM products ORDER BY id;   <span class="cm">-- back to 2.5, 
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -900,15 +923,15 @@ SELECT sku, price FROM products ORDER BY id;   <span class="cm">-- back to 2.5, 
       e: "An index is a second structure the database must keep in sync, so every INSERT, UPDATE and DELETE does a bit of extra work and the index costs disk space. In return, lookups and joins on that column can jump instead of scanning. That is why you index the columns you filter and join on, not every column.",
       part: { id: 'concept-d', label: 'D. Indexes and the tradeoff' } },
     { q: "In EXPLAIN QUERY PLAN output, what is the difference between SCAN and SEARCH?",
-      o: ["SCAN means SQLite reads every row of the table; SEARCH ... USING INDEX means it jumps to matching rows through an index", "SCAN is faster than SEARCH", "SCAN is for SELECT and SEARCH is for UPDATE", "They mean the same thing"], c: 0,
+      o: ["SCAN reads every row; SEARCH jumps via an index", "SCAN is faster than SEARCH", "SCAN jumps via an index; SEARCH reads the whole table", "They mean the same thing"], c: 0,
       e: "SCAN is a full read of the table, which is what you get with no useful index. SEARCH ... USING INDEX means an index let SQLite jump straight to the rows it needs. Seeing SCAN turn into SEARCH after you add an index is proof the index is being used.",
       part: { id: 'concept-e', label: 'E. EXPLAIN QUERY PLAN' } },
     { q: "Recall from Session 7: products.price was declared CHECK (price > 0). What happens if an UPDATE would set a price to 0?",
-      o: ["The UPDATE is rejected with CHECK constraint failed, exactly as a bad INSERT would be", "The CHECK only applies to INSERT, so the UPDATE succeeds", "The price is silently changed to 1", "The whole table is dropped"], c: 0,
+      o: ["It is rejected with CHECK constraint failed", "The CHECK only applies to INSERT, so the UPDATE succeeds", "The price is silently changed to 1", "The whole table is dropped"], c: 0,
       e: "A constraint guards the column no matter how a value gets there. A CHECK (or NOT NULL, or UNIQUE) rejects a bad UPDATE the same way it rejects a bad INSERT, so an UPDATE that would break the rule fails with the same kind of constraint error. Constraints protect the data on every write, not just the first one.",
       part: { url: S7_URL, label: 'Session 7 · constraints' } },
     { q: "Recall from Session 4: you joined orders to customers ON orders.customer_id = customers.id. Which column is the best index candidate to speed that join?",
-      o: ["orders.customer_id, the foreign key used in the JOIN condition", "customers.name, because names are easy to read", "orders.amount, because it holds numbers", "No column, because joins cannot use indexes"], c: 0,
+      o: ["orders.customer_id, the join’s foreign key", "customers.name, because names are easy to read", "orders.amount, because it holds numbers", "No column, because joins cannot use indexes"], c: 0,
       e: "An index most helps the columns the database has to match or sort by, and a JOIN condition is exactly that kind of matching. customers.id is already indexed (it is the primary key), so indexing the other side of the join, orders.customer_id, is what removes the full scan of orders.",
       part: { url: S4_URL, label: 'Session 4 · JOINs and keys' } }
   ];

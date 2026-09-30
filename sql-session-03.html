@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
   .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
@@ -553,9 +553,32 @@ Boston  2          30.0</span></code></pre>
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -758,7 +781,7 @@ Boston  2          30.0</span></code></pre>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -914,11 +937,11 @@ Boston  2          30.0</span></code></pre>
       e: 'The fixed order is FROM, WHERE (filter rows), GROUP BY (form groups), HAVING (filter groups), ORDER BY (sort). That is why WHERE cannot use an aggregate but HAVING and ORDER BY can.',
       part: { id: 'concept-d', label: 'D. The clause order' } },
     { q: 'Recall from Session 2: what does ORDER BY monthly_fee DESC, name do?',
-      o: ['Sorts by fee highest to lowest, breaking ties by name A to Z', 'Sorts by name first, then by fee', 'Sorts by fee lowest to highest', 'Returns only the single highest-fee row'], c: 0,
+      o: ['Sorts by fee high to low, ties by name A to Z', 'Sorts by name first, then by fee within each name', 'Sorts by fee lowest to highest', 'Returns only the single highest-fee row'], c: 0,
       e: 'The first key sorts by monthly_fee descending; the second key, name, only decides rows that tie on fee, and with no direction word it defaults to ascending (A to Z).',
       part: { url: S2_URL, label: 'Session 2 · ORDER BY' } },
     { q: 'Recall from Session 1: what does the AS in SELECT COUNT(*) AS total do?',
-      o: ['Renames the output column to total (an alias)', 'Converts the count to text', 'Filters rows down to a total', 'Sorts the result by total'], c: 0,
+      o: ['Labels the output column total', 'Converts the count to text', 'Filters rows down to a total', 'Sorts the result by the total, largest first'], c: 0,
       e: 'AS gives a result column a readable alias; here the COUNT(*) column is labelled total. It changes only the column name in the output, not the value.',
       part: { url: S1_URL, label: 'Session 1 · aliases with AS' } }
   ];

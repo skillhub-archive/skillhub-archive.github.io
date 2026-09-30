@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .bad-out { color: var(--bad); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
@@ -569,9 +569,32 @@ INSERT INTO products (id, sku, price)       VALUES (8, 'NONAME', 3.00);
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -661,7 +684,7 @@ INSERT INTO products (id, sku, price)       VALUES (8, 'NONAME', 3.00);
 
   /* ---------- Part 3a: Parsons ---------- */
   var PARSONS = [
-    { prompt: "Arrange the lines to create the products table: an integer primary key id, a sku that is text, required and unique, a required text name, a required real price that must be positive, and an in_stock flag that defaults to 1.",
+    { prompt: "Arrange the lines to create the products table with its columns in exactly this order: an integer primary key id, a sku that is text, required and unique, a required text name, a required real price that must be positive, and an in_stock flag that defaults to 1.",
       lines: ['CREATE TABLE products (', '  id        INTEGER PRIMARY KEY,', '  sku       TEXT    NOT NULL UNIQUE,', '  name      TEXT    NOT NULL,', '  price     REAL    NOT NULL CHECK (price > 0),', '  in_stock  INTEGER NOT NULL DEFAULT 1', ');'] },
     { prompt: "Arrange the lines to list the sku and price of every product cheaper than 4.00, cheapest first.",
       lines: ['SELECT sku, price', 'FROM products', 'WHERE price < 4.00', 'ORDER BY price;'] }
@@ -743,9 +766,9 @@ INSERT INTO products (id, sku, price)       VALUES (8, 'NONAME', 3.00);
   var FADED = [
     { prompt: "Fill the blanks so sku must be different on every row, price must be greater than zero, and in_stock becomes 1 whenever an insert leaves it out.",
       code: "CREATE TABLE products (\n  id        INTEGER PRIMARY KEY,\n  sku       TEXT    NOT NULL %%,\n  name      TEXT    NOT NULL,\n  price     REAL    NOT NULL %% (price > 0),\n  in_stock  INTEGER NOT NULL %% 1\n);", ans: ['UNIQUE', 'CHECK', 'DEFAULT'] },
-    { prompt: "Fill the blanks so each order points at a real customer id and its amount can never be empty.",
+    { prompt: "Fill the blanks so each order points at a real customer id and its amount can never be empty (use the two-word column constraint for that).",
       code: "CREATE TABLE orders (\n  id           INTEGER PRIMARY KEY,\n  customer_id  INTEGER %% customers(id),\n  amount       INTEGER %%\n);", ans: ['REFERENCES', 'NOT NULL'] },
-    { prompt: "Fill the blanks so q stores whole numbers and the last line reports the storage class the value was actually stored as.",
+    { prompt: "Fill the blanks so q is declared with the same type name this session uses for its id columns and the last line reports the storage class the value was actually stored as.",
       code: "DROP TABLE IF EXISTS demo;\nCREATE TABLE demo (q %%);\nINSERT INTO demo (q) VALUES ('123');\nSELECT %%(q) FROM demo;", ans: ['INTEGER', 'typeof'] }
   ];
   function buildFaded() {
@@ -774,7 +797,7 @@ INSERT INTO products (id, sku, price)       VALUES (8, 'NONAME', 3.00);
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -926,15 +949,15 @@ INSERT INTO products (id, sku, price)       VALUES (8, 'NONAME', 3.00);
       e: 'UNIQUE means no two rows may share that column value, so a repeated sku is refused with UNIQUE constraint failed: products.sku. NOT NULL only guards against an empty value; DEFAULT supplies a missing one; CHECK tests a condition you write.',
       part: { id: 'concept-c', label: 'C. Constraints' } },
     { q: 'You declared customer_id INTEGER REFERENCES customers(id), yet an order with a nonexistent customer_id still inserts without error. Why?',
-      o: ['SQLite does not enforce foreign keys unless PRAGMA foreign_keys = ON is set for the connection (it is off by default)', 'REFERENCES is only a comment and never enforces anything', 'The order table is missing a primary key', 'Foreign keys only work on TEXT columns'], c: 0,
+      o: ['Enforcement is off until you run PRAGMA foreign_keys = ON', 'REFERENCES is only a comment and never enforces anything', 'The order table is missing a primary key', 'Foreign keys only work on TEXT columns'], c: 0,
       e: 'SQLite leaves foreign-key enforcement OFF by default on each connection, so orphan rows slip in silently until you run PRAGMA foreign_keys = ON. DB Browser turns it on for you; the sqlite3 shell and code connections do not.',
       part: { id: 'concept-d', label: 'D. Foreign keys and the pragma' } },
     { q: 'Recall from Session 4: what does a foreign key column such as orders.customer_id actually hold?',
-      o: ['A value that matches a row’s primary key in the parent table, linking the child row to its parent', 'A brand-new unique id for the child row', 'A copy of every column from the parent row', 'Always NULL until the parent is deleted'], c: 0,
+      o: ['A value matching a parent row’s primary key', 'A brand-new unique id, generated for each child row', 'A copy of every column from the parent row', 'Always NULL until the parent is deleted'], c: 0,
       e: 'A foreign key stores a value that points at an existing primary key in another table, so orders.customer_id holds a customers.id. This session you declared that link in DDL with REFERENCES and made SQLite enforce it.',
       part: { url: S4_URL, label: 'Session 4 · keys and JOINs' } },
     { q: 'Recall from Session 2: which condition correctly finds the customers whose referrer has no value?',
-      o: ['WHERE referrer IS NULL, because NULL is tested with IS, never with =', 'WHERE referrer = NULL, which returns those rows', 'WHERE referrer != ‘’, because NULL is an empty string', 'WHERE NOT referrer, because NULL is false'], c: 0,
+      o: ['WHERE referrer IS NULL, since NULL needs IS', 'WHERE referrer = NULL, which returns those rows', 'WHERE referrer != ‘’, because NULL is an empty string', 'WHERE NOT referrer, because NULL is false'], c: 0,
       e: 'NULL means unknown, so it is never equal to anything, not even NULL; WHERE referrer = NULL returns zero rows. You must use IS NULL (or IS NOT NULL). That is the read side of the same idea a NOT NULL constraint enforces on the write side: it forbids the empty value entirely.',
       part: { url: S2_URL, label: 'Session 2 · NULL and IS NULL' } }
   ];

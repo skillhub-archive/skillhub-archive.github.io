@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
   .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
@@ -640,9 +640,32 @@ Jae     0</span></code></pre>
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -812,11 +835,11 @@ Jae     0</span></code></pre>
 
   /* ---------- Part 3b: faded ---------- */
   var FADED = [
-    { prompt: 'Fill the blanks so this pairs each customer with each of their orders and shows the name and amount.',
+    { prompt: 'Fill each blank with a single keyword so this pairs each customer with each of their orders (an inner join) and shows the name and amount.',
       code: "SELECT c.name, o.amount\nFROM customers AS c\n%% orders AS o %% c.id = o.customer_id;", ans: ['JOIN', 'ON'] },
     { prompt: 'Fill the blanks so this keeps every customer and lists only those who placed no orders.',
       code: 'SELECT c.name\nFROM customers AS c\nLEFT JOIN orders AS o ON c.id = o.customer_id\nWHERE o.id %% %%;', ans: ['IS', 'NULL'] },
-    { prompt: 'Fill the blanks so this counts each customer’s orders (zero-order customers included) as one row per customer.',
+    { prompt: 'Fill the blanks so this counts each customer’s orders by the orders table’s primary key (zero-order customers included), as one row per customer.',
       code: 'SELECT c.name, COUNT(%%) AS orders\nFROM customers AS c\nLEFT JOIN orders AS o ON c.id = o.customer_id\n%% %% c.id, c.name;', ans: ['o.id', 'GROUP', 'BY'] }
   ];
   function buildFaded() {
@@ -845,7 +868,7 @@ Jae     0</span></code></pre>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -997,16 +1020,16 @@ Jae     0</span></code></pre>
       e: 'A no-match customer still occupies one LEFT JOIN row, filled with NULLs. COUNT(*) counts that row as 1; COUNT(o.id) skips the NULL and reports the true count of 0. This is Session 3’s NULL-skipping rule again.',
       part: { id: 'concept-d', label: 'D. COUNT(*) vs COUNT(o.id)' } },
     { q: 'What is a foreign key?',
-      o: ['A column in one table that references another table’s primary key', 'A key that must be unique in every table', 'A password protecting the database', 'The first column of any table'], c: 0,
+      o: ['A column that points at another table’s primary key', 'A column whose values must be unique within its own table', 'A password protecting the database', 'The first column of any table'], c: 0,
       e: 'A foreign key is a column whose values point at another table’s primary key (here orders.customer_id references customers.id). It is how rows in one table link to rows in another.',
       part: { id: 'concept-a', label: 'A. Primary and foreign keys' } },
     { q: 'Recall from Session 3: you want only the groups whose COUNT(*) is 2 or more. Which clause filters on that, and why not WHERE?',
-      o: ['HAVING, because it runs after grouping and can see the aggregate; WHERE runs before groups exist', 'WHERE, because it can test COUNT(*) directly', 'ORDER BY, by sorting the small groups out', 'DISTINCT, to remove the extra groups'], c: 0,
+      o: ['HAVING, since it runs after the groups are formed', 'WHERE, because it can test COUNT(*) directly on each row', 'ORDER BY, by sorting the small groups out', 'DISTINCT, to remove the extra groups'], c: 0,
       e: 'WHERE filters rows before groups are formed, so it cannot see COUNT(*). HAVING runs after GROUP BY and is the clause for filtering whole groups by an aggregate.',
       part: { url: S3_URL, label: 'Session 3 · HAVING vs WHERE' } },
     { q: 'Recall from Session 2: how do you test whether a column has no value?',
-      o: ['With IS NULL (or IS NOT NULL); = NULL never matches, because NULL is not equal to anything', 'With = NULL', 'With == NULL', 'With NULL()'], c: 0,
-      e: 'NULL means missing, and it is not equal to anything, not even itself, so = NULL returns no rows. You test for it with IS NULL / IS NOT NULL, which is exactly how the LEFT JOIN non-match pattern finds its rows.',
+      o: ['With IS NULL', 'With = NULL', 'With == NULL', 'With = 0 or an empty string'], c: 0,
+      e: 'NULL means missing, and it is not equal to anything, not even itself, so = NULL returns no rows. NULL is not 0 or an empty string either, so testing those finds nothing. You test for it with IS NULL / IS NOT NULL, which is exactly how the LEFT JOIN non-match pattern finds its rows.',
       part: { url: S2_URL, label: 'Session 2 · IS NULL' } }
   ];
   function buildQuiz() {

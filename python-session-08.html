@@ -103,7 +103,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .err { color: var(--bad); }
   .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
@@ -497,8 +497,27 @@ else:
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ');
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in job[%%] the answer
+     "name" is a string key, and bare name would be a NameError. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight (a device may auto-curl
+     them); a MATCHED outer pair of " counts the same as ' (the same Python string), but
+     a mismatched pair like "name' does not. Spaces next to brackets and commas are
+     ignored ({ name } and (100, ) are valid code). Case and punctuation stay exact, as in
+     norm(). Added 2026-09-30; replaces a quoted-key special case in S9 and S10. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') s = "'" + s.slice(1, -1) + "'";
+      return s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -583,7 +602,7 @@ else:
   var PARSONS = [
     { prompt: 'Read a token from the environment, build the bearer auth header, then print it.',
       lines: ['import os', 'token = os.getenv("GITHUB_TOKEN")', 'headers = {"Authorization": f"Bearer {token}"}', 'print(headers["Authorization"])'] },
-    { prompt: 'Make an authenticated GET, then check for a 401 so a missing or bad token is caught.',
+    { prompt: 'Import the modules, read the token, set the URL, build the bearer header, make the authenticated GET, then check for a 401 so a missing or bad token is caught.',
       lines: ['import requests, os', 'token = os.getenv("GITHUB_TOKEN")', 'url = "https://api.github.com/user/repos"', 'headers = {"Authorization": f"Bearer {token}"}', 'response = requests.get(url, headers=headers)', 'if response.status_code == 401:', '    print("check your token")'] }
   ];
   function shuffle(a) {
@@ -661,7 +680,7 @@ else:
 
   /* ---------- Part 3b: faded ---------- */
   var FADED = [
-    { prompt: 'Fill the blanks to read a secret from the environment and use it in a bearer header.',
+    { prompt: 'Fill the blanks to read a secret with the one-word os function (not os.environ) and use it in a bearer header.',
       code: 'import os\nos.environ["TOKEN"] = "t-42"           # place a secret in the environment for this demo\ntoken = os.%%("TOKEN")                # read it back out of the environment\nheaders = {"Authorization": f"Bearer {token}"}\nprint(headers[%%])                     # -> Bearer t-42', ans: ['getenv', '"Authorization"'] },
     { prompt: 'Fill the blanks so the loop collects every page\'s items and prints the total.',
       code: 'pages = [["a", "b"], ["c"]]\ncollected = []\nfor page in pages:\n    collected.%%(page)                 # add all items from this page to the running list\nprint(%%(collected))                   # how many items in total -> 3', ans: ['extend', 'len'] }
@@ -692,7 +711,7 @@ else:
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -841,12 +860,12 @@ else:
       e: 'A hardcoded token is a live secret sitting in your source; the moment the file is pushed to git it is public, and GitHub will auto-revoke tokens it detects. Reading it from an environment variable with os.getenv keeps the secret out of the code entirely.', part: { id: 'concept-b', label: 'B. Headers, secrets, never hardcoding' } },
     { q: 'You call requests.post(url, json={"title": "x"}). What does the json= keyword do for you?', o: ['Serializes the dict into a JSON body and sets the JSON content-type header', 'Sends the dict as old-style HTML-form key=value pairs instead of a JSON body', 'Only works on GET requests, not POST', 'Parses the response body into a dict'], c: 0,
       e: 'json= takes a Python dict, turns it into a JSON string (the json.dumps step from Session 7), and sets the content-type header so the server reads it as JSON. Sending old-style form fields is what data= does instead; a JSON API wants json=.', part: { id: 'concept-d', label: 'D. Sending data with POST' } },
-    { q: 'Your loop requests pages of 100 with per_page=100. How do you know you have reached the last page?', o: ['A page comes back with fewer than 100 items (a short or empty page)', 'The status code changes to 429', 'response.json() starts raising an error', 'You cannot know; you must guess a page count up front'], c: 0,
+    { q: 'Your loop requests pages of 100 with per_page=100. How do you know you have reached the last page?', o: ['A page comes back with fewer than 100 items', 'The status code changes to 429', 'response.json() starts raising an error', 'You cannot know; you must guess a page count up front'], c: 0,
       e: 'The stop condition is a short page: while each page arrives full (length == per_page) there may be more, but the first page with fewer items than you asked for is the last, so you break. A 429 is a separate signal (rate limit), not the end of the data.', part: { id: 'concept-e', label: 'E. Pagination' } },
-    { q: 'Recall (Session 7): a request comes back with status 404, but you skip the check and call response.json() and index it anyway. What is the risk?', o: ['A 404 returns an error body, not your data, so you would parse and read the wrong thing; check the status first', 'None, response.json() only ever returns your real data', 'The request retries itself automatically', 'A 404 body is always empty, so nothing happens'], c: 0,
+    { q: 'Recall (Session 7): a request comes back with status 404, but you skip the check and call response.json() and index it anyway. What is the risk?', o: ['You would parse an error body instead of your data', 'None, response.json() only ever returns your real data', 'The request retries itself automatically', 'A 404 body is always empty, so nothing happens'], c: 0,
       e: 'Getting a response object is not the same as getting your data (Session 7). A 404 or 500 still hands back a body, but it is an error message. Check response.ok or the status code (or call raise_for_status) before trusting the body. A 401 auth failure is the same story.', part: { url: S7_URL, label: 'Session 7 - check status before the body' } },
-    { q: 'Recall (Session 6): why wrap your paginating request loop in try / except requests.RequestException?', o: ['So a dropped connection or network error jumps to except instead of crashing the whole script', 'To make each request run faster', 'Because every for-loop must be inside a try', 'To authenticate the request automatically'], c: 0,
-      e: 'try / except (Session 6) catches an error instead of crashing: if the network drops mid-pull, control jumps to the except block and you print a message or recover, rather than losing the whole run with a traceback. requests.RequestException is the base type for its network errors.', part: { url: S6_URL, label: 'Session 6 - try / except' } }
+    { q: 'Recall (Session 6): why wrap your paginating request loop in try / except requests.RequestException?', o: ['So a dropped connection does not crash the script', 'To make each request run faster', 'Because every for-loop must be inside a try', 'So a failed page is retried automatically until it succeeds'], c: 0,
+      e: 'try / except (Session 6) catches an error instead of crashing: if the network drops mid-pull, control jumps to the except block and you print a message or recover, rather than losing the whole run with a traceback. requests.RequestException is the base type for its network errors. try / except never retries on its own; a retry is code you write.', part: { url: S6_URL, label: 'Session 6 - try / except' } }
   ];
   function buildQuiz() {
     var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;

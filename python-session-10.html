@@ -103,7 +103,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .err { color: var(--bad); }
   .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
@@ -586,8 +586,27 @@ Shell,3</code></pre></div>
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ');
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in job[%%] the answer
+     "name" is a string key, and bare name would be a NameError. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight (a device may auto-curl
+     them); a MATCHED outer pair of " counts the same as ' (the same Python string), but
+     a mismatched pair like "name' does not. Spaces next to brackets and commas are
+     ignored ({ name } and (100, ) are valid code). Case and punctuation stay exact, as in
+     norm(). Added 2026-09-30; replaces a quoted-key special case in S9 and S10. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') s = "'" + s.slice(1, -1) + "'";
+      return s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -736,7 +755,7 @@ Shell,3</code></pre></div>
 
   /* ---------- Part 3b: faded ---------- */
   var FADED = [
-    { prompt: 'Fill the blanks so it reads the token from the environment and builds the bearer auth header. The target output is your clue.',
+    { prompt: 'Fill the blanks so it reads the token with the one-word os function (not os.environ) and builds the bearer auth header. The target output is your clue.',
       code: 'import os\nos.environ["GITHUB_TOKEN"] = "ghp_demo"\ntoken = os.%%("GITHUB_TOKEN")\nheaders = {%%: f"Bearer {token}"}\nprint(headers["Authorization"])   # -> Bearer ghp_demo', ans: ['getenv', '"Authorization"'] },
     { prompt: 'Fill the blanks so the row with the missing language is removed first, then stars are totalled per language.',
       code: 'import pandas as pd\ndf = pd.DataFrame({"lang": ["py", "py", None], "stars": [10, 20, 5]})\ndf = df.%%()                          # handle the missing language before grouping\ntotals = df.groupby("lang")["stars"].%%()\nprint(totals["py"])                   # -> 30', ans: ['dropna', 'sum'] }
@@ -767,15 +786,7 @@ Shell,3</code></pre></div>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var want = f.ans[i], ok;
-          if (/^["'].*["']$/.test(want)) {
-            // the answer is a quoted string key, so the learner must actually quote it
-            // (bare Authorization would be a NameError); accept "Authorization" or 'Authorization'
-            var v = b.value.trim();
-            ok = (/^".*"$/.test(v) || /^'.*'$/.test(v)) && norm(v) === norm(want);
-          } else {
-            ok = norm(b.value) === norm(want);
-          }
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -932,13 +943,13 @@ Shell,3</code></pre></div>
       e: 'response.json() parses the JSON text of the body into Python objects (Session 7), and for a list endpoint that is a list of dicts (Session 8). That list-of-dicts is exactly the shape pd.DataFrame() turns into a table, which is the hinge of the pipeline you build today.', part: { url: S7_URL, label: 'Session 7 - response.json()' } },
     { q: 'Recall (Session 8, Level 4): you are paging through an API with per_page=100. How do you know you have reached the last page?', o: ['A page comes back with fewer than 100 items, so a short page means there is no more data', 'The API sends you an email when it ends', 'Page numbers always stop at 10', 'You never know for sure, so you just keep looping until the API eventually stops responding'], c: 0,
       e: 'The stop condition (Session 8): keep asking for the next page and .extend each one into your list, but when a page returns fewer than per_page items you have hit the end, so break. The capstone reuses this exact loop.', part: { url: S8_URL, label: 'Session 8 - pagination stop condition' } },
-    { q: 'Recall (Session 9, Level 5): a numeric column has one blank cell, and df["amount"].astype(int) raises an error. Why, and what fixes it?', o: ['The blank became NaN (a float), forcing the column to float64, and there is no integer for NaN; drop or fill the missing value first, then convert', 'astype only works on text columns', 'You must reinstall pandas before converting', 'Integers cannot be stored in a pandas column'], c: 0,
+    { q: 'Recall (Session 9, Level 5): a numeric column has one blank cell, and df["amount"].astype(int) raises an error. Why, and what fixes it?', o: ['It became NaN, a float with no integer form; drop or fill it first', 'astype only converts text columns; numeric ones need int() in a loop', 'You must reinstall pandas before converting', 'Integers cannot be stored in a pandas column'], c: 0,
       e: 'An empty cell becomes NaN, a special float meaning missing (Session 9), so the whole column reads in as float64 and astype(int) cannot turn NaN into a whole number. Clean first with dropna or fillna, then convert. Same clean-then-convert order the capstone uses on the repo data.', part: { url: S9_URL, label: 'Session 9 - NaN and clean-then-convert' } },
-    { q: 'Recall (Session 9, Level 5): df.groupby("language")["stars"].sum() gives per-language totals. How do you save it as a flat report with no extra row-number column?', o: ['Call .reset_index() to flatten it, then to_csv("out.csv", index=False)', 'Just print it, pandas saves the file automatically', 'to_csv always writes the index and there is no way to skip it', 'Loop over the groups and write each one with open()'], c: 0,
+    { q: 'Recall (Session 9, Level 5): df.groupby("language")["stars"].sum() gives per-language totals. How do you save it as a flat report with no extra row-number column?', o: ['Call .reset_index(), then to_csv("out.csv", index=False)', 'Just print it, pandas saves the file automatically', 'to_csv always writes the index and there is no way to skip it', 'Loop over the groups and write each one with open()'], c: 0,
       e: 'A grouped result is labeled by the group, so .reset_index() turns those labels back into a normal column (Session 9). Then to_csv("out.csv", index=False) writes the report, and index=False leaves off pandas automatic 0,1,2 numbers you do not want in a report.', part: { url: S9_URL, label: 'Session 9 - reset_index and to_csv' } },
-    { q: 'Today: the capstone pulls repos from the API, reshapes them with pandas, and writes a CSV. What is the correct shape of that pipeline?', o: ['An authenticated paginated pull collects a list of dicts, pd.DataFrame turns that list into a table, you clean and groupby it, then to_csv writes the report', 'pandas calls the API for you, so you can skip requests entirely', 'You write the empty CSV first, then fill it in from the API', 'You must save the raw JSON to disk before pandas can read it'], c: 0,
+    { q: 'Today: the capstone pulls repos from the API, reshapes them with pandas, and writes a CSV. What is the correct shape of that pipeline?', o: ['Authenticated paged pull to a list of dicts, DataFrame, clean, groupby, to_csv', 'pandas calls the API for you, so you can skip requests entirely', 'You write the empty CSV first, then fill it in from the API', 'You must save the raw JSON to disk first, since pandas cannot take a list of dicts'], c: 0,
       e: 'The through-line of the whole sprint: the paginated authenticated GET (Session 8) collects a list of dicts, which is the shape response.json() returns (Sessions 7 and 8), which pd.DataFrame(list_of_dicts) turns straight into a table (Session 9), which you clean, group, and to_csv into a finished report. Each level is one link in that chain.', part: { id: 'concept-a', label: 'A. The whole pipeline in one script' } },
-    { q: 'Today: you split the tool into functions and end the file with if __name__ == "__main__": main(). What does that last line do?', o: ['It runs main() only when the file is executed directly, not when the file is imported by another script', 'It is required or Python will not define your functions', 'It makes the code run measurably faster', 'It renames the file to main'], c: 0,
+    { q: 'Today: you split the tool into functions and end the file with if __name__ == "__main__": main(). What does that last line do?', o: ['It runs main() only when you run the file directly', 'It is required or Python will not define your functions', 'It makes the code run measurably faster', 'It renames the file to main'], c: 0,
       e: 'Python sets the built-in variable __name__ to "__main__" when you run a file directly, but to the module name when another file imports it. Guarding main() behind if __name__ == "__main__": means running the file does the work, while importing it just loads the functions for reuse, which is why organized functions beat one long top-to-bottom blob.', part: { id: 'concept-e', label: 'E. Organizing the tool with a main guard' } }
   ];
   function buildQuiz() {

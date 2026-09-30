@@ -103,7 +103,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
   .pt:hover { text-decoration: underline; }
@@ -494,8 +494,27 @@ print("Correct!")                        <span class="out"># runs once the guess
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ');
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in job[%%] the answer
+     "name" is a string key, and bare name would be a NameError. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight (a device may auto-curl
+     them); a MATCHED outer pair of " counts the same as ' (the same Python string), but
+     a mismatched pair like "name' does not. Spaces next to brackets and commas are
+     ignored ({ name } and (100, ) are valid code). Case and punctuation stay exact, as in
+     norm(). Added 2026-09-30; replaces a quoted-key special case in S9 and S10. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') s = "'" + s.slice(1, -1) + "'";
+      return s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -659,7 +678,7 @@ print("Correct!")                        <span class="out"># runs once the guess
   /* ---------- Part 3b: faded ---------- */
   var FADED = [
     { prompt: 'Fill the blanks so this counts down from 3 and then prints liftoff.',
-      code: 'n = 3\nwhile n %% 0:        # keep looping until n reaches 0\n    print(n)\n    n = n %% 1        # move n one closer to 0 each pass\nprint("liftoff")', ans: ['>', '-'] },
+      code: 'n = 3\nwhile n %% 0:        # keep looping while n is still positive\n    print(n)\n    n = n %% 1        # move n one closer to 0 each pass\nprint("liftoff")', ans: ['>', '-'] },
     { prompt: 'Fill the blanks so this labels only true teenagers (13 through 19).',
       code: 'age = 20\nif age >= 13 %% age <= 19:   # true only when BOTH are true\n    print("teenager")\n%%:\n    print("not a teenager")', ans: ['and', 'else'] }
   ];
@@ -689,7 +708,7 @@ print("Correct!")                        <span class="out"># runs once the guess
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -832,12 +851,12 @@ print("Correct!")                        <span class="out"># runs once the guess
       e: 'The falsy values are 0, "", [], and None. Any non-zero number and any non-empty string are truthy, so 1, "no" and -3 are all truthy.', part: { id: 'concept-b', label: 'B. Logical operators & truthiness' } },
     { q: 'How many numbers does range(2, 5) produce, and which?', o: ['Three: 2, 3, 4', 'Four: 2, 3, 4, 5', 'Three: 2, 3, 5', 'Five: 0, 1, 2, 3, 4'], c: 0,
       e: 'range starts at 2 and stops BEFORE 5, so you get 2, 3, 4, three numbers.', part: { id: 'concept-d', label: 'D. for loops & range' } },
-    { q: 'Inside a loop, what does continue do?', o: ['Skips the rest of this pass and starts the next iteration', 'Exits the loop completely', 'Restarts the loop from the first item', 'Pauses until the user types something'], c: 0,
-      e: 'continue jumps straight to the next pass. break is the one that exits the loop completely.', part: { id: 'concept-e', label: 'E. while loops, break & continue' } },
-    { q: 'Recall (Session 1): the user types 5. What does print(input("n? ") + 1) do?', o: ['Raises a TypeError', 'Prints 6', 'Prints 51', 'Prints 5'], c: 0,
+    { q: 'Inside a loop, what does continue do?', o: ['Skips to the next pass of the loop', 'Exits the loop completely', 'Restarts the loop from the first item', 'Pauses until the user types something'], c: 0,
+      e: 'continue skips the rest of the current pass and jumps straight to the next one. break is the one that exits the loop completely.', part: { id: 'concept-e', label: 'E. while loops, break & continue' } },
+    { q: 'Recall (Session 1): the user types 5. What does print(input("n? ") + 1) do?', o: ['Raises a TypeError', 'Prints 6', 'Prints 51, joining the two as text', 'Prints 5'], c: 0,
       e: 'input() hands back the string "5". "5" + 1 mixes text and a number, which Python refuses. Convert with int() first.', part: { url: S1_URL, label: 'Session 1 - input() returns a string' } },
-    { q: 'Recall (Session 1): what is the type of the value 7.0?', o: ['float', 'int', 'str', 'bool'], c: 0,
-      e: 'The decimal point makes it a float, even though it equals seven.', part: { url: S1_URL, label: 'Session 1 - numbers & types' } }
+    { q: 'Recall (Session 1): what is the type of the value 7.0?', o: ['float', 'int', 'bool', 'double'], c: 0,
+      e: 'The decimal point makes it a float, even though it equals seven. Python has no double type; its float is what some other languages call a double.', part: { url: S1_URL, label: 'Session 1 - numbers & types' } }
   ];
   function buildQuiz() {
     var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;

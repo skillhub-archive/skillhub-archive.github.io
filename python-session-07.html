@@ -103,7 +103,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .err { color: var(--bad); }
   .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
@@ -465,8 +465,27 @@ else:
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ');
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in job[%%] the answer
+     "name" is a string key, and bare name would be a NameError. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight (a device may auto-curl
+     them); a MATCHED outer pair of " counts the same as ' (the same Python string), but
+     a mismatched pair like "name' does not. Spaces next to brackets and commas are
+     ignored ({ name } and (100, ) are valid code). Case and punctuation stay exact, as in
+     norm(). Added 2026-09-30; replaces a quoted-key special case in S9 and S10. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') s = "'" + s.slice(1, -1) + "'";
+      return s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -549,9 +568,9 @@ else:
 
   /* ---------- Part 3a: Parsons ---------- */
   var PARSONS = [
-    { prompt: 'Parse a JSON string, then print a value nested one dict deep.',
+    { prompt: 'Import json, store a JSON string, parse it, then print a value nested one dict deep.',
       lines: ['import json', 'text = \'{"user": {"name": "Ada"}}\'', 'data = json.loads(text)', 'print(data["user"]["name"])'] },
-    { prompt: 'Make a real GET request, check the status succeeded, and only then use the body.',
+    { prompt: 'Import requests, set the URL, make a real GET request, check the status succeeded, and only then use the body.',
       lines: ['import requests', 'url = "https://api.zippopotam.us/us/90210"', 'response = requests.get(url)', 'if response.ok:', '    data = response.json()', '    print(data["places"][0]["place name"])'] }
   ];
   function shuffle(a) {
@@ -660,7 +679,7 @@ else:
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -808,11 +827,11 @@ else:
       e: 'A JSON body arrives as text. Indexing a raw string by key, like body["temp"], raises TypeError. Parse it first: json.loads(body), or the shortcut response.json(), turns the text into a real dict/list you can index.', part: { id: 'concept-c', label: 'C. JSON is text until you parse it' } },
     { q: 'You write temp = body["temp"] where body = response.text, and Python raises TypeError: string indices must be integers. What is wrong?', o: ['.text is still a string, not a dict; parse it before indexing by key', 'The key should be capitalized to match the field name in the response', 'You forgot to import requests', 'requests is not installed'], c: 0,
       e: 'response.text is text, not a parsed object. A string can only be indexed by a number (body[0]), never by a key name. Parse first with response.json() (or json.loads), then index the resulting dict by key. Same shape as Session 5\'s "a CSV cell is text".', part: { id: 'concept-c', label: 'C. JSON is text until you parse it' } },
-    { q: 'Why check response.ok (or response.status_code) BEFORE calling response.json()?', o: ['A 4xx/5xx response returns an error body, not your data, so parsing blindly gives you the wrong thing', 'response.json() only works on a 404', '.ok makes the request run faster', 'You never need to check; a request always succeeds'], c: 0,
+    { q: 'Why check response.ok (or response.status_code) BEFORE calling response.json()?', o: ['A 4xx/5xx body is an error message, not your data', 'response.json() only works on a 404', '.ok makes the request run faster', 'You never need to check; a request always succeeds'], c: 0,
       e: 'Getting a response object is not the same as a successful request. A 404 or 500 still returns a body, but it is an error message, not your data. Check response.ok / status_code first (or call response.raise_for_status()), then trust the body.', part: { id: 'concept-e', label: 'E. Checking status first' } },
-    { q: 'Recall (Session 3): given scores = {"ada": 90}, what does scores.get("linus", 0) return?', o: ['0, the fallback, because "linus" is not a key', '90', 'It raises a KeyError', 'None'], c: 0,
+    { q: 'Recall (Session 3): given scores = {"ada": 90}, what does scores.get("linus", 0) return?', o: ['0, the fallback', '90', 'It raises a KeyError', 'None'], c: 0,
       e: '.get(key, default) returns the value if the key exists, or the fallback you pass if it does not (Session 3). "linus" is not in the dict, so you get 0 instead of a KeyError. Navigating parsed JSON is exactly this same dict access.', part: { url: S3_URL, label: 'Session 3 - .get with a default' } },
-    { q: 'Recall (Session 6): you wrap requests.get(url) in try / except. The wifi drops and the call raises an error. What happens?', o: ['Python jumps to the except block and your program keeps running', 'The script crashes with a full traceback', 'The request silently returns None', 'Python retries the call forever'], c: 0,
+    { q: 'Recall (Session 6): you wrap requests.get(url) in try / except. The wifi drops and the call raises an error. What happens?', o: ['Python jumps to the except block', 'The script crashes with a full traceback', 'The request silently returns None', 'Python retries the call forever'], c: 0,
       e: 'try / except (Session 6) catches the error instead of crashing: control jumps to the except block, where you print a friendly message or use a fallback, and the program carries on. That is why the milestone wraps its request in try / except requests.RequestException.', part: { url: S6_URL, label: 'Session 6 - try / except' } }
   ];
   function buildQuiz() {

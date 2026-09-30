@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
   .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
@@ -652,9 +652,32 @@ Chen   300</span></code></pre>
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -824,7 +847,7 @@ Chen   300</span></code></pre>
 
   /* ---------- Part 3b: faded ---------- */
   var FADED = [
-    { prompt: 'Fill the blanks so this lists the names of every customer who has placed at least one order, using a subquery over the orders table.',
+    { prompt: 'Fill the blanks so this lists the names of every customer who has placed at least one order, using a subquery over the orders table (write the bare column name).',
       code: "SELECT name\nFROM customers\nWHERE id %% (SELECT %% FROM orders)\nORDER BY name;", ans: ['IN', 'customer_id'] },
     { prompt: 'Fill the blanks so this lists the customers who have placed no orders, using a correlated existence test.',
       code: 'SELECT c.name\nFROM customers AS c\nWHERE %% %% (SELECT 1 FROM orders AS o WHERE o.customer_id = c.id)\nORDER BY c.name;', ans: ['NOT', 'EXISTS'] },
@@ -857,7 +880,7 @@ Chen   300</span></code></pre>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -1009,15 +1032,15 @@ Chen   300</span></code></pre>
       e: 'NOT EXISTS asks "is there no matching order?" per customer and is unaffected by NULLs. NOT IN would silently break if the subquery column held a NULL; an inner join drops unmatched customers entirely.',
       part: { id: 'concept-d', label: 'D. NOT EXISTS vs NOT IN' } },
     { q: 'Why can’t you write SELECT AVG(COUNT(*)) FROM orders GROUP BY customer_id to get the average orders per customer, and what do you do instead?',
-      o: ['Aggregates cannot be nested directly; you first build a derived table of the per-customer counts, then average that', 'You can, and it works in every database', 'You must use HAVING instead of a derived table', 'You replace AVG with SUM'], c: 0,
-      e: 'SQL does not allow one aggregate inside another. You put the per-customer COUNT(*) in a subquery in FROM (a derived table, which must be aliased), then apply AVG to its n column.',
+      o: ['Aggregates cannot nest, so average a derived table of counts', 'You can; SQLite allows nested aggregates whenever there is a GROUP BY', 'You must use HAVING instead of a derived table', 'You replace AVG with SUM'], c: 0,
+      e: 'SQL does not allow one aggregate inside another (SQLite reports misuse of aggregate function COUNT()). You put the per-customer COUNT(*) in a subquery in FROM (a derived table, which must be aliased), then apply AVG to its n column.',
       part: { id: 'concept-e', label: 'E. Derived tables' } },
     { q: 'Recall from Session 4: another way to list the customers with no orders is a LEFT JOIN. Which condition isolates them?',
-      o: ['LEFT JOIN orders, then WHERE o.id IS NULL, because unmatched customers get NULL on the right side', 'INNER JOIN orders, then WHERE o.id IS NULL', 'LEFT JOIN orders, then WHERE o.id = 0', 'LEFT JOIN orders, then WHERE o.id IS NOT NULL'], c: 0,
+      o: ['LEFT JOIN orders, then WHERE o.id IS NULL', 'INNER JOIN orders, then WHERE o.id IS NULL', 'LEFT JOIN orders, then WHERE o.id = 0', 'LEFT JOIN orders, then WHERE o.id IS NOT NULL'], c: 0,
       e: 'A LEFT JOIN keeps every customer, padding non-matches with NULL on the orders side. Testing o.id IS NULL keeps exactly the customers with no order. This is the same set NOT EXISTS returns, reached a different way.',
       part: { url: S4_URL, label: 'Session 4 · LEFT JOIN ... IS NULL' } },
     { q: 'Recall from Session 2: why does WHERE referrer = NULL return no rows, even for customers who have no referrer?',
-      o: ['NULL means "unknown", and = NULL is never true, so you must use IS NULL', '= NULL works, but only inside subqueries', 'referrer is never actually NULL', '= NULL returns every row instead'], c: 0,
+      o: ['NULL is unknown, so = NULL is never true; use IS NULL', '= NULL works, but only inside subqueries', 'referrer is never actually NULL; those cells hold empty text', '= NULL returns every row instead'], c: 0,
       e: 'A comparison with NULL yields NULL (unknown), never true, so = NULL matches nothing. You test for a missing value with IS NULL / IS NOT NULL. This is exactly why the NOT IN subquery trap happens.',
       part: { url: S2_URL, label: 'Session 2 · = NULL vs IS NULL' } }
   ];

@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .bad-out { color: var(--bad); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
@@ -614,9 +614,32 @@ conn.close()</code></pre>
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -705,7 +728,7 @@ conn.close()</code></pre>
   var PARSONS = [
     { prompt: "Arrange the lines into the flagship per-city report: select the columns, keep every customer with a LEFT JOIN onto orders, group by city, drop cities with fewer than two customers, and order by revenue, highest first.",
       lines: ['SELECT c.city, COUNT(DISTINCT c.id) AS customers, COUNT(o.id) AS orders,', '       SUM(o.amount) AS revenue, ROUND(AVG(o.amount), 2) AS avg_order', 'FROM customers AS c', 'LEFT JOIN orders AS o ON o.customer_id = c.id', 'GROUP BY c.city', 'HAVING COUNT(DISTINCT c.id) >= 2', 'ORDER BY revenue DESC;'] },
-    { prompt: "Arrange the lines into a Python script that opens shop.db, loads a per-city customer count into a pandas DataFrame, prints it, and closes the connection.",
+    { prompt: "Arrange the lines into a Python script, in exactly this order: import sqlite3, then import pandas as pd, open shop.db, store the per-city count query in sql, load it into a DataFrame, print it, and close the connection.",
       lines: ['import sqlite3', 'import pandas as pd', 'conn = sqlite3.connect("shop.db")', 'sql = "SELECT city, COUNT(*) AS n FROM customers GROUP BY city ORDER BY city"', 'df = pd.read_sql_query(sql, conn)', 'print(df)', 'conn.close()'] }
   ];
   function shuffle(a) {
@@ -783,11 +806,11 @@ conn.close()</code></pre>
 
   /* ---------- Part 3b: faded ---------- */
   var FADED = [
-    { prompt: "Fill the blanks so this keeps every city (even one with no orders) and counts each city's orders per group.",
+    { prompt: "Fill each blank with a single word so this keeps every city (even one with no orders) and counts each city's orders per group.",
       code: 'SELECT c.city, %%(o.id) AS orders\nFROM customers AS c\n%% JOIN orders AS o ON o.customer_id = c.id\nGROUP BY c.%%;', ans: ['COUNT', 'LEFT', 'city'] },
     { prompt: "Fill the blanks so each city's average order is rounded to two places and only cities with at least two customers are kept.",
       code: 'SELECT c.city,\n       %%(AVG(o.amount), 2) AS avg_order,\n       COUNT(DISTINCT c.id) AS customers\nFROM customers AS c\nLEFT JOIN orders AS o ON o.customer_id = c.id\nGROUP BY c.city\nHAVING COUNT(DISTINCT c.id) %% 2;', ans: ['ROUND', '>='] },
-    { prompt: "Fill the blanks so the city value is passed safely as a parameter (not spliced into the SQL) and the count is read back.",
+    { cs: true, prompt: "Fill the blanks so the variable defined on the first line is passed safely as a parameter with the positional placeholder this sprint teaches (not spliced into the SQL) and the count is read back.",
       code: 'target = "Austin"\ncur.execute("SELECT COUNT(*) FROM customers WHERE city = %%", (%%,))\nprint(cur.fetchone()[0])', ans: ['?', 'target'] }
   ];
   function buildFaded() {
@@ -816,7 +839,7 @@ conn.close()</code></pre>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -989,19 +1012,19 @@ conn.close()</code></pre>
       e: "EXCEPT returns the rows of the first SELECT that do not appear in the second, so buyers EXCEPT referrers gives the buyers who never referred anyone. UNION combines, INTERSECT keeps the overlap, and a JOIN glues columns rather than comparing row sets.",
       part: { url: S6_URL, label: 'Session 6 · CTEs and set operations' } },
     { q: "Session 7. products declares price REAL NOT NULL CHECK (price > 0). What happens if you INSERT a product with price -5?",
-      o: ["SQLite rejects the row: the CHECK constraint fails because price is not greater than 0", "The row is inserted with price 0", "The row is inserted and price becomes 5", "SQLite inserts it but warns you"], c: 0,
+      o: ["SQLite rejects the row with a CHECK error", "The row is inserted with price 0", "The row is inserted and price becomes 5", "SQLite inserts it but prints a constraint warning"], c: 0,
       e: "A CHECK constraint is enforced on every insert and update. price -5 violates CHECK (price > 0), so SQLite refuses the row with a CHECK constraint failed error rather than silently fixing or inserting it.",
       part: { url: S7_URL, label: 'Session 7 · constraints' } },
     { q: "Session 8. Inside a transaction you run DELETE FROM orders with no WHERE, see the table empty, then run ROLLBACK. What is in orders now?",
-      o: ["All the original rows: ROLLBACK undoes every change made since the transaction began", "Nothing; the DELETE already happened", "Only the rows added after the DELETE", "SQLite raises an error at ROLLBACK"], c: 0,
+      o: ["All the original rows, restored by ROLLBACK", "Nothing; the DELETE already happened", "Only the rows added after the DELETE", "SQLite raises an error, since the DELETE is already done"], c: 0,
       e: "A DELETE with no WHERE empties the table, but inside a transaction nothing is permanent until COMMIT. ROLLBACK discards every change made since BEGIN, so all the original orders return. That is why wrapping risky writes in a transaction is a safety net.",
       part: { url: S8_URL, label: 'Session 8 · transactions and ROLLBACK' } },
     { q: "Session 9. In Python, why pass a value with cur.execute(sql, (value,)) and a ? placeholder instead of building the SQL with an f-string?",
-      o: ["The ? sends the value to SQLite as data, so a crafted string can never run as SQL; that stops injection", "The f-string version is slower", "An f-string cannot include a number", "There is no real difference"], c: 0,
+      o: ["The value goes as data, so it cannot run as SQL", "The f-string version is slower", "An f-string cannot include a number", "There is no real difference; both are equally safe"], c: 0,
       e: "With a ? placeholder the value travels separately from the SQL text and is treated purely as data, so even a string full of SQL punctuation is just a value. Building the query with an f-string lets a crafted input change what the query does, which is SQL injection.",
       part: { url: S9_URL, label: 'Session 9 · parameters and injection' } },
     { q: "Spanning two topics. EXPLAIN QUERY PLAN on the report shows SCAN orders. You add an index on orders.customer_id, the column the LEFT JOIN matches on. What is the likely effect?",
-      o: ["The join can use the index, so the plan can switch from scanning orders to a faster SEARCH by customer_id, with the same rows returned", "Nothing; indexes never affect joins", "The report returns different rows", "The report can no longer use a LEFT JOIN"], c: 0,
+      o: ["The plan can switch to SEARCH, with the same rows", "Nothing; indexes never affect joins", "The report returns different rows, because the index reorders orders", "The report can no longer use a LEFT JOIN"], c: 0,
       e: "An index on the join column lets SQLite look matches up directly instead of scanning all of orders, so the plan can report SEARCH orders USING INDEX rather than SCAN. It does not change which rows come back, and indexes add a little cost to writes. This ties the join from Session 4 to indexes and query plans from Session 8.",
       part: { url: S8_URL, label: 'Session 8 · indexes and query plans' } }
   ];

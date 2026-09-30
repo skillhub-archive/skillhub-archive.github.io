@@ -97,7 +97,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
   .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
@@ -627,9 +627,32 @@ Iris</span></code></pre>
   function norm(s) {
     // SQL keywords are case-insensitive, so grade case-insensitively
     s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
-    s = s.replace(/[.;]+$/, '');  // a trailing period or stray semicolon is not a mistake
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
+    /* A trailing period, semicolon or colon is not a mistake. Only strip when something
+       survives, or an answer made of punctuation would normalize to empty. 2026-09-30. */
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in cur.execute(..., (%%,))
+     the answer is the variable target, and "target" would be a string. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight, and spaces next to brackets
+     and commas are ignored ((100, ) is a valid tuple). Otherwise it matches norm():
+     case-insensitive (SQL), whitespace collapsed, a trailing . ; or : forgiven unless
+     nothing would survive. An item marked cs: true is Python code (the sqlite3 sessions),
+     so it keeps case exact: Target is not target. Added 2026-09-30. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -832,7 +855,7 @@ Iris</span></code></pre>
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -984,15 +1007,15 @@ Iris</span></code></pre>
       e: 'EXCEPT keeps rows in the first SELECT that are absent from the second, so the Team query must come first. Order matters: putting the big-order query first would answer a different question.',
       part: { id: 'concept-d', label: 'D. INTERSECT and EXCEPT' } },
     { q: 'You are combining two SELECTs with UNION and want the whole result sorted by city. Where does the ORDER BY go?',
-      o: ['Once, at the very end, after the second SELECT, so it sorts the combined result', 'Inside each SELECT separately, so each half is sorted', 'Before the first SELECT', 'ORDER BY cannot be used with UNION at all'], c: 0,
+      o: ['Once, after the last SELECT', 'Inside each SELECT separately, so each half is sorted', 'Before the first SELECT', 'ORDER BY cannot be used with UNION at all'], c: 0,
       e: 'A set operation takes a single ORDER BY placed after the last SELECT; it sorts the whole combined result. You cannot sort the halves separately. Without any ORDER BY, the row order of a set operation is not guaranteed.',
       part: { id: 'concept-c', label: 'C. One ORDER BY at the end' } },
     { q: 'Recall from Session 5: when you use a subquery as a derived table in the FROM clause, what must you give it (required in PostgreSQL, MySQL and SQL Server)?',
-      o: ['An alias, a name for the derived table, so the outer query can refer to its columns', 'A primary key', 'A GROUP BY clause', 'Nothing; a derived table is never named'], c: 0,
+      o: ['An alias (a name for the derived table)', 'A primary key', 'A GROUP BY clause', 'Nothing; a derived table can never be given a name'], c: 0,
       e: 'A derived table must be aliased (SQLite is lenient and lets you omit it, but the others require it, so always write one). That naming need is exactly what a CTE makes explicit and reusable: WITH gives the subquery a name up front, which you can then reference more than once.',
       part: { url: S5_URL, label: 'Session 5 · derived tables' } },
     { q: 'Recall from Session 3: a CTE often wraps a GROUP BY. If you want to keep only the groups whose COUNT(*) is 2 or more, which clause filters on that aggregate?',
-      o: ['HAVING, because it filters groups after aggregation, whereas WHERE filters rows before grouping', 'WHERE, because it can filter on COUNT(*) directly', 'ORDER BY, because it arranges the groups', 'GROUP BY, because it does the filtering itself'], c: 0,
+      o: ['HAVING, as it filters groups after aggregation', 'WHERE, because it can filter on COUNT(*) directly', 'ORDER BY, because it arranges the groups', 'GROUP BY, because it does the filtering itself'], c: 0,
       e: 'WHERE filters individual rows before grouping and cannot see an aggregate like COUNT(*). HAVING filters the groups after aggregation, so a condition on COUNT(*) belongs in HAVING. This is exactly what a CTE wrapping a GROUP BY often does.',
       part: { url: S3_URL, label: 'Session 3 · HAVING vs WHERE' } }
   ];

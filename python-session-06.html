@@ -103,7 +103,7 @@
 
   pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
-  .cm { color: var(--ink-faint); }
+  .cm { color: var(--ink-soft); }
   .out { color: var(--good); }
   .err { color: var(--bad); }
   .filebox { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
@@ -507,8 +507,27 @@ print("requests version:", requests.__version__)  <span class="cm"># proof the i
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function norm(s) {
     s = String(s).trim().replace(/\s+/g, ' ');
-    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    /* curly pair added 2026-09-30 to match the grader contract: a device that auto-curls quotes must not fail a correct answer */
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'") || (s[0] === '“' && s[s.length-1] === '”') || (s[0] === '‘' && s[s.length-1] === '’'))) s = s.slice(1, -1);
     return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer: in job[%%] the answer
+     "name" is a string key, and bare name would be a NameError. So, unlike norm(),
+     this never strips quotes. Curly quotes count as straight (a device may auto-curl
+     them); a MATCHED outer pair of " counts the same as ' (the same Python string), but
+     a mismatched pair like "name' does not. Spaces next to brackets and commas are
+     ignored ({ name } and (100, ) are valid code). Case and punctuation stay exact, as in
+     norm(). Added 2026-09-30; replaces a quoted-key special case in S9 and S10. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"') s = "'" + s.slice(1, -1) + "'";
+      return s;
+    }
+    return q(val) === q(f.ans[i]);
   }
   var LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -673,7 +692,7 @@ print("requests version:", requests.__version__)  <span class="cm"># proof the i
   var FADED = [
     { prompt: 'Fill the blanks so a bad conversion is caught and the cleanup line always runs.',
       code: 'try:\n    n = int("NaN")\nexcept %% as e:           # catch the specific error bad text triggers\n    print("skipping:", e)\n%%:                        # runs no matter what, error or not\n    print("done")', ans: ['ValueError', 'finally'] },
-    { prompt: 'Fill the blanks so the function signals its own error and the caller reads the message.',
+    { prompt: 'Fill the blanks so the function signals its own error and the caller prints the caught exception variable.',
       code: 'def first_char(text):\n    if text == "":\n        %% ValueError("text is empty")   # signal the problem yourself\n    return text[0]\n\ntry:\n    print(first_char(""))\nexcept ValueError as e:\n    print("problem:", %%)               # show the message we raised', ans: ['raise', 'e'] }
   ];
   function buildFaded() {
@@ -702,7 +721,7 @@ print("requests version:", requests.__version__)  <span class="cm"># proof the i
         var allOk = true;
         Array.prototype.forEach.call(blanks, function (b, i) {
           b.disabled = true;
-          var ok = norm(b.value) === norm(f.ans[i]);
+          var ok = fadedOk(f, i, b.value);
           b.classList.add(ok ? 'ok' : 'no');
           if (!ok) allOk = false;
         });
@@ -845,12 +864,12 @@ print("requests version:", requests.__version__)  <span class="cm"># proof the i
   var QUIZ = [
     { q: 'A script crashes and prints a traceback several lines long. Where is the actual error type and message?', o: ['On the very last line, read a traceback bottom-up', 'On the very first line', 'In the middle, next to the file name', 'A traceback never shows the error type, only the file names involved'], c: 0,
       e: 'Read a traceback bottom-up: the lines above are the trail of where Python was, but the final line names the real ExceptionType and its message (e.g. ValueError: ...). That last line is what to fix first.', part: { id: 'concept-a', label: 'A. Reading a traceback' } },
-    { q: 'You wrap a risky line in try/except and that line raises an error. What happens?', o: ['Python jumps to the except block and the program keeps running', 'The program still crashes with a full traceback', 'The risky line is skipped silently with no chance to react', 'The computer restarts the script'], c: 0,
+    { q: 'You wrap a risky line in try/except and that line raises an error. What happens?', o: ['Python jumps to the matching except block', 'The program still crashes with a full traceback', 'The risky line is skipped silently with no chance to react', 'The computer restarts the script'], c: 0,
       e: 'That is the whole point of try/except: instead of crashing, control jumps to the matching except block so you can respond (use a default, log it, print a message) and carry on.', part: { id: 'concept-b', label: 'B. try / except' } },
-    { q: 'Why catch a specific error like except ValueError: instead of a bare except:?', o: ['A bare except also swallows unrelated bugs (like a misspelled variable), hiding them', 'A bare except is a syntax error', 'A specific catch runs faster', 'There is no real difference'], c: 0,
-      e: 'A bare except (or except Exception) catches everything, including bugs you did not anticipate such as a typo’d name (NameError). Catching the specific exception lets real bugs surface loudly instead of being silently swallowed.', part: { id: 'concept-c', label: 'C. Catch the right error' } },
-    { q: 'What does python -m venv venv do, typed in your terminal (not inside Python)?', o: ['Creates an isolated virtual environment to hold this project’s packages', 'Installs the requests package', 'Runs your script', 'Deletes your system Python'], c: 0,
-      e: 'python -m venv venv creates a self-contained environment folder so each project gets its own package versions. You then activate it and pip install into it, keeping the system Python clean.', part: { id: 'concept-e', label: 'E. Virtual environments & pip' } },
+    { q: 'Why catch a specific error like except ValueError: instead of a bare except:?', o: ['A bare except also hides unrelated bugs, like typos', 'A bare except is a syntax error', 'A specific except makes the script run noticeably faster', 'There is no real difference'], c: 0,
+      e: 'A bare except (or except Exception) catches everything, including bugs you did not anticipate such as a typo’d name (NameError). Catching the specific exception lets real bugs surface loudly instead of being silently swallowed. Speed has nothing to do with it.', part: { id: 'concept-c', label: 'C. Catch the right error' } },
+    { q: 'What does python -m venv venv do, typed in your terminal (not inside Python)?', o: ['Creates an isolated environment for this project', 'Installs a package called venv into your system Python', 'Runs your script', 'Deletes your system Python'], c: 0,
+      e: 'python -m venv venv creates a self-contained environment folder so each project gets its own package versions. You then activate it and pip install into it, keeping the system Python clean. venv ships with Python, so nothing is downloaded; the second venv is just the name of the folder it creates.', part: { id: 'concept-e', label: 'E. Virtual environments & pip' } },
     { q: 'Recall (Session 5): you read the cell "42" from a CSV. What type is it, and what does int("N/A") do if a cell holds "N/A"?', o: ['It is a string; int("N/A") raises ValueError', 'It is already an int; nothing special happens', 'It is a float; int("N/A") returns 0', 'CSV cells arrive as numbers by default'], c: 0,
       e: 'Every CSV cell arrives as text (Session 5), so "42" is a string and int("N/A") cannot parse it, raising ValueError. That is exactly why this session wraps such conversions in try/except.', part: { url: S5_URL, label: 'Session 5 - the string trap' } },
     { q: 'Recall (Session 4): given def total(price, rate=0.1), what does calling total(300) use for rate?', o: ['0.1, the default value', '300', 'Nothing, it errors on the missing argument', 'None'], c: 0,
