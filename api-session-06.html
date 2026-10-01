@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Session 6: Mocking your API</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-04.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* S5: a wider three-column table for contract rows, where the first column holds a
+     field name or a whole request line (publishedYear, DELETE /v1/books/{id}) rather
+     than a three-digit code. Same tokens as .fam, so rule 28 is unchanged. */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 46 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is x-mock-response-name (20 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from S4, unused in S5's content but kept so the
+     component stays in the track's shared CSS): its summary must read as clickable.
+     Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the one thing in this session that can actually cost the
+     learner something: putting real company data into a synced Postman workspace.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 06 // Level 3 &middot; Designing The Contract</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Mocking your API</h1>
+    <p class="goal">Last session you wrote a contract that nothing could answer. Today it gets an address. You turn your <code>Books API v1</code> collection into a Postman Mock Server, find out exactly how a mock decides what to say, then play the stranger who has nothing but your docs and see where they let you down. You finish by naming, precisely, what a mock can tell you about the real API nobody has built yet, and what it never can.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Design and mock a small REST API in Postman&rsquo;s Mock Server that a stranger could integrate against from your docs alone.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start, signed in with the free account from Session 4, with the <code>Books API v1</code> collection you built in Session 5.</b> Every graded step today uses that collection. If you do not have it, build it first from <a href="api-session-05.html" target="_blank" rel="noopener">Session 5, section G</a>: nothing below works without it.</p>
+        <p><b>Today something finally answers.</b> A mock server is a real server on the internet, with a real address anyone can call. But every answer it gives is one you wrote in Session 5, and it keeps nothing it is sent. Section F is about exactly what that means.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">14</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Every request today goes to a mock server you build in section B. Tick each box once you have done the task, not just read it.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. <b>These transcripts are real</b>: they were captured on 2026-10-01 from a Postman mock built from a copy of <code>Books API v1</code> made exactly as Session 5 section G describes, sent with Postman&rsquo;s own request headers. Your mock has its own address, so the transcripts write it as <code>https://&lt;mock-id&gt;.mock.pstmn.io</code>, where the angle brackets mark a stand-in, as in Session 3, and they show only the lines that matter. Each status line carries the standard name for its code; Postman may word one slightly differently, such as <code>422 Unprocessable Entity</code>. Where a transcript uses an example&rsquo;s name, it is one of the names listed in section D; if you named yours differently, use your own.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. What a mock server is</h3>
+      <p>Session 5 ended with a contract precise enough to build against, and nothing to build against. A real books server would take someone days or weeks to write, and until it exists, anyone writing a client for it is guessing. A <b>mock server</b> closes that gap. It is a stand-in server that answers requests with saved examples, instead of running any code of its own. Postman builds one from a collection, and the answers it gives are that collection&rsquo;s saved examples, which is exactly why Session 5 had you write sixteen of them.</p>
+      <p>Three things become possible the moment a mock exists:</p>
+      <ul class="pts">
+        <li><b>A client can be built before the server.</b> Whoever writes the app that lists and adds books can start today, against the contract, while someone else builds the real server against the same contract. The two halves meet later and already agree.</li>
+        <li><b>The contract gets tested while changing it is still cheap.</b> Session 5 section A called this design-first. A mock is where a design meets its first client, and a missing status code or a confusing field shows up now, as one edit, rather than after someone has shipped code that depends on it.</li>
+        <li><b>Every refusal can be produced on demand.</b> Making a real server send a <code>409</code> means first arranging a duplicate isbn. A mock sends its <code>409</code> example whenever you ask for it, which section D shows you how to do, so a client&rsquo;s error handling can be tested as easily as its success.</li>
+      </ul>
+      <p><b>You have used a fake server before: jsonplaceholder.</b> The difference is whose fake it is. jsonplaceholder answers with its own data by its own rules, and Session 5 showed it never refuses a write. A mock of <code>Books API v1</code> answers with your data by your rules, refusals included. Neither one stores what you send it, a point section F makes precise.</p>
+      <p>A mock does not understand a request. It compares it against the examples it was built from and replays the one that fits best. Postman&rsquo;s documentation calls this its <b>matching algorithm</b>, and section C tests it, but the outline is short:</p>
+      <div class="hops">
+        <div class="hop"><div class="hi">1</div><div class="hb"><b>Keep only examples with the same method.</b> A <code>DELETE</code> is only ever answered by a <code>DELETE</code> example.</div></div>
+        <div class="hop"><div class="hi">2</div><div class="hb"><b>Score them on the path.</b> The closest path wins. The host, the part before the path, is ignored completely.</div></div>
+        <div class="hop"><div class="hi">3</div><div class="hb"><b>Then on the query string.</b> Parameters like <code>?limit=500</code> count after the path.</div></div>
+        <div class="hop"><div class="hi">4</div><div class="hb"><b>Replay the winner&rsquo;s saved response</b>: its status, its headers and its body, exactly as you wrote them.</div></div>
+      </div>
+      <p>Two details matter later. <b>Ordinary request headers play no part in the match</b> unless someone turns on header matching, which is off for a new mock. <b>The body counts only as a bonus</b>: Postman&rsquo;s documentation says that when an example&rsquo;s saved body matches the request&rsquo;s body, that example&rsquo;s score goes up, and when it does not, nothing is taken away. Keep both in mind; they are behind most of what surprises people in sections C and D.</p>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Building the mock from <code>Books API v1</code></h3>
+      <p>Building the mock takes four steps, and the last one is the one Session 5 set up for you. The menus in Postman move between versions, so each step names the word to look for rather than an exact click path.</p>
+      <ul class="pts">
+        <li><b>1. Create the mock from the collection.</b> Open <code>Books API v1</code>, then look for the word &ldquo;mock&rdquo;: in the menu beside the collection&rsquo;s name, or in a &ldquo;Mock servers&rdquo; area of the sidebar. Choose to mock this existing collection.</li>
+        <li><b>2. Name it, and check one option.</b> Call it <code>Books API v1 mock</code>. Leave the environment empty, since this collection does not use one. Then look for the option about public or private access, and make sure the mock ends up <b>public</b>, which the box below explains. Postman&rsquo;s documentation says new mocks are public by default, but the control has been worded both ways: as making the mock private (leave it unticked) and as allowing public access (tick it). Postman may also offer to save the mock&rsquo;s address as a new environment variable: you do not need that, because your collection already has the variable every request uses.</li>
+        <li><b>3. Copy the mock&rsquo;s address.</b> Postman shows it once the mock exists. It looks like <code>https://&lt;mock-id&gt;.mock.pstmn.io</code>, where <code>&lt;mock-id&gt;</code> is a long id belonging to your mock alone; the angle brackets mean a stand-in, as in Session 3.</li>
+        <li><b>4. Point <code>baseUrl</code> at it.</b> Open the collection&rsquo;s variables, the tab Session 5 used to create <code>baseUrl</code>, and replace <code>https://api.example.com</code> with the mock&rsquo;s address, <b>with no slash at the end</b>. If Postman shows the variable with more than one value column, put the address in each. Save.</li>
+      </ul>
+      <p><b>Why one variable is enough.</b> Every request in the collection is written <code>{{baseUrl}}/v1/books...</code>, and the mock ignores the host when it matches, so changing that one value moves all six requests to the mock at once. The examples are written <code>{{baseUrl}}/v1/...</code> as well, and even an example saved with some other host would still match, because only the method, path and query string are compared. That is also the second of Session 5&rsquo;s reasons for putting the version in the path, <code>/v1</code>, rather than in a header: the mock always sees it.</p>
+      <p>Now send <b>List books</b>, with no changes to the request:</p>
+      <div class="filebox">
+        <div class="fbh">your first request to your own API &middot; a mock, captured live</div>
+<pre><code><span class="cmd">&gt; GET https://&lt;mock-id&gt;.mock.pstmn.io/v1/books</span>
+200 OK
+Content-Type: application/json; charset=utf-8
+x-ratelimit-limit: 120      <span class="cm">Postman&rsquo;s limit on the mock, not your API&rsquo;s</span>
+x-total-count: 2            <span class="cm">whatever count you saved in the example</span>
+
+[ { <span class="jk">"id"</span>: 8, <span class="jk">"title"</span>: "A Wizard of Earthsea", <span class="jk">"author"</span>: "Ursula K. Le Guin", ... },
+  { <span class="jk">"id"</span>: 9, <span class="jk">"title"</span>: "The Tombs of Atuan", <span class="jk">"author"</span>: "Ursula K. Le Guin", ... } ]</code></pre>
+      </div>
+      <p>The status, the <code>x-total-count</code> header and the body are exactly the ones you typed into the <code>200</code> example in Session 5. Postman adds a few headers of its own: <code>; charset=utf-8</code> on the content type, and a set of <code>x-ratelimit</code> headers. Those are Session 4&rsquo;s rate-limit headers describing <b>Postman&rsquo;s</b> limit on your mock, 120 requests a minute by its own <code>x-ratelimit-limit</code> header, and they say nothing about any limit your real API will have.</p>
+      <details class="note"><summary><b>Optional, not graded: public or private?</b> Read this before you ever put a mock in front of real data.</summary>
+        <p><b>A public mock answers anyone who has its address.</b> That is what makes section E&rsquo;s second-person lane possible: a friend can call it with no Postman account at all. The id in the address is long and random, so nobody will stumble on it, but an address is not a secret. Session 3 showed that URLs get logged, bookmarked and pasted, so treat a public mock like an unlisted link: fine for invented books, wrong for anything real.</p>
+        <p><b>A private mock refuses any request that does not carry a Postman API key</b> in a header called <code>x-api-key</code>. Postman&rsquo;s documentation says members of the mock&rsquo;s workspace can call it too. A request from anyone else without a valid key gets this:</p>
+<pre><code><span class="cmd">&gt; GET https://&lt;mock-id&gt;.mock.pstmn.io/v1/books</span>        <span class="cm">a private mock, no key</span>
+401 Unauthorized
+{ <span class="jk">"error"</span>: { <span class="jk">"name"</span>: "invalidCredentialsError", <span class="jk">"header"</span>: "Unable to authenticate",
+             <span class="jk">"message"</span>: "Double check your API key and try again." } }</code></pre>
+        <p><b>That key is a far more powerful credential than any you met in Session 3.</b> NASA&rsquo;s <code>DEMO_KEY</code> could only spend a small quota. A Postman API key acts as you, across your whole Postman account, so Session 3 section G&rsquo;s rules apply in full: never in a URL, never saved into a request in a collection you share, never pasted into a chat. A private mock also means anyone you share it with needs a Postman account and a key of their own. <b>The rule of thumb:</b> keep real data out of examples altogether, and if an example ever has to hold something real, make the mock private first.</p>
+      </details>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build your mock, and send it three requests</div>
+        <ol>
+          <li>Create a mock server from <code>Books API v1</code>, named <code>Books API v1 mock</code>, and make sure it is public.</li>
+          <li>Copy its address and set it as the value of the collection&rsquo;s <code>baseUrl</code>, with no slash at the end. Save.</li>
+          <li>Send <b>List books</b>. Confirm a <code>200</code>, your own list, and the <code>x-total-count</code> you saved.</li>
+          <li>Send <b>Patch a book (refused)</b>. Confirm a <code>405</code> and an <code>Allow</code> header reading <code>GET, PUT, DELETE</code>.</li>
+          <li>Find the <code>x-ratelimit-limit</code> header on either response, and say whose limit it describes.</li>
+        </ol>
+        <details><summary>Hint: if a request fails or comes back looking wrong</summary>
+<pre><code>"could not send request" mentioning api.example.com
+    baseUrl still holds the old value, or was not saved.
+
+List books returns ONE book instead of a list
+    baseUrl ends in a slash, so the request went to
+    //v1/books and matched the wrong example. Remove
+    the slash.
+
+401 with "invalidCredentialsError" in the body
+    the mock is private. Edit it to allow public access.
+
+404 with "mockRequestNotFoundError" in the body
+    the path matched nothing: check the request still
+    says {{baseUrl}}/v1/books, with the /v1.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I built a public mock from Books API v1, pointed baseUrl at it, and got my own 200 and 405 examples back from a real address</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. How a mock chooses its answer</h3>
+      <p>Section A&rsquo;s outline, method, then path, then query string, sounds harmless. Run it against your collection and every result follows from it, including several a real books server would never give. Start with a request the contract plans for:</p>
+      <div class="filebox">
+        <div class="fbh">the query string decides &middot; a mock, captured live</div>
+<pre><code><span class="cmd">&gt; GET https://&lt;mock-id&gt;.mock.pstmn.io/v1/books?limit=500</span>
+422 Unprocessable Content                  <span class="cm">the example built for exactly this</span>
+{ <span class="jk">"error"</span>: { <span class="jk">"code"</span>: "field_invalid", <span class="jk">"message"</span>: "limit must be 1 to 100.",
+             <span class="jk">"field"</span>: "limit" } }
+
+<span class="cmd">&gt; GET https://&lt;mock-id&gt;.mock.pstmn.io/v1/books?limit=50</span>
+422 Unprocessable Content                  <span class="cm">50 is a perfectly good limit</span>
+{ <span class="jk">"error"</span>: { <span class="jk">"code"</span>: "field_invalid", <span class="jk">"message"</span>: "limit must be 1 to 100.",
+             <span class="jk">"field"</span>: "limit" } }</code></pre>
+      </div>
+      <p>The second answer is wrong by the contract, and it is exactly what the matching algorithm says should happen. Both examples for <code>GET /v1/books</code> have the same method and path. Only one, the <code>422</code>, was saved with a <code>limit</code> parameter, so any request carrying a <code>limit</code> fits it better than the plain list. <b>A mock matches your rules; it never checks them.</b> It has no idea that 100 is the cut-off, because that number lives in your description, not in anything it compares.</p>
+      <p>The path works the same way. There is a <code>GET /v1/books/8</code> example and no other id, so look at what happens to a book the contract has never heard of:</p>
+      <div class="filebox">
+        <div class="fbh">the closest path wins &middot; a mock, captured live</div>
+<pre><code><span class="cmd">&gt; GET https://&lt;mock-id&gt;.mock.pstmn.io/v1/books/99</span>
+200 OK                                     <span class="cm">not 404: the closest path is /v1/books/8</span>
+{ <span class="jk">"id"</span>: 8, <span class="jk">"title"</span>: "A Wizard of Earthsea", <span class="jk">"author"</span>: "Ursula K. Le Guin", ... }
+
+<span class="cmd">&gt; GET https://&lt;mock-id&gt;.mock.pstmn.io/v1/authors</span>
+404 Not Found                              <span class="cm">nothing in the collection is close</span>
+{ <span class="jk">"error"</span>: { <span class="jk">"name"</span>: "mockRequestNotFoundError", <span class="jk">"header"</span>: "No matching requests",
+             <span class="jk">"message"</span>: "Double check your method and the request path ..." } }</code></pre>
+      </div>
+      <p>Asked for book 99, the mock answered with book 8, <code>"id": 8</code> and all. It does not read the id in your path. Postman&rsquo;s documentation lists the ways a path can still count as a match, and one of them is a match &ldquo;after removing alphanumeric IDs&rdquo;: take the ids out of <code>/v1/books/99</code> and <code>/v1/books/8</code> and they are the same path. <b>The <code>404</code> for <code>/v1/authors</code> is not your contract&rsquo;s <code>404</code>.</b> Look at its body: <code>name</code>, <code>header</code> and <code>message</code>, which is Postman&rsquo;s error shape, not the <code>{ "error": { "code": ..., "message": ... } }</code> your contract promises. It is the mock saying it has no example anywhere near that request. A client that ever gets this one has sent something the contract does not contain.</p>
+      <p>Two more results go the forgiving way, and the same list in Postman&rsquo;s documentation explains both: a path also counts as a match ignoring case, and ignoring a trailing slash. The mock answered <code>GET /V1/BOOKS</code>, in capitals, and <code>GET /v1/books/</code>, with a trailing slash, both with the <code>200</code> list. Session 5 section B said RFC 3986 treats a path as case-sensitive, so a real server is entitled to treat <code>/V1/BOOKS</code> as an address that does not exist. <b>A mock forgiving it proves nothing about the server you build later</b>, which is one reason the contract is lowercase everywhere. And a <code>POST</code> of an empty <code>{}</code>, which the contract refuses with a <code>422</code>, was not refused at all by the mock these transcripts came from: it answered <code>201</code>. No example was saved with an empty body, so the body gave no example a lead, and section D shows what decides the answer then.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Find out what your mock gets wrong, and why</div>
+        <p>Send each request to your mock. For each, write down the status that came back, which of your examples sent it, and what a real server keeping the contract would have answered instead.</p>
+        <ol>
+          <li><code>GET {{baseUrl}}/v1/books?limit=50</code></li>
+          <li><code>GET {{baseUrl}}/v1/books/99</code></li>
+          <li><code>GET {{baseUrl}}/v1/authors</code></li>
+          <li><code>GET {{baseUrl}}/V1/BOOKS</code></li>
+          <li><code>POST {{baseUrl}}/v1/books</code> with a raw JSON body of <code>{}</code></li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>1  422 from the limit example     real server: 200, 50 is allowed
+   (any limit parameter fits that example better)
+2  200 book 8 from the read       real server: 404 book_not_found
+   example (the closest path)
+3  404 mockRequestNotFoundError   real server: no such URL either,
+   (Postman's, not yours)         but in your error shape
+4  200 the list                   real server: may well be 404,
+   (the mock forgives case)       paths are case-sensitive
+5  201, 400, 409 or 422: whichever real server: 422 field_required
+   add example wins the tie       (section D explains why yours
+                                   may differ from someone else's)</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I sent five requests a real server would answer differently, and can say for each which example answered and why</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. When several examples fit, ask by name</h3>
+      <p>Session 5 named every example with its status code first, and promised that this session would show why. Here are the sixteen names the transcripts use, which follow Session 5&rsquo;s pattern:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Request</div><div class="fn">Examples</div><div class="fd">Has a <code>200</code>?</div></div>
+        <div class="frow"><div class="fc">List books</div><div class="fn">200 list &middot; 422 limit too big</div><div class="fd">yes</div></div>
+        <div class="frow"><div class="fc">Add a book</div><div class="fn">201 created &middot; 400 invalid json &middot; 409 isbn taken &middot; 422 title missing</div><div class="fd"><b>no</b></div></div>
+        <div class="frow"><div class="fc">Read a book</div><div class="fn">200 the book &middot; 404 book not found</div><div class="fd">yes</div></div>
+        <div class="frow"><div class="fc">Replace a book</div><div class="fn">200 replaced &middot; 400 invalid json &middot; 404 book not found &middot; 409 isbn taken &middot; 422 title missing</div><div class="fd">yes</div></div>
+        <div class="frow"><div class="fc">Remove a book</div><div class="fn">204 removed &middot; 404 book not found</div><div class="fd"><b>no</b></div></div>
+        <div class="frow"><div class="fc">Patch a book (refused)</div><div class="fn">405 not allowed</div><div class="fd">no, and only one example</div></div>
+      </div>
+      <p>Two, four, two, five, two and one: sixteen. Now look at <b>Add a book</b> through the matching algorithm. All four examples are <code>POST</code>, all four have the path <code>/v1/books</code>, and none has a query string. Only the body could separate them, and only if the request sends exactly the body saved in one of them, which a real client adding a real book never will. So they tie. Postman&rsquo;s documentation says a tie goes to an example whose status is <code>200</code> if there is one, and otherwise to whichever comes first in Postman&rsquo;s own internal order of example ids, which you never see and cannot choose. Read a book and Replace a book have a <code>200</code>, so their plain requests are predictable. <b>Add a book and Remove a book do not</b>, and that is where the rule stops being theory.</p>
+      <p>To see it, this session&rsquo;s author made four identical copies of the collection, gave each its own mock, and sent each one Add a book with a new book in the body (<i>Dune</i>, which no example holds), then Remove a book, with no extra headers:</p>
+      <div class="hdrs">
+        <div class="hrow lbl"><div class="hn">Mock</div><div class="hv">Add a book with a new book, then Remove a book</div></div>
+        <div class="hrow"><div class="hn">copy 1</div><div class="hv"><code>201</code>, then <code>404</code></div></div>
+        <div class="hrow"><div class="hn">copy 2</div><div class="hv"><code>400</code>, then <code>204</code></div></div>
+        <div class="hrow"><div class="hn">copy 3</div><div class="hv"><code>409</code>, then <code>404</code></div></div>
+        <div class="hrow"><div class="hn">copy 4</div><div class="hv"><code>422</code>, then <code>404</code></div></div>
+      </div>
+      <p>The same collection and the same requests: four different answers to adding a book, and two to removing one. Each mock gave the same answer every time it was asked again, but which example wins a tie depends on ids Postman assigned when the examples were created. <b>Your mock&rsquo;s plain Add a book may answer any of its four examples, and its plain Remove a book <code>204</code> or <code>404</code></b>, and nothing visible in your collection predicts which. A client developer who gets that <code>400</code> for a perfectly good book, or that <code>404</code> after a delete, has been misled by the mock, not by your contract.</p>
+      <p>The body bonus from section A is the one thing that does settle a tie: sent the body saved in the <code>409</code> example, all four mocks answered <code>409</code>, even with the JSON laid out differently. Add one character to the title and all four were back to their four different answers. That is a curiosity, not a method, because a client that has to send one particular body to get one particular answer is not testing anything real.</p>
+      <p><b>The fix is to stop leaving it to the tie.</b> A mock reads two request headers that choose an example outright:</p>
+      <ul class="pts">
+        <li><b><code>x-mock-response-name</code></b>, set to an example&rsquo;s name, asks for that example.</li>
+        <li><b><code>x-mock-response-code</code></b>, set to a status code such as <code>409</code>, asks for the example with that status.</li>
+      </ul>
+      <p>You add them on the request&rsquo;s Headers tab, the same place Session 3 put <code>X-Api-Key</code>:</p>
+      <div class="filebox">
+        <div class="fbh">asking instead of hoping &middot; a mock, captured live</div>
+<pre><code><span class="cmd">&gt; DELETE https://&lt;mock-id&gt;.mock.pstmn.io/v1/books/8</span>
+<span class="cmd">&gt; x-mock-response-name: 204 removed</span>
+204 No Content
+
+<span class="cmd">&gt; POST https://&lt;mock-id&gt;.mock.pstmn.io/v1/books</span>
+<span class="cmd">&gt; x-mock-response-name: 409 isbn taken</span>
+409 Conflict
+{ <span class="jk">"error"</span>: { <span class="jk">"code"</span>: "isbn_taken", <span class="jk">"message"</span>: "A book with this isbn already exists." } }
+
+<span class="cmd">&gt; PUT https://&lt;mock-id&gt;.mock.pstmn.io/v1/books/8</span>
+<span class="cmd">&gt; x-mock-response-code: 409</span>
+409 Conflict
+{ <span class="jk">"error"</span>: { <span class="jk">"code"</span>: "isbn_taken", <span class="jk">"message"</span>: "A book with this isbn already exists." } }</code></pre>
+      </div>
+      <p><b>The rules for a name, each one checked on a real mock:</b></p>
+      <ul class="pts">
+        <li><b>The value must be the example&rsquo;s name exactly</b>: same capitals, same spaces. <code>409 ISBN TAKEN</code>, or <code>409&nbsp;&nbsp;isbn taken</code> with two spaces, gets the mock&rsquo;s own <code>404</code>. The header&rsquo;s <i>name</i> is a different matter: Session 2 showed header names are case-insensitive, and <code>X-Mock-Response-Name</code> worked just as well.</li>
+        <li><b>The name is checked against the method, and not against the path.</b> Sending <code>x-mock-response-name: 200 the book</code> on a <code>DELETE</code> gets a <code>404</code>, because that name belongs to a <code>GET</code>. But on a <code>GET</code> it wins anywhere: <code>GET /v1/authors</code>, a URL your contract does not have, came back <code>200</code> with book 8. <b>A name can hide a wrong URL</b>, so when you test a client, check its paths once with no name at all.</li>
+        <li><b>Send both headers and both must fit.</b> A name of <code>409 isbn taken</code> with a code of <code>201</code> fits no example, so the mock answers <code>404</code>.</li>
+        <li><b>A name or code that fits nothing gets the mock&rsquo;s <code>404</code></b>, with a hint in its <code>header</code> field: <code>No matching response</code> when the name fit no example, <code>No matching requests</code> when no example had that status code.</li>
+      </ul>
+      <p><b>Prefer the name.</b> Today every example of one request has a different status, so a code works. A contract with two kinds of <code>422</code> for one request, a missing title and a malformed isbn, could only tell them apart by name. And one more thing worth knowing for section E: <b>an edit to an example reaches the mock within seconds of being saved</b>, with nothing to rebuild or redeploy.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Watch your own tie, then ask by name</div>
+        <ol>
+          <li>Send <b>Add a book</b> with no extra headers and a book you invent in the body, then <b>Remove a book</b> with no extra headers. Write down which example answered each: that is your mock&rsquo;s tie.</li>
+          <li>Add the header <code>x-mock-response-name</code> with the value <code>204 removed</code> (or your own name for that example) and send it again. Confirm the <code>204</code>. Change the value to your not-found example&rsquo;s name and confirm the <code>404</code>.</li>
+          <li>On <b>Add a book</b>, ask for each of the four examples by name, one at a time, and confirm each status.</li>
+          <li>On <b>Replace a book</b>, ask for the <code>409</code> with <code>x-mock-response-code</code> instead.</li>
+          <li>Send one name with the wrong capitals. Confirm the <code>404</code> and find <code>No matching response</code> in its body.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I saw which examples my mock picks on a tie, then got every Add a book example and both Remove a book examples by asking for them</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Being the stranger</h3>
+      <p>The milestone asks for a mock that <b>a stranger could integrate against from your docs alone</b>, and Session 5 called that the stranger test. The best way to run it is with a real stranger: hand them your mock&rsquo;s address and your docs, say nothing else, and watch where they get stuck. The box at the end of this section shows how. But you can run it on your own today, honestly, if you hold yourself to three rules.</p>
+      <ul class="pts">
+        <li><b>A new, empty collection.</b> Create a collection called <code>Books client</code> and give it its own <code>baseUrl</code> variable, set to your mock&rsquo;s address. Every request in it you type yourself. Never copy, duplicate or even open a request from <code>Books API v1</code> while you work.</li>
+        <li><b>The docs are the description and nothing else.</b> A stranger integrating with a real API gets a written page, not the provider&rsquo;s collection. So today your docs are what you wrote in <code>Books API v1</code>&rsquo;s description in Session 5 step 2. Keep that open and read only that.</li>
+        <li><b>Log every look-up.</b> Each time you need a fact the description does not give you, and you find it somewhere else (in <code>Books API v1</code>&rsquo;s requests, in Session 5, or simply in your memory), write one line: what you needed, and where you found it. This list is called a <b>look-up log</b>, and every line in it is a gap in your docs.</li>
+      </ul>
+      <p>Here is the stranger&rsquo;s brief. It says what a library app needs to do, deliberately in a user&rsquo;s words, never in methods or URLs, because working out the requests from the docs is the whole test:</p>
+      <div class="filebox">
+        <div class="fbh">the stranger&rsquo;s brief &middot; six goals, no requests named</div>
+<pre><code>1  Show a user every book, and how many books there are in all.
+2  Add a book, and find out where the new book can now be read.
+3  Show the message a user would see if that book's isbn is
+   already in the library.
+4  Change only the title of book 8.
+5  Remove book 8, and show the user that it worked.
+6  Ask for 500 books at once, and show the user what went wrong.</code></pre>
+      </div>
+      <p>A goal is done when its request is built in <code>Books client</code>, sent to the mock, and the response is what the docs said it would be. <b>Expect the log to fill up quickly the first time.</b> Session 5&rsquo;s description held the shared rules and the field table, and nothing else, so the very first goal needs a URL that it never mentions. That is not a failure. It is exactly what this pass exists to find, while fixing it is one edit.</p>
+      <p><b>Then fix the docs, and run it again.</b> Add whatever the log asks for to the description, then delete the requests in <code>Books client</code> and work through the brief once more from nothing. You are done when a whole pass needs <b>zero look-ups</b> and every response matches what the docs promised.</p>
+      <p><b>Playing the stranger has one blind spot you cannot remove.</b> You already know the answers, so a gap your memory fills without your noticing never reaches the log. Only a real stranger finds those, which is why the second lane below is the better one whenever you can take it.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The first stranger pass, with a look-up log</div>
+        <ol>
+          <li>Create the empty <code>Books client</code> collection with its own <code>baseUrl</code>, set to your mock.</li>
+          <li>Open <code>Books API v1</code>&rsquo;s description, and only that.</li>
+          <li>Work through all six goals of the brief, typing each request yourself, and log every look-up.</li>
+        </ol>
+        <details><summary>Compare your log with the gaps most people find</summary>
+<pre><code>needed                                  usually found in
+the URL and method for each goal        Books API v1's requests
+which status means success for each     Session 5, section F
+how to get the 409 out of the mock      this session, section D
+  (the header, and the example names)
+that a 405 says to use PUT instead      memory
+that the new book is not really kept    memory, or surprise
+  (goal 2: reading it back at its
+   Location gives a different book)</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I worked through the six-goal brief from the description alone, in a fresh collection, and logged every look-up</label>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Close every gap, then pass with zero look-ups</div>
+        <ol>
+          <li>For each line in your log, add to <code>Books API v1</code>&rsquo;s description whatever would have answered it. The operations table from Session 5 section F belongs there in full.</li>
+          <li>Add a section headed <b>Calling the mock</b>: the mock&rsquo;s address, the header that asks for an example, every example&rsquo;s name, and what the mock will not do.</li>
+          <li>Delete the requests in <code>Books client</code> and run the whole brief again from the description. Repeat until a pass needs no look-ups.</li>
+        </ol>
+        <details><summary>Show one Calling the mock section to compare against</summary>
+<pre><code>Calling the mock
+  Address    https://&lt;mock-id&gt;.mock.pstmn.io  (no trailing slash);
+             every path starts /v1
+  Examples   without extra headers you may get any example
+             for that request. To choose one, send the header
+             x-mock-response-name set to its exact name:
+               List books      200 list, 422 limit too big
+               Add a book      201 created, 400 invalid json,
+                               409 isbn taken, 422 title missing
+               Read a book     200 the book, 404 book not found
+               Replace a book  200 replaced, 400 invalid json,
+                               404 book not found, 409 isbn taken,
+                               422 title missing
+               Remove a book   204 removed, 404 book not found
+               Patch a book    405 not allowed
+  Warnings   the mock stores nothing: a book you add will not
+             appear in the list. It does not check the rules
+             above either: it replays the example that fits best.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I fixed the description from my log and ran the brief again until a whole pass needed zero look-ups</label>
+      </div>
+      <details class="note"><summary><b>The better lane, if you can: a real stranger.</b> Optional, and worth more than the solo pass when someone is free.</summary>
+        <p>Give a friend or teammate three things and nothing else: your mock&rsquo;s address, the text of your description (paste it into a document or an email), and the six-goal brief above. They do not need a Postman account. A public mock answers anything that can send a request, including the no-account Postman client from Session 1.</p>
+        <p>Then watch, and do not help. Every question they ask you, and every place they stop and frown, is a line in the look-up log, written by someone who genuinely does not know the answers. Fix the description from their log exactly as you fixed it from yours.</p>
+      </details>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. What a mock proves, and what it never can</h3>
+      <p>A mock feels like an API, and that is the danger. Session 1 pointed ahead to this level for &ldquo;an API whose data is yours&rdquo;, and Session 3 for one &ldquo;whose writes you control&rdquo;. Here is precisely what that means: <b>you decide every answer it gives, and it keeps nothing you send it.</b> Watch a book go in and not come out:</p>
+      <div class="filebox">
+        <div class="fbh">add, list, remove, read &middot; a mock, captured live, in this order</div>
+<pre><code><span class="cmd">&gt; POST https://&lt;mock-id&gt;.mock.pstmn.io/v1/books</span>
+<span class="cmd">&gt; x-mock-response-name: 201 created</span>
+<span class="cmd">&gt; { "title": "Dune", "author": "Frank Herbert", "isbn": "9780000000024" }</span>
+201 Created
+location: /v1/books/8                      <span class="cm">the saved example's Location</span>
+{ <span class="jk">"id"</span>: 8, <span class="jk">"title"</span>: "A Wizard of Earthsea", ... }   <span class="cm">not Dune: the saved body</span>
+
+<span class="cmd">&gt; GET https://&lt;mock-id&gt;.mock.pstmn.io/v1/books</span>
+200 OK
+x-total-count: 2                           <span class="cm">still 2: nothing was added</span>
+
+<span class="cmd">&gt; DELETE https://&lt;mock-id&gt;.mock.pstmn.io/v1/books/8</span>
+<span class="cmd">&gt; x-mock-response-name: 204 removed</span>
+204 No Content
+
+<span class="cmd">&gt; GET https://&lt;mock-id&gt;.mock.pstmn.io/v1/books/8</span>
+200 OK                                     <span class="cm">book 8, still there</span>
+{ <span class="jk">"id"</span>: 8, <span class="jk">"title"</span>: "A Wizard of Earthsea", ... }</code></pre>
+      </div>
+      <p>Every response there is one you wrote, sent back unchanged: the <code>201</code> even returned <i>A Wizard of Earthsea</i> for a request that sent <i>Dune</i>. Put that together with sections C and D and the line between what a mock settles and what it cannot is sharp:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">A mock</div><div class="fn">What it shows</div><div class="fd">Why</div></div>
+        <div class="frow"><div class="fc">proves</div><div class="fn">every operation has a URL, method, status and body a client can be written against</div><div class="fd">your client sent real requests and got real responses back</div></div>
+        <div class="frow"><div class="fc">shows</div><div class="fn">the docs are complete enough to integrate from</div><div class="fd">as far as a stranger pass with zero look-ups can tell: a real stranger&rsquo;s pass is stronger evidence than your own</div></div>
+        <div class="frow"><div class="fc">proves</div><div class="fn">a client&rsquo;s handling of every refusal the contract lists can be tested</div><div class="fd">each one can be asked for by name, on demand; a refusal the contract does not list, such as a <code>429</code>, has no example to ask for</div></div>
+        <div class="frow"><div class="fc">cannot prove</div><div class="fn">that anything is stored</div><div class="fd">the book added above never reached the list</div></div>
+        <div class="frow"><div class="fc">cannot prove</div><div class="fn">that the rules are enforced</div><div class="fd"><code>?limit=50</code> got the <code>422</code>; an empty body was not refused</div></div>
+        <div class="frow"><div class="fc">cannot prove</div><div class="fn">that the right record comes back</div><div class="fd">book 99 came back as book 8</div></div>
+        <div class="frow"><div class="fc">cannot prove</div><div class="fn">how strict the real server is about URLs</div><div class="fd">the mock forgave <code>/V1/BOOKS</code>, and a named request was answered even at <code>/v1/authors</code></div></div>
+        <div class="frow"><div class="fc">cannot prove</div><div class="fn">the real API&rsquo;s speed, limits or authentication</div><div class="fd">the 120 a minute is Postman&rsquo;s limit on the mock</div></div>
+      </div>
+      <p><b>The short version: a mock tests the client and the docs, never the server.</b> Checking that a real server keeps the contract needs a real server, and sending it the same requests and comparing every response with the contract is a job for the day one exists. What the mock has given you by then is a contract that a real client already depends on, and a written list of what the server must do that the mock never could.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Watch it keep nothing, then write the handoff</div>
+        <ol>
+          <li>Send the four requests above to your mock in that order, with the names shown. Confirm the list did not grow and book 8 is still there after its <code>204</code>.</li>
+          <li>Write a short note for whoever will build the real books server: three things the mock and your stranger pass have settled, and three things only the real server can show, each with the request that would show it.</li>
+        </ol>
+        <details><summary>Check your note</summary>
+<pre><code>settled
+  every operation's URL, method, status and body
+  the docs: my stranger pass needed zero look-ups
+    (as far as I can tell; a real stranger would be
+     stronger evidence)
+  the client handles 409, 405 and 422, the refusals
+    the brief exercised; the others can be asked for
+    by name and tested the same way
+
+only the real server can show
+  a book is kept    POST a new book, then GET its Location
+  rules are checked GET /v1/books?limit=50   expect 200
+                    POST {}                  expect 422
+  the right book    GET /v1/books/99         expect 404</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I watched the mock keep nothing I sent, and wrote a handoff note separating what it proved from what it could not</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. The milestone: the Level 3 milestone, unassisted</h3>
+      <p>This milestone is also the one for the whole of Level 3: design and mock a small REST API in Postman&rsquo;s Mock Server that a stranger could integrate against from your docs alone. You have done every part of it once, with books. Now do all of it yourself, for members.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: mock the members API and pass the stranger test</div>
+        <p>Use the <code>Members API v1</code> collection from Session 5&rsquo;s milestone. If you do not have one, start by writing the members contract from the brief in <a href="api-session-05.html" target="_blank" rel="noopener">Session 5, section H</a>. Then, without scrolling back up:</p>
+        <ol>
+          <li><b>Make it mockable.</b> Give the collection a <code>baseUrl</code> variable and one request per operation, each written <code>{{baseUrl}}/v1/members...</code>. If your Session 5 contract put the version in a header, move it into the path for this: a mock ignores ordinary headers, so it would never see the version.</li>
+          <li><b>Add an example for every status</b> your members contract lists, each named with its status code first.</li>
+          <li><b>Write the docs</b> in the description: the shared rules, the field table, the operations table, and a Calling the mock section.</li>
+          <li><b>Mock it</b>, public, and point <code>baseUrl</code> at the mock.</li>
+          <li><b>Write a stranger&rsquo;s brief</b>: five goals in a user&rsquo;s words, naming no method, URL or status.</li>
+          <li><b>Run the stranger pass</b> in a fresh, empty collection, with a look-up log, and fix the docs until a whole pass needs zero look-ups. If anyone is free, hand them the address, the description and the brief instead, and watch.</li>
+        </ol>
+        <p>You have hit the milestone when a pass needs zero look-ups, every response matched the docs, and you can say what this mock did not prove about a real members server. A solo pass meets it, with section E&rsquo;s caveat: it is as far as someone who knows the answers can tell, and a real stranger&rsquo;s clean pass is the stronger version of the same milestone.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">&gt; examples, if your contract matches Session 5's reference</span>
+List members      200 list, 422 limit too big
+Sign up a member  201 created, 400 invalid json,
+                  409 email taken, 422 name missing
+Read a member     200 the member, 404 member not found
+Replace a member  200 replaced, 400 invalid json,
+                  404 member not found, 409 email taken,
+                  422 name missing
+Remove a member   204 removed, 404 member not found
+Patch a member    405 not allowed
+                  2 + 4 + 2 + 5 + 2 + 1 = 16 examples
+
+<span class="cmd">&gt; one stranger's brief</span>
+1  Show every member, and how many there are.
+2  Sign up a new member, and find where their record lives.
+3  Show what a user sees if the email is already registered.
+4  Change a member's phone number.
+5  Remove a member, and show the user that it worked.
+
+<span class="cmd">&gt; what this mock did not prove</span>
+that a signed-up member is kept; that the email rule
+is checked; that the right member comes back for an id.
+
+<span class="cmd">&gt; where yours may honestly differ</span>
+a different number of examples, if your contract has
+a different set of statuses: one example per status
+your OWN contract lists is the rule, not sixteen.
+different example names, as long as each starts with
+its status and the docs list them.
+
+<span class="cmd">&gt; where yours is not yet done</span>
+any look-up left in your last pass
+a status in the contract with no example to ask for
+example names the docs never tell the stranger</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I mocked my members API and a stranger pass against it needed zero look-ups: Level 3&rsquo;s milestone</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from one plain request to a mock up to tracing a whole sequence through it.</p>
+    <div class="note"><b>Every drill today is a request to a mock built from <code>Books API v1</code></b>, with <code>baseUrl</code> set to the mock and no extra headers unless the drill shows one. They were all checked against a real mock on 2026-10-01, and you can check them against yours by sending them. Where a drill needs to show you examples, a request or a set of statements first, they are in the grey box above the question.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between calling a mock and documenting one. First put one genuinely ordered sequence back into order, then fill the blanks in two sets of requests and one piece of the docs you have already seen.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. There is only one sequence today, on purpose: it is the one process in this session where each step needs something only the step before it produced.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded requests and docs)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft each piece of documentation in the box, then reveal the reference to compare. Docs can be right in many wordings; what matters is that each one answers every question the task names. The workbook cannot judge free text, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours covers everything the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">14</span></span>
+        <span>In pile <b id="fc-pile">14</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Three of the six questions below come from <b>Sessions 5, 4 and 1</b> rather than from today, because recalling something after a delay is what moves it from "I read that" to "I know that". Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 06 of 10 &middot; Hit the milestone unassisted, then tick <b>S06</b> on your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>. It is also Level 3&rsquo;s milestone, so this session closes the level.
+    <br><br>
+    <b>Your 15-minute review:</b> hand your mock&rsquo;s address to a friend or teammate, with your docs and a stranger&rsquo;s brief and no explanation beyond them, and keep a look-up log of every question they ask. If nobody is free, wait a day, then run section E&rsquo;s stranger pass on your <code>Members API v1</code> again, from a fresh collection, so your memory has had time to fade. Either way, fix the docs from the log. Keep <a href="https://learning.postman.com/docs/design-apis/mock-apis/matching-algorithm/" target="_blank" rel="noopener">Postman&rsquo;s matching algorithm page</a> open beside you for anything about how a mock chose its answer. &middot; Next: <b>Session 07, webhooks both directions</b>, where Level 4 begins and the API call comes from the other system, to you.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-s06-workbook-v1";
+  /* Spaced review: three Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+  var S03_URL = "api-session-03.html";
+  var S04_URL = "api-session-04.html";
+  var S05_URL = "api-session-05.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, status numbers,
+     key names and short words, where capitalisation is presentation. parenLabels is
+     OFF for this session: transcripts print answer tokens as status lines, header
+     names with a colon (x-mock-response-name:), example names (409 isbn taken),
+     paths and quoted keys, never in parentheses as a label. Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true (this session's D9, whose
+     answer is a method and a path, both case-sensitive). caseFold stays ON for
+     every other drill on the track. */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. F1 is cs: true because its blanks are a
+     method (RFC 9110) and a Postman variable name, and both are case-sensitive.
+     F2 and F3 fold case: their blanks are header names, which are
+     case-insensitive, and numbers. Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "Location: /v1/books/8", and JSON keys as
+     "author". Whenever a session prints an answer token inside
+     punctuation, that punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 7 value, 2 set, 1 seq. Every drill was checked against a
+     real Postman mock built from a faithful copy of Books API v1 on 2026-10-01,
+     with Postman's request headers. D1 relies on Read a book having a 200 example,
+     so the tie-break is deterministic; no drill depends on a tie Postman breaks by
+     its own internal id order (section D shows those vary between copies). */
+  var DRILLS = [
+    { type: 'value', lbl: 'your collection',
+      scen: 'Read a book has two examples:\n\n  200 the book          GET {{baseUrl}}/v1/books/8\n  404 book not found    GET {{baseUrl}}/v1/books/8',
+      ask: 'What three-digit status code comes back?',
+      code: 'GET {{baseUrl}}/v1/books/8', ans: '200', alt: ['200 OK'],
+      why: '200. Both examples have the same method and the same path, so they tie, and Postman’s rule for a tie is to prefer an example whose status is 200. Read a book has one, so this request gives the same answer on every mock built from the collection. It is Add a book and Remove a book, with no 200 example, whose plain requests you cannot predict.' },
+
+    { type: 'value', lbl: 'your collection',
+      scen: 'List books has two examples:\n\n  200 list             GET {{baseUrl}}/v1/books\n  422 limit too big    GET {{baseUrl}}/v1/books?limit=500',
+      ask: 'What three-digit status code comes back?',
+      code: 'GET {{baseUrl}}/v1/books?limit=50', ans: '422', alt: ['422 Unprocessable Content', '422 Unprocessable Entity'],
+      why: '422, although 50 is inside the contract’s limit of 100. After the method and the path, the mock scores the query string, and the only example saved with a limit parameter is the 422, so any request carrying a limit fits it best. A mock matches your rules; it never checks them, because the cut-off of 100 lives in your description, not in anything it compares.' },
+
+    { type: 'value', lbl: 'your collection',
+      scen: 'Every Read a book example was saved for book 8:\n\n  GET {{baseUrl}}/v1/books/8',
+      ask: 'What is the value of "id" in the body that comes back? Answer with the number.',
+      code: 'GET {{baseUrl}}/v1/books/99', ans: '8', alt: ['eight', '"id": 8', 'id: 8'],
+      why: '8. There is no example for book 99, and Postman’s documentation lists a path match “after removing alphanumeric IDs”: with the ids taken out, /v1/books/99 and /v1/books/8 are the same path. So the mock replays the 200 the book example, book 8 and all. A real server keeping the contract would answer 404 book_not_found.' },
+
+    { type: 'value',
+      ask: 'What three-digit status code comes back?',
+      code: 'GET {{baseUrl}}/v1/authors', ans: '404', alt: ['404 Not Found'],
+      why: '404, but not your contract’s 404. Nothing in the collection has a path anywhere near /v1/authors, so the mock answers with its own error: a body with name mockRequestNotFoundError and the header No matching requests, which is Postman’s error shape, not the { "error": { "code", "message" } } your contract promises. A client that gets it has sent something the contract does not contain.' },
+
+    { type: 'set', lbl: 'given',
+      scen: 'Five header names:\n\n  x-mock-response-name\n  x-api-key\n  x-total-count\n  x-mock-response-code\n  Content-Type',
+      ask: 'Which of these, sent on a request, choose which saved example a mock answers with? Give the header names separated by commas. Order does not matter.',
+      code: '(the five header names above)', ans: 'x-mock-response-name, x-mock-response-code', alt: ['x-mock-response-name and x-mock-response-code'],
+      why: 'x-mock-response-name, which asks for the example with that exact name, and x-mock-response-code, which asks for the example with that status code. x-api-key is what a PRIVATE mock demands before it answers anything, but it does not choose an example. x-total-count is a response header your List books example sends back. Content-Type describes the body, and ordinary headers play no part in the match on a new mock.' },
+
+    { type: 'value', lbl: 'your collection',
+      scen: 'Add a book has an example named exactly:\n\n  409 isbn taken',
+      ask: 'What three-digit status code comes back?',
+      code: 'POST {{baseUrl}}/v1/books\nx-mock-response-name: 409 ISBN TAKEN', ans: '404', alt: ['404 Not Found'],
+      why: '404, the mock’s own, with No matching response in its header field. The value of x-mock-response-name must be the example’s name exactly, capitals and spaces included, and 409 ISBN TAKEN is not 409 isbn taken. The header’s NAME is a different matter: header names are case-insensitive (Session 1 and Session 2), so X-Mock-Response-Name would have worked.' },
+
+    { type: 'value', lbl: 'your collection',
+      scen: 'Add a book’s 409 example was saved with this request body:\n\n  { "title": "Another Earthsea", "author": "Ursula K. Le Guin",\n    "isbn": "9780000000017" }',
+      ask: 'No x-mock headers are sent. What three-digit status code comes back?',
+      code: 'POST {{baseUrl}}/v1/books\nContent-Type: application/json\n\n{ "title": "Another Earthsea", "author": "Ursula K. Le Guin",\n  "isbn": "9780000000017" }', ans: '409', alt: ['409 Conflict'],
+      why: '409. The four Add a book examples tie on method and path, but Postman’s documentation says an example whose saved body matches the request’s body gets a higher score, and this request sends exactly the body saved in the 409 example. All four test mocks answered 409, even with the JSON laid out differently. Change one character of the title and the tie was back on all four, which is why a real client asks by name instead.' },
+
+    { type: 'seq', lbl: 'sent in this order',
+      scen: '  1  DELETE {{baseUrl}}/v1/books/8\n     x-mock-response-name: 204 removed\n  2  DELETE {{baseUrl}}/v1/books/8\n     x-mock-response-name: 404 book not found\n  3  GET    {{baseUrl}}/v1/books/8\n  4  PATCH  {{baseUrl}}/v1/books/8',
+      ask: 'List the four status codes in order, as numbers separated by commas.',
+      code: '(the four requests above)', ans: '204, 404, 200, 405',
+      why: '204, 404, 200, 405. Requests 1 and 2 ask for an example by name, so each gets exactly that one. Request 3 reads book 8 straight after it was “removed” and gets 200 with book 8, because the mock stores nothing and Read a book’s tie goes to its 200 example. Request 4 is the only PATCH example there is, the 405 with Allow: GET, PUT, DELETE.' },
+
+    { type: 'value', lbl: 'the stranger', cs: true,
+      scen: 'Playing the stranger, you send\n\n  PATCH {{baseUrl}}/v1/books/8\n  { "title": "A Wizard of Earthsea, revised" }\n\nand get back\n\n  405 Method Not Allowed\n  Allow: GET, PUT, DELETE',
+      ask: 'Which request do you send instead to change the title? Give the method and the path, starting with /v1.',
+      code: '(the exchange above)', ans: 'PUT /v1/books/8',
+      why: 'PUT /v1/books/8, with the complete book in the body and the new title in it. The Allow header names the methods this URL supports, and of those, PUT is the one that replaces a book. A stranger who had to look that up somewhere other than your docs has found a gap: say in the description that version 1 has no PATCH, and that a change of one field is a PUT of the whole book.' },
+
+    { type: 'set', lbl: 'five claims',
+      scen: '  a  every operation has a URL, method and status a client\n     can be written against\n  b  a book added with POST can be read back with GET\n  c  the server checks that limit is at most 100\n  d  the client shows the right message when it gets a 409\n  e  the real server will refuse /V1/BOOKS',
+      ask: 'Which claims can a mock of Books API v1 genuinely show you? Give the letters separated by commas. Order does not matter.',
+      code: '(the five claims above)', ans: 'a, d', alt: ['a and d'],
+      why: 'a and d. A client that sends real requests and gets real responses has shown every operation is concrete enough to code against, and since any refusal can be asked for by name, its handling of a 409 can be tested. b is false on a mock, which stores nothing; c is false, because ?limit=50 also gets the 422; and e is unknowable, because the mock itself forgives /V1/BOOKS. A mock tests the client and the docs, never the server.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item, deliberately (build contract section 4): the one genuinely ordered
+     process in this session. The mock must exist before its address can be copied,
+     baseUrl needs that address, a request reaches the mock only after baseUrl is
+     set, the tie can only be read once a request has gone, and the header is added
+     because of what that first answer showed. The prompt narrates the plain send
+     before the named one, so no other order fits. Longest tile is 40 characters,
+     inside the ~54 two columns allow. */
+  var PARSONS = [
+    { prompt: 'A classmate has just finished Session 5 and wants the success out of Remove a book, from a mock that does not exist yet. They will build the mock, point their collection at it, send the request once with no extra headers to see what their tie gives, and only then ask for the success by name. Put the seven steps in the only order that works.',
+      lines: ['Create a mock server from Books API v1',
+              'Copy the mock’s address',
+              'Set baseUrl to the mock’s address',
+              'Send Remove a book, no extra headers',
+              'Note which example answered the tie',
+              'Add x-mock-response-name: 204 removed',
+              'Send it again: 204 No Content'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). F1 is cs: true: its blanks are a method
+     (RFC 9110: the method token is case-sensitive) and a Postman variable name
+     ({{BaseUrl}} would not read baseUrl). F2 is case-folded because its blanks are
+     header names, which are case-insensitive, plus a status number. F3's blanks
+     are all numbers. Recorded in the build contract. */
+  var FADED = [
+    { cs: true,
+      prompt: 'Fill the blanks so this request asks your mock for the duplicate-isbn refusal by name: first the method that adds a book, then the name of the collection variable holding the mock’s address, without its braces.',
+      code: '%% {{%%}}/v1/books\nContent-Type: application/json\nx-mock-response-name: 409 isbn taken\n\n{ "title": "Another Earthsea", "author": "Ursula K. Le Guin",\n  "isbn": "9780000000017" }', ans: ['POST', 'baseUrl'] },
+    { prompt: 'Fill the blanks with the headers that choose an example: the first request asks by the example’s name, the second by its status code, and the last blank is the code that gets Replace a book’s duplicate-isbn refusal.',
+      code: 'DELETE {{baseUrl}}/v1/books/8\n%%: 204 removed\n\nPUT {{baseUrl}}/v1/books/8\n%%: %%', ans: ['x-mock-response-name', 'x-mock-response-code', '409'] },
+    { prompt: 'Fill the blanks in this part of the Calling the mock section: the id of the one book the Read a book examples hold, the status code Add a book’s success answers with, and the status the limit example answers with.',
+      code: 'Calling the mock\n  Ids       Read a book answers with book %%,\n            whatever id is in the path\n  Storage   none: Add a book’s success is a %%,\n            but the new book never appears in the list\n  Rules     not checked: ?limit=50 still gets the %%', ans: ['8', '201', '422'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'A teammate calls your books mock for the first time and sends you three questions. Answer each in a sentence or two, the way your docs should have answered it: (1) Why did my perfectly good new book come back 400? (2) I added a book, then listed them all, and it is not there: did the add fail? (3) Why does GET /v1/books/99 give me book 8?',
+      sol: '1  The mock does not check your book. Add a book has four\n   examples that all fit a POST to /v1/books, and with\n   nothing to tell them apart it answers with one of them;\n   on this mock that is the 400. Send the header\n   x-mock-response-name: 201 created to get the success.\n\n2  No. The mock stores nothing: every answer is a saved\n   example, so the list is always the one saved in the\n   200 list example. Only the real server will keep it.\n\n3  The mock ignores the id when it matches a path, and the\n   only saved id is 8, so every read returns book 8. On\n   the real server, an id nobody has is 404 book_not_found.' },
+    { task: 'Write the Calling the mock section for your Members API v1 description, for a stranger who has never used a Postman mock: the address and where it goes, how to choose an example, every example’s name grouped by request, and two warnings about what the mock will not do.',
+      sol: 'Calling the mock\n  Address    https://<mock-id>.mock.pstmn.io\n             (no trailing slash); every path starts /v1\n  Examples   without extra headers you may get any\n             example for that request. To choose one, send\n             x-mock-response-name set to its exact name:\n    List members      200 list, 422 limit too big\n    Sign up a member  201 created, 400 invalid json,\n                      409 email taken, 422 name missing\n    Read a member     200 the member, 404 member not found\n    Replace a member  200 replaced, 400 invalid json,\n                      404 member not found,\n                      409 email taken, 422 name missing\n    Remove a member   204 removed, 404 member not found\n    Patch a member    405 not allowed\n  Warnings   the mock stores nothing: a member you sign up\n             never appears in the list. It does not check\n             the rules either: it replays the example that\n             fits best, so a bad email is not refused.' },
+    { task: 'Your first stranger pass on Books API v1 produced this look-up log: (1) needed the URL and method for adding a book, found them in the collection’s requests; (2) expected to read back the book I added, and got a different one; (3) could not get the 409 out of the mock, found the header in this session. For each, write the line or table row you add to the description so the next stranger never has to look it up.',
+      sol: '1  the operations table, in full, from Session 5\n   section F:\n   POST /v1/books   201, the new book, and\n                    Location: /v1/books/{id}\n   (and every other row with it)\n\n2  under Calling the mock:\n   "The mock stores nothing. A book you add will not\n    appear in the list, and reading it back returns\n    the saved example instead."\n\n3  under Calling the mock:\n   "To get a refusal, send the header\n    x-mock-response-name set to the example name,\n    exactly: 409 isbn taken" (and the full list\n    of names)' },
+    { task: 'Write the handoff note for the developer about to build the real members server: three things your members mock and stranger pass have already settled, and three things they could not check, each with the request that would check it on the real server and the answer the contract promises.',
+      sol: 'settled\n  every operation’s URL, method, status and body\n  the docs: a stranger pass needed zero look-ups,\n    as far as that pass could tell\n  the client handles the refusals the brief\n    exercised, and the rest can be asked for by name\n\nonly the real server can show\n  a member is kept\n    POST a new member, then GET its Location\n    expect 200 with that member\n  the email rule is checked\n    POST a member whose email has no @\n    expect 422 field_invalid, field "email"\n  the right member comes back\n    GET /v1/members/99 when nobody has id 99\n    expect 404 member_not_found' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your contract text here, then compare it with the reference"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Fourteen cards, sized to the atoms THIS session has. Earlier sessions are
+     deliberately absent: the deck stays session-local and re-testing earlier
+     material is Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'What a mock server is', b: 'a stand-in server that answers with saved examples and runs no code of yours' },
+    { f: 'What a Postman mock’s address looks like', b: 'https://<mock-id>.mock.pstmn.io, with an id unique to that mock' },
+    { f: 'Why changing baseUrl is enough to use a mock', b: 'the mock ignores the host, and every request is {{baseUrl}}/v1/...' },
+    { f: 'The order a mock matches on', b: 'method first, then path, then the query string' },
+    { f: 'What a new mock does with headers and the body', b: 'ignores ordinary headers; a matching body only adds to an example’s score' },
+    { f: 'How a mock breaks a tie', b: 'a 200 example if there is one, otherwise Postman’s own id order' },
+    { f: 'Why a mock answers /v1/books/99 with book 8', b: 'it ignores ids when matching a path, and 8 is the only saved id' },
+    { f: 'The header that asks for an example by name', b: 'x-mock-response-name, set to the exact name; checked against the method, not the path' },
+    { f: 'The header that asks for an example by status', b: 'x-mock-response-code, set to the three-digit code' },
+    { f: 'What a request matching nothing gets', b: 'the mock’s own 404, with name mockRequestNotFoundError' },
+    { f: 'What a mock stores', b: 'nothing: a POST gets its saved 201 and a later GET is unchanged' },
+    { f: 'What a mock does with your rules', b: 'matches them, never checks them: ?limit=50 still gets the 422' },
+    { f: 'A look-up log', b: 'every fact the stranger found outside your docs: each line is a gap to fix' },
+    { f: 'What a mock tests', b: 'the client and the docs, never the server' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Q4, Q5 and Q6 are spaced review, from Sessions 5, 4 and 1, and their backlinks
+     carry `ext` so they open that session rather than scrolling here. The correct
+     option's length rank (longest = 1) is 2, 3, 2, 3, 3, 2: never the longest or
+     the shortest (check-quiz.py 0/6 on both, a hard requirement for this track),
+     and not a strict alternation, so no fixed rank reaches the pass mark of 5.
+     Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: 'Remove a book has two examples, 204 removed and 404 book not found. A teammate sends DELETE /v1/books/8 to your mock with no extra headers and gets the 404. What does that tell them?',
+      o: ['Nothing about book 8: the two examples tied, and the tie went to the 404',
+          'That book 8 was already deleted by an earlier request',
+          'That the mock is misconfigured, because a DELETE must always answer 204 when the contract promises 204',
+          'That the URL is wrong'],
+      c: 0,
+      e: 'Both examples share the method and the path, neither is a 200, and a DELETE has no body to give either a lead, so they tie and Postman picks by its own internal id order. Identical copies of the same collection answered 204 on one mock and 404 on three. Nothing was deleted, because a mock stores nothing; nothing is misconfigured; and the URL matched fine. To get the success, ask for it with x-mock-response-name.',
+      part: { id: 'concept-d', label: 'D. When several examples fit' } },
+
+    { q: 'You send GET {{baseUrl}}/v1/books?limit=50 to your mock and get 422 field_invalid. Your contract allows limits up to 100. What happened?',
+      o: ['The contract is wrong and must be fixed: a mock enforces the contract, so a 422 here means the rule was written down incorrectly',
+          'Query strings are not supported by mocks, so the request failed and Postman fell back to an error example',
+          'The mock matched the limit parameter to the only example that has one; it never checks the value',
+          'The mock counts 50 as too many'],
+      c: 2,
+      e: 'After the method and the path, the mock scores the query string, and the 422 example is the only one saved with a limit parameter, so it fits best. The mock never reads the rule, which lives in your description. Query strings are fully supported, and that is exactly why the parameter mattered. The contract is fine; the mock simply cannot tell 50 from 500.',
+      part: { id: 'concept-c', label: 'C. How a mock chooses its answer' } },
+
+    { q: 'Playing the stranger, a whole pass through the brief in a fresh collection gets every status the docs promise, with zero look-ups. What has that earned you?',
+      o: ['Nothing at all, because you wrote the contract yourself, and a solo pass can never find a single gap in your documentation',
+          'Docs that covered everything you needed, as far as someone who already knows the answers can tell',
+          'Proof, as far as one pass can show, that books added through the mock are kept',
+          'Proof the real server will work'],
+      c: 1,
+      e: 'A clean solo pass is real evidence: it means nothing you needed was missing from the description, and the first pass usually finds several gaps, such as the operations table Session 5 left out of it. Its one blind spot is a gap your own memory fills without noticing, which only a real stranger finds. It says nothing about storage or the real server, because a mock tests the client and the docs, never the server.',
+      part: { id: 'concept-e', label: 'E. Being the stranger' } },
+
+    { q: 'Spaced review, from Session 5. Under the books contract, a client sends PUT /v1/books/8 with an isbn that book 3 already has. What does the contract promise?',
+      o: ['404, because the isbn already belongs to another book and so book 8 cannot be found under it',
+          '200 with the replaced book, because PUT replaces whatever is there',
+          '409 Conflict, with the error code isbn_taken',
+          '422 field_invalid, on isbn'],
+      c: 2,
+      e: 'The request is valid JSON that breaks no rule in the field table, so it is not a 400 or a 422, and book 8 exists, so it is not a 404. What it clashes with is the current state of the library: another book holds that isbn. The contract answers 409 isbn_taken, and a PUT that silently gave two books one isbn would break the contract’s own rule that no two books share one.',
+      part: { ext: S05_URL + '#concept-f', label: 'Session 5, F. The contract' } },
+
+    { q: 'Spaced review, from Session 4. A client gets 429 Too Many Requests with Retry-After: 30. What should it do?',
+      o: ['Ignore the header and use its own backoff starting at 1 second, since Retry-After is only advice meant for browsers',
+          'Wait at least the 30 seconds the header asks for, then send the same request again',
+          'Give up: a 429 means the key has been revoked, and every later request will be refused too',
+          'Send it again at once'],
+      c: 1,
+      e: 'Retry-After is the server saying how long to wait, here in seconds, and when it is present it overrides any backoff schedule of your own. A 429 is a temporary refusal, not a revoked key, and sending again at once only spends more of a limit you have already hit. Retry-After is meant for any client, a program included, so a backoff starting at one second would retry long before the server asked you to.',
+      part: { ext: S04_URL + '#concept-e', label: 'Session 4, E. After a 429' } },
+
+    { q: 'Spaced review, from Session 1. jsonplaceholder answers POST /posts with 201 and an id of 101, but a later GET /posts/101 is 404. Why?',
+      o: ['The new post needs a few minutes to appear, because jsonplaceholder copies it to a read server in the background',
+          'Id 101 is reserved, so the post went elsewhere',
+          'It answers writes convincingly, but never stores them',
+          'The POST failed'],
+      c: 2,
+      e: 'jsonplaceholder is a practice service that answers every write convincingly and keeps none of them, which Session 1 disclosed from the start. Today’s mock behaves the same way for a different reason: it only ever replays the examples you saved. Neither is broken, and neither can tell you whether a real server keeps what it is sent.',
+      part: { ext: S01_URL + '#concept-f', label: 'Session 1, F. Sending a POST' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S06 on your Hub and move on to Session 7.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
