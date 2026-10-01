@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Session 5: Modeling a resource</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-04.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* S5: a wider three-column table for contract rows, where the first column holds a
+     field name or a whole request line (publishedYear, DELETE /v1/books/{id}) rather
+     than a three-digit code. Same tokens as .fam, so rule 28 is unchanged. */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 46 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 16ch, the longest answer here is Location (8 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 16ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from S4, unused in S5's content but kept so the
+     component stays in the track's shared CSS): its summary must read as clickable.
+     Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the one thing in this session that can actually cost the
+     learner something: putting real company data into a synced Postman workspace.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 05 // Level 3 &middot; Designing The Contract</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Modeling a resource</h1>
+    <p class="goal">For four sessions you have been the client, reading what someone else&rsquo;s server promised and checking whether it kept its word. Today you switch sides. You design a small API from nothing: name its resource and URLs, choose a method and a status code for every operation, decide how it will be versioned, and write it all down as a contract precise enough for a stranger to build against. Then you put that contract into Postman in the exact form Session 6 turns into a working mock.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Model a small resource and write a contract for it that names every field and status code.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start, signed in with the free account from Session 4.</b> Sections B and D send real requests to jsonplaceholder, which needs no account. <b>Section G is where the account matters</b>, because it is where you save your contract as a collection, and a collection is something only a signed-in Postman can keep.</p>
+        <p><b>Nothing you design today runs on a server, and that is the point.</b> Designing first means deciding what an API promises before any of it exists, which is the cheapest moment to change your mind. No request you write today creates anything anywhere. Session 6 turns your contract into a Postman Mock Server, which answers with the examples you wrote and stores nothing at all, so &ldquo;your API&rdquo; means one you designed, not one that remembers what you send it.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">15</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Two sections send real requests to jsonplaceholder; the rest of today is design work you do on paper and in Postman. Tick each box once you have done the task, not just read it.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. Transcripts of jsonplaceholder were copied from real requests run on 2026-10-01 while building this session, with Postman&rsquo;s own request headers, and show only the lines that matter to the lesson. <b>Transcripts of <code>/v1/books</code> are not captures</b>: that API does not exist anywhere, because you are designing it today. Those show what the contract promises, and each one is labelled as a design.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. From reading a contract to writing one</h3>
+      <p>Sessions 3 and 4 kept arriving at the same sentence: <b>the API&rsquo;s documentation is the only authority.</b> NASA reads only <code>X-Api-Key</code> because its documentation says so; jsonplaceholder pages with <code>_page</code> because its documentation says so. That documentation is a <b>contract</b>: a written promise, from the people who run a server to anyone who calls it, naming every URL, every method, every field and every status code. A good one lets a stranger who has never spoken to you write a client that works the first time.</p>
+      <p>Today you write one. The thing a contract describes is a <b>resource</b>: something the API lets people work with, a noun with fields. jsonplaceholder&rsquo;s posts are a resource you have read since Session 1, each one an object with <code>userId</code>, <code>id</code>, <code>title</code> and <code>body</code>. The resource you design all session is simpler to picture and has no real version anywhere for you to copy:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Resource</div><div class="fn">Fields</div><div class="fd">What staff need to do with it</div></div>
+        <div class="frow"><div class="fc">a library&rsquo;s books</div><div class="fn">id, title, author, isbn, publishedYear</div><div class="fd">list them, look one up, add one, replace one&rsquo;s details, remove one. No two books may share an <b>isbn</b>, the book-number printed on the back cover that identifies one edition.</div></div>
+      </div>
+      <p><b>Why design before anything exists?</b> Because a contract is a promise, and the cheapest moment to change a promise is before anyone relies on it. While the contract is a page of notes, renaming a field costs you one edit. Once a stranger&rsquo;s code reads that field, renaming it breaks their code, and section E is about exactly that. Designing first, sometimes called <b>design-first</b>, means you make every decision while it is still free.</p>
+      <p>The five sections after this one each settle one kind of decision, in the order you have to make them: what the URLs are (B), which method does what (C), which status code answers each outcome (D), how the contract is versioned (E), and how all of it is written down for a stranger (F). Then G puts it in Postman and H has you do the whole thing again, unassisted, for a second resource.</p>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. URLs that name things, not actions</h3>
+      <p>Every API on this track has been designed in one style, and it is worth naming now that you are about to use it on purpose. <b>REST</b> is a way of designing an API in which <b>the URL names a thing and the method says what to do with it</b>. It is a set of conventions, not a standard with a rulebook, but most public APIs follow it closely enough that a developer who knows the conventions can guess your URLs before reading your contract. That guessability is the whole point. <a href="https://restfulapi.net/resource-naming/" target="_blank" rel="noopener">restfulapi.net</a> is the free reference for these conventions, and this section follows it.</p>
+      <p>A REST API gives each resource two kinds of URL. A <b>collection</b> URL names every member of the resource at once, and an <b>item</b> URL names one member, by its id. jsonplaceholder shows both, plus two ways of reaching things that belong to something else:</p>
+      <div class="filebox">
+        <div class="fbh">four nouns, four answers &middot; jsonplaceholder, verified live</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts</span>
+200 OK     <span class="cm">the collection: an array of all 100 posts</span>
+
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts/1</span>
+200 OK     <span class="cm">one item: the post whose id is 1</span>
+
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts/1/comments</span>
+200 OK     <span class="cm">5 comments, ids 1 to 5: the comments that belong to post 1</span>
+
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/comments?postId=1</span>
+200 OK     <span class="cm">the same 5 comments, ids 1 to 5, reached by filtering instead</span></code></pre>
+      </div>
+      <p>The third and fourth requests return identical data two different ways. <code>/posts/1/comments</code> is a <b>nested</b> URL: the slash reads as &ldquo;belonging to&rdquo;, so it says &ldquo;the comments of post 1&rdquo;. <code>/comments?postId=1</code> is the whole comments collection, <b>filtered</b> by a query-string parameter, Session 1&rsquo;s <code>?name=value</code> pair. Both are common, and a contract is free to offer either or both. A useful way to choose: nest when the child only makes sense under its parent; filter when people will also want to search the child by other fields.</p>
+      <p><b>Not one of those URLs contains a verb.</b> They name things; <code>GET</code> said &ldquo;read it&rdquo;. Now look at URLs written the other way round, with the action in the address. These are the shapes people reach for first, and jsonplaceholder has none of them:</p>
+      <div class="filebox">
+        <div class="fbh">action-shaped URLs &middot; all four are 404 on jsonplaceholder</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/getPosts</span>
+404 Not Found
+{}
+
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/getPost?id=1</span>
+404 Not Found
+<span class="cmd">&gt; POST https://jsonplaceholder.typicode.com/createPost</span>
+404 Not Found
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts/1/delete</span>
+404 Not Found</code></pre>
+      </div>
+      <p>The <code>404</code>s only show that this service never made those URLs. The real argument against them is what happens to an API that does. <code>/getPosts</code> says &ldquo;get&rdquo; twice, once in the method and once in the address. <code>/createPost</code>, <code>/updatePost</code> and <code>/deletePost</code> give one post three addresses, so the URL stops telling you which thing you are talking about. And the last one, a <code>GET</code> that deletes, is genuinely dangerous for a reason section C makes precise. <b>The REST fix is always the same: the noun goes in the URL and the action goes in the method.</b></p>
+      <p>The rest of the naming conventions are smaller, and each one exists so that a stranger never has to guess:</p>
+      <ul class="pts">
+        <li><b>Plural nouns for collections</b>: <code>/books</code>, not <code>/book</code>, so <code>/books/7</code> reads as &ldquo;book 7 of the books&rdquo;.</li>
+        <li><b>Lowercase</b>, with <b>hyphens</b> between words: <code>/book-loans</code>, not <code>/bookLoans</code> or <code>/book_loans</code>. This one has a hard reason behind it. The URL standard, RFC 3986, treats the path as case-sensitive, so a server is entitled to treat <code>/Books</code> and <code>/books</code> as two different addresses. jsonplaceholder happens to forgive it, and answers <code>/POSTS</code> with all hundred posts, but a contract that is lowercase everywhere means nobody ever has to find out what yours does.</li>
+        <li><b>No trailing slash and no file extension</b>: <code>/books</code>, not <code>/books/</code> or <code>/books.json</code>. Session 2&rsquo;s <code>Content-Type</code> already says what format the body is in.</li>
+        <li><b>Filtering, sorting and paging go in the query string</b>, as in Session 4: <code>/books?author=Tolkien&amp;page=2</code>. They change which members of the collection you get, not which resource you are talking about.</li>
+      </ul>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read the nouns, then fix the verbs</div>
+        <ol>
+          <li>Send <code>GET https://jsonplaceholder.typicode.com/posts/1/comments</code> and <code>GET https://jsonplaceholder.typicode.com/comments?postId=1</code>. Confirm both return five comments with ids 1 to 5.</li>
+          <li>Send <code>GET https://jsonplaceholder.typicode.com/getPosts</code>. Confirm the <code>404</code>.</li>
+          <li>On paper, rewrite each of these as a method plus a noun-shaped URL for a books API: <code>/getAllBooks</code>, <code>/addBook</code>, <code>/getBook?id=7</code>, <code>/books/7/remove</code>.</li>
+        </ol>
+        <details><summary>Check your rewrites</summary>
+<pre><code>/getAllBooks       ->  GET     /books
+/addBook           ->  POST    /books
+/getBook?id=7      ->  GET     /books/7
+/books/7/remove    ->  DELETE  /books/7</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I compared a nested URL with a filter, saw an action-shaped URL 404, and rewrote four actions as method plus noun</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. One method per operation, and what each method promises</h3>
+      <p>Session 3 taught the methods that change things: <code>PUT</code> replaces the whole thing, <code>PATCH</code> changes part of it, <code>DELETE</code> removes it. Designing an API means pairing each operation a person needs with a method and a URL. For the books, using the two URL kinds from section B:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Method</div><div class="fn">URL</div><div class="fd">Operation</div></div>
+        <div class="frow"><div class="fc">GET</div><div class="fn">/books</div><div class="fd">List the books.</div></div>
+        <div class="frow"><div class="fc">POST</div><div class="fn">/books</div><div class="fd">Add a new book to the collection. The server decides its id.</div></div>
+        <div class="frow"><div class="fc">GET</div><div class="fn">/books/{id}</div><div class="fd">Read one book.</div></div>
+        <div class="frow"><div class="fc">PUT</div><div class="fn">/books/{id}</div><div class="fd">Replace one book&rsquo;s details with a complete new set.</div></div>
+        <div class="frow"><div class="fc">DELETE</div><div class="fn">/books/{id}</div><div class="fd">Remove one book.</div></div>
+      </div>
+      <p><b>The <code>{id}</code> is a placeholder, not something you type.</b> Session 3 wrote stand-ins as <code>&lt;token&gt;</code>; in a contract, curly braces inside a path are the conventional way to write &ldquo;an id goes here&rdquo;, and OpenAPI, the most widely used format for machine-readable API contracts, writes them this way. A real request names a real book, <code>/books/7</code>. Notice that curly braces mean something different again in Postman, where <code>{{page}}</code> is a variable; a single pair is the contract&rsquo;s placeholder, a double pair is Postman&rsquo;s variable.</p>
+      <p><b>Method names are case-sensitive, and the standard ones are written in capitals.</b> RFC 9110, the specification that defines HTTP&rsquo;s methods and status codes, says &ldquo;the method token is case-sensitive&rdquo;, and that standard methods are uppercase by convention. Put the two together and <code>get</code> is simply not <code>GET</code>. Sent as a lowercase <code>get</code>, the same request for post 1 came back from jsonplaceholder as <code>400 Bad Request</code>.</p>
+      <p>Two words from RFC 9110 explain why some pairings are right and others are traps. Each describes a promise a method makes:</p>
+      <ul class="pts">
+        <li><b>Safe</b>: a method is safe if it is read-only. The client &ldquo;does not request, and does not expect, any state change on the origin server&rdquo;, where the <b>origin server</b> is simply the server that holds the resource. <code>GET</code> is safe. <code>POST</code>, <code>PUT</code>, <code>PATCH</code> and <code>DELETE</code> are not.</li>
+        <li><b>Idempotent</b>, pronounced eye-dem-POE-tent: a method is idempotent if sending the same request many times has the same effect on the server as sending it once. <code>GET</code>, <code>PUT</code> and <code>DELETE</code> are. Replacing book 7 with the same details twice leaves the same book 7; deleting it twice leaves it just as deleted. <b><code>POST</code> is not</b>: sending &ldquo;add this book&rdquo; twice can add two books. <code>PATCH</code> is not guaranteed to be, because its own specification, RFC 5789, says it is &ldquo;neither safe nor idempotent&rdquo;, though a particular <code>PATCH</code> can be designed so that it is.</li>
+      </ul>
+      <p><b>Now the danger in <code>GET /posts/1/delete</code> is precise.</b> Software all over the internet relies on <code>GET</code> being safe. RFC 9110 says the distinction exists so that automated tools, such as the programs that crawl the web and the ones that fetch links ahead of time to make pages load faster, can work &ldquo;without fear of causing harm&rdquo;. A link-preview bot that fetches every URL pasted into a chat would delete the post just by looking at it. <b>A <code>GET</code> must never change anything</b>, so destroying something always gets a method that says so.</p>
+      <p><b>And the idempotent ones are why Session 4 said to &ldquo;retry reads, always with backoff, and never retry writes&rdquo;.</b> Resending an idempotent request is harmless by definition, which is what makes a retry after a lost answer safe. Resending a <code>POST</code> is not, and making a retried <code>POST</code> safe is Session 8&rsquo;s subject.</p>
+      <p><b>Two design decisions in that table are choices, not rules, and a contract must state them.</b></p>
+      <ul class="pts">
+        <li><b>Create is <code>POST</code> to the collection because the server picks the id.</b> HTTP also allows <code>PUT /books/{id}</code> to create a book at an id the <i>client</i> chose. That suits some designs, but here the library assigns ids, so <code>PUT</code> only ever replaces a book that already exists, and a <code>PUT</code> to an id that does not exist is refused (section D says how).</li>
+        <li><b>There is no <code>PATCH</code> in version 1.</b> Leaving an operation out is a legitimate decision, and keeping the first version small is a good habit: an operation you add later breaks nobody, while one you ship and then withdraw breaks everyone who used it. What matters is that the contract <b>says</b> it is not supported, and section D shows the status code that says it on the wire.</li>
+      </ul>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Pair six requests with a method and a URL</div>
+        <p>For each thing a library&rsquo;s staff want, write the method and URL the table above would use, with a real id where one is needed. Then say which of the six are safe, and which are idempotent.</p>
+        <ol>
+          <li>See every book.</li>
+          <li>Look at book 12.</li>
+          <li>Add a book they have just bought.</li>
+          <li>Correct every detail of book 12 at once.</li>
+          <li>Throw out book 12.</li>
+          <li>See only the books by one author, Tolkien.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>1  GET     /books                    safe, idempotent
+2  GET     /books/12                 safe, idempotent
+3  POST    /books                    neither
+4  PUT     /books/12                 idempotent, not safe
+5  DELETE  /books/12                 idempotent, not safe
+6  GET     /books?author=Tolkien     safe, idempotent
+   (a filter on the collection, section B, not a new URL)</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I paired six operations with a method and URL, and can say which are safe and which are idempotent</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. A status code for every outcome, including no</h3>
+      <p>Session 1 taught you to read the status line first. A contract decides what that line will say, for every outcome of every operation. Start with the outcomes where everything works, because RFC 9110 is specific about most of them:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Code</div><div class="fn">For</div><div class="fd">What RFC 9110 says, and what this contract chooses</div></div>
+        <div class="frow"><div class="fc">200</div><div class="fn">GET a list or one book</div><div class="fd"><b>OK</b>, with the book or books in the body.</div></div>
+        <div class="frow"><div class="fc">201</div><div class="fn">POST, a book was added</div><div class="fd"><b>Created</b>. The server &ldquo;SHOULD send a 201 (Created) response containing a Location header field&rdquo; identifying the new thing. <b>SHOULD</b> is a word specifications use with care: it means do this unless you have a good reason not to.</div></div>
+        <div class="frow"><div class="fc">200</div><div class="fn">PUT, a book was replaced</div><div class="fd">The RFC allows <b>200</b> or <b>204</b>. This contract picks <b>200 with the stored book in the body</b>, so the client sees exactly what was saved.</div></div>
+        <div class="frow"><div class="fc">204</div><div class="fn">DELETE, a book was removed</div><div class="fd">The RFC allows <b>204</b>, <b>200</b> with a description, or <b>202</b> if the deletion will happen later. This contract picks <b>204 No Content</b>, Session 3&rsquo;s &ldquo;done, and there is deliberately nothing to tell you&rdquo;.</div></div>
+      </div>
+      <p><b><code>Location</code> is the header Session 2 met on a redirect</b>, where it said &ldquo;go here instead&rdquo;. On a <code>201</code> it says where the new thing now lives, so the client can go and read it without being told its id any other way. jsonplaceholder does exactly what the RFC asks:</p>
+      <div class="filebox">
+        <div class="fbh">a textbook create &middot; jsonplaceholder, verified live</div>
+<pre><code><span class="cmd">&gt; POST https://jsonplaceholder.typicode.com/posts</span>
+<span class="cmd">&gt; body: { "title": "x", "body": "y", "userId": 1 }</span>
+201 Created
+location: https://jsonplaceholder.typicode.com/posts/101
+
+{ <span class="jk">"title"</span>: "x", <span class="jk">"body"</span>: "y", <span class="jk">"userId"</span>: 1, <span class="jk">"id"</span>: 101 }</code></pre>
+      </div>
+      <p>Its <code>location</code> is a complete URL. Session 2 showed that a <code>Location</code> may also be just a path, and this contract uses the path form, <code>Location: /v1/books/8</code>, so it reads the same whatever address the API is eventually served from. (The <code>/v1</code> is section E&rsquo;s.)</p>
+      <p><b>Now the outcomes where the answer is no, which is where a contract earns its keep.</b> A client that only ever gets success codes has nothing to code against when things go wrong. These are the refusals the books contract promises:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Code</div><div class="fn">Name</div><div class="fd">When this contract sends it</div></div>
+        <div class="frow"><div class="fc">400</div><div class="fn">Bad Request</div><div class="fd">The body cannot be read at all: it is not valid JSON. Session 4 met <code>400</code> as a request the server &ldquo;could not make sense of&rdquo;.</div></div>
+        <div class="frow"><div class="fc">422</div><div class="fn">Unprocessable Content</div><div class="fd">The body is valid JSON but breaks one of the contract&rsquo;s rules: no <code>title</code>, an <code>isbn</code> that is not 13 digits. RFC 9110: the syntax &ldquo;is correct, but it was unable to process the contained instructions&rdquo;.</div></div>
+        <div class="frow"><div class="fc">404</div><div class="fn">Not Found</div><div class="fd">No book has that id, Session 1&rsquo;s &ldquo;nothing at that URL&rdquo;.</div></div>
+        <div class="frow"><div class="fc">409</div><div class="fn">Conflict</div><div class="fd">The request clashes with what is already stored: the <code>isbn</code> belongs to another book. RFC 9110: a conflict &ldquo;with the current state of the target resource&rdquo; that the user &ldquo;might be able to resolve&rdquo;.</div></div>
+        <div class="frow"><div class="fc">405</div><div class="fn">Method Not Allowed</div><div class="fd">The method exists but this URL does not support it: a <code>PATCH</code>, in version 1. RFC 9110 says a 405 <b>MUST</b> carry an <code>Allow</code> header listing the methods that are supported, such as <code>Allow: GET, PUT, DELETE</code>.</div></div>
+      </div>
+      <p><b>Be clear which of those are rules and which are conventions.</b> The <code>Allow</code> header on a <code>405</code> is a rule; the RFC says MUST. Using <code>409</code> for a duplicate isbn is a widespread convention rather than a rule. And the split between <code>400</code> and <code>422</code> is this contract&rsquo;s choice: plenty of real APIs answer <code>400</code> for both. The split is worth making because the client fixes the two differently: a <code>400</code> means &ldquo;your code is building broken JSON&rdquo;, a <code>422</code> means &ldquo;your JSON is fine, one value in it is not&rdquo;. <b>Where the specification leaves a choice, the contract&rsquo;s job is to make it and write it down</b>, so nobody has to guess which one you meant.</p>
+      <p><b>Every refusal also gets a body, and always the same shape.</b> RFC 9110 says a <code>409</code> SHOULD include &ldquo;enough information for a user to recognize the source of the conflict&rdquo;, and a client is far easier to write if every error looks alike. This contract uses one small shape for all of them, and a <code>422</code> adds one more key, <code>field</code>, naming the field at fault:</p>
+      <div class="filebox">
+        <div class="fbh">the error shape, a design &middot; the same shape on every refusal</div>
+<pre><code>409 Conflict
+Content-Type: application/json
+
+{ <span class="jk">"error"</span>: { <span class="jk">"code"</span>: "isbn_taken", <span class="jk">"message"</span>: "A book with this isbn already exists." } }</code></pre>
+      </div>
+      <p><code>code</code> is a fixed word a program can check; <code>message</code> is a sentence for a person. There is a published standard shape for error bodies, called problem details (RFC 9457), and many APIs invent their own instead. Either is fine, as long as the contract names it.</p>
+      <p><b>Now see what an API with no contract for &ldquo;no&rdquo; looks like.</b> jsonplaceholder is a practice service, so it was never built to refuse anything, and that makes it the clearest possible picture of what section D is for. Each of these deserved a refusal:</p>
+      <div class="filebox">
+        <div class="fbh">a server that never says no &middot; jsonplaceholder, verified live</div>
+<pre><code><span class="cmd">&gt; POST https://jsonplaceholder.typicode.com/posts</span>
+<span class="cmd">&gt; body: {}</span>
+201 Created                                <span class="cm">an empty post, "created"</span>
+{ <span class="jk">"id"</span>: 101 }
+
+<span class="cmd">&gt; POST https://jsonplaceholder.typicode.com/posts</span>
+<span class="cmd">&gt; body: {"title": oops}</span>
+500 Internal Server Error                  <span class="cm">not valid JSON, and the server crashed on it</span>
+SyntaxError: Unexpected token 'o', "{"title": oops}" is not valid JSON
+    at JSON.parse (&lt;anonymous&gt;) ...
+
+<span class="cmd">&gt; PUT https://jsonplaceholder.typicode.com/posts/101</span>
+<span class="cmd">&gt; body: { "title": "x" }</span>
+500 Internal Server Error                  <span class="cm">post 101 does not exist</span>
+TypeError: Cannot read properties of undefined (reading 'id') ...
+
+<span class="cmd">&gt; DELETE https://jsonplaceholder.typicode.com/posts/101</span>
+200 OK                                     <span class="cm">a "successful" delete of nothing</span>
+{}</code></pre>
+      </div>
+      <p>An empty post accepted as created. Two crashes, each pasting the server&rsquo;s own internals into the response. A deletion of something that was never there, reported as success. <b>None of this is a fault in a practice service</b>, which exists to accept anything. It is what any API looks like when nobody decided in advance what it should refuse, and a client built against it learns nothing about failure until failure happens in production. Under the books contract those four would be <code>422</code>, <code>400</code>, <code>404</code> and <code>404</code>.</p>
+      <p><b>One more thing the status codes show: idempotent does not mean identical responses.</b> Delete book 8 under the books contract, then send the same request again:</p>
+      <div class="filebox">
+        <div class="fbh">the same DELETE twice, a design &middot; idempotent, and two different status codes</div>
+<pre><code><span class="cmd">&gt; DELETE /v1/books/8</span>
+204 No Content
+
+<span class="cmd">&gt; DELETE /v1/books/8</span>
+404 Not Found
+{ <span class="jk">"error"</span>: { <span class="jk">"code"</span>: "book_not_found", <span class="jk">"message"</span>: "No book has the id 8." } }</code></pre>
+      </div>
+      <p>Different answers, and <code>DELETE</code> is still idempotent, because idempotency is about the <b>effect on the server</b>: after one request or two, book 8 is gone. RFC 9110 says this directly: repeating the request has the same intended effect, &ldquo;though the response might differ&rdquo;.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make a server that never says no, then say what it should have said</div>
+        <ol>
+          <li>Send <code>POST https://jsonplaceholder.typicode.com/posts</code> with a raw JSON body of <code>{}</code>. Confirm <code>201</code> and an <code>id</code> of <code>101</code>.</li>
+          <li>Send the same request with the body <code>{"title": oops}</code>. Postman may underline the mistake in red; send it anyway. Confirm the <code>500</code> and find the word <code>SyntaxError</code> in the body.</li>
+          <li>Send <code>DELETE https://jsonplaceholder.typicode.com/posts/101</code>. Confirm the <code>200</code>.</li>
+          <li>For each of the three, write the status code and the error <code>code</code> the books contract would have answered instead.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>1  POST {}            ->  422   field_required   (no title, no author, no isbn)
+2  POST {"title": oops} -> 400  invalid_json
+3  DELETE /posts/101  ->  404   book_not_found   (nothing has that id)</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I watched a server accept, crash on and fake-delete requests it should have refused, and named the refusal for each</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Versioning, before anyone depends on it</h3>
+      <p>Once a stranger&rsquo;s code relies on your contract, some changes become impossible to make quietly. A <b>breaking change</b> is one that can stop a client that worked yesterday from working today, without the client changing anything. A <b>non-breaking change</b> is one that every existing client survives. Sorting changes into the two is the core skill of this section:</p>
+      <div class="hdrs">
+        <div class="hrow lbl"><div class="hn">Breaking</div><div class="hv">Why it breaks someone</div></div>
+        <div class="hrow"><div class="hn">Rename or remove a field</div><div class="hv">A client reading <code>author</code> finds nothing there.</div></div>
+        <div class="hrow"><div class="hn">Change a field&rsquo;s type</div><div class="hv"><code>publishedYear</code> going from the number <code>1965</code> to the text <code>"1965"</code> breaks any client doing arithmetic with it.</div></div>
+        <div class="hrow"><div class="hn">Make an optional request field required</div><div class="hv">Every client that never sent it now gets a <code>422</code>.</div></div>
+        <div class="hrow"><div class="hn">Change a URL, or a status code a client checks</div><div class="hv">A client waiting for <code>201</code> does not know what to make of <code>200</code>.</div></div>
+        <div class="hrow lbl"><div class="hn">Non-breaking</div><div class="hv">Why it is safe</div></div>
+        <div class="hrow"><div class="hn">Add a new optional field to responses</div><div class="hv">A client that has never heard of <code>pages</code> simply does not read it, provided clients ignore fields they do not recognise, which the contract should say they must.</div></div>
+        <div class="hrow"><div class="hn">Add a new operation or a new resource</div><div class="hv">Nobody was calling it, so nobody is affected.</div></div>
+        <div class="hrow"><div class="hn">Add a new optional request field or filter</div><div class="hv">Clients that never send it get exactly what they got before.</div></div>
+      </div>
+      <p><b>That &ldquo;ignore what you do not recognise&rdquo; condition is doing real work.</b> Adding a field is only safe if clients were written to skip fields they do not know, so a good contract tells them to, in writing. A non-breaking change is a convention both sides agree to, not a law of nature.</p>
+      <p><b>When a breaking change is unavoidable, it goes into a new version</b>, published beside the old one, and the old one keeps running until its clients have moved. That only works if the contract carried a version label from the very first day, which is why you choose one now, while it costs nothing. restfulapi.net lists three places to put it:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">in the URL path</span><code>GET /v1/books</code></div>
+        <div class="srow"><span class="sl">in a request header</span><code>Accept-Version: v1</code> &nbsp;or&nbsp; <code>X-API-Version: 1</code></div>
+        <div class="srow"><span class="sl">in the Accept header</span><code>Accept: application/vnd.example.v1+json</code></div>
+      </div>
+      <p>The last one uses Session 2&rsquo;s <code>Accept</code> header to ask for a particular version of the format. All three work, and restfulapi.net does not crown one, though it calls the path form the most straightforward and most commonly used. <b>The books contract puts it in the path</b>, for two reasons you can check: every URL then shows its version, in logs and in pasted links alike, so nobody wonders which one a request used; and Session 6&rsquo;s Mock Server matches requests by their path and, by default, ignores their headers, so a version in the path is a version the mock can always see.</p>
+      <p><b>&ldquo;Before anyone depends on it&rdquo; also covers decisions that look optional.</b> Take paging. If version 1 returns every book in one response, and later the collection grows and you start paging it, every client that assumed one response held everything now silently gets only page 1, exactly Session 4&rsquo;s mistyped-variable trap, inflicted on someone else. So the books contract pages from day one, even though a small library could manage without it.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Sort five proposed changes</div>
+        <p>Clients already depend on <code>/v1/books</code>. For each change, say breaking or non-breaking, and for the breaking ones, say who it breaks.</p>
+        <ol>
+          <li>Add an optional <code>pages</code> field to every book in responses.</li>
+          <li>Rename <code>author</code> to <code>writer</code>.</li>
+          <li>Add <code>GET /v1/authors</code>, a new collection.</li>
+          <li>Start requiring <code>publishedYear</code> when a book is added.</li>
+          <li>Make <code>DELETE</code> answer <code>200</code> with the removed book, instead of <code>204</code>.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>1  non-breaking   clients ignore a field they do not know
+2  breaking       anything reading author now finds nothing
+3  non-breaking   nobody was calling it yet
+4  breaking       every client that never sent it now gets 422
+5  breaking       a status code clients may check has changed,
+                  even though 200 is also a legal answer</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I sorted five changes into breaking and non-breaking, and can say why the version label goes in on day one</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. The contract, written for a stranger</h3>
+      <p>Here is every decision from sections B to E, written down as the books API contract, version 1. Read it as the stranger would: someone who will build a client from this page alone and cannot ask you a single question. <b>The isbn values on this page are made up</b> for the example.</p>
+      <p><b>Shared rules</b>, which apply to every operation below:</p>
+      <ul class="pts">
+        <li>Every URL starts with <code>/v1</code>. Request and response bodies are JSON, sent with <code>Content-Type: application/json</code>.</li>
+        <li>Any request with a body may be refused with <code>400</code> <code>invalid_json</code> if the body is not valid JSON, or <code>422</code> if it breaks a rule in the field table. A query parameter that breaks its rule is also <code>422</code>.</li>
+        <li>On a request to <code>/v1/books/{id}</code>, the id is checked first: if no book has it, the answer is <code>404</code> whatever the body says.</li>
+        <li>Every refusal has the body <code>{ "error": { "code": ..., "message": ... } }</code>; a <code>422</code> adds <code>"field"</code>, naming the field at fault.</li>
+        <li>Clients must ignore response fields they do not recognise, so that new optional fields can be added within <code>v1</code>.</li>
+      </ul>
+      <p><b>The field table.</b> A book, as the API sends and receives it:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Field</div><div class="fn">Type</div><div class="fd">Rules</div></div>
+        <div class="frow"><div class="fc">id</div><div class="fn">integer</div><div class="fd">Set by the server when the book is added. Never sent by the client; ignored if it is.</div></div>
+        <div class="frow"><div class="fc">title</div><div class="fn">string</div><div class="fd">Required. 1 to 200 characters.</div></div>
+        <div class="frow"><div class="fc">author</div><div class="fn">string</div><div class="fd">Required. 1 to 200 characters.</div></div>
+        <div class="frow"><div class="fc">isbn</div><div class="fn">string</div><div class="fd">Required. Exactly 13 digits. No two books may share one.</div></div>
+        <div class="frow"><div class="fc">publishedYear</div><div class="fn">integer</div><div class="fd">Optional. Leave it out if unknown.</div></div>
+      </div>
+      <p>A <b>string</b> is text, written in quotes in JSON; an <b>integer</b> is a whole number, written without quotes. <code>isbn</code> is a string even though it is all digits, because it is an identifier, not a quantity: nobody does arithmetic with it.</p>
+      <p><b>The operations</b>, each with every status it can answer:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Request</div><div class="fn">Success</div><div class="fd">Refusals, with their error code</div></div>
+        <div class="frow"><div class="fc">GET /v1/books</div><div class="fn">200, an array of books</div><div class="fd">None for a plain list. Optional query parameters: <code>author</code> (exact match), <code>page</code> (default 1) and <code>limit</code> (default 20, at most 100). The response carries <code>x-total-count</code>, as in Session 4. An out-of-range <code>limit</code> is <code>422</code> <code>field_invalid</code>.</div></div>
+        <div class="frow"><div class="fc">POST /v1/books</div><div class="fn">201, the new book, and <code>Location: /v1/books/{id}</code></div><div class="fd"><code>400</code> invalid_json &middot; <code>422</code> field_required or field_invalid &middot; <code>409</code> isbn_taken</div></div>
+        <div class="frow"><div class="fc">GET /v1/books/{id}</div><div class="fn">200, the book</div><div class="fd"><code>404</code> book_not_found</div></div>
+        <div class="frow"><div class="fc">PUT /v1/books/{id}</div><div class="fn">200, the book as stored</div><div class="fd"><code>404</code> book_not_found &middot; <code>400</code> invalid_json &middot; <code>422</code> field_required or field_invalid &middot; <code>409</code> isbn_taken, if the new isbn belongs to a different book</div></div>
+        <div class="frow"><div class="fc">DELETE /v1/books/{id}</div><div class="fn">204, no body</div><div class="fd"><code>404</code> book_not_found</div></div>
+        <div class="frow"><div class="fc">PATCH /v1/books/{id}</div><div class="fn">none in v1</div><div class="fd"><code>405</code> method_not_allowed, with <code>Allow: GET, PUT, DELETE</code></div></div>
+      </div>
+      <p>And one complete exchange written out in full, the shape every example in section G will take:</p>
+      <div class="filebox">
+        <div class="fbh">POST /v1/books &middot; the success, a design</div>
+<pre><code><span class="cmd">&gt; POST /v1/books</span>
+<span class="cmd">&gt; Content-Type: application/json</span>
+<span class="cmd">&gt; { "title": "A Wizard of Earthsea", "author": "Ursula K. Le Guin",</span>
+<span class="cmd">&gt;   "isbn": "9780000000017", "publishedYear": 1968 }</span>
+201 Created
+Location: /v1/books/8
+Content-Type: application/json
+
+{ <span class="jk">"id"</span>: 8, <span class="jk">"title"</span>: "A Wizard of Earthsea", <span class="jk">"author"</span>: "Ursula K. Le Guin",
+  <span class="jk">"isbn"</span>: "9780000000017", <span class="jk">"publishedYear"</span>: 1968 }</code></pre>
+      </div>
+      <p><b>The stranger test.</b> A contract is finished when someone could implement either side of it, the server or a client, without asking you anything. That means it names, for every field, the name, type, whether it is required, who sets it and its rules; and, for every operation, the method, the URL, the request body, and every status it can answer, with that status&rsquo;s body. If you have to explain something out loud, it belongs on the page.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Be the stranger</div>
+        <p>Answer each question from the contract above alone, as if you were writing a client and could not ask the author.</p>
+        <ol>
+          <li>You add a book and leave out <code>publishedYear</code>. What status comes back?</li>
+          <li>You add a book and include <code>"id": 50</code>. What id will the book have?</li>
+          <li>You send <code>PATCH /v1/books/8</code> to change only the title. What comes back, and what should you send instead?</li>
+          <li>You replace book 8 with a new isbn that book 3 already has. What comes back?</li>
+          <li>You list books with <code>?limit=500</code>. What comes back?</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>1  201: publishedYear is optional
+2  whatever the server assigns: a client-sent id is ignored
+3  405 with Allow: GET, PUT, DELETE. Send a PUT with the
+   complete book and the new title.
+4  409 isbn_taken
+5  422 field_invalid: limit is at most 100</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I answered five client questions from the written contract alone, without needing to ask its author</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. The contract in Postman, as saved examples</h3>
+      <p>A contract on a web page is readable by a person. Postman can hold the same contract in a form a person can read <b>and</b> a tool can act on, and it does it with something you have not used yet: the saved example.</p>
+      <p><b>A saved example is a request paired with the response it should get.</b> On the request side it holds the method, URL, parameters, headers and body; on the response side, the status code, headers and body. Usually you make one by sending a request and saving what came back. You can also write one yourself, both halves, without sending anything, which Postman&rsquo;s documentation calls adding a custom example. <b>That is what designing first means in Postman</b>: there is no server to send to, so you write down what the server will answer.</p>
+      <p>Why put the contract here rather than leave it as notes? Because <b>Session 6&rsquo;s Mock Server is built from exactly these examples.</b> When a request reaches a mock, Postman compares its method, then its path and query string, against your saved examples, and answers with the one that fits best. Every example you write today is one answer the mock will be able to give. A contract kept as notes would have to be typed in again.</p>
+      <div class="danger"><b>Your collection syncs to Postman&rsquo;s servers</b>, as Session 4&rsquo;s section G explained. Today that is harmless, because a books API about made-up books holds nothing private. It matters for the review activity at the end of the session, if you model something from your own job: keep real customer or company data out of a synced workspace. Invented values are the right choice for a contract anyway.</div>
+      <p><b>Step 1, a collection and a stand-in address.</b> One word, two meanings, so to be clear: a <b>Postman collection</b> is Session 4&rsquo;s saved group of requests, a folder in Postman, and has nothing to do with the REST collection <code>/books</code> from section B. Signed in, create a new Postman collection called <code>Books API v1</code>. Then give the collection a variable called <code>baseUrl</code> with the value <code>https://api.example.com</code>; Postman puts a collection&rsquo;s variables on a tab of their own, so look for the word &ldquo;Variables&rdquo; when the collection is open. <code>example.com</code> is a name reserved for documentation, so nothing real will ever answer there. Session 6 changes this one variable to the mock&rsquo;s address, and every request follows.</p>
+      <p><b>Step 2, the shared rules and the field table go in the collection&rsquo;s description.</b> Open the collection and look for the word &ldquo;Overview&rdquo; or &ldquo;Description&rdquo;, where Postman lets you write about it, and copy in the shared rules and the field table from section F. Descriptions accept formatted text, so a simple list or table is fine. This is the half of the contract a person reads first.</p>
+      <p><b>Step 3, one request per operation, each URL starting with the variable.</b> Add a request for each row of the operations table, named for what it does, with a real id where the table says <code>{id}</code>:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">List books</span><code>GET {{baseUrl}}/v1/books</code></div>
+        <div class="srow"><span class="sl">Add a book</span><code>POST {{baseUrl}}/v1/books</code></div>
+        <div class="srow"><span class="sl">Read a book</span><code>GET {{baseUrl}}/v1/books/8</code></div>
+        <div class="srow"><span class="sl">Replace a book</span><code>PUT {{baseUrl}}/v1/books/8</code></div>
+        <div class="srow"><span class="sl">Remove a book</span><code>DELETE {{baseUrl}}/v1/books/8</code></div>
+        <div class="srow"><span class="sl">Patch a book (refused)</span><code>PATCH {{baseUrl}}/v1/books/8</code></div>
+      </div>
+      <p><b>Do not press Send.</b> If you do by accident, Postman will report that it could not reach the address, because nothing is there; that is expected, not a mistake.</p>
+      <p><b>Step 4, one example for every status.</b> On a request, look for the option to add an example (it is usually in the menu beside the request&rsquo;s name, and the wording has moved between versions, so look for the word &ldquo;example&rdquo;). Fill in both halves. Here is everything one example holds, written out for the duplicate-isbn refusal:</p>
+      <div class="filebox">
+        <div class="fbh">one saved example &middot; what you type into each half</div>
+<pre><code>example name     409 isbn taken
+
+request          POST {{baseUrl}}/v1/books
+                 Content-Type: application/json
+                 { "title": "Another Earthsea", "author": "Ursula K. Le Guin",
+                   "isbn": "9780000000017" }
+
+response         status   409 Conflict
+                 header   Content-Type: application/json
+                 body     { "error": { "code": "isbn_taken",
+                            "message": "A book with this isbn already exists." } }</code></pre>
+      </div>
+      <p><b>Give every example a distinct name that starts with its status code</b>, as above. When several examples match a request equally well, Postman&rsquo;s documentation says a mock answers with one whose status is <code>200</code> if there is one, and otherwise with whichever comes first in its own internal order. Notice what that means for this contract: adding a book succeeds with a <code>201</code> and removing one with a <code>204</code>, and neither of those is a <code>200</code>, so even a success may have to be asked for, not only the <code>409</code>. Session 6 shows how to ask for a particular example by name. A name like <code>409 isbn taken</code> makes that trivial; three examples all called <code>Example</code> make it impossible.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the books contract in Postman</div>
+        <ol>
+          <li>Create the <code>Books API v1</code> collection with the <code>baseUrl</code> variable, and put the shared rules and field table in its description.</li>
+          <li>Add the six requests from step 3.</li>
+          <li>Add these sixteen examples, one for every status the contract lists. Name each with its status code first, give it the request body where the operation has one, and give it the response status, plus <code>Content-Type</code> and a body wherever the response has one. The bodies are in sections D and F, and all of them are in the hint below:
+            <ul>
+              <li>List books: <code>200</code> (with an <code>x-total-count</code> header), <code>422</code> (a <code>limit</code> over 100).</li>
+              <li>Add a book: <code>201</code> (with <code>Location: /v1/books/8</code>), <code>400</code>, <code>409</code>, <code>422</code>.</li>
+              <li>Read a book: <code>200</code>, <code>404</code>.</li>
+              <li>Replace a book: <code>200</code>, <code>400</code>, <code>404</code>, <code>409</code>, <code>422</code>.</li>
+              <li>Remove a book: <code>204</code> with no body, <code>404</code>.</li>
+              <li>Patch a book: <code>405</code> (with <code>Allow: GET, PUT, DELETE</code>).</li>
+            </ul>
+          </li>
+          <li>Check two of them against section F by eye: the <code>201</code> has its <code>Location</code>, and the <code>405</code> has its <code>Allow</code>.</li>
+        </ol>
+        <details><summary>Hint: the bodies you need, so you are not inventing them</summary>
+<pre><code>a book       { "id": 8, "title": "A Wizard of Earthsea",
+               "author": "Ursula K. Le Guin",
+               "isbn": "9780000000017", "publishedYear": 1968 }
+the list     [ that book, and one or two more like it ]
+400          { "error": { "code": "invalid_json",
+               "message": "The body is not valid JSON." } }
+422          { "error": { "code": "field_required",
+               "message": "title is required.", "field": "title" } }
+422 (list)   { "error": { "code": "field_invalid",
+               "message": "limit must be 1 to 100.", "field": "limit" } }
+409          { "error": { "code": "isbn_taken",
+               "message": "A book with this isbn already exists." } }
+404          { "error": { "code": "book_not_found",
+               "message": "No book has the id 8." } }
+405          { "error": { "code": "method_not_allowed",
+               "message": "PATCH is not supported in v1." } }
+204          no body at all: leave it empty</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I built the Books API v1 collection with six requests and sixteen named examples, and checked the Location and Allow headers</label>
+      </div>
+      <p><b>Keep this collection.</b> It is what Session 6 turns into a Mock Server.</p>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a second resource, unassisted</h3>
+      <p>The milestone is to model a small resource and write a contract for it that names every field and status code. You have watched it done once for books. Now do it yourself for a resource you have not seen modelled, from a brief like the ones a real team writes.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: a members API, from a blank page</div>
+        <p><b>The brief.</b> The same library now wants to keep track of its members. A member has a name and an email address, and may have a phone number. No two members may share an email address. The library assigns member numbers. Staff need to list the members, look one up, sign one up, replace a member&rsquo;s details, and remove a member.</p>
+        <p>Do not scroll back up. Write, on paper or in a text file:</p>
+        <ol>
+          <li><b>The URLs</b>: the collection and the item.</li>
+          <li><b>The operations table</b>: a method and URL for each thing staff need, and every status each one can answer, refusals included.</li>
+          <li><b>The field table</b>: every field, its type, whether it is required, who sets it, and its rules.</li>
+          <li><b>The error shape</b>, plus the full response for signing up a member whose email is already taken.</li>
+          <li><b>The version label</b>, and where it goes.</li>
+          <li>Then create a second collection, <code>Members API v1</code>, and put your contract in its description. Adding examples is optional today.</li>
+        </ol>
+        <p>You have hit the milestone when a stranger could build a client from your page without asking you anything. Run section F&rsquo;s stranger test on it before you compare.</p>
+        <details><summary>Show one reference contract to compare against</summary>
+<pre><code><span class="cmd">&gt; 1. URLs</span>
+/v1/members          the collection
+/v1/members/{id}     one member
+
+<span class="cmd">&gt; 2. operations</span>
+GET    /v1/members        200 array, page and limit as for books
+POST   /v1/members        201 + Location: /v1/members/{id}
+                          400 invalid_json, 422 field_required or
+                          field_invalid, 409 email_taken
+GET    /v1/members/{id}   200, or 404 member_not_found
+PUT    /v1/members/{id}   200, or 404, 400, 422, 409 email_taken
+DELETE /v1/members/{id}   204, or 404 member_not_found
+PATCH  /v1/members/{id}   405, Allow: GET, PUT, DELETE
+
+<span class="cmd">&gt; 3. fields</span>
+id      integer  set by the server, ignored if sent
+name    string   required, 1 to 200 characters
+email   string   required, must contain @, unique
+phone   string   optional (a string: it can start with 0 or +)
+
+<span class="cmd">&gt; 4. errors</span>
+{ "error": { "code": ..., "message": ... } }, plus "field" on 422
+
+409 Conflict
+Content-Type: application/json
+{ "error": { "code": "email_taken",
+  "message": "A member with this email already exists." } }
+
+<span class="cmd">&gt; 5. version</span>
+v1, in the path: /v1/members
+
+<span class="cmd">&gt; where yours may honestly differ, and still be right</span>
+DELETE answering 200 with a body, or PUT answering 204:
+  the RFC allows both, as long as your contract says which.
+400 for every bad body instead of splitting out 422.
+The version in a header instead of the path.
+Different error code words, or a different error shape,
+  as long as it is the same shape everywhere.
+Adding PATCH: fine, if you define it and its statuses.
+
+<span class="cmd">&gt; fix these unless you have a real reason (the RFC says SHOULD)</span>
+create answering 200 instead of 201
+a 201 with no Location header
+
+<span class="cmd">&gt; where yours is wrong, and should be fixed</span>
+a verb in any URL, or /member for the collection
+PUT used to change only some fields
+a GET that changes anything
+a status anywhere that the contract does not name
+phone as an integer: a leading 0 or + would be lost</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I modelled the members resource from the brief alone, every field and status code named, and it passes the stranger test</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from reading a real service&rsquo;s URLs to tracing a whole sequence of requests through your own contract.</p>
+    <div class="note"><b>Two kinds of drill today.</b> D1 to D3 are real requests to jsonplaceholder, sent from Postman, and you can check them by sending them. <b>D4 to D10 are answered from the books contract in section F</b>, which is a design: there is no server to send them to, so the contract is the authority, exactly as a real API&rsquo;s documentation would be. Where a drill needs a request, a draft or a contract detail first, it is shown in the grey box above the question.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading a contract and writing one. First put one genuinely ordered sequence back into order, then fill the blanks in three pieces of the contract you have already seen.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. There is only one sequence today, on purpose: most design decisions can be made in any order, so the one sequence here is a client using the contract, where each request needs something only the one before it produced.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded contract)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the contract text in the box, then reveal the reference to compare. Where two answers differ on a choice the specification leaves open, such as <code>200</code> or <code>204</code>, yours can still be right if your contract says which; where they differ on a rule, fix yours. The workbook cannot judge free text, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours covers everything the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">15</span></span>
+        <span>In pile <b id="fc-pile">15</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Three of the six questions below come from <b>Sessions 2, 3 and 4</b> rather than from today, because recalling something after a delay is what moves it from "I read that" to "I know that". Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 05 of 10 &middot; Hit the milestone unassisted, then tick <b>S05</b> on your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>.
+    <br><br>
+    <b>Your 15-minute review:</b> with this page closed, model a resource from your own job as if you were designing its API from scratch: its URLs, an operations table with every status code, a field table, and a version label. Use invented values, never real customer or company data, and keep it on paper or in a local text file rather than in your synced Postman workspace. If your job has no resource you want to use, or you would rather not, model a neutral one instead, such as a recipe box or a running club&rsquo;s race results. Either way, finish by running section F&rsquo;s stranger test on it. Keep <a href="https://restfulapi.net/resource-naming/" target="_blank" rel="noopener">restfulapi.net: resource naming</a> and <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status" target="_blank" rel="noopener">MDN Web Docs: HTTP response status codes</a> open beside you for anything you cannot name. &middot; Next: <b>Session 06, mocking your API</b>, where your <code>Books API v1</code> collection becomes a Mock Server with a real address someone else can call.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-s05-workbook-v1";
+  /* Spaced review: three Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+  var S03_URL = "api-session-03.html";
+  var S04_URL = "api-session-04.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, status numbers,
+     key names and short words, where capitalisation is presentation. parenLabels is
+     OFF for this session: transcripts print answer tokens as status lines, header
+     names with a colon, paths and quoted keys, never in parentheses as a label. Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true (S5's D4 and D9, whose
+     answers are a method and a path, both case-sensitive). caseFold stays ON for
+     every other drill on the track. */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. F1 is cs: true because its blanks are methods
+     and a path, and both are case-sensitive (RFC 9110 for the method, RFC 3986 for
+     the path). F2 and F3 fold case: their blanks are status numbers and header
+     names, and header names are case-insensitive. Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "Location: /v1/books/8", and JSON keys as
+     "author". Whenever a session prints an answer token inside
+     punctuation, that punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 2 set, 1 count, 1 seq. D1 to D3 were checked
+     against jsonplaceholder live on 2026-10-01 with Postman's request headers.
+     D4 to D10 are answered from the /v1/books contract in section F, which is a
+     design, not a capture, and each of those drills says so. */
+  var DRILLS = [
+    { type: 'value',
+      ask: 'What three-digit status code comes back?',
+      code: 'GET https://jsonplaceholder.typicode.com/getPosts', ans: '404', alt: ['404 Not Found'],
+      why: '404. jsonplaceholder names its resources with nouns, /posts and /posts/1, and has no URL called /getPosts, so there is nothing at that address. The deeper problem with the URL is not the 404: it says get twice, once in the method and once in the path, and an API that did offer it would need a different address for every action on the same post.' },
+
+    { type: 'count',
+      ask: 'How many comments come back? Answer with the number.',
+      code: 'GET https://jsonplaceholder.typicode.com/posts/1/comments', ans: '5', alt: ['five', '5 comments', 'five comments'],
+      why: 'Five, ids 1 to 5. The nested URL reads as the comments belonging to post 1. GET /comments?postId=1 returns the same five by filtering the whole comments collection instead, which is the other common way to reach things that belong to something else.' },
+
+    { type: 'value',
+      scen: 'POST https://jsonplaceholder.typicode.com/posts\nContent-Type: application/json\n\n{}',
+      ask: 'What three-digit status code comes back?',
+      code: '(the request above, with an empty JSON object as its body)', ans: '201', alt: ['201 Created'],
+      why: '201 Created, with a body of { "id": 101 }. An empty post was accepted as created, because jsonplaceholder is a practice service built to accept anything. That is exactly what section D is about: a server that never decided what to refuse. Under the books contract the same empty body would be 422, because title, author and isbn are all required.' },
+
+    { type: 'value', lbl: 'a draft',
+      scen: 'A teammate’s draft of the books API includes this request,\nmeant to remove book 7:\n\n  POST /v1/books/7/delete',
+      ask: 'Rewrite it as the books contract writes that operation. Give the method and the path.',
+      code: '(the draft request above)', ans: 'DELETE /v1/books/7', cs: true,
+      why: 'DELETE /v1/books/7. The URL names the thing, book 7, and the method says what to do with it. Putting delete in the path gives the same book a second address for every action, and here it also hides a destructive request behind a method, POST, that says nothing about removing.' },
+
+    { type: 'set', lbl: 'given',
+      scen: 'The methods that appear in the books contract:\n\n  GET   POST   PUT   DELETE   PATCH',
+      ask: 'Which of these methods are idempotent by definition? Give the method names separated by commas. Order does not matter.',
+      code: '(the five methods above)', ans: 'GET, PUT, DELETE', alt: ['GET, PUT and DELETE'],
+      why: 'GET, PUT and DELETE. RFC 9110 defines idempotent as many identical requests having the same effect on the server as one: reading twice changes nothing, replacing book 7 with the same details twice leaves the same book, deleting it twice leaves it just as deleted. POST is not, since adding a book twice can add two. PATCH is not guaranteed to be: RFC 5789 says it is neither safe nor idempotent, though a particular PATCH can be designed to be.' },
+
+    { type: 'value', lbl: 'under the contract',
+      scen: 'Under the books contract (a design, section F). Book 3 already has\nthe isbn 9780000000017.\n\nPOST /v1/books\n{ "title": "A Wizard of Earthsea", "author": "Ursula K. Le Guin",\n  "isbn": "9780000000017" }',
+      ask: 'What three-digit status code does the contract promise?',
+      code: '(the request above)', ans: '409', alt: ['409 Conflict'],
+      why: '409 Conflict, with the error code isbn_taken. The body is valid JSON and obeys every rule in the field table, so it is not a 400 or a 422; what it clashes with is the current state of the library, a book that already holds that isbn. RFC 9110 describes 409 as a conflict with the current state of the resource that the user might be able to resolve, and using it for a duplicate is a widespread convention.' },
+
+    { type: 'value', lbl: 'under the contract',
+      scen: 'Under the books contract (a design, section F).\n\nPATCH /v1/books/7\n{ "title": "A Wizard of Earthsea" }',
+      ask: 'What three-digit status code does the contract promise?',
+      code: '(the request above)', ans: '405', alt: ['405 Method Not Allowed'],
+      why: '405 Method Not Allowed. Version 1 deliberately leaves PATCH out, and the contract says so. RFC 9110 also requires a 405 to carry an Allow header naming the methods that are supported, here Allow: GET, PUT, DELETE, so the client learns what it should have sent: a PUT with the complete book.' },
+
+    { type: 'seq', lbl: 'under the contract',
+      scen: 'Under the books contract (a design, section F). These five are sent\nin this order, and request 2 is given the id 8:\n\n  1  POST   /v1/books      {"title": "Dune",            (body cut off)\n  2  POST   /v1/books      a complete, valid new book\n  3  POST   /v1/books      exactly the same body as request 2\n  4  DELETE /v1/books/8\n  5  GET    /v1/books/8',
+      ask: 'List the five status codes in order, as numbers separated by commas.',
+      code: '(the five requests above)', ans: '400, 201, 409, 204, 404',
+      why: '400, 201, 409, 204, 404. Request 1 is not valid JSON at all, so it cannot even be read: 400. Request 2 is a clean create: 201 with Location: /v1/books/8. Request 3 is the same create again, and because POST is not idempotent it would add a second book, except that the isbn is now taken: 409. Request 4 removes book 8: 204, no body. Request 5 asks for a book that no longer exists: 404.' },
+
+    { type: 'value', lbl: 'under the contract',
+      scen: 'Under the books contract (a design, section F).\n\nPOST /v1/books   a valid new book\n\n201 Created\n(the server has given the new book the id 12)',
+      ask: 'What is the value of the Location header? Give it as a path, the way this contract writes it.',
+      code: '(the response above)', ans: '/v1/books/12', cs: true, alt: ['Location: /v1/books/12', 'location: /v1/books/12'],
+      why: '/v1/books/12. RFC 9110 says a 201 from a POST should carry a Location header identifying the new thing, and Session 2 showed that a Location can be a full URL or just a path. The books contract chooses the path form, so it reads the same wherever the API is eventually served from.' },
+
+    { type: 'set', lbl: 'proposed',
+      scen: 'Clients already depend on /v1/books. Four proposed changes:\n\n  a  add an optional "pages" field to every book in responses\n  b  rename "author" to "writer"\n  c  start requiring "publishedYear" when a book is added\n  d  add a new collection, GET /v1/authors',
+      ask: 'Which changes are breaking, and so would need a v2? Give the letters separated by commas. Order does not matter.',
+      code: '(the four changes above)', ans: 'b, c', alt: ['b and c'],
+      why: 'b and c. Renaming a field leaves every client that reads author finding nothing; requiring a field that used to be optional turns every client that never sent it into a 422. Adding an optional response field is safe because the contract tells clients to ignore fields they do not recognise, and a new collection breaks nobody because nobody was calling it.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item, deliberately (build contract section 4): this session's design steps
+     are conventional rather than dependent, and the only genuinely ordered process
+     in it is a client walking one book through its life. Each request needs what
+     the step before produced: the id comes from the 201's Location, a delete only
+     makes sense after the replace the prompt narrates, and the 404 only after the
+     delete. The second Part 3 item is therefore a faded item. Longest tile is 46
+     characters, inside the ~54 two columns allow. */
+  var PARSONS = [
+    { prompt: 'A stranger tests your contract end to end with one book: they add it, read it back at the address the server gave them, replace its details, remove it, and confirm it is gone. Put the five exchanges in the only order that works.',
+      lines: ['POST /v1/books -> 201, Location: /v1/books/8',
+              'GET /v1/books/8 -> 200, the book as added',
+              'PUT /v1/books/8 -> 200, the replaced book',
+              'DELETE /v1/books/8 -> 204, no body',
+              'GET /v1/books/8 -> 404, book_not_found'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). F1 is cs: true: methods are case-sensitive
+     (RFC 9110, and a lowercase get earns a 400 on jsonplaceholder) and so is the path
+     (RFC 3986). F2 and F3 are case-folded: their blanks are status numbers and header
+     names, and header names are case-insensitive. Recorded in the build contract. */
+  var FADED = [
+    { cs: true,
+      prompt: 'Fill the blanks in the books contract’s operation table: the collection’s noun, the method for each operation, and the item placeholder written the way the other rows write it.',
+      code: 'list the books       GET      /v1/%%\nadd a book           %%     /v1/books\nread one book        GET      /v1/books/{id}\nreplace a book       %%     /v1/books/{id}\nremove a book        DELETE   /v1/books/%%', ans: ['books', 'POST', 'PUT', '{id}'] },
+    { prompt: 'Fill the blanks in the response the books contract promises for a successful create: the status code, then the name of the header that says where the new book lives.',
+      code: 'POST /v1/books\nContent-Type: application/json\n\n{ "title": "A Wizard of Earthsea", "author": "Ursula K. Le Guin",\n  "isbn": "9780000000017", "publishedYear": 1968 }\n\n%% Created\n%%: /v1/books/8\nContent-Type: application/json', ans: ['201', 'Location'] },
+    { prompt: 'Fill the blanks with what the books contract answers: a status code for each of the first two requests, then the name of the header a 405 must carry.',
+      code: 'POST /v1/books    {"title": "Dune",                 (body cut off)  ->  %%\nPOST /v1/books    {"author": "Frank Herbert",\n                   "isbn": "9780000000024"}       (no title)      ->  %%\n\nPATCH /v1/books/8                                                 ->  405\n%%: GET, PUT, DELETE', ans: ['400', '422', 'Allow'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'A teammate’s first draft of the books API used these five URLs. Rewrite each as a method and a noun-shaped URL in the books contract’s style, version label included: GET /getBooks, POST /addBook, GET /deleteBook?id=7, POST /books/7/update (which sent every field), GET /books/findByAuthor?name=Tolkien. Then say which one of the five was dangerous, not just untidy, and why.',
+      sol: 'GET /getBooks                    ->  GET     /v1/books\nPOST /addBook                    ->  POST    /v1/books\nGET /deleteBook?id=7             ->  DELETE  /v1/books/7\nPOST /books/7/update             ->  PUT     /v1/books/7\nGET /books/findByAuthor?name=... ->  GET     /v1/books?author=Tolkien\n(the update sent every field, so it is a replace: PUT)\n\nthe dangerous one: GET /deleteBook?id=7.\nGET is supposed to be safe, read-only, and software\nrelies on that: crawlers and link previews fetch URLs\nfreely. Any of them visiting that link would delete\nbook 7. Destroying something gets DELETE.' },
+    { task: 'Write every example the replace operation needs, PUT /v1/books/8, as it will appear in your Postman collection: for each one, the example name, the status, and the response body. Cover every status the contract lists for that operation.',
+      sol: '200 replaced\n  { "id": 8, "title": "A Wizard of Earthsea", "author": "Ursula K. Le Guin",\n    "isbn": "9780000000017", "publishedYear": 1968 }\n\n404 book not found\n  { "error": { "code": "book_not_found",\n    "message": "No book has the id 8." } }\n\n400 invalid json\n  { "error": { "code": "invalid_json",\n    "message": "The body is not valid JSON." } }\n\n422 title missing\n  { "error": { "code": "field_required",\n    "message": "title is required.", "field": "title" } }\n\n409 isbn taken\n  { "error": { "code": "isbn_taken",\n    "message": "A book with this isbn already exists." } }\n\nevery body is sent with Content-Type: application/json.\nThe 409 is for a NEW isbn that belongs to a different book.' },
+    { task: 'Staff ask for three changes to /v1/books: (1) add an optional "language" field to every book in responses, (2) change "author" from one string to a list of authors, so a book can have several, (3) let the list be filtered by publishedYear. Say which are breaking. For the breaking one, write the plan: what goes in the new version, and what happens to the old one.',
+      sol: '1  language field     non-breaking: ship it in v1. The\n                       contract already tells clients to\n                       ignore fields they do not recognise.\n2  author as a list    BREAKING: a field changes type, and\n                       every client reading a string gets a\n                       list instead.\n3  filter by year      non-breaking: an optional filter that\n                       clients who never send it never see.\n\nthe plan for 2:\n  publish /v1 AND /v2 side by side.\n  /v2/books has "authors": ["...", "..."];\n  /v1/books keeps "author" as one string.\n  announce when v1 will be retired, give clients time\n  to move, and only then switch v1 off.' },
+    { task: 'Write the contract entry for one new operation, the publishedYear filter from W3: the method and URL with an example query, the new parameter (its name, type, and whether it is required), every status it can answer, and one sentence on why it can ship inside v1.',
+      sol: 'GET /v1/books?publishedYear=1968\n\nparameter   publishedYear   integer   optional\n            returns only books published that year;\n            combines with author, page and limit\n\n200   an array of the matching books, which may be\n      empty, [], if none match: a filter that finds\n      nothing is still a successful answer\n422   field_invalid, field "publishedYear", if the\n      value is not a whole number (this contract uses\n      422 for any value that breaks a rule; many APIs\n      answer 400 here instead)\n\nships in v1 because it is a new OPTIONAL parameter:\na client that never sends it gets exactly what it\ngot before.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your contract text here, then compare it with the reference"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Fifteen cards, sized to the atoms THIS session has. Earlier sessions are
+     deliberately absent: the deck stays session-local and re-testing earlier
+     material is Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'What an API contract is', b: 'a written promise naming every URL, method, field and status code' },
+    { f: 'The REST rule for URLs and methods', b: 'the URL names a thing; the method says what to do with it' },
+    { f: 'Collection URL against item URL', b: '/books names every book; /books/{id} names one' },
+    { f: 'Two ways to reach things that belong to something else', b: 'nest them, /posts/1/comments, or filter, /comments?postId=1' },
+    { f: 'What {id} means in a contract path', b: 'a placeholder: a real request puts a real id there' },
+    { f: 'What a safe method is', b: 'read-only: the client asks for no change on the server' },
+    { f: 'What an idempotent method is', b: 'sending it many times has the same effect as sending it once' },
+    { f: 'Which methods are idempotent by definition', b: 'GET, PUT and DELETE; not POST, and PATCH is not guaranteed' },
+    { f: 'What a successful create should answer', b: '201 Created, with a Location header saying where the new thing lives' },
+    { f: '400 against 422, as the books contract splits them', b: '400: not valid JSON at all; 422: valid JSON that breaks a rule' },
+    { f: 'What 409 Conflict means', b: 'the request clashes with what is already stored, like a duplicate isbn' },
+    { f: 'What a 405 must always carry', b: 'an Allow header listing the methods that are supported' },
+    { f: 'What makes a change breaking', b: 'a client that worked yesterday can fail today without changing anything' },
+    { f: 'The three places a version label can go', b: 'the URL path, a request header, or the Accept header' },
+    { f: 'What a Postman saved example holds', b: 'a request and the response it should get: status, headers and body' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Q4, Q5 and Q6 are spaced review, from Sessions 4, 3 and 2, and their backlinks
+     carry `ext` so they open that session rather than scrolling here. */
+  var QUIZ = [
+    { q: 'A teammate’s draft contract includes POST /v1/createBook. What is the real problem with it?',
+      o: ['The action is in the URL, and the method already says it: POST /v1/books',
+          'Nothing, as long as the documentation explains what the endpoint does and who may call it',
+          'It should be spelled create-book, because path segments use hyphens between words rather than capital letters',
+          'POST cannot be used on a versioned URL'],
+      c: 0,
+      e: 'In REST the URL names a thing and the method says what to do with it, so create is already said by POST, and the collection it adds to is /v1/books. Fixing the spelling to create-book keeps the verb in the URL, which is the actual problem. Documenting it does not make it guessable, and nothing stops POST being used on a versioned URL.',
+      part: { id: 'concept-b', label: 'B. URLs that name things' } },
+
+    { q: 'A client sends DELETE /v1/books/7. The connection drops before the 204 arrives, so it sends the same request again and gets 404. Was DELETE idempotent here?',
+      o: ['Yes: the book is gone either way, and only the response differs',
+          'No, the 404 proves it failed',
+          'No: idempotent means every repeat must get back the identical status code and body as the first attempt did',
+          'Only if the client sent an idempotency key'],
+      c: 0,
+      e: 'Idempotency is about the effect on the server, not the response. After one DELETE or two, book 7 is gone, so the effect is the same, and RFC 9110 says outright that the response might differ. The 404 is the contract correctly reporting that there is no book 7 now. DELETE is idempotent by definition, with or without any extra key; keys are for making a retried POST safe, which is Session 8.',
+      part: { id: 'concept-d', label: 'D. A status code for every outcome' } },
+
+    { q: 'Clients already depend on v1 of your contract. Which change can ship inside v1 without breaking any of them?',
+      o: ['Adding a new optional field, pages, to the book in responses',
+          'Renaming author to writer',
+          'Making publishedYear required when adding a book, so every record in the library is complete',
+          'Changing publishedYear from a number to text, since the value is still the same year, only written in quotes'],
+      c: 0,
+      e: 'A new optional response field breaks nobody, provided clients ignore fields they do not recognise, which is why the books contract tells them to in writing. A rename leaves clients reading a field that is no longer there; a newly required field turns every client that never sent it into a 422; and a type change from 1965 to "1965" breaks any client that does arithmetic with it, even though a person reads both as the same year.',
+      part: { id: 'concept-e', label: 'E. Versioning' } },
+
+    { q: 'Spaced review, from Session 4. You send GET https://jsonplaceholder.typicode.com/posts?page=2&limit=10, but its parameters are _page and _limit. What comes back?',
+      o: ['200 with all hundred posts, starting from id 1',
+          '400 Bad Request',
+          '200 with posts 11 to 20',
+          '404, because jsonplaceholder has no parameters called page or limit at that address'],
+      c: 0,
+      e: 'jsonplaceholder ignores parameter names it does not recognise, silently, and answers as if you had sent none: a 200 with every post. A 200 means the server answered, not that it understood you, which is why the first id in the body is the thing to check. From the designer’s side, ignoring an unknown parameter silently is a decision too, and one worth writing down.',
+      part: { ext: S04_URL + '#concept-b', label: 'Session 4, B. Page numbers' } },
+
+    { q: 'Spaced review, from Session 3. Why is the query string the worst place for an API key, even over HTTPS?',
+      o: ['URLs get logged, bookmarked and pasted, so the key ends up written down',
+          'HTTPS encrypts the headers and the body but leaves the query string readable on the network',
+          'Servers cannot read query strings',
+          'A key in the query string expires sooner, because servers treat it as a one-time value and discard it after the first request'],
+      c: 0,
+      e: 'HTTPS encrypts the whole request, query string included, so the key is safe in transit, which is exactly why the option claiming otherwise is false. The problem is at both ends: software treats a URL as an identifier, not a secret, so it lands in server logs, browser history and anything people paste. That is also why today’s URLs name resources and nothing else: a URL is an address, and everything about it is treated as public.',
+      part: { ext: S03_URL + '#concept-c', label: 'Session 3, C. Where the key goes' } },
+
+    { q: 'Spaced review, from Session 2. A response comes back 302 Found with a Location header. What is Location telling you?',
+      o: ['The URL to send your request to instead',
+          'Where the server is',
+          'The address of the page you came from, so you can go back to it',
+          'Where the cached copy is stored'],
+      c: 0,
+      e: 'On a redirect, Location holds the URL to try instead, and a client that follows redirects sends a new request there. Today the same header appeared on a 201 Created, where it says where the new thing now lives. One header, two jobs, and in both it is an address the client is meant to go to.',
+      part: { ext: S02_URL + '#concept-e', label: 'Session 2, E. Redirects' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S05 on your Hub and move on to Session 6.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
