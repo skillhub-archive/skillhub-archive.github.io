@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Session 7: Webhooks, both directions</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-04.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* S5: a wider three-column table for contract rows, where the first column holds a
+     field name or a whole request line (publishedYear, DELETE /v1/books/{id}) rather
+     than a three-digit code. Same tokens as .fam, so rule 28 is unchanged. */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 48 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is Library-Signature (17 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from S4, unused in S5's content but kept so the
+     component stays in the track's shared CSS): its summary must read as clickable.
+     Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the one thing in this session that can actually cost the
+     learner something: putting real company data into a synced Postman workspace.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 07 // Level 4 &middot; Integration Patterns</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Webhooks, both directions</h1>
+    <p class="goal">Until now you have always made the call. Today the other system calls you. You design the events a library sends when a book comes back, the payload a stranger&rsquo;s system will read, and the signature that proves a delivery really came from the library. Then you play both ends in Postman: the library sending, and a mock standing in for the receiver, so you can see exactly what arrives without writing a server.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Design a webhook receiver contract that a stranger could implement against.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start, signed in with the free account from Session 4.</b> Today needs no collection from an earlier session: you build two new ones, a receiver contract and a sender. You will use Session 5&rsquo;s saved examples and Session 6&rsquo;s mock skills, so keep those sessions open in another tab if they are not fresh.</p>
+        <p><b>Every value in this session is a practice value, printed on purpose,</b> including a secret. That is what lets you check each signature yourself. A real secret is never printed, shared or pasted anywhere, for the same reasons as Session 3&rsquo;s keys.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">15</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. You build a receiver mock in section B and send it deliveries from section C on. Tick each box once you have done the task, not just read it.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. <b>Every box marked &ldquo;captured live&rdquo; or &ldquo;as Postman showed it&rdquo; is real</b>: captured on 2026-10-01 from a Postman mock built exactly as section B describes, sent with Postman&rsquo;s own request headers. Boxes marked &ldquo;an illustration&rdquo; are not captures. Every signature in this session was computed twice, by two separate tools, and checked to agree. Your mock has its own address, written <code>https://&lt;mock-id&gt;.mock.pstmn.io</code>, where the angle brackets mark a stand-in, as in Session 3. Transcripts show only the lines that matter.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. What a webhook is</h3>
+      <p>In every session so far, your side started the conversation: you sent a request and something answered. That works when you know when to ask. It works badly when you are waiting for something to <i>happen</i>. Say a reading app wants to know the moment a member returns a book to the library. With only the requests you know, the app has to keep asking:</p>
+      <div class="filebox">
+        <div class="fbh">the old way: polling, asking again and again &middot; an illustration</div>
+<pre><code><span class="cmd">&gt; GET https://library.example.com/v1/loans?member=31</span>   <span class="cm">9:00, nothing new</span>
+<span class="cmd">&gt; GET https://library.example.com/v1/loans?member=31</span>   <span class="cm">9:05, nothing new</span>
+<span class="cmd">&gt; GET https://library.example.com/v1/loans?member=31</span>   <span class="cm">9:10, nothing new</span>
+<span class="cm">... about sixty more, and the book came back at 14:05</span></code></pre>
+      </div>
+      <p>That is called <b>polling</b>: asking the same question on a timer, hoping the answer has changed. Nearly every answer is &ldquo;nothing new&rdquo;, each one spends some of the rate limit Session 4 taught you to respect, and the news still arrives up to five minutes late. A <b>webhook</b> turns it around. The reading app gives the library one address, once, and the library sends a request to that address the moment the book comes back:</p>
+      <div class="filebox">
+        <div class="fbh">the new way: a webhook, the library calls you &middot; an illustration</div>
+<pre><code><span class="cm">14:05, the library sends, and the reading app answers</span>
+<span class="cmd">&gt; POST https://reading-app.example.com/webhooks/library</span>
+<span class="cmd">&gt; { "id": "evt_1001", "type": "book.returned", ... }</span>
+200 OK</code></pre>
+      </div>
+      <p><b>A webhook is an ordinary HTTP request, the kind you have sent since Session 1, made by the other system, to you.</b> Everything you know about methods, headers, bodies and status codes still applies; only the direction has changed. Five words you need for the rest of the session:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Word</div><div class="fn">Means</div><div class="fd">In today&rsquo;s example</div></div>
+        <div class="frow"><div class="fc">event</div><div class="fn">something that happened, that someone else may care about</div><div class="fd">book 8 was returned</div></div>
+        <div class="frow"><div class="fc">sender</div><div class="fn">the system the event happened in, which sends the request</div><div class="fd">the library</div></div>
+        <div class="frow"><div class="fc">receiver</div><div class="fn">the system that wants to know, which answers the request</div><div class="fd">the reading app</div></div>
+        <div class="frow"><div class="fc">endpoint</div><div class="fn">the URL the receiver gave the sender, once, in advance</div><div class="fd"><code>/webhooks/library</code> on the reading app</div></div>
+        <div class="frow"><div class="fc">delivery</div><div class="fn">one attempt to send one event to one endpoint</div><div class="fd">the POST above</div></div>
+      </div>
+      <p>&ldquo;Both directions&rdquo; is about which side you build. A <b>receiver</b> writes the endpoint, and has to understand whatever arrives. A <b>sender</b> decides what every delivery looks like, and has to write that down so a stranger can build a receiver for it. Today you are the library&rsquo;s designer, as you were for <code>Books API v1</code>, so you are the sender. But you will test every decision from the receiver&rsquo;s side, because that is who has to live with it.</p>
+      <p><b>Why a mock is an honest receiver today.</b> A real receiver is a server someone writes code for, which this track does not do. Session 6 showed what a mock is: something that answers each request with a saved example and stores nothing. What a receiver promises the sender is exactly that kind of thing: when you send me this, I answer that. So a mock built from the receiver&rsquo;s half of the contract can stand in for a receiver, and Postman keeps a log of every request it gets, which is how you will see what arrived.</p>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. The receiver&rsquo;s half, as a collection you can mock</h3>
+      <p>A <b>receiver contract</b> is the document a sender publishes so that strangers can build receivers: what every delivery looks like, and what the receiver must answer. Section G writes the whole document. First, the part a mock can play: one request, and the answers to it, as saved examples, exactly the way Session 5 turned <code>Books API v1</code> into examples.</p>
+      <p>Every delivery goes to one endpoint with one method: <code>POST</code>, because a delivery hands the receiver something new, the way Session 5&rsquo;s <code>POST /v1/books</code> did. The receiver has three answers:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Example name</div><div class="fn">When</div><div class="fd">Body</div></div>
+        <div class="frow"><div class="fc">200 received</div><div class="fn">a genuine delivery, accepted</div><div class="fd"><code>{ "received": true }</code></div></div>
+        <div class="frow"><div class="fc">400 invalid json</div><div class="fn">the body cannot be read as JSON</div><div class="fd"><code>{ "error": { "code": "invalid_json", ... } }</code></div></div>
+        <div class="frow"><div class="fc">401 bad signature</div><div class="fn">the signature does not prove the library sent it (section E)</div><div class="fd"><code>{ "error": { "code": "bad_signature", ... } }</code></div></div>
+      </div>
+      <p><b>Why the success is <code>200</code>, not <code>204</code>.</b> Either would be a fine answer to a delivery. But Session 6 section D showed that when every example of a request ties, a mock prefers a <code>200</code>, and with no <code>200</code> its answer depends on ids Postman never shows you. A <code>200</code> success makes a plain delivery answer the same way on every mock built from this collection, yours included. That is Session 6 paying off: a design choice made so the contract can be tested.</p>
+      <p>The two refusals use the same <code>{ "error": { "code", "message" } }</code> shape as the books contract, so anyone who integrated with that API already knows how to read them. The delivery itself, the request every example is saved with, is this one. Every line of it is explained in sections D and E, so for now copy it exactly:</p>
+      <div class="filebox">
+        <div class="fbh">the genuine delivery &middot; copy it exactly, the body is one line</div>
+<pre><code>POST {{baseUrl}}/webhooks/library
+Content-Type: application/json
+Library-Timestamp: 1790863500
+Library-Signature: sha256=fb8e8778a7b825ea8f744813ca4f58fb2b80cd58b9e2e076d5f0104d73f4b8f3
+
+{"id": "evt_1001", "type": "book.returned", "occurredAt": "2026-10-01T14:05:00Z", "data": {"bookId": 8, "memberId": 31, "daysLate": 0}}</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the receiver contract and mock it</div>
+        <ol>
+          <li>Create a collection called <code>Library webhooks v1</code>. Give it a collection variable <code>baseUrl</code> with the value <code>https://receiver.example.com</code>, which does not resolve, as in Session 5.</li>
+          <li>Add one request, <b>Receive a delivery</b>, written exactly as the box above: method, URL, the two <code>Library-</code> headers on the Headers tab, and the body on the Body tab as raw JSON. Paste the body as one line, and if Postman offers to beautify or format it, do not.</li>
+          <li>Add three examples to it, the way Session 5 section G did, using &ldquo;Add a custom example&rdquo; or saving a response as an example, whichever your Postman offers. Name them exactly <code>200 received</code>, <code>401 bad signature</code> and <code>400 invalid json</code>, with the status and body from the table above. In the <code>400</code>, change the example&rsquo;s request body to <code>{"id": "evt_1001", "type": book.returned}</code>, which is not valid JSON.</li>
+          <li>Create a mock server from this collection, public, as in Session 6 section B, and copy its address.</li>
+        </ol>
+        <details><summary>Show the three examples to compare against</summary>
+<pre><code>200 received        status 200, body { "received": true }
+                    request: the genuine delivery
+401 bad signature   status 401, body
+                    { "error": { "code": "bad_signature",
+                      "message": "Library-Signature does not match." } }
+                    request: the genuine delivery
+400 invalid json    status 400, body
+                    { "error": { "code": "invalid_json",
+                      "message": "The body is not valid JSON." } }
+                    request body: {"id": "evt_1001", "type": book.returned}</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I built Library webhooks v1 with one request and three named examples, and mocked it, public</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Being the sender, and seeing what arrived</h3>
+      <p>Now play the library. A sender needs nothing special: it sends a <code>POST</code>, which Postman has done for you since Session 1. Make a second collection, <code>Library sender</code>, whose <code>baseUrl</code> is your mock&rsquo;s address, and give it one request, <b>Deliver book.returned</b>: the same method, URL, headers and one-line body as the box in section B. Then send it:</p>
+      <div class="filebox">
+        <div class="fbh">a delivery reaches the receiver mock &middot; captured live</div>
+<pre><code><span class="cmd">&gt; POST https://&lt;mock-id&gt;.mock.pstmn.io/webhooks/library</span>
+<span class="cmd">&gt; Library-Timestamp: 1790863500</span>
+<span class="cmd">&gt; Library-Signature: sha256=fb8e8778...4b8f3</span>     <span class="cm">shortened here, send it in full</span>
+<span class="cmd">&gt; {"id": "evt_1001", "type": "book.returned", ... }</span>
+200 OK
+{ <span class="jk">"received"</span>: true }                         <span class="cm">the 200 received example</span></code></pre>
+      </div>
+      <p>The <code>200</code> is the receiver mock saying what a real receiver would say. But a sender never sees what the receiver actually got, and a receiver&rsquo;s builder needs to. <b>Postman keeps a call log for every mock</b>: its documentation says each entry &ldquo;shows the time the request was sent, the request method and path, and a response overview&rdquo;, and that selecting an entry gives &ldquo;more details about the request headers and body or the response headers and body&rdquo;. To find it, look for &ldquo;Mock servers&rdquo; in the sidebar and choose your mock; the log is kept for 7 days on the free plan, according to Postman&rsquo;s support pages. On the mock built for this session, the delivery above showed up like this:</p>
+      <div class="filebox">
+        <div class="fbh">the same delivery, in the mock&rsquo;s call log &middot; as Postman showed it</div>
+<pre><code>Time     Request                       Response
+4:58 PM  POST /webhooks/library        200 received   <span class="cm">the example&rsquo;s name</span>
+
+Request headers                                     <span class="cm">only the ones that matter</span>
+  content-type       application/json               <span class="cm">names in lower case</span>
+  library-timestamp  1790863500
+  library-signature  sha256=fb8e8778...4b8f3
+  content-length     135
+Request body                                        <span class="cm">shown as a tree of fields</span>
+  id: "evt_1001"
+  type: "book.returned"
+  occurredAt: "2026-10-01T14:05:00Z"
+  data: bookId: 8, memberId: 31, daysLate: 0</code></pre>
+      </div>
+      <p>Three things in it matter. The <b>response column names the example</b> the mock chose, which is a fast way to see how a mock matched. The <b>header names are in lower case</b>, which changes nothing, because Session 2 showed header names are case-insensitive; Postman also adds a dozen headers of its own about its network, which you can ignore. And the <b>body is shown as a tree of fields, not as the text that was sent</b>. That last one matters more than it looks. Section E shows that a signature is computed over the exact characters of the body, and the call log does not keep them: on the mock built for this session, the body behind that tree was stored with every space after a colon and after a comma removed, 123 bytes, so it no longer matched the 135 bytes its own <code>content-length</code> records. <b>The call log shows you the shape of what arrived, never its exact bytes.</b></p>
+      <p>Now send what a broken sender might send, a body that is not JSON at all, and the mock teaches something Session 6 never showed:</p>
+      <div class="filebox">
+        <div class="fbh">a body the mock cannot read &middot; captured live</div>
+<pre><code><span class="cmd">&gt; POST https://&lt;mock-id&gt;.mock.pstmn.io/webhooks/library</span>
+<span class="cmd">&gt; Content-Type: application/json</span>
+<span class="cmd">&gt; {"id": "evt_1001", "type": book.returned}</span>
+400 Bad Request
+{ <span class="jk">"error"</span>: { <span class="jk">"name"</span>: "badRequest", <span class="jk">"message"</span>: "Request body has invalid format." } }</code></pre>
+      </div>
+      <p>That is a <code>400</code>, but not your <code>400 invalid json</code>: look at the body, which has a <code>name</code> field, Postman&rsquo;s error shape from Session 6 section C, not your contract&rsquo;s <code>code</code>. <b>A mock reads a JSON body before it matches anything, and refuses one it cannot read with its own error.</b> On the mock built for this session it did so even when the request asked for the <code>400 invalid json</code> example by name, and even though this body is exactly the one saved in that example. Your <code>400</code> example can only be seen by asking for it by name on a delivery whose body <i>is</i> valid JSON. Like Session 6&rsquo;s forgiven <code>/V1/BOOKS</code>, this is the mock&rsquo;s behaviour, not your contract&rsquo;s.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Send a delivery, and find it on the other side</div>
+        <ol>
+          <li>Create the <code>Library sender</code> collection with its own <code>baseUrl</code>, set to your mock&rsquo;s address with no slash at the end, and the <b>Deliver book.returned</b> request. Send it and confirm <code>200</code> with <code>{ "received": true }</code>.</li>
+          <li>Open your mock&rsquo;s call log and find that delivery. Confirm the example name in the response column, the two <code>library-</code> headers, and the <code>content-length</code> of <code>135</code>.</li>
+          <li>Duplicate the request, change its body to <code>{"id": "evt_1001", "type": book.returned}</code>, and send it. Confirm the <code>400</code> carries <code>"name": "badRequest"</code>, not your contract&rsquo;s <code>code</code>.</li>
+          <li>On the genuine delivery, add the header <code>x-mock-response-name</code> with the value <code>401 bad signature</code>, as in Session 6 section D, and send it. Confirm your own <code>401</code> comes back.</li>
+        </ol>
+        <details><summary>Hint: if a delivery comes back looking wrong</summary>
+<pre><code>404 with "mockRequestNotFoundError"
+    the path or method matched nothing: check POST and
+    /webhooks/library, and that baseUrl has no / at the end.
+
+401 with "invalidCredentialsError"
+    the mock is private. Edit it to allow public access.
+
+400 with "badRequest" on the genuine delivery
+    the body did not survive the paste as valid JSON:
+    copy it again from section B, as one line.
+
+No entry in the call log
+    look for a way to refresh the log; Postman's
+    documentation names a "Refresh Logs" control.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I sent a delivery as the library, found it in the mock&rsquo;s call log, and saw the mock refuse a body it could not read with its own 400</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Designing a payload a stranger can implement against</h3>
+      <p>The body of a delivery is called its <b>payload</b>. Nobody can ask the sender what a field means at the moment a delivery arrives, so the payload has to be designed, and documented, as carefully as Session 5&rsquo;s books contract. The library&rsquo;s payloads share one outer shape, called an <b>envelope</b>, with the details of each event inside it:</p>
+      <div class="filebox">
+        <div class="fbh">the book.returned payload, laid out to read &middot; sent as one line</div>
+<pre><code>{ <span class="jk">"id"</span>: "evt_1001",                       <span class="cm">this event, and no other</span>
+  <span class="jk">"type"</span>: "book.returned",                 <span class="cm">what happened</span>
+  <span class="jk">"occurredAt"</span>: "2026-10-01T14:05:00Z",     <span class="cm">when it happened</span>
+  <span class="jk">"data"</span>: { <span class="jk">"bookId"</span>: 8, <span class="jk">"memberId"</span>: 31, <span class="jk">"daysLate"</span>: 0 } }</code></pre>
+      </div>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Field</div><div class="fn">Type, always present?</div><div class="fd">Meaning</div></div>
+        <div class="frow"><div class="fc">id</div><div class="fn">string, always</div><div class="fd">unique to this event; <b>the same on every delivery attempt of it</b> (section F)</div></div>
+        <div class="frow"><div class="fc">type</div><div class="fn">string, always</div><div class="fd">which event: <code>book.returned</code> or <code>book.overdue</code>; decides what is in <code>data</code></div></div>
+        <div class="frow"><div class="fc">occurredAt</div><div class="fn">string, always</div><div class="fd">when it happened in the library, in UTC, in the form <code>2026-10-01T14:05:00Z</code></div></div>
+        <div class="frow"><div class="fc">data.bookId</div><div class="fn">integer, always</div><div class="fd">the book, as <code>/v1/books/{id}</code> in Books API v1</div></div>
+        <div class="frow"><div class="fc">data.memberId</div><div class="fn">integer, always</div><div class="fd">the member who had it</div></div>
+        <div class="frow"><div class="fc">data.daysLate</div><div class="fn">integer, always</div><div class="fd">0 if on time; days past the due date otherwise</div></div>
+      </div>
+      <p>Each choice there answers a question a receiver&rsquo;s builder would otherwise have to ask:</p>
+      <ul class="pts">
+        <li><b>A <code>type</code>, written <code>thing.what-happened</code>.</b> One endpoint receives every event, so the receiver needs one field that says which event this is before it reads anything else. Naming it as the thing, then what happened to it, in the past tense, keeps every event name readable on its own: <code>book.returned</code>, <code>book.overdue</code>, and later perhaps <code>member.joined</code>.</li>
+        <li><b>An <code>id</code> for the event itself.</b> It is not the book&rsquo;s id. One book is returned many times, and each return is a different event with a different id. Section F shows why the receiver needs it.</li>
+        <li><b>A time, with its timezone.</b> The <code>Z</code> at the end means UTC, so a receiver anywhere reads the same moment. A date without a timezone forces a stranger to guess, which is exactly what a contract exists to prevent.</li>
+        <li><b>Ids, not copies, for anything the API already serves.</b> <code>bookId</code> and <code>memberId</code> are enough, because a receiver that needs the title can read it from <code>/v1/books/8</code>. Copying the whole book into every payload is allowed, but then two documents describe a book, and they will eventually disagree.</li>
+      </ul>
+      <p><b>The rule that keeps a payload from breaking receivers later: a receiver must ignore fields it does not know.</b> Session 5 section E said adding a field is only safe if clients were written to skip fields they do not know, and that a good contract tells them to, in writing. A webhook receiver is a client you never meet, so this contract says it too: new fields may appear in <code>data</code> at any time; removing a field, renaming one or changing its type is a breaking change, and needs a new version, the way <code>/v1</code> did for the books API.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Design the second event, book.overdue</div>
+        <p>The library also sends <code>book.overdue</code>, the day after a book should have come back and did not.</p>
+        <ol>
+          <li>In <code>Library webhooks v1</code>&rsquo;s description, write the envelope&rsquo;s field table, then a <code>data</code> table for each event. Give every field a name, a type, whether it is always present, and what it means.</li>
+          <li>Decide what <code>book.overdue</code> carries in <code>data</code>. At least: which book, which member, when it was due, and how many days late it is now.</li>
+          <li>Write one complete <code>book.overdue</code> payload that fits your tables, and add it to <code>Library sender</code> as <b>Deliver book.overdue</b>. Send it. It has no valid signature yet, and the mock will answer <code>200</code> anyway, which section E explains.</li>
+        </ol>
+        <details><summary>Show one design to compare against</summary>
+<pre><code>book.overdue data
+  bookId     integer, always   the book
+  memberId   integer, always   the member who has it
+  dueOn      string, always    the due date, as 2026-10-14
+  daysLate   integer, always   1 on the first delivery
+
+one payload
+{"id": "evt_1002", "type": "book.overdue",
+ "occurredAt": "2026-10-15T09:00:00Z",
+ "data": {"bookId": 9, "memberId": 31,
+          "dueOn": "2026-10-14", "daysLate": 1}}
+
+where yours may honestly differ
+  different field names, if your tables define them;
+  a due date with a time, if your tables say so.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I wrote field tables for the envelope and both events, and a book.overdue payload that fits them</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Proving the library sent it</h3>
+      <p>The reading app&rsquo;s endpoint is a public address. That is the point of it, and it is also the problem: anyone who learns it can send a request that <i>looks</i> like a delivery. If a forged <code>book.returned</code> could clear a member&rsquo;s late fees, someone will forge one. The receiver needs a way to check that a delivery came from the library and that nobody changed it on the way. The common answer is a <b>signature</b>, and it is built from two ideas.</p>
+      <p><b>First idea: a hash.</b> A <b>hash</b> turns any amount of text into a short, fixed-length fingerprint, the way Session 2&rsquo;s ETag stood for a whole body. The one used here, <b>SHA-256</b>, always produces 32 bytes, written as 64 characters of <b>hex</b>, the digits 0 to 9 and the letters a to f. The same input always gives the same fingerprint; change one character of the input and the fingerprint changes completely, not just a little; and there is no calculation that runs it backwards, from the fingerprint to the text.</p>
+      <p><b>Second idea: a shared secret.</b> A hash alone proves nothing, because anyone can compute one. So the library and each receiver agree on a <b>secret</b>, a random string the library hands the receiver once, when the endpoint is set up, and that never travels in a delivery. <b>HMAC</b>, defined in RFC 2104, mixes the secret into the hash, so only someone who holds the secret can produce the right fingerprint for a given text. The library&rsquo;s contract says exactly what goes in:</p>
+      <div class="hops">
+        <div class="hop"><div class="hi">1</div><div class="hb"><b>The signed string</b> is the <code>Library-Timestamp</code> value, a dot, then the body exactly as sent: <code>1790863500.{"id": "evt_1001", ...}</code></div></div>
+        <div class="hop"><div class="hi">2</div><div class="hb"><b>The signature</b> is HMAC-SHA256 of that string, with the secret as the key, written in lower-case hex.</div></div>
+        <div class="hop"><div class="hi">3</div><div class="hb"><b>The header</b> carries it with a prefix that names the method: <code>Library-Signature: sha256=fb8e8778...</code></div></div>
+      </div>
+      <p><code>1790863500</code> is a <b>Unix timestamp</b>: a count of seconds since the start of 1970, in UTC, the most common way for two computers to agree on a moment. This one is 2026-10-01 at 14:05:00 UTC. It is inside the signed string so that a delivery cannot be reused, which comes up below. The two header names have no <code>X-</code> at the front, because RFC 6648 says new names &ldquo;SHOULD NOT&rdquo; be given one; GitHub&rsquo;s older webhook headers, such as <code>X-Hub-Signature-256</code>, still have it, and either style works.</p>
+      <p>To <b>verify</b> a delivery, the receiver does the library&rsquo;s calculation again, with its own copy of the secret, and compares. Here is that check on four deliveries. Every value was computed with the practice secret <code>practice-secret-7f3a</code>, by two separate tools that agreed on every one:</p>
+      <div class="hdrs">
+        <div class="hrow lbl"><div class="hn">Delivery</div><div class="hv">Receiver computes, against the header&rsquo;s <code>fb8e8778...4b8f3</code></div></div>
+        <div class="hrow keep"><div class="hn">1 as sent</div><div class="hv"><code>fb8e8778...4b8f3</code>: the same. <b>Act on it.</b></div></div>
+        <div class="hrow skip"><div class="hn">2 one digit changed</div><div class="hv"><code>"memberId": 32</code> instead of <code>31</code>: <code>c8ac0fc8...b479f7</code>. Nothing alike. <b>Refuse it: 401.</b></div></div>
+        <div class="hrow skip"><div class="hn">3 re-indented</div><div class="hv">the same JSON, laid out over several lines: <code>c28b9396...213ea7</code>. <b>Refuse it too.</b></div></div>
+        <div class="hrow skip"><div class="hn">4 sent again later</div><div class="hv">the same bytes, a perfect match, arriving at 14:20 with the timestamp of 14:05. <b>Refuse it: too old.</b></div></div>
+      </div>
+      <p>Delivery 2 is a forgery, or damage: one digit changed and the fingerprint has nothing in common with the genuine one. The forger cannot fix the header to match without the secret. Delivery 3 is the one that catches people out. The JSON means exactly the same thing, but its characters are different, so its signature is different. <b>A signature covers the exact bytes of the body, not what the JSON means.</b> That is why a receiver must verify the body as it arrived, before anything parses it, tidies it or re-indents it, and why section C&rsquo;s call log, which stores a reformatted copy, cannot be used to check a signature. Stripe&rsquo;s documentation puts it plainly: &ldquo;Any manipulation to the raw body of the request causes the verification to fail.&rdquo;</p>
+      <p>Delivery 4 is a <b>replay</b>: someone who captured a genuine delivery sends it again, unchanged, later. Its signature is perfect, because it is the library&rsquo;s own. The timestamp is what stops it. It is inside the signed string, so changing it breaks the signature, and the receiver refuses any delivery whose timestamp is too far from its own clock. The library&rsquo;s contract allows <b>5 minutes</b>, which is also the default in Stripe&rsquo;s libraries. 14:20 is fifteen minutes after 14:05, so delivery 4 is refused even though everything about it is genuine.</p>
+      <p>So a receiver&rsquo;s check is: keep the body exactly as it arrived; read the two <code>Library-</code> headers; join the timestamp, a dot and the raw body; compute HMAC-SHA256 of that with the secret; compare the result with the signature header; check the timestamp is no more than 5 minutes from the receiver&rsquo;s own clock; then, and only then, read the JSON and act. Most of that order is forced, because each step needs what the one before it produced. The timestamp check is the exception: Stripe&rsquo;s documentation does it after the comparison, but done first it refuses exactly the same deliveries. One detail of the comparison matters to whoever writes it: it should be <b>constant-time</b>, checking every character even after the first difference, so an attacker cannot learn from how quickly a refusal comes back how much of a forged signature was right. GitHub&rsquo;s documentation says &ldquo;Never use a plain <code>==</code> operator&rdquo; for exactly this reason.</p>
+      <p><b>Now the mock.</b> Send delivery 2 to your receiver mock and it answers <code>200 received</code>, as it did on the mock built for this session for a changed body, a wrong signature and no signature at all. That is Session 6&rsquo;s rule again, a mock matches your rules and never checks them, and it is why the <code>401 bad signature</code> example exists: a client can only see the refusal by asking for it, by name or by code. <b>A mock can show a sender what a receiver will answer; it can never show that the signature was right.</b></p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Verify by eye, then watch the mock not care</div>
+        <ol>
+          <li>Duplicate <b>Deliver book.returned</b> in <code>Library sender</code>, call it <b>Forged</b>, and change only <code>"memberId": 31</code> to <code>32</code> in the body. Leave both headers as they are. Using the table above, say what a real receiver keeping the contract answers.</li>
+          <li>Send <b>Forged</b> to your mock and confirm it answers <code>200 received</code> anyway.</li>
+          <li>In your own words, in the collection&rsquo;s description, write the seven-step check from the paragraph above, and why each step comes where it does.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>1  401 bad signature: the receiver computes c8ac0fc8...,
+   which is not the fb8e8778... in the header
+2  200 received: the mock never computes anything,
+   it replays the example that fits best
+3  no signature can be computed until the raw body and
+   both headers are in hand; the comparison needs the
+   computed value; nothing is acted on until both checks
+   pass. The one free choice is the timestamp check,
+   which can go before or after the comparison: either
+   way the same deliveries are refused</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I worked out by eye which deliveries a receiver must refuse, and saw the mock accept a forged one</label>
+      </div>
+      <details class="note"><summary><b>Optional, not graded: sign any body yourself with a Postman script.</b> For when you want to send a payload you designed, such as your book.overdue, with a genuine signature.</summary>
+        <p>Session 4 met post-response scripts. A <b>pre-request script</b> is the same kind of JavaScript, run just before a request is sent. This one does the library&rsquo;s calculation and sets both headers on the request it is attached to. It was run through newman, Postman&rsquo;s command-line runner, on three bodies, and each signature it produced was recomputed separately and agreed.</p>
+        <ol>
+          <li>Add a collection variable <code>webhookSecret</code> to <code>Library sender</code>, with the value <code>practice-secret-7f3a</code>.</li>
+          <li>Open the <b>Deliver book.overdue</b> request&rsquo;s scripts, look for the word &ldquo;Pre-request&rdquo;, and paste this. Put it on that one request, not on the collection: on the collection it would re-sign <b>Forged</b> and <b>Retry of evt_1001</b> too, and quietly undo the tasks in sections E and F.</li>
+        </ol>
+<pre><code>// Optional, not graded: sign this delivery the way the library does.
+const hmacLib = require('crypto-js');
+const secret = pm.collectionVariables.get('webhookSecret');
+const timestamp = Math.floor(Date.now() / 1000).toString();
+const body = pm.request.body.raw;
+const signed = timestamp + '.' + body;
+const signature = hmacLib.HmacSHA256(signed, secret).toString();
+pm.request.headers.upsert({ key: 'Library-Timestamp', value: timestamp });
+pm.request.headers.upsert({ key: 'Library-Signature', value: 'sha256=' + signature });</code></pre>
+        <p>Every line maps onto a step above: read the secret, take the time now as a Unix timestamp, take the body exactly as written, join them with a dot, compute HMAC-SHA256, and set the two headers, replacing the ones you typed by hand. Because it uses the time now, its signatures differ from the ones printed in this session, and that is correct. One trap, found while testing it: the library variable is called <code>hmacLib</code>, not <code>CryptoJS</code>, because Postman already has a <code>CryptoJS</code> of its own and declaring a second one stops the script with an error.</p>
+      </details>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. When a delivery fails: retries, and the same event twice</h3>
+      <p>A sender only knows a delivery worked if the receiver says so, so the contract has to define &ldquo;worked&rdquo;. The library&rsquo;s is the common one: <b>any <code>2xx</code> answer, within 10 seconds</b>. RFC 9110 says a <code>2xx</code> means the request &ldquo;was successfully received, understood, and accepted&rdquo;, which is exactly what a sender needs to hear. Anything else is a failed attempt: a <code>4xx</code> or <code>5xx</code>, a redirect, which Stripe&rsquo;s documentation says it also treats as a failure, or no answer within 10 seconds, which GitHub also asks of receivers.</p>
+      <p>A failed attempt is <b>retried</b>, and every sender words that differently, so the contract must spell it out. The library&rsquo;s retries come 1 minute, 10 minutes and 1 hour after the first attempt, and then it gives up: four attempts in all. Real senders vary. Stripe&rsquo;s documentation says it &ldquo;attempts to deliver events to your destination for up to three days with an exponential back off in live mode&rdquo;, the same backoff Session 4 taught, used by a sender rather than a client. GitHub&rsquo;s says the opposite: &ldquo;GitHub does not automatically redeliver failed deliveries&rdquo;, and leaves it to a person pressing a Redeliver button. Neither is wrong; a receiver&rsquo;s builder just has to be told which one they are dealing with.</p>
+      <p><b>This looks like it breaks Session 4&rsquo;s rules, and it is worth seeing why it does not.</b> Session 4 said never retry a <code>400</code>, <code>401</code>, <code>403</code> or <code>404</code>, and never retry a write. Those rules are for a <i>client</i>, which can read the refusal and fix its own request. A sender cannot: it has no way to tell a receiver&rsquo;s permanent refusal from a passing fault, such as a receiver halfway through being updated, so senders like Stripe retry every failed attempt and leave the receiver to cope with seeing an event again. And a delivery is a write, which is exactly why Session 4 kept writes for Session 8: retrying one is only safe when the receiver is built for it, which is this section&rsquo;s point.</p>
+      <p>Retries have a consequence that surprises everyone the first time. Picture a receiver that does all its work first, which takes 12 seconds, and then answers <code>200</code>. The work happened. But the library stopped waiting at 10 seconds, counted a failure, and a minute later sends the same event again. <b>The receiver now has the same event twice</b>, and nothing it did wrong caused it. That is why every delivery attempt of one event carries the <b>same <code>id</code></b>, while the timestamp and the signature are new on each attempt, because the library signs each attempt when it sends it, as Stripe&rsquo;s documentation says Stripe does. Here are two attempts at <code>evt_1001</code>, both genuine:</p>
+      <div class="filebox">
+        <div class="fbh">two attempts at one event &middot; both signatures verified</div>
+<pre><code><span class="cm">attempt 1, 14:05:00</span>
+<span class="cmd">&gt; Library-Timestamp: 1790863500</span>
+<span class="cmd">&gt; Library-Signature: sha256=fb8e8778a7b825ea...4b8f3</span>
+<span class="cmd">&gt; {"id": "evt_1001", "type": "book.returned", ...}</span>
+
+<span class="cm">attempt 2, 14:06:00, after the first got no answer in time</span>
+<span class="cmd">&gt; Library-Timestamp: 1790863560</span>                    <span class="cm">new</span>
+<span class="cmd">&gt; Library-Signature: sha256=0583ae65bf94799f...77a46</span>   <span class="cm">new</span>
+<span class="cmd">&gt; {"id": "evt_1001", "type": "book.returned", ...}</span>    <span class="cm">the same body, the same id</span></code></pre>
+      </div>
+      <p>Two more things a stranger needs to hear, both about what the library cannot promise. It makes <b>up to four attempts</b> at every event, so an event may arrive <b>more than once</b>, and if all four attempts fail, <b>not at all</b>. And it does not promise <b>order</b>: Stripe&rsquo;s documentation says it &ldquo;doesn&rsquo;t guarantee the delivery of events in the order that they&rsquo;re generated&rdquo;, and a retried <code>book.overdue</code> can arrive after the <code>book.returned</code> that followed it. That is what <code>occurredAt</code> is for.</p>
+      <p>A receiver that adds a returned book to a member&rsquo;s reading count each time a delivery arrives will now count book 8 twice. <b>Making a receiver handle the same event twice safely is Session 8&rsquo;s subject</b>, and the <code>id</code> you just designed is what it starts from. Today&rsquo;s job is the contract: say plainly that duplicates will happen, so nobody building a receiver is surprised by one. The other half of the fix is already in the contract: answer within 10 seconds. A receiver that has more work to do should store the event, answer <code>200</code>, and do the work afterwards, which Stripe and GitHub both recommend, so that slow work never turns into a retry.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Send one event twice, and read it on the receiver&rsquo;s side</div>
+        <ol>
+          <li>In <code>Library sender</code>, duplicate <b>Deliver book.returned</b> and call it <b>Retry of evt_1001</b>. Change only its two headers to attempt 2&rsquo;s values: <code>1790863560</code>, and the signature below. Send both.</li>
+          <li>In the call log, find both. Write down what is the same in the two and what is different.</li>
+          <li>Write two sentences: what would go wrong in a receiver that adds 1 to a member&rsquo;s count of books read on every delivery, and which field a receiver could use to notice. Do not design the fix: that is Session 8.</li>
+        </ol>
+<pre><code>Library-Signature: sha256=0583ae65bf94799faaff60673c9162294bf06a679c368dbe4e9570c580e77a46</code></pre>
+        <details><summary>Check your answers</summary>
+<pre><code>the same      the path, the body, so id, type, occurredAt
+              and data; and the 200 received answer
+different     library-timestamp, library-signature, and
+              the time each arrived
+
+what goes wrong   member 31's count goes up by 2 for one
+                  return of book 8
+which field       id: evt_1001 on both, because both are
+                  attempts at one event</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I sent two attempts at one event and found what stays the same across them, and what does not</label>
+      </div>
+      <details class="note"><summary><b>Optional, not graded: a real sender, if you already have a GitHub account.</b> Not needed for anything in this track.</summary>
+        <p>GitHub can send webhooks for a repository you own. In the repository&rsquo;s settings, look for &ldquo;Webhooks&rdquo; and add one. Set its URL to your mock&rsquo;s address followed by <code>/webhooks/library</code>, its content type to <code>application/json</code>, and its secret to a practice value. GitHub&rsquo;s documentation says it then sends a <code>ping</code> event, &ldquo;a confirmation from GitHub that you configured the webhook correctly&rdquo;. Your mock should answer it, since it is a <code>POST</code> to that path.</p>
+        <p>Then compare what GitHub chose with what you designed. Its documentation lists an <code>X-GitHub-Event</code> header naming the event, an <code>X-GitHub-Delivery</code> header holding &ldquo;A globally unique identifier (GUID) to identify the event&rdquo;, and an <code>X-Hub-Signature-256</code> header computed with HMAC-SHA256 over the body alone, with no timestamp. Look for &ldquo;Recent deliveries&rdquo; on the webhook&rsquo;s page, and its &ldquo;Redeliver&rdquo; button: GitHub&rsquo;s documentation says a redelivery carries the same <code>X-GitHub-Delivery</code> value as the original, which is section F&rsquo;s same-id rule, seen from a real sender. Remove the webhook when you are done, because a public mock&rsquo;s address is not a secret.</p>
+      </details>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. The receiver contract, written down</h3>
+      <p>Everything a stranger needs to build a receiver is now in this session, scattered over six sections. A <b>receiver contract</b> is that, gathered into one document, written for someone who has never seen any of it. It goes in <code>Library webhooks v1</code>&rsquo;s description, the place Session 6 used for docs, under eight headings:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Heading</div><div class="fn">Answers</div><div class="fd">Taught in</div></div>
+        <div class="frow"><div class="fc">Endpoint</div><div class="fn">what the receiver must accept: <code>POST</code>, JSON, at one URL it gives the library</div><div class="fd">A, B</div></div>
+        <div class="frow"><div class="fc">Events</div><div class="fn">every <code>type</code>, and when each is sent</div><div class="fd">D</div></div>
+        <div class="frow"><div class="fc">Payload</div><div class="fn">the envelope and each event&rsquo;s <code>data</code>, every field with its type, whether always present, and meaning; and that unknown fields must be ignored</div><div class="fd">D</div></div>
+        <div class="frow"><div class="fc">Headers</div><div class="fn"><code>Content-Type</code>, <code>Library-Timestamp</code>, <code>Library-Signature</code></div><div class="fd">B, E</div></div>
+        <div class="frow"><div class="fc">Verifying</div><div class="fn">the signed string, HMAC-SHA256, the <code>sha256=</code> prefix, verify on the raw body, constant-time compare, 5 minutes</div><div class="fd">E</div></div>
+        <div class="frow"><div class="fc">Answering</div><div class="fn">any <code>2xx</code> within 10 seconds is delivered; <code>401</code> for a bad signature; store first, work later</div><div class="fd">B, F</div></div>
+        <div class="frow"><div class="fc">Retries</div><div class="fn">the schedule; that an event may arrive more than once, or not at all if every attempt fails; the same <code>id</code> on every attempt; no promise of order</div><div class="fd">F</div></div>
+        <div class="frow"><div class="fc">Calling the mock</div><div class="fn">its address, the example names, and that it checks no signature</div><div class="fd">B, C, E</div></div>
+      </div>
+      <p>The test is Session 6&rsquo;s stranger test, turned around. There, the stranger wrote a <b>client</b> from your docs. Here, the stranger writes a <b>receiver</b> from your docs, and the questions they will ask are different: what do I answer, how fast, what if it is not genuine, what if it comes twice. A receiver contract with a missing answer does not fail loudly. It fails months later, when a receiver that answered slowly has been counting every event twice.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write the books receiver contract</div>
+        <ol>
+          <li>In <code>Library webhooks v1</code>&rsquo;s description, under the field tables from section D, write the other headings in the table above, each with enough to act on without asking you anything.</li>
+          <li>Read it back as if you had never seen this session, and for every question you would still have to ask, add the answer.</li>
+        </ol>
+        <details><summary>Show the Verifying, Answering and Retries headings to compare against</summary>
+<pre><code>Verifying
+  signed string  Library-Timestamp, a dot, then the raw
+                 body exactly as received
+  signature      HMAC-SHA256 with your secret, lower-case
+                 hex, sent as sha256=&lt;hex&gt;
+  do             verify before parsing the body; compare in
+                 constant time; then refuse a timestamp
+                 more than 5 minutes from your clock
+  refuse with    401 bad_signature
+
+Answering
+  delivered      any 2xx within 10 seconds
+  anything else  a 4xx, 5xx, redirect or no answer in time
+                 is a failed attempt, and is retried
+  advice         store the event and answer at once; do
+                 slow work after answering
+
+Retries
+  schedule       1 minute, 10 minutes and 1 hour after the
+                 first attempt, then none: 4 attempts at most
+  duplicates     expect them: every attempt at one event has
+                 the same id, a new timestamp and signature
+  order          not guaranteed: use occurredAt</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I wrote the whole receiver contract for the library&rsquo;s book events in Library webhooks v1&rsquo;s description</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a receiver contract a stranger could implement</h3>
+      <p>You have done every part of this once, for books. Now do all of it yourself, for members, and pass the stranger test.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: the members receiver contract</div>
+        <p>The library now also sends two member events: <code>member.joined</code>, when someone signs up, and <code>member.expired</code>, when a membership runs out. Without scrolling back up:</p>
+        <ol>
+          <li><b>Design both payloads</b> in the same envelope, with a <code>data</code> table for each: every field named, typed, marked always or sometimes present, and explained.</li>
+          <li><b>Write the receiver contract</b> in a new collection, <code>Library member webhooks v1</code>, under all eight headings from section G. Never write &ldquo;as in Library webhooks v1&rdquo;: a stranger only gets this one.</li>
+          <li><b>Make it mockable</b>: one <b>Receive a delivery</b> request at <code>{{baseUrl}}/webhooks/members</code>, with <code>200 received</code>, <code>401 bad signature</code> and <code>400 invalid json</code> examples. Mock it, public.</li>
+          <li><b>Run the stranger pass</b>: in a fresh, empty collection, from the description alone, build one delivery of each event and send it to the mock, keeping a look-up log as in Session 6 section E. Then answer, from the description alone, a stranger&rsquo;s four questions: what do I answer, how fast, what do I do with a delivery whose signature is wrong, and what happens if I get the same event twice. Fix the description until a pass needs zero look-ups.</li>
+        </ol>
+        <p>You have hit the milestone when a stranger pass needs zero look-ups, both deliveries got <code>200 received</code>, and the description answers all four questions. As in Session 6, a solo pass is as far as someone who knows the answers can tell; a real stranger&rsquo;s clean pass is the stronger version.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">&gt; one member.joined payload</span>
+{"id": "evt_2001", "type": "member.joined",
+ "occurredAt": "2026-10-02T10:30:00Z",
+ "data": {"memberId": 44, "name": "Ada Okafor",
+          "joinedOn": "2026-10-02"}}
+
+<span class="cmd">&gt; one member.expired payload</span>
+{"id": "evt_2002", "type": "member.expired",
+ "occurredAt": "2026-10-03T00:00:00Z",
+ "data": {"memberId": 31, "expiredOn": "2026-10-02",
+          "booksStillOut": 1}}
+
+<span class="cmd">&gt; the four questions, answered by the description</span>
+what do I answer     200, or any 2xx
+how fast             within 10 seconds, or it is retried
+wrong signature      refuse it with 401 bad_signature;
+                     never act on it
+the same event twice expect it: the id is the same on
+                     every attempt (Session 8 makes
+                     handling it safe)
+
+<span class="cmd">&gt; where yours may honestly differ</span>
+different data fields, as long as the tables define
+every one; a different retry schedule, as long as it
+is written down.
+
+<span class="cmd">&gt; where yours is not yet done</span>
+any field in a payload that no table defines
+a heading from section G with no answer under it
+a look-up left in your last stranger pass</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I wrote and mocked a receiver contract for the member events, and a stranger pass against it needed zero look-ups</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from one delivery to a mock up to tracing a retried event.</p>
+    <div class="note"><b>Drills about a mock use the receiver mock from section B</b>, with its three examples and no extra headers unless the drill shows one; they were checked against a real mock on 2026-10-01. <b>Drills about a real receiver</b> mean one that keeps the library&rsquo;s contract exactly, with the practice secret <code>practice-secret-7f3a</code> and the 5-minute limit. Where a drill needs to show you something first, it is in the grey box above the question.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading a delivery and writing the contract for one. First put the receiver&rsquo;s check back into order, then fill the blanks in a delivery, a payload and a piece of the contract.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. There is one sequence today, on purpose: verifying a delivery is the one process in this session where each step needs something only the step before it produced.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded deliveries and contract)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft each piece in the box, then reveal the reference to compare. A contract can be right in many wordings; what matters is that yours answers every question the task names. The workbook cannot judge free text, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours covers everything the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">15</span></span>
+        <span>In pile <b id="fc-pile">15</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Three of the six questions below come from <b>Sessions 6, 3 and 2</b> rather than from today, because recalling something after a delay is what moves it from "I read that" to "I know that". Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 07 of 10 &middot; Hit the milestone unassisted, then tick <b>S07</b> on your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>. Level 4&rsquo;s milestone has a second half, an idempotent retry traced end to end, which Session 8 completes.
+    <br><br>
+    <b>Your 15-minute review:</b> sketch a webhook payload for an event from your own job, with every field named, or for a neutral one, such as a library&rsquo;s book-reserved event. Give it the envelope, a <code>data</code> table, and one sentence on which field would show that it arrived twice. Keep <a href="https://docs.stripe.com/webhooks" target="_blank" rel="noopener">Stripe&rsquo;s webhook documentation</a> open beside you: it is a careful, public example of a receiver contract written for strangers. &middot; Next: <b>Session 08, idempotency and multi-call workflows</b>, where the same event arriving twice stops being a surprise and becomes something your design handles.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-s07-workbook-v1";
+  /* Spaced review: three Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+  var S03_URL = "api-session-03.html";
+  var S04_URL = "api-session-04.html";
+  var S05_URL = "api-session-05.html";
+  var S06_URL = "api-session-06.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, status numbers,
+     key names and short words, where capitalisation is presentation. parenLabels is
+     OFF for this session: transcripts print answer tokens as status lines, header
+     names with a colon (Library-Signature:), example names (401 bad signature),
+     quoted keys and event types (book.returned), never in parentheses as a label. Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in this session
+     takes a method or a path, so none is; caseFold stays ON for every drill. The
+     flag stays in the engine because later sessions use it. */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. F2 is cs: true because its blanks are JSON
+     member names, which RFC 8259 compares code unit by code unit. F1 and F3 fold
+     case: their blanks are header names, which are case-insensitive, and numbers.
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "Location: /v1/books/8", and JSON keys as
+     "author". Whenever a session prints an answer token inside
+     punctuation, that punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 2 set, 1 seq, 1 count. Every mock drill was
+     checked against a real Postman mock built from Library webhooks v1 on
+     2026-10-01, with Postman's request headers; every signature was computed with
+     Python's hmac module and with openssl, which agreed. D1 relies on the receiver
+     having a 200 example, so the tie-break is deterministic. No drill takes a
+     method or path, so none is cs: true. */
+  var DRILLS = [
+    { type: 'value', lbl: 'your receiver mock',
+      scen: 'Receive a delivery has three examples:\n\n  200 received        saved with the genuine delivery\n  401 bad signature   saved with the genuine delivery\n  400 invalid json    saved with a body that is not JSON',
+      ask: 'You send the genuine delivery from section B, with no extra headers. What three-digit status code comes back?',
+      code: 'POST {{baseUrl}}/webhooks/library\nLibrary-Timestamp: 1790863500\nLibrary-Signature: sha256=fb8e8778...4b8f3\n\n{"id": "evt_1001", "type": "book.returned", ...}', ans: '200', alt: ['200 OK', '200 received'],
+      why: '200. The body matches the one saved in both the 200 and the 401 example, so both get the same bonus and they tie, and a tie goes to the example whose status is 200. That is why the contract’s success is a 200 rather than a 204: a plain delivery answers the same way on every mock built from the collection.' },
+
+    { type: 'value', lbl: 'your receiver mock',
+      scen: 'The genuine delivery’s headers, unchanged, on a body with one digit changed:\n\n  "memberId": 31   became   "memberId": 32',
+      ask: 'You send it to your receiver mock with no extra headers. What three-digit status code comes back?',
+      code: 'POST {{baseUrl}}/webhooks/library\nLibrary-Timestamp: 1790863500\nLibrary-Signature: sha256=fb8e8778...4b8f3\n\n{"id": "evt_1001", ..., "data": {"bookId": 8, "memberId": 32, "daysLate": 0}}', ans: '200', alt: ['200 OK', '200 received'],
+      why: '200 received. A mock never computes a signature: it matches the request against its examples and replays the best fit, and with no body match the tie goes to the 200. On the mock built for this session, a changed body, a wrong signature and no signature at all all got 200. A mock can show what a receiver answers; it can never show the signature was right.' },
+
+    { type: 'value', lbl: 'a real receiver',
+      scen: 'The same forged delivery as D2, now sent to a real receiver\nthat keeps the library’s contract. It computes:\n\n  sha256=c8ac0fc82d28a4d9...b479f7',
+      ask: 'What three-digit status code does it answer?',
+      code: 'Library-Signature: sha256=fb8e8778a7b825ea...4b8f3   (the header)\ncomputed:          sha256=c8ac0fc82d28a4d9...b479f7  (by the receiver)', ans: '401', alt: ['401 Unauthorized', '401 bad signature', '401 bad_signature'],
+      why: '401 bad_signature. The receiver recomputed HMAC-SHA256 over the timestamp, a dot and the body as it arrived, and got a value with nothing in common with the header’s. One changed digit changes the whole fingerprint, and nobody without the secret can make the header match, so the receiver refuses it and acts on nothing in it.' },
+
+    { type: 'set', lbl: 'six things',
+      scen: '  a  the Library-Timestamp value\n  b  the body, exactly as sent\n  c  the Content-Type header\n  d  the shared secret\n  e  the Library-Signature value\n  f  the URL of the endpoint',
+      ask: 'Which of these are joined into the string the library signs? Give the letters separated by commas. Order does not matter.',
+      code: '(the six things above)', ans: 'a, b', alt: ['a and b'],
+      why: 'a and b: the timestamp, a dot, then the body. The secret, d, is not part of the string: it is the KEY that HMAC mixes into the hash, and it never travels in a delivery. e is the result, so it cannot be an input. c and f are not signed in this contract, so a receiver must not rely on them being genuine.' },
+
+    { type: 'value', lbl: 'a real receiver',
+      scen: 'The genuine event, but the body arrives laid out over several lines:\n\n  {\n    "id": "evt_1001",\n    "type": "book.returned",\n    ...\n  }\n\nwith the genuine headers, sha256=fb8e8778...4b8f3. The receiver computes\nsha256=c28b9396...213ea7 over the body as it arrived.',
+      ask: 'Does the receiver act on it, or refuse it? Answer act or refuse.',
+      code: '(the delivery above)', ans: 'refuse', alt: ['refuse it', 'reject', 'reject it'],
+      why: 'Refuse. The JSON means exactly what the genuine body means, but its characters are different, and a signature covers the exact bytes, not the meaning. That is why a receiver verifies the body as it arrived, before anything parses or re-indents it, and why the mock’s call log, which stores a reformatted copy, cannot be used to check a signature.' },
+
+    { type: 'value', lbl: 'a real receiver',
+      scen: 'A delivery arrives with a signature that matches perfectly, and\n\n  Library-Timestamp: 1790863500      (14:05:00 UTC)\n\nThe receiver’s own clock reads 1790864400.',
+      ask: 'Does the receiver act on it, or refuse it? Answer act or refuse.',
+      code: '1790864400 - 1790863500 = ?   (seconds)', ans: 'refuse', alt: ['refuse it', 'reject', 'reject it'],
+      why: 'Refuse. The difference is 900 seconds, fifteen minutes, and the contract allows five. The signature is perfect because it is the library’s own, which is exactly what a replay looks like: someone resending a captured delivery. The timestamp is inside the signed string, so it cannot be moved forward without breaking the signature.' },
+
+    { type: 'seq', lbl: 'sent in this order',
+      scen: '  1  POST /webhooks/library, the genuine delivery\n  2  POST /webhooks/library, Content-Type: application/json,\n     body {"id": "evt_1001", "type": book.returned}\n  3  POST /webhooks/library, the genuine delivery,\n     x-mock-response-name: 401 bad signature\n  4  GET  /webhooks/library',
+      ask: 'All four go to your receiver mock. List the four status codes in order, as numbers separated by commas.',
+      code: '(the four requests above)', ans: '200, 400, 401, 404',
+      why: '200, 400, 401, 404. 1 is the tie that goes to 200. 2 is not JSON, so the mock refuses it itself, with its own badRequest, before matching anything. 3 asks for the 401 by name. 4 is a GET, and every example is a POST, so the method filter leaves nothing: the mock’s own 404, mockRequestNotFoundError.' },
+
+    { type: 'value', lbl: 'your receiver mock',
+      scen: '  POST {{baseUrl}}/webhooks/library\n  Content-Type: application/json\n  x-mock-response-name: 400 invalid json\n\n  {"id": "evt_1001", "type": book.returned}',
+      ask: 'The answer is a 400. What is the value of "name" in its body?',
+      code: '{ "error": { "name": "?", "message": "..." } }', ans: 'badRequest', alt: ['bad request'],
+      why: 'badRequest, Postman’s own error, not your 400 invalid json. The mock reads a JSON body before it matches anything, and refuses one it cannot read, even when the request asks for an example by name. Your 400 example can only be seen by asking for it by name on a delivery whose body IS valid JSON. That is the mock’s behaviour, not your contract’s.' },
+
+    { type: 'count', lbl: 'the library’s contract',
+      scen: '  Delivered   any 2xx within 10 seconds\n  Retries     1 minute, 10 minutes and 1 hour after the\n              first attempt, then none\n\nA receiver’s server is broken and answers 500 to everything.',
+      ask: 'How many requests does it get for one event, in total? Answer with a number.',
+      code: '(the contract above)', ans: '4', alt: ['four', '4 requests', '4 attempts'],
+      why: '4: the first attempt plus three retries, after 1 minute, 10 minutes and 1 hour, all failing with 500. Then the library gives up, which is why the contract cannot promise that an event arrives at all when every attempt fails. A receiver that was down for that whole hour never gets this event from the library at all.' },
+
+    { type: 'set', lbl: 'two attempts at one event',
+      scen: 'The library sent evt_1001, got no answer in time, and sent it\nagain a minute later.\n\n  a  id\n  b  type\n  c  occurredAt\n  d  data\n  e  Library-Timestamp\n  f  Library-Signature',
+      ask: 'Which of these are the same in both attempts? Give the letters separated by commas. Order does not matter.',
+      code: '(the two attempts)', ans: 'a, b, c, d', alt: ['a and b and c and d', 'a, b, c and d'],
+      why: 'a, b, c and d: the whole body, because it is the same event. The library signs each attempt when it sends it, so e and f are new every time, which is why a receiver cannot tell two attempts apart by their signature. The id is the field that says “this is the same event”, and it is what Session 8 builds on.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item, deliberately (build contract section 4): the receiver's check is the
+     one genuinely ordered process in this session, and each tile needs the one
+     before it. The signed string needs the raw body and both headers; the HMAC
+     needs the string; the comparison needs the HMAC; only a verified event is
+     stored; and the 200 must come after the store, because a sender never retries
+     a 200, so answering first could lose the event. The timestamp check is left
+     out on purpose: it can honestly go either side of the comparison (reviewer
+     finding, 2026-10-01), which would give two valid orders. Longest tile is 46
+     characters, inside the ~54 two columns allow. */
+  var PARSONS = [
+    { prompt: 'A classmate is writing down how their receiver handles a library delivery, leaving out the timestamp check, which can go either side of the comparison. It takes the raw body and both Library headers, builds the signed string, computes the signature with the secret, compares it with the header, stores the verified event, and answers. Put the six steps in the only order that works.',
+      lines: ['Take the raw body and both Library headers',
+              'Join the timestamp, a dot and the raw body',
+              'HMAC-SHA256 that string with the shared secret',
+              'Compare the result with Library-Signature',
+              'Store the verified event for processing',
+              'Answer 200, now the event is safe'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). F1 folds case: its blanks are header
+     names, which are case-insensitive. F2 is cs: true: its blanks are JSON member
+     names, which RFC 8259 section 8.3 compares code unit by code unit, so "ID" is
+     a different field from "id". F3's blanks are all numbers. Recorded in the
+     build contract. */
+  var FADED = [
+    { prompt: 'Fill the two header names, spelled as the library’s contract spells them: first the one carrying the moment the delivery was signed, then the one carrying the signature itself.',
+      code: 'POST {{baseUrl}}/webhooks/library\nContent-Type: application/json\n%%: 1790863500\n%%: sha256=fb8e8778a7b825ea8f744813ca4f58fb2b80cd58b9e2e076d5f0104d73f4b8f3', ans: ['Library-Timestamp', 'Library-Signature'] },
+    { cs: true,
+      prompt: 'Fill the two envelope field names, exactly as the contract spells them (the quotes are already there): first the field that names this one event, then the field that says what happened.',
+      code: '{ "%%": "evt_1002", "%%": "book.overdue",\n  "occurredAt": "2026-10-15T09:00:00Z",\n  "data": { "bookId": 9, "memberId": 31,\n            "dueOn": "2026-10-14", "daysLate": 1 } }', ans: ['id', 'type'] },
+    { prompt: 'Fill the blanks in this part of the receiver contract, with numbers: the first digit of every status that counts as delivered, the seconds a receiver has to answer, and the minutes a timestamp may be old.',
+      code: 'Answering   any %%xx status within %% seconds is delivered;\n            anything else, or no answer, is retried\nFreshness   refuse a Library-Timestamp more than %% minutes\n            from your own clock', ans: ['2', '10', '5'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'The library adds a third event, book.renewed, sent when a member extends a loan. Write its part of the receiver contract: the event’s name and when it is sent, a data table with every field named, typed, marked always or sometimes present, and explained, and one complete payload in the envelope.',
+      sol: 'book.renewed   sent when a member extends a loan\n\ndata\n  bookId      integer, always   the book\n  memberId    integer, always   the member who has it\n  oldDueOn    string, always    the due date before, as\n                                2026-10-14\n  newDueOn    string, always    the new due date\n  renewalsLeft integer, always  how many more times this\n                                loan may be renewed\n\none payload\n{"id": "evt_1003", "type": "book.renewed",\n "occurredAt": "2026-10-10T16:20:00Z",\n "data": {"bookId": 9, "memberId": 31,\n          "oldDueOn": "2026-10-14",\n          "newDueOn": "2026-10-28", "renewalsLeft": 1}}' },
+    { task: 'A stranger building a receiver sends you three questions. Answer each in a sentence or two, the way your contract should have answered it: (1) My receiver answers 200 after 12 seconds, and I keep getting the same event twice: why? (2) I copied a delivery’s body out of the mock’s call log, computed the signature with the secret, and it does not match: is the library broken? (3) A delivery has a perfect signature but a timestamp from yesterday: should I act on it?',
+      sol: '1  The library waits 10 seconds for a 2xx. After that\n   it counts the attempt as failed and retries, so your\n   late 200 never counted. Store the event, answer at\n   once, and do the work afterwards.\n\n2  No. A signature covers the exact bytes of the body,\n   and the call log keeps a reformatted copy of it.\n   Verify the raw body your receiver got, before\n   anything parses it.\n\n3  No. Refuse it. A perfect signature on an old\n   timestamp is what a replay looks like; the contract\n   allows 5 minutes, and the timestamp is signed, so it\n   cannot have been moved.' },
+    { task: 'Write the Verifying heading for Library member webhooks v1, for a stranger who has never heard of HMAC: what the signature proves, exactly what is signed, how to check it step by step, and what to answer when the check fails.',
+      sol: 'Verifying\n  why        every delivery is signed, so you can check\n             that the library sent it and nobody changed it\n  signed     the Library-Timestamp value, a dot, then the\n             body exactly as you received it\n  signature  HMAC-SHA256 of that, with the secret we gave\n             you as the key, in lower-case hex, sent as\n             Library-Signature: sha256=&lt;hex&gt;\n  steps      1 keep the raw body; do not parse it yet\n             2 build the signed string and compute HMAC\n             3 compare with the header, in constant time\n             4 if they match, refuse a timestamp more than\n               5 minutes from your clock\n             5 only then read the JSON and act\n  failing    answer 401 bad_signature and act on nothing' },
+    { task: 'A receiver’s server goes down at 14:05 and comes back at 16:00. The library tries to deliver evt_2002 at 14:05. Using the library’s contract, write a short timeline of every attempt and its result, then say what the receiver has missed and what your Retries heading should warn about.',
+      sol: '14:05  attempt 1   no answer   failed\n14:06  attempt 2   no answer   failed\n14:15  attempt 3   no answer   failed\n15:05  attempt 4   no answer   failed, and the last\n\nmissed   evt_2002 never arrives: four attempts all\n         fell inside the outage, so the library gave up\n         at 15:05, before the server came back at 16:00\n\nwarn     up to four attempts: an event can arrive more\n         than once, or, if all four fail, not at all; a\n         receiver down for over an hour can miss one, and\n         must read the API to catch up' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your contract text here, then compare it with the reference"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Fifteen cards, sized to the atoms THIS session has. Earlier sessions are
+     deliberately absent: the deck stays session-local and re-testing earlier
+     material is Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'What a webhook is', b: 'an HTTP request the other system sends you when an event happens' },
+    { f: 'Polling', b: 'asking the same question on a timer, hoping the answer has changed' },
+    { f: 'A delivery', b: 'one attempt to send one event to one endpoint' },
+    { f: 'The envelope’s four fields', b: 'id, type, occurredAt, data' },
+    { f: 'How an event type is named', b: 'the thing, a dot, what happened to it: book.returned' },
+    { f: 'What a receiver does with a field it does not know', b: 'ignores it, so adding a field never breaks a receiver' },
+    { f: 'What a valid HMAC-SHA256 signature shows', b: 'the sender holds the secret, and the signed bytes were not changed' },
+    { f: 'The library’s signed string', b: 'Library-Timestamp, a dot, then the raw body' },
+    { f: 'Why the timestamp is signed', b: 'so a captured delivery cannot be replayed: refuse one more than 5 minutes from your clock' },
+    { f: 'What a signature covers', b: 'the exact bytes of the body, not what the JSON means' },
+    { f: 'Why the comparison is constant-time', b: 'so how fast a refusal comes back leaks nothing about the signature' },
+    { f: 'What a mock’s call log shows of a body', b: 'its shape, as a tree of fields, never its exact bytes' },
+    { f: 'What a mock does with a bad signature', b: 'nothing: it checks no signature, and answers with an example' },
+    { f: 'What counts as delivered, in the library’s contract', b: 'any 2xx within 10 seconds; anything else is retried' },
+    { f: 'What stays the same on every attempt at one event', b: 'the id, and the whole body; the timestamp and signature are new' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Q4, Q5 and Q6 are spaced review, from Sessions 6, 3 and 2, and their backlinks
+     carry `ext` so they open that session rather than scrolling here. The correct
+     option's length rank (longest = 1) is 2, 3, 2, 3, 3, 2: never the longest or
+     the shortest (check-quiz.py 0/6 on both, a hard requirement for this track),
+     and not a strict alternation, so no fixed rank reaches the pass mark of 5.
+     Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: 'A receiver does all its work before it answers, which takes 12 seconds, and then answers 200. The library’s contract says any 2xx within 10 seconds. What happens?',
+      o: ['The library counts a failed attempt and sends the event again, so the receiver gets it twice',
+          'It counts as delivered, because a 200 is a 200 however late it comes, and the library waits as long as it takes',
+          'The event is lost for good',
+          'The library disables the endpoint after one late answer'],
+      c: 0,
+      e: 'The library stopped waiting at 10 seconds and counted a failure, so it retries a minute later, and the receiver, which did the work the first time, now has the event twice. Nothing is lost: retries exist for exactly this. One late answer does not get an endpoint switched off; it gets a retry. The fix on the receiver’s side is to store the event, answer at once, and work afterwards.',
+      part: { id: 'concept-f', label: 'F. When a delivery fails' } },
+
+    { q: 'You copy a genuine delivery’s body out of your mock’s call log, compute its signature with the secret and the timestamp, and it does not match the Library-Signature header. Why?',
+      o: ['The library signs every delivery with a different secret, so no receiver could ever check a signature at all',
+          'The call log lower-cased the header names, and HMAC-SHA256 includes every header name in what it signs',
+          'The call log keeps a reformatted copy of the body, and a signature covers the exact bytes',
+          'The timestamp in the header is now more than 5 minutes old'],
+      c: 2,
+      e: 'On the mock built for this session, the call log stored the body with every space after a colon and after a comma removed, so its bytes are not the ones the library signed. That is why a receiver verifies the raw body as it arrived. Only the timestamp and the body are signed, never header names, and there is one secret per receiver, shared once. The clock plays no part in comparing a signature: the 5-minute check is a separate step.',
+      part: { id: 'concept-c', label: 'C. Seeing what arrived' } },
+
+    { q: 'Why is the Library-Timestamp value inside the string the library signs, rather than just sent as a header beside it?',
+      o: ['So it cannot be changed without breaking the signature, and an old delivery can be refused',
+          'Because HMAC-SHA256 will not run on a body alone, and needs a number in front of the text to give any result at all',
+          'So the receiver can sort deliveries into order',
+          'So retries of one event share a signature'],
+      c: 0,
+      e: 'A captured genuine delivery can be sent again later, and its signature will still be perfect. Because the timestamp is signed, moving it forward breaks the signature, so the receiver can trust it and refuse one more than 5 minutes from its own clock. HMAC runs on any text. Order is what occurredAt is for, and the library does not promise it. And each attempt is signed when it is sent, so retries of one event never share a signature.',
+      part: { id: 'concept-e', label: 'E. Proving the library sent it' } },
+
+    { q: 'Spaced review, from Session 6. You send GET {{baseUrl}}/v1/authors to the books mock with x-mock-response-name: 200 the book. What comes back?',
+      o: ['404 mockRequestNotFoundError, because /v1/authors matches no path in the collection, and a name never overrides the path',
+          '404 No matching response, because the name is real but belongs to a different URL from the one you sent',
+          '200 with book 8: a name is checked against the method, not the path',
+          '404 book not found, the example saved for a missing book'],
+      c: 2,
+      e: 'Session 6 found that x-mock-response-name is checked against the method and not the path: 200 the book belongs to a GET, so on any GET it wins, even at a URL the contract does not have. That is why a name can hide a wrong URL, and why a client’s paths are worth checking once with no name at all. No matching response comes only when the name fits no example of that method, and 404 book not found would need its own name asked for.',
+      part: { ext: S06_URL + '#concept-d', label: 'Session 6, D. When several examples fit' } },
+
+    { q: 'Spaced review, from Session 3. A teammate says Basic auth is safe to send over plain HTTP, because the password is encoded. What is wrong with that?',
+      o: ['Nothing: base64 can only be decoded by the server that issued the password, so the header is safe on any connection',
+          'Only the username is encoded, and the password travels in a separate header that HTTP keeps secret',
+          'Base64 is an encoding anyone can reverse, not encryption, so the password is readable',
+          'It is only safe if the password is long'],
+      c: 2,
+      e: 'Session 3 section D showed base64 is a way of rewriting text in safe characters, which anyone can reverse in a second: encoded, not encrypted. So anyone who can read the request can read the password. Length does not help: base64 reverses whatever its length. Both the username and the password are in the one Authorization header, and nothing in HTTP itself hides a header; only the connection being encrypted, HTTPS, does.',
+      part: { ext: S03_URL + '#concept-d', label: 'Session 3, D. Basic auth' } },
+
+    { q: 'Spaced review, from Session 2. You send GET /posts/1 again, with If-None-Match set to the ETag from the last response, and nothing has changed. What comes back?',
+      o: ['200 OK with the same body again, because If-None-Match only changes the caching headers that come back with it',
+          '304 Not Modified, with no body: your saved copy is still good',
+          '412 Precondition Failed',
+          '204 No Content'],
+      c: 1,
+      e: 'A request carrying If-None-Match asks for the body only if it no longer matches that fingerprint. Nothing changed, so the server answers 304 Not Modified with no body at all, and you use the copy you already have. 204 means a success with nothing to send, which is a different situation. RFC 9110 keeps 412 for the same header on other methods: a GET or HEAD gets 304, anything else gets 412.',
+      part: { ext: S02_URL + '#concept-c', label: 'Session 2, C. Caching hints' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S07 on your Hub and move on to Session 8.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
