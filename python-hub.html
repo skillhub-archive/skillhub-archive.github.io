@@ -17,7 +17,7 @@
     --ink-faint: #676D7A;
     --border: #E1E4EA;
     --accent: #4B47D6;
-    --accent-soft: #EEEDFB;
+    --accent-soft: #EEEDFB; --on-accent: #FFFFFF;
     --gold: #9D6110;
     --gold-bright: #C77F1A;
     --gold-soft: #FBF1DF;
@@ -27,7 +27,7 @@
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #0F1117;
       --surface: #171A22;
       --surface-2: #1F232D;
@@ -36,7 +36,7 @@
       --ink-faint: #838A97;
       --border: #262B36;
       --accent: #8A85FF;
-      --accent-soft: #211F3A;
+      --accent-soft: #211F3A; --on-accent: #15123A;
       --gold: #E6A94B;
       --gold-bright: #E6A94B;
       --gold-soft: #2A2213;
@@ -47,13 +47,13 @@
   :root[data-theme="light"] {
     --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
     --ink-soft: #4A4F5C; --ink-faint: #676D7A; --border: #E1E4EA; --accent: #4B47D6;
-    --accent-soft: #EEEDFB; --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --accent-soft: #EEEDFB; --on-accent: #FFFFFF; --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
     --good: #1C7B51; --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
   }
   :root[data-theme="dark"] {
     --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
     --ink-soft: #AEB4C0; --ink-faint: #838A97; --border: #262B36; --accent: #8A85FF;
-    --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --accent-soft: #211F3A; --on-accent: #15123A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
     --good: #3FBE82; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
   }
 
@@ -99,7 +99,7 @@
      PRODUCE, in the subject's native display. Static, because Python's output is
      text; motion belongs to tracks whose output is itself motion. */
   .specimen { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px; box-shadow: var(--shadow); }
-  .specimen-cmd { font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--border); }
+  .specimen-cmd { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--border); }
   .specimen-cmd b { color: var(--ink); font-weight: 600; }
   .specimen-out { margin: 0; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--ink-soft); }
   .specimen-out .n { color: var(--gold); }
@@ -125,7 +125,7 @@
   .bar-wrap { grid-column: 1 / -1; }
   .bar-track { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
   .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--gold-bright)); border-radius: 99px; transition: width .5s ease; }
-  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-faint); }
+  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
   .reset-btn {
     background: none; border: 1px solid var(--border); color: var(--ink-faint);
     font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 7px;
@@ -137,8 +137,8 @@
   .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
   .save-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .save-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .save-hint { font-size: 12px; color: var(--ink-faint); }
+  .save-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .save-hint { font-size: 12px; color: var(--ink-soft); }
   .save-box { margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
   .save-msg { margin: 0 0 10px; font-size: 13.5px; color: var(--ink-soft); }
   .save-ta { width: 100%; min-height: 90px; font-family: var(--mono); font-size: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); resize: vertical; }
@@ -215,7 +215,7 @@
   }
   .check input { width: 16px; height: 16px; accent-color: var(--good); cursor: pointer; }
   .check:hover { color: var(--ink); }
-  .card-open { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: #fff; background: var(--accent); padding: 8px 14px; border-radius: 8px; text-decoration: none; }
+  .card-open { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 8px 14px; border-radius: 8px; text-decoration: none; }
   .card-open:hover { filter: brightness(1.06); }
   .card-pending { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); border: 1px dashed var(--border); padding: 7px 11px; border-radius: 8px; letter-spacing: .02em; }
 
@@ -228,9 +228,9 @@
   .res .rnum { font-family: var(--mono); font-size: 12px; color: var(--gold); font-weight: 700; }
   .res h4 { margin: 6px 0 2px; font-size: 16px; }
   .res .cost { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--good); margin-bottom: 8px; }
-  .res .cost.paid { color: var(--ink-faint); }
+  .res .cost.paid { color: var(--ink-soft); }
   .res p { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 10px; }
-  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
   .res a { color: var(--accent); text-decoration: none; font-size: 12.5px; font-family: var(--mono); word-break: break-all; }
   .res a:hover { text-decoration: underline; }
 
@@ -246,7 +246,7 @@
     font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
     padding: 2px 6px; border-radius: 5px; color: var(--ink);
   }
-  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 13px; }
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
 
   @media (max-width: 720px) {
     .progress-panel { grid-template-columns: 1fr; }
@@ -302,7 +302,7 @@ Wrote <span class="f">report-july.md</span></pre>
     <p class="sec-sub">Each session is ~1h45 of hands-on work plus a built-in 15-minute review. Everything leans toward your goal: a solid foundation, then hard into APIs and data, the skills that move you out of Support and into tooling.</p>
     <div class="facts">
       <div class="fact"><div class="k">5</div><div class="v">Levels, beginner &rarr; advanced, each with a clear "you can now&hellip;" milestone.</div></div>
-      <div class="fact"><div class="k">10</div><div class="v">Two-hour hands-on workbooks you complete in VS Code, built on demand.</div></div>
+      <div class="fact"><div class="k">10</div><div class="v">Two-hour hands-on workbooks you complete in VS Code. All ten are built.</div></div>
       <div class="fact"><div class="k">6</div><div class="v">Practice modes each session: learn-and-do, predict, arrange, fill, write, recall.</div></div>
       <div class="fact"><div class="k">&sum;</div><div class="v">Cumulative review, later sessions re-test earlier ones (spaced practice).</div></div>
     </div>
