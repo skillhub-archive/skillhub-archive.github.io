@@ -129,6 +129,8 @@
     cursor: pointer; letter-spacing: .04em;
   }
   .reset-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  /* armed by the first tap of the two-tap reset: the accent says "this will act" */
+  .reset-btn.armed { color: var(--accent); border-color: var(--accent); }
 
   /* ---- Section headings ---- */
   .sec { margin-top: 56px; }
@@ -624,7 +626,24 @@ Fort Worth       18</pre>
       });
     });
 
-    document.getElementById('reset').addEventListener('click', function () {
+    /* Two-tap reset, identical on every track Hub. The claude.ai artifact viewer
+       never shows a browser confirm dialog (it answers "no" at once), so the page
+       asks for itself: the first tap arms the button for four seconds, and only a
+       second tap inside that window clears. Same behaviour on the site. */
+    var resetBtn = document.getElementById("reset");
+    var resetLabel = resetBtn.textContent, resetTimer = null;
+    function disarmReset() {
+      clearTimeout(resetTimer); resetTimer = null;
+      resetBtn.textContent = resetLabel; resetBtn.classList.remove("armed");
+    }
+    resetBtn.addEventListener("click", function () {
+      if (!resetTimer) {
+        resetBtn.textContent = "tap again to clear";
+        resetBtn.classList.add("armed");
+        resetTimer = setTimeout(disarmReset, 4000);
+        return;
+      }
+      disarmReset();
       state = {};
       save(state);
       render(state);
