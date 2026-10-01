@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Session 4: Pagination, rate limits and retries</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-03.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After sending yours in Postman:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 43 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 16ch, the longest answer here is _limit (6 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 16ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* S4: the optional cursor-script aside is a collapsible .note, so its summary must
+     read as clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the two things in this session that can actually cost the
+     learner something: burning the shared demo key, and leaking a real credential.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 04 // Level 2 &middot; Consuming APIs Like A Professional</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Pagination, rate limits and retries</h1>
+    <p class="goal">Every request so far asked for one thing and got all of it. Real collections are too big to hand over in one response, and real servers will only answer so many requests before they ask you to slow down. Today you walk a dataset page by page in both of the shapes APIs use, work out which rate-limit numbers are telling you the truth, decide what to do after a <code>429</code>, and build a Postman collection that pulls every page for you.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Build a Postman collection that pulls a full paginated dataset and handles a rate-limit response gracefully.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start.</b> Sections A to F need no account, exactly like Sessions 1 to 3. <b>Section G is where you create a free Postman account</b>, because a collection is something Postman has to save for you, and the no-account client cannot save one. This is the first thing on the track you build that has to be kept, which is why the account arrives here. It is the only signup this track asks for, it is free, and it needs no payment details.</p>
+        <p><b>One new practice service joins today, for one job only.</b> <code>en.wikipedia.org/w/api.php</code> is Wikipedia&rsquo;s public API. It needs no key and no account, and it is the only service on this track that pages with a cursor, the second of the two shapes section A explains. You use it for the cursor walk in section C, and the drills that review that walk. <b>NASA&rsquo;s demo key is not needed today at all</b>: everything this session says about NASA is answerable from Session 3&rsquo;s transcripts.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">15</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">5</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Send each request against a real service before moving on, and tick the box once you have seen the result with your own eyes.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. Everything underneath came back over the network, copied from real requests run on 2026-10-01 while building this session, with Postman&rsquo;s own request headers. Most transcripts show only the headers that matter to the lesson, not all of them. Values that legitimately differ when you retry: <b><code>Date</code>, <code>Age</code>, every <code>X-RateLimit</code> number</b>, and Wikipedia&rsquo;s list, which its editors change over time, so your page counts and cursors may not match these exactly. Section C says which parts must match and which need not.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. Why an API paginates, and the two shapes it uses</h3>
+      <p>In Session 1 you dropped the <code>/1</code> from <code>/posts/1</code> and got all hundred posts in one response. Session 1 called what comes next "Session 4&rsquo;s problem", and this is it. A hundred posts is small. A real collection of orders, messages or customers can be millions of records, and handing those over in one response would be slow to build, slow to send, and more than any client wants at once.</p>
+      <p>So the server hands the collection out a slice at a time. That is <b>pagination</b>: each slice is a <b>page</b>, and the number of records in one slice is the <b>page size</b>. Fetching a whole collection then means asking for page after page until the server says there are no more. Every API that paginates has to answer two questions, and how it answers them is what separates the two shapes you will meet:</p>
+      <ul class="pts">
+        <li><b>How do you ask for the next slice?</b></li>
+        <li><b>How do you know you have had the last one?</b></li>
+      </ul>
+      <p><b>Shape 1, page numbers.</b> You say which page you want and how big pages are: "page 3, ten per page". A close cousin is the <b>offset</b>, meaning "skip the first 20, then give me 10", which is the same idea counted in records instead of pages. You can jump straight to any page, and if the server tells you the total you can work out how many pages there are before you start.</p>
+      <p><b>Shape 2, cursors.</b> Each page comes back with a <b>cursor</b>, a bookmark the server made for you that means "continue from here". To get the next page you send that bookmark back. A cursor is <b>opaque</b>, the word Session 3 used for API keys: you never read anything out of it or build one yourself, you copy it back exactly. That means you cannot jump to page 5. You can only reach page 5 by walking pages 1 to 4, because each page hands you the bookmark for the next.</p>
+      <div class="hdrs">
+        <div class="hrow lbl"><div class="hn">Question</div><div class="hv">Page numbers against cursors</div></div>
+        <div class="hrow keep"><div class="hn">How you ask</div><div class="hv">Page numbers: a page number and a size you choose. Cursors: the bookmark from the previous response.</div></div>
+        <div class="hrow keep"><div class="hn">Can you jump ahead</div><div class="hv">Page numbers: yes, to any page. Cursors: no, only to the next one.</div></div>
+        <div class="hrow keep"><div class="hn">How you know you are done</div><div class="hv">Whatever the server uses to signal it. Sections B and C show one of each, and they are different.</div></div>
+        <div class="hrow keep"><div class="hn">When records change mid-walk</div><div class="hv">Page numbers: everything shifts. Cursors: the bookmark holds its place.</div></div>
+      </div>
+      <p><b>That last row is why cursors exist, so it is worth seeing once.</b> Say you are walking ten per page and have just read page 1. Before you ask for page 2, someone adds a new record at the front. Every record moves back one place, so the record that was tenth, which you already read, is now eleventh, and page 2 hands it to you again. A deletion does the opposite and one record slides from page 2 onto page 1, which you have already left, so you never see it at all. <b>Page numbers count positions, and positions move.</b> A cursor marks a place in the data rather than a count, so it is not thrown off by what happens in front of it. That is why APIs over fast-changing data, feeds and message lists especially, tend to use cursors.</p>
+      <p>This session uses one service of each shape: <b>jsonplaceholder pages by number</b> (section B) and <b>Wikipedia pages by cursor</b> (section C).</p>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Page numbers, on jsonplaceholder</h3>
+      <p>jsonplaceholder takes two query-string parameters, the <code>?name=value</code> pairs Session 1 taught: <code>_page</code> for the page number and <code>_limit</code> for the page size. <b>The leading underscore is this service&rsquo;s own spelling</b>, not a standard. Other APIs say <code>page</code> and <code>per_page</code>, or <code>limit</code> and <code>offset</code>, and there is no rule about it, so this is the same lesson as Session 3&rsquo;s key header names: the API&rsquo;s documentation is the only authority. Ask for page 1, ten per page:</p>
+      <div class="filebox">
+        <div class="fbh">page 1 of the posts &middot; the two headers that matter</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts?_page=1&amp;_limit=10</span>
+200 OK
+x-total-count: 100
+link: &lt;https://jsonplaceholder.typicode.com/posts?_page=1&amp;_limit=10&gt;; rel="first",
+      &lt;https://jsonplaceholder.typicode.com/posts?_page=2&amp;_limit=10&gt;; rel="next",
+      &lt;https://jsonplaceholder.typicode.com/posts?_page=10&amp;_limit=10&gt;; rel="last"
+
+[ { <span class="jk">"userId"</span>: 1, <span class="jk">"id"</span>: 1, ... },  <span class="cm">... ten posts, ids 1 to 10 ...</span> ]</code></pre>
+      </div>
+      <p>The body is the array-of-objects shape from Session 1, only ten long now. The two headers are what make it walkable:</p>
+      <ul class="pts">
+        <li><b><code>x-total-count</code></b> is how many records the whole collection holds: 100. With ten per page, that is ten pages, worked out before you have asked for a second one.</li>
+        <li><b><code>link</code></b> is one header listing ready-made URLs, each with a <b><code>rel</code></b> label, short for <i>relation</i>, saying how that URL relates to this page. <code>first</code> and <code>last</code> are the ends of the collection, <code>next</code> is the page after this one, and <code>prev</code>, which page 1 has no use for, is the page before. <b>It is a single header</b>, shown here broken across three lines so it fits; Postman shows it as one long line.</li>
+      </ul>
+      <p><b>One thing about those angle brackets.</b> Session 3 used <code>&lt;token&gt;</code> as a stand-in for a value you supply. These are not that. In a <code>link</code> header the angle brackets are <b>real characters</b> the server sends, wrapping each URL so the <code>rel</code> after it cannot be mistaken for part of the address. Session 3&rsquo;s convention still holds everywhere else on this page; inside a <code>link</code> header the brackets are literal.</p>
+      <p>Now the last page, which is where the "how do you know you are done" question gets answered:</p>
+      <div class="filebox">
+        <div class="fbh">page 10 &middot; look at which rel is missing</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts?_page=10&amp;_limit=10</span>
+200 OK
+x-total-count: 100
+link: &lt;https://jsonplaceholder.typicode.com/posts?_page=1&amp;_limit=10&gt;; rel="first",
+      &lt;https://jsonplaceholder.typicode.com/posts?_page=9&amp;_limit=10&gt;; rel="prev",
+      &lt;https://jsonplaceholder.typicode.com/posts?_page=10&amp;_limit=10&gt;; rel="last"
+
+[ ... ten posts, ids 91 to 100 ... ]</code></pre>
+      </div>
+      <p><b>There is no <code>next</code>.</b> That absence is the server telling you this is the end, and it is the signal to stop on. And if you ask past the end anyway:</p>
+      <div class="filebox">
+        <div class="fbh">page 11 &middot; past the end, and still a 200</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts?_page=11&amp;_limit=10</span>
+200 OK
+x-total-count: 100
+link:
+
+[]</code></pre>
+      </div>
+      <p>An empty array and a blank <code>link</code>, with a <code>200</code>. Nothing went wrong, there is simply nothing there. <b>Plenty of APIs do this</b>, so an empty page is the other common stop signal, and a client that keeps going until it gets an error will never stop.</p>
+      <p><b>Now the trap that makes page numbers dangerous, and it is not in any documentation.</b> Use the wrong parameter names, the ones a different API would have wanted:</p>
+      <div class="filebox">
+        <div class="fbh">plausible names, wrong for this service &middot; and no complaint at all</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts?page=2&amp;limit=10</span>
+200 OK
+
+[ ... one hundred posts, ids 1 to 100 ... ]</code></pre>
+      </div>
+      <p><b>A <code>200</code>, no error, and all hundred posts starting from id 1.</b> The server did not recognise <code>page</code> or <code>limit</code>, so it ignored them silently and answered as if you had sent neither. The same happens with the right names in the wrong case: <code>_Page=2&amp;_LIMIT=10</code> also comes back with all hundred, because parameter names here are case-sensitive. <b>A <code>200</code> means the server answered, not that it understood your parameters.</b> The tell is in the body: you asked for page 2 and the first id is <code>1</code>. This is Session 2&rsquo;s habit, read the whole response before deciding what happened, catching a bug that the status line cannot.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Walk to the end by numbers, then fall into the trap on purpose</div>
+        <ol>
+          <li>Send <code>GET https://jsonplaceholder.typicode.com/posts?_page=1&amp;_limit=10</code>. On the Headers tab, find <code>x-total-count</code> and <code>link</code>, and say how many pages there are before sending another request.</li>
+          <li>Send page 10. Confirm the ids run 91 to 100 and the <code>link</code> header has no <code>rel="next"</code>.</li>
+          <li>Send page 11. Confirm a <code>200</code> with <code>[]</code>.</li>
+          <li>Send <code>GET https://jsonplaceholder.typicode.com/posts?page=2&amp;limit=10</code>. Confirm the status is <code>200</code>, then scroll the body and find the first id. Say in one sentence what went wrong and how the body gave it away.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="1"> I walked jsonplaceholder by page number, found the stop signal, and caught a wrong parameter name from the body</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Cursors, on Wikipedia</h3>
+      <p>Wikipedia&rsquo;s API answers on a single URL, <code>https://en.wikipedia.org/w/api.php</code>, and you say what you want entirely in the query string. It is long, so here it is one parameter at a time, before you see it whole:</p>
+      <div class="hdrs">
+        <div class="hrow lbl"><div class="hn">Parameter</div><div class="hv">What it says</div></div>
+        <div class="hrow keep"><div class="hn">action=query</div><div class="hv">"I want to read something."</div></div>
+        <div class="hrow keep"><div class="hn">format=json</div><div class="hv">"Answer in JSON."</div></div>
+        <div class="hrow keep"><div class="hn">list=categorymembers</div><div class="hv">"List the pages filed under one category." The other parameters for this list all start with <code>cm</code>, for <i>category members</i>.</div></div>
+        <div class="hrow keep"><div class="hn">cmtitle=Category:Hypertext_Transfer_Protocol</div><div class="hv">Which category: the one for HTTP itself, which is why the titles below look familiar.</div></div>
+        <div class="hrow keep"><div class="hn">cmlimit=20</div><div class="hv">The page size: twenty per page.</div></div>
+      </div>
+      <div class="filebox">
+        <div class="fbh">page 1 &middot; no cursor yet, because nothing has been read</div>
+<pre><code><span class="cmd">&gt; GET https://en.wikipedia.org/w/api.php?action=query&amp;format=json</span>
+<span class="cmd">      &amp;list=categorymembers&amp;cmtitle=Category:Hypertext_Transfer_Protocol&amp;cmlimit=20</span>
+200 OK
+{
+  <span class="jk">"batchcomplete"</span>: "",
+  <span class="jk">"continue"</span>: {
+    <span class="jk">"cmcontinue"</span>: "page|3850504804482a4c2a423250324c044846404052503a4644011c01dcdcdcdc18|64531175",
+    <span class="jk">"continue"</span>: "-||"
+  },
+  <span class="jk">"query"</span>: {
+    <span class="jk">"categorymembers"</span>: [
+      { <span class="jk">"pageid"</span>: 13443, <span class="jk">"ns"</span>: 0, <span class="jk">"title"</span>: "HTTP" },
+      <span class="cm">... twenty in all, ending with "HTTP Live Streaming" ...</span>
+    ]
+  }
+}</code></pre>
+      </div>
+      <p>The request is shown on two lines to fit; type it as one URL with no spaces. <b>The cursor is <code>cmcontinue</code></b>, inside an object called <code>continue</code>, and you can see why the word opaque fits. Do not try to read it. To get page 2, send the identical request with one more parameter, <code>cmcontinue</code>, set to exactly that value:</p>
+      <div class="filebox">
+        <div class="fbh">page 2 &middot; the same request plus the bookmark page 1 handed you</div>
+<pre><code><span class="cmd">&gt; GET ...&amp;cmlimit=20</span>
+<span class="cmd">      &amp;cmcontinue=page|3850504804482a4c2a423250324c044846404052503a4644011c01dcdcdcdc18|64531175</span>
+200 OK
+{
+  <span class="jk">"batchcomplete"</span>: "",
+  <span class="jk">"continue"</span>: {
+    <span class="jk">"cmcontinue"</span>: "page|56322c302a54030656322c302a54011101e0c0e0c4dcdcdc|179849",
+    <span class="jk">"continue"</span>: "-||"
+  },
+  <span class="jk">"query"</span>: {
+    <span class="jk">"categorymembers"</span>: [ <span class="cm">... twenty more, "HTTP parameter pollution" to "Web-based SSH" ...</span> ]
+  }
+}</code></pre>
+      </div>
+      <p><b>A new cursor, different from the last.</b> Each page hands you the bookmark for the next one and nothing else, so there is no way to ask for page 3 without having read page 2. Send page 3 with the new value:</p>
+      <div class="filebox">
+        <div class="fbh">page 3 &middot; compare its top-level keys with pages 1 and 2</div>
+<pre><code><span class="cmd">&gt; GET ...&amp;cmlimit=20&amp;cmcontinue=page|56322c302a54030656322c302a54011101e0c0e0c4dcdcdc|179849</span>
+200 OK
+{
+  <span class="jk">"batchcomplete"</span>: "",
+  <span class="jk">"query"</span>: {
+    <span class="jk">"categorymembers"</span>: [ <span class="cm">... eight titles, "WebDAV" to "Category:Web server software" ...</span> ]
+  }
+}</code></pre>
+      </div>
+      <p><b>No <code>continue</code> object at all.</b> That is Wikipedia&rsquo;s stop signal, and notice it is a different signal from jsonplaceholder&rsquo;s missing <code>rel="next"</code>, in a different place: the body rather than a header. <b>That is the general lesson about cursors</b>: every API signals the end in its own way, and the documentation tells you which. The rule underneath does not change: <b>keep going while the server hands you a way to continue, and stop the moment it does not.</b></p>
+      <p><b>What must match yours, and what need not.</b> On 2026-10-01 this walk took three pages, 20, 20 and 8, and one of the last eight titles was "Webhook", which is Session 7. Wikipedia&rsquo;s editors add and remove pages from categories, so <b>your counts, titles and cursor values may differ</b>. What will not differ is the shape: a <code>continue</code> object on every page but the last, and none on the last.</p>
+      <p><b>And a cursor you made up?</b> Replace the cursor with something that was obviously never issued, <code>page|zzzz|1</code>, and send it:</p>
+      <div class="filebox">
+        <div class="fbh">a forged cursor &middot; read past the status line</div>
+<pre><code><span class="cmd">&gt; GET ...&amp;cmlimit=20&amp;cmcontinue=page|zzzz|1</span>
+200 OK
+{
+  <span class="jk">"error"</span>: {
+    <span class="jk">"code"</span>: "badcontinue",
+    <span class="jk">"info"</span>: "Invalid continue param. You should pass the original value returned by the previous query."
+  }
+}</code></pre>
+      </div>
+      <p><b>A <code>200</code> wrapping an error.</b> Wikipedia reports this problem in the body and leaves the status at <code>200</code>, the opposite habit from NASA in Session 3, which at least changed the status to <code>403</code>. It is the strongest argument yet for reading the body every time. The message says the rest: the only valid cursor is one the server gave you.</p>
+      <p><b>Now the more dangerous case.</b> Change a single hex digit near the end of a <b>real</b> cursor and Wikipedia usually does not complain at all: it answers <code>200</code> with a normal-looking page of titles, just not the page you were owed. Building this session, a cursor with its last hex digit changed came back starting at "Webhook", partway through page 3, so a walk using it would have silently skipped titles. <b>A refused cursor is the lucky outcome; an edited one that is accepted hands you the wrong slice of data and says nothing.</b> That is the practical reason behind "opaque": never edit, shorten or build a cursor, only copy one back exactly.</p>
+      <div class="note"><b>Two details, so they do not trip you.</b> The cursor contains <code>|</code> characters; Postman sends them as they are and Wikipedia accepts them, so paste the value unchanged. And the <code>continue</code> object holds a second field, <code>"continue": "-||"</code>, which Wikipedia uses for more complex queries than this one. For this list, sending <code>cmcontinue</code> alone was verified to work, and that is all this session asks you to send. Wikipedia&rsquo;s own documentation puts the opacity rule plainly: you "should not manipulate or depend on any specifics of the values returned inside the continue element, as they may change."</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Walk a cursor to the end, then forge one</div>
+        <ol>
+          <li>Send <code>GET https://en.wikipedia.org/w/api.php?action=query&amp;format=json&amp;list=categorymembers&amp;cmtitle=Category:Hypertext_Transfer_Protocol&amp;cmlimit=20</code>. Find <code>cmcontinue</code> inside <code>continue</code>.</li>
+          <li>Add <code>&amp;cmcontinue=</code> and paste that exact value after it. Send, and confirm you got different titles and a <b>different</b> cursor.</li>
+          <li>Repeat with each new cursor until a response has <b>no</b> <code>continue</code> object. Count the pages it took. Three is what this session saw; yours may differ, and that is fine. <b>Send these at a calm pace.</b> Wikipedia limits busy clients, and if it answers <code>429 Too Many Requests</code> that is a real one: wait a minute and resend, which is section E in practice.</li>
+          <li>Now send the request with the cursor replaced by <code>page|zzzz|1</code>. Confirm the status is still <code>200</code> and find <code>badcontinue</code> in the body.</li>
+          <li>Say in one sentence why you could not have skipped straight to the last page.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="2"> I walked a cursor to the end by copying each bookmark forward, and saw a made-up one refused inside a 200</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Rate-limit headers, and which service is telling the truth</h3>
+      <p>Session 2 named the <code>X-RateLimit-</code> group as the one piece of header plumbing that is genuinely about you, and Session 3 showed you a counter that really counts. Walking pages multiplies your requests, so this is where those numbers start to matter. As a reminder, they come in three:</p>
+      <ul class="pts">
+        <li><b><code>X-RateLimit-Limit</code></b>, how many requests the allowance holds;</li>
+        <li><b><code>X-RateLimit-Remaining</code></b>, how many are left;</li>
+        <li><b><code>X-RateLimit-Reset</code></b>, when the allowance refills. On jsonplaceholder that is a <b>Unix timestamp</b>, a count of seconds since midnight UTC on 1 January 1970, which is how computers commonly write a moment in time. Any "Unix timestamp converter" turns it into a date.</li>
+      </ul>
+      <p>The four services on this track tell four different stories about rate limits, and only one of them is a live count you can act on:</p>
+      <div class="hdrs">
+        <div class="hrow lbl"><div class="hn">Service</div><div class="hv">What its rate-limit headers are worth</div></div>
+        <div class="hrow keep"><div class="hn">jsonplaceholder</div><div class="hv"><b>Present, and not counting anything you can use.</b> Most answers are stored copies, so the numbers are frozen at whatever they read when the copy was stored. Shown below.</div></div>
+        <div class="hrow keep"><div class="hn">api.nasa.gov</div><div class="hv"><b>Real, and shared.</b> They count down as requests are spent, as Session 3 showed, but per network address, so they count your whole address, not you.</div></div>
+        <div class="hrow keep"><div class="hn">postman-echo</div><div class="hv"><b>None at all.</b> It sends no rate-limit headers, yet it will hand you a <code>429</code> on demand, which section E uses.</div></div>
+        <div class="hrow keep"><div class="hn">Wikipedia</div><div class="hv"><b>None in these responses either.</b> Which is not the same as no limit: Wikipedia does refuse clients that send too much, with a real <code>429</code>.</div></div>
+      </div>
+      <p>The jsonplaceholder story is worth seeing for yourself, because it is the one that would mislead you. Here is the same page requested three times, a second or so apart:</p>
+      <div class="filebox">
+        <div class="fbh">three identical requests &middot; watch Remaining, Reset and Age</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts?_page=3&amp;_limit=10</span>
+date: Thu, 01 Oct 2026 14:10:32 GMT
+x-ratelimit-limit: 3600000
+x-ratelimit-remaining: 3599997
+x-ratelimit-reset: 1790812826
+age: 25289
+
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts?_page=3&amp;_limit=10</span>
+date: Thu, 01 Oct 2026 14:10:34 GMT
+x-ratelimit-remaining: 3599997                  <span class="cm">&lt;- has not moved</span>
+age: 25291
+
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts?_page=3&amp;_limit=10</span>
+date: Thu, 01 Oct 2026 14:10:35 GMT
+x-ratelimit-remaining: 3599997                  <span class="cm">&lt;- still has not moved</span>
+age: 25292</code></pre>
+      </div>
+      <p>Three things in there each say "do not trust me". The first is the one to rely on, because the other two depend on how old the cached copy happens to be when you ask:</p>
+      <ul class="pts">
+        <li><b><code>Remaining</code> never moved.</b> Eighteen requests sent while building this session, six each to three different URLs, did not move a single counter: each URL stayed frozen at its own value. A counter that does not count is not a counter.</li>
+        <li><b><code>age: 25289</code> is about seven hours.</b> Session 2 taught that <code>Age</code> is how long a stored copy has been sitting in a cache. A copy that is seven hours old carries a seven-hour-old counter. Yours may be much younger, and even a fresh copy stays frozen once it is stored.</li>
+        <li><b>The reset is in the past.</b> <code>1790812826</code> converts to <code>Thu, 01 Oct 2026 00:00:26 GMT</code>, fourteen hours before the <code>date</code> on the same response. An allowance cannot be due to refill at a time that has already gone by. A freshly stored copy can carry a reset in the future, so this sign comes and goes; the frozen counter does not.</li>
+      </ul>
+      <p>One more piece of evidence, from your own track. <b>Session 2 recorded this service&rsquo;s limit as <code>1000</code>.</b> Today it says <code>3600000</code>. Nothing about your requests changed; the cached headers did. So the rule from Session 2 still stands and now has its reason spelled out: <b>on a cached public service, rate-limit headers are something to recognise, not a count to act on.</b> The habit worth taking to a real API is to check <code>Age</code> before believing any counter: a response a cache has been holding for hours cannot tell you about the request you just sent.</p>
+      <p><b>And the services with no headers?</b> postman-echo and Wikipedia simply do not send them. That does not mean they will serve you without limit; it means they are not telling you the count. <b>No header is not permission to hammer</b>, and section F is how to behave when you cannot see the number at all.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Catch a counter that is not counting</div>
+        <ol>
+          <li>Send <code>GET https://jsonplaceholder.typicode.com/posts?_page=3&amp;_limit=10</code> three times in a row. Each time, write down <code>x-ratelimit-remaining</code> and <code>age</code> from the Headers tab. Yours will not match the transcript above, and they may differ from each other; what to look for is whether <code>remaining</code> falls by one per request, the way a real counter would.</li>
+          <li>Paste your <code>x-ratelimit-reset</code> value into a Unix timestamp converter and compare it with the response&rsquo;s own <code>date</code> header. Say whether the reset is in the future or the past. Either is possible: if your <code>age</code> is small the copy is fresh and the reset may still be ahead. The counter not moving in step 1 is the sign that holds either way.</li>
+          <li>Send <code>GET https://postman-echo.com/get</code> and look for any rate-limit header. Say what you can and cannot conclude from finding none.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="3"> I checked a rate-limit counter against Age and the reset time, and can say why I would not act on it</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. After a 429: how long, and whether to retry at all</h3>
+      <p>Session 3 showed you a real <code>429 Too Many Requests</code> from NASA, with <code>Retry-After: 22797</code>. That told you what running out looks like. This section is what you do next, and it comes down to two questions you answer from the response, in order: <b>should this request be retried at all</b>, and if so, <b>how long should you wait first</b>.</p>
+      <p><b>First, which failures are worth retrying.</b> A retry sends the identical request again, so it only helps when the problem is on the server&rsquo;s side and temporary. When the problem is in your request, the same request fails the same way every time:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Code</div><div class="fn">Retry it?</div><div class="fd">Why</div></div>
+        <div class="frow"><div class="fc">429</div><div class="fn">Yes, after waiting</div><div class="fd">Nothing is wrong with the request. You sent too many too quickly, and the same request will succeed once you have slowed down.</div></div>
+        <div class="frow"><div class="fc">503</div><div class="fn">Yes, after waiting</div><div class="fd"><b>Service Unavailable</b>: the server is overloaded or down for a moment. Temporary by definition, and it may carry a <code>Retry-After</code> of its own.</div></div>
+        <div class="frow"><div class="fc">400</div><div class="fn">No</div><div class="fd"><b>Bad Request</b>: the server could not make sense of what you sent. Sending it again unchanged gets the same answer.</div></div>
+        <div class="frow"><div class="fc">401 / 403</div><div class="fn">No</div><div class="fd">Session 3&rsquo;s pair. A missing or wrong credential is still missing or wrong a second later; fix the credential.</div></div>
+        <div class="frow"><div class="fc">404</div><div class="fn">No</div><div class="fd">Nothing is at that URL, and waiting will not put anything there.</div></div>
+      </div>
+      <p><b>Second, how long to wait.</b> If the response carries <code>Retry-After</code>, that is the answer, and it overrides any schedule of your own. It comes in two forms, and you should be able to read both:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">a number of seconds</span><code>Retry-After: 120</code></div>
+        <div class="srow"><span class="sl">a date and time</span><code>Retry-After: Thu, 01 Oct 2026 14:05:00 GMT</code></div>
+      </div>
+      <p>The first is the form NASA used. The second means "not before this moment", and to turn it into a wait you subtract the response&rsquo;s own <code>Date</code> header from it, not the clock on your computer, which may be off. A response dated <code>14:03:00 GMT</code> carrying the date form above means wait two minutes.</p>
+      <p><b>And sometimes there is no <code>Retry-After</code> at all.</b> MDN&rsquo;s page for <code>429</code> says the header "may be included", and may is the honest word. postman-echo will give you a <code>429</code> on demand, costing nothing and spending no shared quota, and it is a real example of the bare kind:</p>
+      <div class="filebox">
+        <div class="fbh">a 429 with nothing to tell you how long</div>
+<pre><code><span class="cmd">&gt; GET https://postman-echo.com/status/429</span>
+429 Too Many Requests
+content-type: application/json; charset=utf-8
+content-length: 14
+
+{ <span class="jk">"status"</span>: 429 }</code></pre>
+      </div>
+      <p><b>No <code>Retry-After</code>, and no rate-limit headers either.</b> The server has told you to slow down and not by how much, so the waiting schedule is now yours to choose, and section F is how to choose it well. Two honesty notes about this endpoint: it is a <b>simulated</b> 429, sent because the URL asked for one rather than because you used anything up, and it will answer <code>429</code> however long you wait, so it is for reading, never for practising a retry against.</p>
+      <p>To see a <code>Retry-After</code> on your own screen without spending anything, postman-echo has an endpoint that sends back whatever response header you name in the query string:</p>
+      <div class="filebox">
+        <div class="fbh">a Retry-After header, made to order &middot; and a 200, so not a real limit</div>
+<pre><code><span class="cmd">&gt; GET https://postman-echo.com/response-headers?Retry-After=5</span>
+200 OK
+retry-after: 5
+
+{ <span class="jk">"Retry-After"</span>: "5" }</code></pre>
+      </div>
+      <p>That is the header exactly as a real server would send it, though the status is <code>200</code> because nothing was actually limited. It is there so you know where to look on the Headers tab, not to stand in for a real refusal.</p>
+      <div class="note"><b>One request you must never retry blindly, which is Session 8&rsquo;s whole subject.</b> Everything above is safe for a <code>GET</code>, which only reads. A <code>POST</code> that timed out may have created the thing before the answer was lost, and sending it again can create a second one. jsonplaceholder cannot show you this, because it persists nothing. Session 8 covers the pattern that makes a retried write safe; until then, retry reads, always with backoff, and never retry writes.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read three refusals and decide what each one deserves</div>
+        <ol>
+          <li>Send <code>GET https://postman-echo.com/status/429</code>. Confirm <code>429</code>, then check the Headers tab for <code>Retry-After</code> and confirm it is not there.</li>
+          <li>Send <code>GET https://postman-echo.com/response-headers?Retry-After=5</code> and find <code>retry-after</code> on the Headers tab. Say why the <code>200</code> means this is a demonstration rather than a limit.</li>
+          <li>Send <code>GET https://postman-echo.com/status/503</code> and <code>GET https://postman-echo.com/status/404</code>. For each, say whether you would retry it and why.</li>
+          <li>Work out the wait: a response dated <code>14:03:00 GMT</code> carries <code>Retry-After: Thu, 01 Oct 2026 14:05:00 GMT</code>. How many seconds?</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="4"> I can say which failures deserve a retry, and read Retry-After in both of its forms</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Backing off instead of hammering</h3>
+      <p>When a retry is the right call and the server has not said how long to wait, the tempting move is to try again straight away, and keep trying until it works. That is the one move guaranteed to make things worse, and the arithmetic shows why better than any warning can.</p>
+      <p><b>The naive loop.</b> Say a server is overloaded for 30 seconds, and your client retries every tenth of a second until it gets through. That is <b>300 requests</b> from you, every one refused. Now remember you are rarely the only client. If a thousand clients do the same, the struggling server receives <b>300,000 requests</b> in the half minute it most needs quiet, which can keep it overloaded long after it would otherwise have recovered. A crowd of clients retrying in a tight loop is called a <b>retry storm</b>, and it is a classic way a brief outage becomes a long one.</p>
+      <p><b>Exponential backoff</b> is the fix. Wait before each retry, and <b>double the wait after every failure</b>: one second, then two, then four, then eight. Against the same 30-second outage:</p>
+      <div class="hops">
+        <div class="hop"><div class="hi">0s</div><div class="hb"><b>First request fails.</b> Wait 1 second.</div></div>
+        <div class="hop"><div class="hi">1s</div><div class="hb"><b>Retry 1 fails.</b> Wait 2 seconds.</div></div>
+        <div class="hop"><div class="hi">3s</div><div class="hb"><b>Retry 2 fails.</b> Wait 4 seconds.</div></div>
+        <div class="hop"><div class="hi">7s</div><div class="hb"><b>Retry 3 fails.</b> Wait 8 seconds.</div></div>
+        <div class="hop"><div class="hi">15s</div><div class="hb"><b>Retry 4 fails.</b> Wait 16 seconds.</div></div>
+        <div class="hop"><div class="hi">31s</div><div class="hb"><b>Retry 5 succeeds</b>, because the outage ended at 30 seconds.</div></div>
+      </div>
+      <p><b>Six requests instead of 300</b>, and you got through only one second after the earliest possible moment. That is the whole bargain: you trade a little speed at the very end for asking fifty times less of a server that is already in trouble. Three refinements turn the idea into something you would actually ship:</p>
+      <ul class="pts">
+        <li><b>A cap.</b> Doubling grows fast: the tenth wait would be over eight minutes. So set a ceiling, and once the doubled wait would pass it, wait the ceiling instead. With a 20-second cap, the waits go 1, 2, 4, 8, 16, 20, 20.</li>
+        <li><b>A limit on attempts.</b> Decide in advance how many retries you will make, five is common, and after that stop and report the failure. A loop that never gives up is still a loop that hammers, only more slowly.</li>
+        <li><b>Jitter.</b> If a thousand clients all failed at the same instant and all back off by the same schedule, they all retry at exactly 1 second, then exactly 3, in lockstep, and the storm arrives in synchronised waves. <b>Jitter</b> means adding a little randomness to each wait, for example waiting any amount between zero and the computed wait, so the crowd spreads out instead of arriving together.</li>
+      </ul>
+      <p><b>And <code>Retry-After</code> beats all of it.</b> When the server tells you how long, wait that long, even if your schedule would have tried sooner. Backoff is for when you have to guess.</p>
+      <p><b>Postman will not back off for you</b>, and this track does not program a client that does, so today backoff is something you reason about and plan. What Postman can do is the gentler half of the same idea: when it runs a whole collection, it can wait a fixed delay between requests, so you never send them in a burst in the first place. Pacing prevents a <code>429</code>; backoff is how you respond to one. You set that delay in section G.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Time a naive loop against a backed-off one, on paper</div>
+        <ol>
+          <li>A server is down for 60 seconds. A naive client retries every half second. How many requests does it send before the server recovers?</li>
+          <li>A backed-off client waits 1 second, doubling each time, with no cap. List the moments it sends a request, starting at 0, until the first one at or after 60 seconds. How many requests is that?</li>
+          <li>Now add a cap of 20 seconds and redo step 2. Say what the cap cost you in requests, how it changed when you noticed the recovery, and when a cap does pay off.</li>
+          <li>Say in one sentence what jitter would change if a thousand clients were doing step 3 at once.</li>
+        </ol>
+        <details><summary>Check your arithmetic</summary>
+<pre><code><span class="cmd">&gt; 1. naive, every 0.5s for 60s</span>
+120 requests, all refused
+
+<span class="cmd">&gt; 2. backoff 1, 2, 4, 8, 16, 32, no cap</span>
+sends at 0, 1, 3, 7, 15, 31, 63 seconds
+7 requests, and the one at 63s succeeds
+
+<span class="cmd">&gt; 3. same, capped at 20s</span>
+waits 1, 2, 4, 8, 16, 20, 20 ...
+sends at 0, 1, 3, 7, 15, 31, 51, 71 seconds
+8 requests: one more than step 2, and the 71s request
+succeeds, 8 seconds later than the 63s one did. The cap
+cost you one extra request and a little speed this time;
+on a longer outage it is what stops the waits growing
+without limit.
+
+<span class="cmd">&gt; 4. jitter</span>
+the thousand clients stop retrying at the same instants,
+so the server sees a spread of requests instead of
+synchronised waves of a thousand at a time.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I timed a naive retry loop against a backed-off one, and can say what the cap and jitter each add</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. A free account, a collection, and a run that walks every page</h3>
+      <p>Everything so far, you did by hand: one request, read it, change a number, send again. A <b>collection</b> is Postman&rsquo;s name for a saved, named group of requests, and once requests are saved together Postman can <b>run</b> them for you, as many times as you like, with different values each time. That is how you walk a whole dataset without clicking ten times. It is also the first thing on this track that Postman has to keep for you, which is why the account arrives now.</p>
+      <p><b>Step 1, the account.</b> In the no-account client, look for the button offering to sign in or create an account (it usually sits at the top of the window), and choose to create one. Postman typically offers email or an existing Google account; either is fine. The plan you want is the free one. <b>It should not ask for payment details</b>; if a screen does, you are on a paid-plan page, so go back. Once signed in you land in a <b>workspace</b>, which is just the space your collections live in.</p>
+      <div class="danger"><b>From here on, what you save leaves your machine.</b> A signed-in Postman syncs your collections to Postman&rsquo;s servers, which is what makes them reachable from anywhere. That makes Session 3&rsquo;s section G rules real rather than practice: <b>never save a real credential into a request</b>. Nothing in this session uses one, so there is nothing to leak today.</div>
+      <p><b>Step 2, a collection with one request in it.</b> Create a new collection and name it, say, <code>S4 pagination</code>. Postman&rsquo;s menus have moved between versions, so look for the word "New" or a plus sign, then "Collection". Add a request to it and give it this URL:</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">the request</span><code>GET https://jsonplaceholder.typicode.com/posts?_page={{page}}&amp;_limit=10</code></div>
+      </div>
+      <p><b><code>{{page}}</code> is a variable</b>, Session 3&rsquo;s double-curly-brace reference: a name standing in for a value supplied somewhere else. This time the value comes from a file, one row per run. Save the request into the collection.</p>
+      <p><b>Step 3, a check on every page.</b> Open the request&rsquo;s <b>Scripts</b> tab and its <b>Post-response</b> section (older versions call this tab <b>Tests</b>), the code Postman runs after each response arrives. Most versions offer a list of ready-made snippets beside it; choose the one named along the lines of "Status code: Code is 200". If yours has no list, paste this line, which is the same check that snippet inserts, written on one line:</p>
+      <div class="filebox">
+        <div class="fbh">a status check &middot; fails loudly on anything that is not a 200</div>
+<pre><code>pm.test("Status code is 200", function () { pm.response.to.have.status(200); });</code></pre>
+      </div>
+      <p>It is a line of JavaScript, but you do not need to write any: it is a <b>test</b>, which says "this response should have status 200" and is reported as passed or failed. This is what makes a run trustworthy. A page that comes back <code>429</code> in the middle of a run then shows up as a failure, instead of quietly being counted as a page of data. You will watch it fail in step 6.</p>
+      <p><b>Step 4, the data file.</b> A <b>data file</b> is a plain text file that hands the run one set of values per pass. In a <b>CSV</b>, short for comma-separated values, the first line holds the variable names and every line after it is one pass. You only need one column, so there are no commas at all:</p>
+      <div class="filebox">
+        <div class="fbh">pages.csv &middot; the first line names the variable, then one page per line</div>
+<pre><code>page
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10</code></pre>
+      </div>
+      <p><b>Ten rows, because section B already told you there are ten pages</b>: <code>x-total-count: 100</code> at ten per page, or the <code>rel="last"</code> URL ending <code>_page=10</code>. Reading the size of the walk off the first response, then building the file, is the whole technique. <b>The column name must match the variable exactly, case included</b>, which Postman&rsquo;s documentation states plainly: <code>page</code> in the file and <code>{{page}}</code> in the URL.</p>
+      <div class="shells">
+        <div class="srow"><span class="sl">Windows, Notepad</span><code>File &gt; Save As, set "Save as type" to All files, name it pages.csv (if file extensions are hidden, check it did not become pages.csv.txt)</code></div>
+        <div class="srow"><span class="sl">macOS, TextEdit</span><code>Format &gt; Make Plain Text first, then save as pages.csv (if it asks, choose Use .csv)</code></div>
+      </div>
+      <p><b>Step 5, run it, paced.</b> Open the collection&rsquo;s <b>Run</b> option, which opens what Postman calls the <b>Collection Runner</b>. Select <code>pages.csv</code> as the data file; Postman reads it, and the number of passes, which it calls <b>iterations</b>, becomes ten, one per row. Look for a <b>delay</b> setting and give it 500 milliseconds: that is the pacing from section F, a half-second gap so ten requests do not go out in a burst. Then run.</p>
+      <div class="filebox">
+        <div class="fbh">what the run does, summarised &middot; verified with Postman&rsquo;s command-line runner, which runs the same scripts</div>
+<pre><code>Iteration 1/10    GET .../posts?_page=1&amp;_limit=10    200 OK    &#10003; Status code is 200
+Iteration 2/10    GET .../posts?_page=2&amp;_limit=10    200 OK    &#10003; Status code is 200
+<span class="cm">... iterations 3 to 9 ...</span>
+Iteration 10/10   GET .../posts?_page=10&amp;_limit=10   200 OK    &#10003; Status code is 200
+                                                <span class="cm">ids 1 to 100, ten per iteration</span></code></pre>
+      </div>
+      <p>Click into the last iteration and check its <code>link</code> header: no <code>rel="next"</code>, so the file was the right size. <b>At time of writing, Postman&rsquo;s free plan does not cap how many of these runs you make</b>; older plans did, and plans change, so if Postman ever tells you that you have hit a run limit, that is the reason.</p>
+      <p><b>Two traps worth knowing before you hit them.</b></p>
+      <ul class="pts">
+        <li><b>Every request in the collection runs once per row.</b> Put a second request beside the first and a ten-row file sends it ten times too. Keep a walking collection to the one request that walks.</li>
+        <li><b>A mistyped variable still comes back green.</b> If the URL says <code>{{Page}}</code> and the file says <code>page</code>, Postman has no value for <code>{{Page}}</code> and sends the literal text. jsonplaceholder ignores a page number it cannot read, exactly as in section B, so every iteration returns <code>200</code> with posts 1 to 10. <b>Ten passed tests and ten copies of page 1.</b> The status check cannot catch this. Two other things can: the ids, and the <code>link</code> header, which still says <code>rel="next"</code> on the last iteration, the very check from step 5.</li>
+      </ul>
+      <p><b>Step 6, watch the check catch a 429.</b> In the same request, temporarily change the URL to <code>https://postman-echo.com/status/429</code> and press <b>Send</b>, not Run, so it goes once. Open the <b>Test Results</b> tab: the status check has <b>failed</b>, naming the <code>429</code> it got. That is the rate-limit response being caught rather than swallowed. Change the URL back and save.</p>
+      <details class="note"><summary><b>Optional, not graded: following a cursor automatically.</b> Read this only if you are curious; it is the one place this session shows code you would have to understand to change.</summary>
+        <p>A data file works for page numbers because you know every page number before you start. <b>It cannot work for a cursor</b>, because page 2&rsquo;s cursor does not exist until page 1 has answered, which is section A&rsquo;s point turned into a practical limit. The way through is a post-response script that reads the cursor and tells the Runner to send the same request again. This was verified against the section C walk with Postman&rsquo;s command-line runner: three pages, then it stopped on its own.</p>
+<pre><code><span class="cm">// URL ends ...&amp;cmlimit=20&amp;cmcontinue={{cmcontinue}}</span>
+<span class="cm">// and the collection has a variable cmcontinue, starting empty</span>
+const body = pm.response.json();
+if (body.continue) {
+  <span class="cm">// more to come: keep the bookmark, and send this request again</span>
+  pm.collectionVariables.set("cmcontinue", body.continue.cmcontinue);
+  pm.execution.setNextRequest(pm.info.requestName);
+} else {
+  <span class="cm">// no continue object: last page, so clear the bookmark and stop</span>
+  pm.collectionVariables.set("cmcontinue", "");
+}</code></pre>
+        <p>An empty <code>cmcontinue</code> asks Wikipedia for the first page, which is why the variable starts empty. Postman&rsquo;s documentation is explicit that <code>setNextRequest</code> only takes effect in a collection run, never on a single Send.</p>
+      </details>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Sign up, then let Postman walk every page</div>
+        <ol>
+          <li>Create your free Postman account and sign in. Confirm no payment details were asked for.</li>
+          <li>Create a collection and add <code>GET https://jsonplaceholder.typicode.com/posts?_page={{page}}&amp;_limit=10</code> to it, with the status check from step 3.</li>
+          <li>Make <code>pages.csv</code> with <code>page</code> on the first line and 1 to 10 below it.</li>
+          <li>Run the collection with that file and a 500 ms delay. Confirm ten iterations, ten passed checks, and that the last one has no <code>rel="next"</code>.</li>
+          <li>Change the URL to <code>https://postman-echo.com/status/429</code>, press Send once, and confirm the check fails. Change it back.</li>
+        </ol>
+        <label class="did"><input type="checkbox" data-task="6"> I made a free account and ran a collection that walked all ten pages, with a check that catches a 429</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a full dataset, and a plan for when it pushes back</h3>
+      <p>The milestone is a collection that pulls a whole paginated dataset and handles a rate-limit response gracefully. Gracefully has two halves, and you have now done both: the run is paced and checked, so a <code>429</code> is caught rather than counted as data, and you can say exactly what you would do about one instead of trying again at once.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: all 500 comments, from a blank collection</div>
+        <p>Work in a new collection. Do not scroll back up. jsonplaceholder also serves comments, at <code>https://jsonplaceholder.typicode.com/comments</code>, and there are more of them than posts.</p>
+        <ol>
+          <li><b>Size the walk first.</b> Ask for page 1 of the comments at 100 per page, read the total and the <code>rel="last"</code> page, and say how many pages there are.</li>
+          <li><b>Build it.</b> One request that takes its page number from a variable, with the status check, and a data file with exactly the right number of rows.</li>
+          <li><b>Run it, paced.</b> Confirm every iteration passed, and confirm from the ids that you got every comment exactly once, not one page over and over.</li>
+          <li><b>Show the check catching a 429</b>, using postman-echo, with a single Send.</li>
+          <li><b>Now the plan.</b> Say in a few sentences what you would do if page 3 of a real run came back <code>429</code> with <code>Retry-After: 30</code>; what you would do if it came back <code>429</code> with no <code>Retry-After</code>, naming your waits, cap and attempt limit; and which status, if page 3 came back with it instead, you would not retry at all.</li>
+        </ol>
+        <p>You have hit the milestone when you can do steps 1 to 4 from a blank collection and say step 5 without looking.</p>
+        <details><summary>Show the answers to check yourself against</summary>
+<pre><code><span class="cmd">&gt; 1. size the walk</span>
+GET https://jsonplaceholder.typicode.com/comments?_page=1&amp;_limit=100
+-> x-total-count: 500, and rel="last" ends _page=5&amp;_limit=100
+-> 500 / 100 = 5 pages
+
+<span class="cmd">&gt; 2. build it</span>
+GET https://jsonplaceholder.typicode.com/comments?_page={{page}}&amp;_limit=100
+post-response: the "Status code is 200" check
+comments.csv:   page, then 1, 2, 3, 4, 5, one per line
+
+<span class="cmd">&gt; 3. run it</span>
+5 iterations, 5 passed checks, delay set
+ids 1-100, 101-200, 201-300, 301-400, 401-500
+(if every iteration shows ids 1-100, the variable name in
+ the URL does not match the file: check the case)
+
+<span class="cmd">&gt; 4. catch a 429</span>
+URL -> https://postman-echo.com/status/429, Send once
+-> Test Results: "Status code is 200" FAILED
+
+<span class="cmd">&gt; 5. the plan</span>
+Retry-After: 30   wait 30 seconds, then resend page 3 and
+                  carry on. The server's number beats mine.
+no Retry-After    back off: wait 1, 2, 4, 8, then 10
+                  seconds (a cap of 10), with jitter, and
+                  give up after 5 retries and report it.
+never retry       a 400, 401, 403 or 404: the same request
+                  fails the same way, so fix it instead.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I pulled all 500 comments with a paced, checked collection, and can state my rate-limit plan without looking</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from reading one page to planning a whole retry schedule. None of them needs an account, and none needs a live rate limit.</p>
+    <div class="note"><b>Unless a drill says otherwise, assume this starting point:</b> a fresh request sent from Postman. Where a drill needs something to have happened first, it is shown in the grey <i>already sent</i> box.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between recognising a walk or a retry and planning one. First put two genuinely ordered sequences back into order, then fill the blanks in a request and a run you have already built.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. Both sequences below run in one order for a real reason: each step needs something only the step before it can produce, so there is exactly one order that works.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded requests)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft the request or plan in the box, reveal the reference to compare, then actually send yours in Postman where there is something to send. The workbook cannot send a request for you, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours does what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">15</span></span>
+        <span>In pile <b id="fc-pile">15</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 5 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the five questions below come from <b>Sessions 2 and 3</b> rather than from today, because recalling something after a delay is what moves it from "I read that" to "I know that". Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 04 of 10 &middot; Hit the milestone unassisted, then tick <b>S04</b> on your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>.
+    <br><br>
+    <b>Your 15-minute review:</b> on paper, with this page closed, time a naive un-paced retry loop against a backed-off one. Pick an outage length, say 45 seconds, and a naive retry interval, say a quarter of a second, and count the naive client&rsquo;s requests. Then write out the send times for a backoff starting at 1 second, doubling, capped at 15, and count those. Finish by writing, from memory, the two stop signals you met today and which statuses you would never retry. Keep <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429" target="_blank" rel="noopener">MDN Web Docs: 429 Too Many Requests</a> and its <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After" target="_blank" rel="noopener">Retry-After</a> page open beside you for anything you cannot name. &middot; Next: <b>Session 05, modeling a resource</b>, where you stop consuming APIs and start designing one.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-s04-workbook-v1";
+  /* Spaced review: two Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+  var S03_URL = "api-session-03.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, status numbers,
+     key names and short words, where capitalisation is presentation. parenLabels is
+     OFF for this session: no transcript wraps an answer token in parentheses as a
+     label. Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  function norm(s) {
+    s = String(s).trim().replace(/\s+/g, ' ').toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. Both faded items here are cs: true, because
+     the session shows that both jsonplaceholder parameter names and Postman variable
+     names are case-sensitive: _Page is silently ignored, and {{Page}} does not match
+     a column named page. Copied from sql-session-01.html, 2026-10-01. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "x-total-count: 100", and JSON keys and rel labels
+     as "continue" and rel="next". Whenever a session prints an answer token inside
+     punctuation, that punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val) === norm(ans);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 2 set, 1 count, 1 seq. Every live value was checked
+     against the service on 2026-10-01; D10 is a worked example with stated times, not
+     a capture, and says so. */
+  var DRILLS = [
+    { type: 'value',
+      ask: 'What is the id of the FIRST post in the response? Answer with the number.',
+      code: 'GET https://jsonplaceholder.typicode.com/posts?_page=3&_limit=10', ans: '21',
+      why: '21. Ten per page means page 1 holds ids 1 to 10 and page 2 holds 11 to 20, so page 3 starts at 21 and runs to 30. Page numbers count positions, which is why you can work out exactly what any page holds before you ask for it.' },
+
+    { type: 'count',
+      scen: 'GET https://jsonplaceholder.typicode.com/comments?_page=1&_limit=100\n\nx-total-count: 500',
+      ask: 'How many requests, in total, does it take to fetch every comment at this page size?',
+      code: '(the response header above)', ans: '5', alt: ['five', '5 requests', 'five requests', '5 pages', 'five pages'],
+      why: 'Five: 500 records at 100 per page is five pages, and this first request is one of the five. The rel="last" URL on the same response ends _page=5, which says the same thing a second way. Sizing the walk from the first response is exactly what the data file in section G depends on.' },
+
+    { type: 'value',
+      ask: 'This request asks for page 2 using names a different API would want. What is the id of the first post that comes back? Answer with the number.',
+      code: 'GET https://jsonplaceholder.typicode.com/posts?page=2&limit=10', ans: '1',
+      why: '1, and the body holds all one hundred posts. jsonplaceholder does not recognise page or limit, so it ignores them silently and answers as if you had sent neither, with a 200 and no complaint. A 200 means the server answered, not that it understood your parameters, which is why the first id in the body is the thing to check.' },
+
+    { type: 'set',
+      scen: 'GET https://jsonplaceholder.typicode.com/posts?_page=10&_limit=10\n\n(x-total-count: 100, so this is the final page)',
+      ask: 'Which rel labels appear in this response’s link header? Give the labels only, separated by commas. Order does not matter.',
+      code: '(the link header on the response above)', ans: 'first, prev, last', alt: ['rel="first", rel="prev", rel="last"', 'first, prev and last'],
+      why: 'first, prev and last. There is no next, because there is no next page, and that missing next is jsonplaceholder’s stop signal. Page 1 is the mirror image: first, next and last, with no prev.' },
+
+    { type: 'value',
+      scen: 'You are walking Wikipedia’s list of pages in Category:Hypertext_Transfer_Protocol,\ntwenty at a time, sending each new cmcontinue back as you go.',
+      ask: 'Which top-level key is MISSING from the body of the last page? Answer with the key name.',
+      code: '(the response to the final request)', ans: 'continue',
+      why: 'continue. Every page but the last carries a continue object holding the next cmcontinue, and the last page simply has none. That is Wikipedia’s stop signal, in the body rather than a header, and a different signal from jsonplaceholder’s: each API signals the end its own way, and the rule underneath is the same, keep going only while the server hands you a way to continue.' },
+
+    { type: 'value',
+      scen: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json\n    &list=categorymembers&cmtitle=Category:Hypertext_Transfer_Protocol\n    &cmlimit=20&cmcontinue=page|zzzz|1\n\n(that cursor was made up, not copied from a response)',
+      ask: 'What three-digit status code comes back?',
+      code: '(the response to the request above)', ans: '200', alt: ['200 OK'],
+      why: '200, with an error object in the body whose code is badcontinue. Wikipedia reports this problem inside the body and leaves the status at 200, so a client that only reads the status line would think the request worked. A cursor is only valid if the server made it, which is what the error message itself says. And this one was the lucky case: a real cursor with one digit edited is often accepted silently and hands back the wrong slice.' },
+
+    { type: 'value',
+      scen: 'Three identical requests to jsonplaceholder, a second apart:\n\n  x-ratelimit-remaining: 3599997    age: 25289\n  x-ratelimit-remaining: 3599997    age: 25291\n  x-ratelimit-remaining: 3599997    age: 25292\n\nx-ratelimit-reset: 1790812826  (00:00:26 GMT)\ndate:              14:10:32 GMT',
+      ask: 'Is that remaining figure a live count of your requests? Answer yes or no.',
+      code: '(the three responses above)', ans: 'no',
+      why: 'No. It did not fall when you spent three requests, the Age says each copy had been sitting in a cache for about seven hours, and the reset time is fourteen hours before the response’s own date. A cached copy carries the counter it had when it was stored. On a cached public service, rate-limit headers are something to recognise, not a count to act on.' },
+
+    { type: 'set',
+      scen: 'Five GET requests each come back with a different failure:\n\n  400 Bad Request\n  401 Unauthorized\n  404 Not Found\n  429 Too Many Requests\n  503 Service Unavailable',
+      ask: 'Which of these status codes is it worth retrying, unchanged, after a wait? Give the codes separated by commas. Order does not matter.',
+      code: '(the five responses above)', ans: '429, 503', alt: ['429 and 503'],
+      why: '429 and 503. Both are temporary and on the server’s side: you were too fast, or it was briefly overloaded, and the identical request can succeed later. The other three are about the request itself, a malformed request, a missing or wrong credential, or nothing at that URL, so sending it again unchanged gets the same answer every time. Fix those instead.' },
+
+    { type: 'seq',
+      scen: 'A request keeps failing with a 429 that has no Retry-After. Your client\nwaits 2 seconds before the first retry, doubles the wait after every\nfailure, never waits more than 20 seconds, and gives up after 5 retries.',
+      ask: 'List the five waits in order, in seconds, as numbers separated by commas.',
+      code: '(the schedule described above)', ans: '2, 4, 8, 16, 20', alt: ['2s, 4s, 8s, 16s, 20s'],
+      why: '2, 4, 8, 16, 20. Doubling would make the fifth wait 32 seconds, but the cap says never more than 20, so the ceiling takes over from there. Without the cap the waits grow very fast; without the attempt limit the client would keep going forever, only more slowly.' },
+
+    { type: 'value',
+      scen: 'A worked example, with the times stated rather than captured:\n\n  429 Too Many Requests\n  Date:        Thu, 01 Oct 2026 14:00:00 GMT\n  Retry-After: Thu, 01 Oct 2026 14:05:00 GMT',
+      ask: 'How many seconds should the client wait before resending? Answer with the number.',
+      code: '(the response above)', ans: '300', alt: ['300 seconds', '300s', '300 s'],
+      why: '300 seconds, five minutes. This Retry-After is the date form, which means "not before this moment", so the wait is that moment minus the response’s own Date header, not minus the clock on your computer. The seconds form would have said Retry-After: 300 directly.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">already sent</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     Both sequences are dependency-ordered: every step consumes something only the
+     step before it produced, so there is exactly one working order. See the build
+     contract, section 4. */
+  var PARSONS = [
+    { prompt: 'You are walking Wikipedia’s HTTP category by cursor, and the walk ends after the second page. Put the steps in the only order that works: each request can only be built from what the previous response handed back.',
+      lines: ['Send the first request, with no cmcontinue',
+              'Find cmcontinue inside the continue object',
+              'Resend, adding that exact value as cmcontinue',
+              'See that this response has no continue key',
+              'Stop: there is no cursor left to send'] },
+    { prompt: 'A request hits a 429 with no Retry-After. Your client waits 1 second, doubles the wait after each further failure, and gets through on its third attempt. Put the exchange in order.',
+      lines: ['Send the request: 429, no Retry-After',
+              'Wait 1 second before trying again',
+              'Resend it: another 429',
+              'Double the wait and pause 2 seconds',
+              'Resend it again: 200 OK'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(): a blank is code. Both items are cs: true,
+     see the comment on fadedOk(). */
+  var FADED = [
+    { cs: true,
+      prompt: 'Fill the blanks so this asks jsonplaceholder for page 4 at 25 posts per page, using its page-number parameter and then its page-size parameter, each spelled exactly as section B spelled them. Then give the id of the last post on that page.',
+      code: 'GET https://jsonplaceholder.typicode.com/posts?%%=4&%%=25\n\nid of the last post on this page:  %%', ans: ['_page', '_limit', '100'] },
+    { cs: true,
+      prompt: 'This run walks every page of the posts at ten per page. Fill the blanks: the value on the last line of the data file, the variable name the URL must use to read the file, and the number of iterations the run will make.',
+      code: 'pages.csv\n  page\n  1\n  2\n  ... one page number per line ...\n  %%\n\nGET https://jsonplaceholder.typicode.com/posts?_page={{%%}}&_limit=10\n\niterations:  %%', ans: ['10', 'page', '10'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Write the request for the LAST page of jsonplaceholder’s comments at 100 per page. Then name two different things in the responses that tell you it really is the last page, one in a header and one you would find by asking for the page after it.',
+      sol: 'GET https://jsonplaceholder.typicode.com/comments?_page=5&_limit=100\n  -> 200, ids 401 to 500\n\nhow you know it is the last page:\n  link header   has first, prev and last, and NO rel="next"\n  page 6        GET ...comments?_page=6&_limit=100\n                -> 200 with an empty array []\n\nand where 5 came from: x-total-count: 500 on page 1,\nat 100 per page, or the rel="last" URL ending _page=5.' },
+    { task: 'Write the first two requests of a cursor walk over Wikipedia’s HTTP category at 20 per page, using a placeholder for the cursor value since yours will differ. Say where in the first response the cursor comes from, and what in a later response tells you to stop.',
+      sol: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json&list=categorymembers&cmtitle=Category:Hypertext_Transfer_Protocol&cmlimit=20\n  -> the cursor is the cmcontinue value inside the continue object\n\nGET (the same URL)&cmcontinue=<the cmcontinue value, copied exactly>\n  -> twenty more titles, and a NEW cmcontinue\n\nstop when a response has no continue object at all.\nNever build or edit a cursor yourself: a made-up one may come\nback 200 with badcontinue in the body, or worse, an edited\none may be accepted and hand you the wrong page.' },
+    { task: 'Write a retry plan, as a list of rules, for a client walking pages that might hit a 429. Cover what it does when Retry-After is present, the exact waits it uses when it is absent (pick a starting wait, a cap and an attempt limit), what jitter adds, and which failures it never retries.',
+      sol: 'Retry-After present  wait exactly that long, then resend.\n                     It overrides my own schedule.\n                     (seconds form: wait that many seconds;\n                      date form: that time minus the Date header)\n\nRetry-After absent   exponential backoff:\n                     wait 1, 2, 4, 8, 10 seconds,\n                     capped at 10, at most 5 retries,\n                     then stop and report the failure.\n\njitter               randomise each wait, for example anywhere\n                     from 0 up to the computed wait, so many\n                     clients do not retry in lockstep.\n\nnever retry          400, 401, 403, 404: the same request fails\n                     the same way, so fix the request.\n\nreads only           a GET is safe to resend. A write that may\n                     have succeeded is Session 8.' },
+    { task: 'Write the data file and the request URL for a collection run that walks every post at 25 per page, and say how many iterations the run makes. Then say what you would see if the variable in the URL were spelled with a capital letter, and why the status check alone would not warn you.',
+      sol: 'posts.csv\n  page\n  1\n  2\n  3\n  4\n\nGET https://jsonplaceholder.typicode.com/posts?_page={{page}}&_limit=25\n  -> 4 iterations: 100 posts / 25 per page\n\nwith {{Page}} in the URL:\n  Postman has no value for Page, so it sends the literal\n  text {{Page}}. jsonplaceholder ignores a page it cannot\n  read, so every iteration returns 200 with posts 1 to 25.\n  Four passed checks, four copies of page 1. The ids show\n  it, and so does the last iteration: its link header still\n  has rel="next". The status check alone cannot.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write the requests, file or plan here, then try it in Postman where there is something to send"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After trying yours in Postman:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Fifteen cards, sized to the atoms THIS session has. Earlier sessions are
+     deliberately absent: the deck stays session-local and re-testing earlier
+     material is Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'Why an API paginates', b: 'a whole collection is too big to build, send or want in one response' },
+    { f: 'The two common pagination shapes', b: 'page numbers (or offsets), and cursors' },
+    { f: 'What a cursor is', b: 'an opaque bookmark from the previous response, sent back to get the next page' },
+    { f: 'Why you cannot jump ahead with a cursor', b: 'each page hands you only the bookmark for the next one' },
+    { f: 'What goes wrong with page numbers when records change mid-walk', b: 'positions shift, so you see a record twice or skip one' },
+    { f: 'What x-total-count tells you', b: 'how many records the whole collection holds' },
+    { f: 'The four rel labels in jsonplaceholder link headers', b: 'first, prev, next, last' },
+    { f: 'jsonplaceholder: how you know you are on the last page', b: 'no rel="next" in the link header (and the page after is [])' },
+    { f: 'Wikipedia: how you know you are on the last page', b: 'the body has no continue object' },
+    { f: 'What jsonplaceholder does with a query parameter it does not recognise', b: 'ignores it silently and still answers 200' },
+    { f: 'The two forms of Retry-After', b: 'a number of seconds, or a date and time meaning not before then' },
+    { f: 'Which failures are worth retrying unchanged', b: '429 and 503, after a wait; never 400, 401, 403 or 404' },
+    { f: 'Exponential backoff, in one line', b: 'wait before each retry, doubling the wait after every failure' },
+    { f: 'Why backoff needs jitter', b: 'randomised waits stop many clients retrying in lockstep' },
+    { f: 'In a CSV data file, what the first row is for', b: 'the variable names; every row after it is one iteration' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Q4 and Q5 are spaced review, from Sessions 3 and 2 respectively, and their
+     backlinks carry `ext` so they open that session rather than scrolling here. */
+  var QUIZ = [
+    { q: 'You are walking an API by page number, ten per page. Between your request for page 1 and your request for page 2, a new record is added at the very front of the collection. What happens?',
+      o: ['The last record of page 1 comes back again on page 2',
+          'Nothing, because the pages were fixed by your first request',
+          'The server refuses page 2',
+          'Page 2 comes back with eleven records instead of ten, so nothing is lost'],
+      c: 0,
+      e: 'Page numbers count positions, and adding a record at the front pushes every record back one place. The record that was tenth, which you already read on page 1, is now eleventh, so page 2 hands it to you again. A deletion does the opposite and you skip one. A cursor marks a place in the data rather than a count, which is why APIs over fast-changing data tend to use cursors. Page sizes do not stretch to compensate.',
+      part: { id: 'concept-a', label: 'A. Why an API paginates' } },
+
+    { q: 'A nightly job walking 400 pages gets a 429 on page 212 carrying Retry-After: 3600. What should it do?',
+      o: ['Wait an hour, then resend page 212',
+          'Skip page 212 and carry on',
+          'Resend page 212 immediately, in case it was a blip',
+          'Restart the whole walk from page 1, since the data may now be out of date'],
+      c: 0,
+      e: 'Retry-After is the server telling you how long, and when it is present it overrides any schedule of your own: 3600 seconds is an hour. Resending at once is the hammering backoff exists to prevent, and your own backoff from 1 second would do the same thing more slowly, sending requests the server has already said it will refuse. Skipping the page leaves a hole in the dataset, since a 429 says "not yet", not "nothing here". And nothing about a 429 says the pages you already have are wrong, so there is no reason to start over.',
+      part: { id: 'concept-e', label: 'E. After a 429' } },
+
+    { q: 'A thousand clients all fail at the same moment and all use the same exponential backoff schedule. What does adding jitter change?',
+      o: ['They stop retrying in lockstep, so the server is not hit in waves',
+          'Each client retries fewer times',
+          'Everybody gets through sooner, because the server sees fewer requests',
+          'Nothing, because jitter only matters when the server sends Retry-After'],
+      c: 0,
+      e: 'Without jitter every client waits exactly 1 second, then exactly 2, then exactly 4, so the retries arrive as synchronised waves of a thousand at once. Jitter adds a little randomness to each wait, so the crowd spreads out over time. It does not change how many retries each client makes, so the server sees the same number of requests in total, only spread out rather than bunched. When Retry-After is present, the server has set the wait itself.',
+      part: { id: 'concept-f', label: 'F. Backing off instead of hammering' } },
+
+    { q: 'Spaced review, from Session 3. You send PUT /posts/1 with a body containing only a title. What happens to the fields you left out?',
+      o: ['They are gone: PUT replaces the whole thing',
+          'They are left unchanged',
+          'The server refuses the request because the body is incomplete',
+          'They are reset to empty strings but stay in the object'],
+      c: 0,
+      e: 'PUT means replace the whole thing with what you sent, so anything you left out is genuinely left out: Session 3 sent only a title and got back an object with two keys. Changing only the fields you name is PATCH. This matters for today too, because a write is exactly the kind of request you must not retry blindly, which Session 8 takes up.',
+      part: { ext: S03_URL + '#concept-f', label: 'Session 3, F. PUT, PATCH and DELETE' } },
+
+    { q: 'Spaced review, from Session 2. A response carries Age: 25289. What is that header telling you?',
+      o: ['A cache has held this copy for about seven hours',
+          'The record was created 25289 seconds ago',
+          'The server took 25289 milliseconds to answer',
+          'You have 25289 requests left before you are rate-limited'],
+      c: 0,
+      e: 'Age is how many seconds a stored copy has been sitting in a cache before it reached you, and 25289 seconds is about seven hours. Today it was the giveaway that jsonplaceholder’s rate-limit counter is frozen: a seven-hour-old copy carries a seven-hour-old counter. It says nothing about when the data was created, how long the server took, or your remaining quota.',
+      part: { ext: S02_URL + '#concept-c', label: 'Session 2, C. Caching hints' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 4
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S04 on your Hub and move on to Session 5.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -325,7 +325,7 @@
     <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
     <p class="sub">Short concept, then immediately your turn. Send each request against a real service before moving on, and tick the box once you have seen the result with your own eyes.</p>
 
-    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in violet is what you send. Everything underneath it came back over the network, copied from real requests run while building this session. Some values legitimately differ when you retry: <b><code>Date</code>, <code>Age</code>, <code>CF-RAY</code>, <code>Set-Cookie</code>, <code>X-RateLimit-Remaining</code> and <code>X-RateLimit-Reset</code></b> all change on every call. The ones this session actually teaches you to read, the <code>ETag</code> included, were stable across repeated checks. One header is genuinely conditional rather than random, and section B explains it: whether you get a <code>Content-Length</code> at all depends on whether the body arrived compressed.</div>
+    <div class="note"><b>How to read the transcripts below.</b> A line that starts with <code>&gt;</code> in violet is what you send. Everything underneath it came back over the network, copied from real requests run while building this session. Some values legitimately differ when you retry: <b><code>Date</code>, <code>Age</code>, <code>CF-RAY</code>, <code>Set-Cookie</code>, <code>X-RateLimit-Remaining</code> and <code>X-RateLimit-Reset</code></b> can all differ between calls, between URLs and over time. The ones this session actually teaches you to read, the <code>ETag</code> included, were stable across repeated checks. One header is genuinely conditional rather than random, and section B explains it: whether you get a <code>Content-Length</code> at all depends on whether the body arrived compressed.</div>
 
     <div class="block" id="concept-a">
       <h3>A. A response has three parts, and you have read two of them</h3>
@@ -452,8 +452,8 @@ ETag: W/"124-yiKdLzqO5gfBrJFrcdJ8Yq0LGnU"
         <div class="hrow keep"><div class="hn">Content-Encoding, Transfer-Encoding</div><div class="hv">Why Content-Length is missing. Section B.</div></div>
         <div class="hrow keep"><div class="hn">Cache-Control</div><div class="hv">How long the answer stays fresh.</div></div>
         <div class="hrow keep"><div class="hn">ETag</div><div class="hv">The fingerprint you send back in If-None-Match.</div></div>
-        <div class="hrow keep"><div class="hn">X-RateLimit-Limit</div><div class="hv">Requests you are allowed. This one is 1000.</div></div>
-        <div class="hrow keep"><div class="hn">X-RateLimit-Remaining</div><div class="hv">Requests you have left. Session 4 acts on this.</div></div>
+        <div class="hrow keep"><div class="hn">X-RateLimit-Limit</div><div class="hv">Requests you are allowed. This one read 1000 when this session was built; Session 4 finds it has since changed, which is part of why it cannot be trusted here.</div></div>
+        <div class="hrow keep"><div class="hn">X-RateLimit-Remaining</div><div class="hv">Requests you have left. Session 4 shows why you cannot act on it here.</div></div>
         <div class="hrow keep"><div class="hn">X-RateLimit-Reset</div><div class="hv">When the allowance refills, as a timestamp.</div></div>
         <div class="hrow keep"><div class="hn">Age</div><div class="hv">Seconds this copy sat in a cache. Section C.</div></div>
         <div class="hrow keep"><div class="hn">Vary</div><div class="hv">Which request headers changed the answer. Section F.</div></div>
