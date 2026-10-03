@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Session 8: Idempotency and multi-call workflows</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-04.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* S5: a wider three-column table for contract rows, where the first column holds a
+     field name or a whole request line (publishedYear, DELETE /v1/books/{id}) rather
+     than a three-digit code. Same tokens as .fam, so rule 28 is unchanged. */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 44 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is Idempotent-Replayed (19 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from S4, unused in S5's content but kept so the
+     component stays in the track's shared CSS): its summary must read as clickable.
+     Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the one thing in this session that can actually cost the
+     learner something: putting real company data into a synced Postman workspace.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 08 // Level 4 &middot; Integration Patterns</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Idempotency and multi-call workflows</h1>
+    <p class="goal">Session 4 told you never to retry a write, and Session 7 showed a sender retrying one anyway. Today you make a retried write safe from both sides: a client that sends an idempotency key, a server that remembers it, and a webhook receiver that remembers which events it has already handled. Then you chain four calls into one workflow, break the third, and design for what is left behind. Last, you trace a retry end to end on paper, which is how you find a double-charge before anyone builds it.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Design a webhook receiver contract and trace an idempotent retry scenario end to end.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start, signed in with the free account from Session 4.</b> You need Session 7&rsquo;s <code>Library webhooks v1</code> collection, its receiver mock and the <code>Library sender</code> collection for section D, and its milestone collection, <code>Library member webhooks v1</code>, for section H. If any of them is gone, Session 7 sections B and C rebuild the first three in a few minutes.</p>
+        <p><b>Every key and id in this session is a practice value, printed on purpose,</b> so that you can type it and check it. A real idempotency key is not a secret, but it should not carry anything personal, such as an email address.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">15</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Two of the turns happen on paper, on purpose: the server&rsquo;s memory is the one thing no practice service can show you, so you play it yourself. Tick each box once you have done the task, not just read it.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. <b>Every box marked &ldquo;captured live&rdquo; or &ldquo;as Postman showed it&rdquo; is real</b>: captured on 2026-10-02 from Postman mocks built exactly as this session describes, from postman-echo, or from Postman&rsquo;s web app. Boxes marked &ldquo;an illustration&rdquo; are not captures: they show what a real server would do, which a mock cannot. Your mocks have their own addresses, written <code>https://&lt;mock-id&gt;.mock.pstmn.io</code>, where the angle brackets mark a stand-in, as in Session 3. Transcripts show only the lines that matter.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. The lost answer: why a retry can create something twice</h3>
+      <p>Every request you send can end three ways: an answer comes back, an error comes back, or nothing comes back at all. The third is the dangerous one, and it is worth slowing down on. Say the library&rsquo;s desk app sends <code>POST /v1/loans</code> to lend book 8 to member 31, and waits, and no answer arrives. From the desk app&rsquo;s side there is just silence. From the server&rsquo;s side, any of three things may have happened:</p>
+      <div class="hops">
+        <div class="hop"><div class="hi">1</div><div class="hb"><b>It never arrived.</b> The connection broke on the way. No loan exists.</div></div>
+        <div class="hop"><div class="hi">2</div><div class="hb"><b>It arrived and worked, and the answer was lost.</b> Loan 501 exists. The <code>201</code> never made it back.</div></div>
+        <div class="hop"><div class="hi">3</div><div class="hb"><b>It arrived and is still working.</b> Loan 501 is being made right now, slowly.</div></div>
+      </div>
+      <p>The desk app cannot tell these apart, because silence looks the same in all three. So it has two choices, and both are bad. If it gives up, the member in case 1 leaves without a book that the system says they never borrowed. If it sends the same <code>POST</code> again, the member in cases 2 and 3 now has two loans for one book:</p>
+      <div class="filebox">
+        <div class="fbh">a blind retry after a lost answer &middot; an illustration of a real server</div>
+<pre><code><span class="cmd">&gt; POST /v1/loans  {"bookId": 8, "memberId": 31}</span>     <span class="cm">10:00:00</span>
+<span class="cm">  the server makes loan 501; the 201 is lost on the way back</span>
+<span class="cmd">&gt; POST /v1/loans  {"bookId": 8, "memberId": 31}</span>     <span class="cm">10:00:12, a retry</span>
+201 Created
+Location: /v1/loans/502                         <span class="cm">a second loan for the same book</span></code></pre>
+      </div>
+      <p>Session 5 named the reason: <code>POST</code> is not <b>idempotent</b>. Sending it twice can have twice the effect, where a <code>PUT</code> or a <code>DELETE</code> sent twice leaves things just as one would. RFC 9110 turns that into a rule for clients: &ldquo;A client SHOULD NOT automatically retry a request with a non-idempotent method unless it has some means to know that the request semantics are actually idempotent, regardless of the method, or some means to detect that the original request was never applied.&rdquo; That is Session 4&rsquo;s &ldquo;never retry a write&rdquo;, and its last clause is the way out. <b>Give the server a means to recognise a retry, and a retried write becomes safe.</b> That means is the subject of the next two sections.</p>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. The idempotency key: the client&rsquo;s half</h3>
+      <p>An <b>idempotency key</b> is a value the client makes up and sends with a write, so that the server can recognise the same request arriving again. The proposed standard for it, an IETF draft called &ldquo;The Idempotency-Key HTTP Header Field&rdquo;, defines it as &ldquo;a unique value generated by the client which the resource uses to recognize subsequent retries of the same request&rdquo;, carried in a request header named <code>Idempotency-Key</code>. It is still a draft: version 7, from October 2025, has expired without becoming an RFC. But real APIs, Stripe&rsquo;s among them, already use the same header, and it is the pattern you will meet.</p>
+      <p>The whole pattern is in one sentence: <b>one key per operation, not per attempt.</b> The client makes the key once, before the first attempt, for &ldquo;lend book 8 to member 31, this time&rdquo;. It sends that key with the first attempt and <b>the very same key</b> with every retry of it. A different operation, even lending the same book again next month, gets a new key. If every attempt carries a fresh key, the server sees strangers, and you are back in section A.</p>
+      <p><b>What a key looks like.</b> The draft says it is &ldquo;RECOMMENDED that a UUID [RFC4122] or a similar random identifier be used&rdquo;, and Stripe suggests the same. A <b>UUID</b> (universally unique identifier) is 128 bits, nearly all of them random, written as 32 hex digits, the digits 0 to 9 and the letters a to f from Session 7, in five groups joined by hyphens:</p>
+      <div class="filebox">
+        <div class="fbh">this session&rsquo;s practice key &middot; a version 4 UUID, the random kind</div>
+<pre><code>Idempotency-Key: 7c4f2a9e-3b1d-4e8a-9f60-2d5c8b1a4e73</code></pre>
+      </div>
+      <p>Random is what makes it work: two clients making keys at the same moment will, in practice, never make the same one, so nobody has to hand them out. One detail varies between APIs. The draft writes the value in double quotes, <code>"8e03978e-..."</code>, while Stripe&rsquo;s own example sends it bare. Follow the documentation of the API you are calling; the library&rsquo;s contract sends it bare, as above.</p>
+      <p><b>Now the trap, which catches people in Postman specifically.</b> Postman has <b>dynamic variables</b>: built-in names that start with a <code>$</code>, whose values, in its documentation&rsquo;s words, &ldquo;are generated when the request runs&rdquo;. One of them, <code>{{$guid}}</code>, is listed as &ldquo;A <code>uuid-v4</code> style guid&rdquo; (GUID is another name for a UUID). It looks perfect for a key, and it is exactly wrong for one, because <b>it makes a new value on every send</b>. postman-echo shows you, since it echoes your headers back:</p>
+      <div class="filebox">
+        <div class="fbh">the same request sent twice, a key from {{$guid}} and a key from a variable &middot; captured live with newman, Postman&rsquo;s command-line runner</div>
+<pre><code><span class="cmd">&gt; POST https://postman-echo.com/post</span>
+<span class="cmd">&gt; Idempotency-Key: {{$guid}}</span>                       <span class="cm">sent twice</span>
+"idempotency-key": "88ab6e25-ce76-4ef6-bf5a-709c85341c68"
+"idempotency-key": "f16a2990-f648-4ad7-8be3-e3278017d546"   <span class="cm">a stranger</span>
+
+<span class="cmd">&gt; Idempotency-Key: {{loanKey}}</span>                      <span class="cm">sent twice</span>
+"idempotency-key": "7c4f2a9e-3b1d-4e8a-9f60-2d5c8b1a4e73"
+"idempotency-key": "7c4f2a9e-3b1d-4e8a-9f60-2d5c8b1a4e73"   <span class="cm">the same operation</span></code></pre>
+      </div>
+      <p>The second form is right: the key is made once, kept in a collection variable, and every send of that operation reads the same value. echo prints header names in lower case, which, as Session 2 showed, changes nothing.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Catch the trap, then fix it</div>
+        <ol>
+          <li>Create a collection called <code>Key practice</code>, with a collection variable <code>loanKey</code> whose value is the practice key above.</li>
+          <li>Add <code>POST https://postman-echo.com/post</code> with the raw JSON body <code>{"bookId": 8, "memberId": 31}</code> and the header <code>Idempotency-Key</code> set to <code>{{$guid}}</code>. Send it twice and compare the <code>idempotency-key</code> in the two echoes.</li>
+          <li>Change the header&rsquo;s value to <code>{{loanKey}}</code>, send it twice, and compare again.</li>
+          <li>When you need a fresh key for a new operation, you can let <code>{{$guid}}</code> make one: send the first version once, copy the value from the echo, and paste it into <code>loanKey</code>. That is making a key once, by hand.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>{{$guid}}    two different values: a new key per send,
+             so a server would see two strangers
+{{loanKey}}  the same value both times: one key for one
+             operation, however many times it is sent</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I saw {{$guid}} make a new key on every send, and a collection variable keep one key across sends</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. The server&rsquo;s half: a memory of keys</h3>
+      <p>A key only helps if the server remembers it. A server that honours keys keeps a table of every key it has seen. For each one it keeps a <b>fingerprint of the request body</b>, a hash of it, the idea from Session 7, so it can tell whether a retry really is the same request; a <b>state</b>, in progress or done; and, once done, <b>the answer it gave</b>. The draft&rsquo;s rules come down to five cases, and Stripe&rsquo;s documentation describes the same remembering, though it names no status codes for the refusals and never requires a key:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">The key is</div><div class="fn">The server</div><div class="fd">Answers</div></div>
+        <div class="frow"><div class="fc">new</div><div class="fn">records it as in progress, does the work, stores the answer against it</div><div class="fd">the normal answer: <code>201</code> with loan 501</div></div>
+        <div class="frow"><div class="fc">seen, done, same body</div><div class="fn">does <b>not</b> do the work again; looks up the stored answer</div><div class="fd">the stored answer again, the same <code>201</code> with loan 501</div></div>
+        <div class="frow"><div class="fc">seen, still in progress</div><div class="fn">does nothing; the first attempt is still working</div><div class="fd"><code>409 Conflict</code>: try again shortly</div></div>
+        <div class="frow"><div class="fc">seen, different body</div><div class="fn">does nothing; this is a client bug, one key on two operations</div><div class="fd"><code>422 Unprocessable Content</code></div></div>
+        <div class="frow"><div class="fc">missing, where required</div><div class="fn">does nothing</div><div class="fd"><code>400 Bad Request</code></div></div>
+      </div>
+      <p>The second row is the point of everything. In the draft&rsquo;s words, for a retry after the first attempt completed, the server &ldquo;SHOULD respond with the result of the previously completed operation, success or an error&rdquo;. Stripe&rsquo;s documentation says it saves &ldquo;the resulting status code and body of the first request made for any given idempotency key, regardless of whether it succeeds or fails&rdquo;, so a retry gets the same result, &ldquo;including <code>500</code> errors&rdquo;. <b>A retry is answered from memory, never by doing the work twice.</b> The two refusals are Session 5&rsquo;s codes in a new job. <code>422</code> was a body that is valid JSON but breaks a rule, and a key reused for a different body breaks the key&rsquo;s one rule. <code>409</code> was a conflict with the state of the server, and a first attempt still running is exactly that.</p>
+      <p>Two more promises belong in a contract, because a client cannot guess them. <b>How long keys are remembered</b>: the draft says the server &ldquo;SHOULD define such expiration policy and publish it in the documentation&rdquo;, and Stripe&rsquo;s says keys can be removed &ldquo;after they&rsquo;re at least 24 hours old&rdquo;. The library remembers them for 24 hours, so a retry later than that is a new request. And <b>whether a failure was stored</b>: the library&rsquo;s <code>503</code> means it never started, so nothing was stored and a retry with the same key will do the work. Finally, the library adds a header to a replayed answer, <code>Idempotent-Replayed: true</code>, so a client can tell &ldquo;made just now&rdquo; from &ldquo;made earlier, here it is again&rdquo;. That header is the library&rsquo;s own choice; the draft does not define one.</p>
+      <p><b>What a mock can and cannot do with this.</b> The server&rsquo;s whole job here is remembering, and Session 6 showed that a mock stores nothing. So a mock can show the <b>contract</b> of a key, every answer a client must be ready for, and it can never show the <b>remembering</b>. On the lending mock built for this session, a loan request that carried a perfectly good key, with no example asked for, came back <code>400</code> with <code>idempotency_key_missing</code>, three times running. The mock never reads the key: five of the six loan examples share one body, none is a <code>200</code>, and the tie went the way Session 6 section D said ties go. So in this session every loan request asks for its answer by name, and <b>you play the memory, on paper</b>.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the lending contract, mock it, and play its memory</div>
+        <ol>
+          <li>Create a collection <code>Lending API v1</code>, <code>baseUrl</code> = <code>https://api.example.com</code> as in Session 5, with four requests. Each has the examples listed in the box below, named exactly, with those statuses and bodies; the loan examples also carry the headers shown. <code>{{loanKey}}</code> has no value in this collection on purpose: it documents where the key goes, and the client below supplies it.</li>
+          <li>Mock it, public. Then duplicate <code>Lending API v1</code>, call the copy <code>Lend a book</code>, and give the copy its own <code>baseUrl</code>, your mock&rsquo;s address, and a collection variable <code>loanKey</code> holding the practice key. This is your client from now on.</li>
+          <li>From <code>Lend a book</code>, send <b>Lend the book</b> five times with <code>x-mock-response-name</code> set in turn to <code>201 created</code>, <code>201 replayed</code>, <code>409 in progress</code>, <code>422 key reused</code> and <code>503 unavailable</code>. Confirm only <code>201 replayed</code> carries <code>Idempotent-Replayed</code>.</li>
+          <li>On paper, play the server&rsquo;s memory for this morning, in a table with the columns key, body, state, stored answer, and what the server answers. Start empty. K1 is the practice key; K2 is any other key.
+            <br>10:00:00 K1, book 8 for member 31, arrives; the loan is being made.
+            <br>10:00:05 K1, the same body, arrives again.
+            <br>10:00:08 the first attempt finishes: loan 501.
+            <br>10:00:20 K1, the same body, arrives again.
+            <br>10:00:30 K1, book 9 for member 31, arrives.
+            <br>10:01:00 K2, book 9 for member 31, arrives.</li>
+        </ol>
+<pre><code>Read the member    GET  {{baseUrl}}/v1/members/31
+  200 the member   {"id": 31, "name": "Sam Rivera", "status": "active"}
+Read the book      GET  {{baseUrl}}/v1/books/8
+  200 the book     Session 5's book 8, A Wizard of Earthsea
+Lend the book      POST {{baseUrl}}/v1/loans
+                   Idempotency-Key: {{loanKey}}
+                   {"bookId": 8, "memberId": 31}
+  201 created      Location: /v1/loans/501
+                   {"id": 501, "bookId": 8, "memberId": 31,
+                    "dueOn": "2026-10-16"}
+  201 replayed     the same, plus Idempotent-Replayed: true
+  400 key missing  error code idempotency_key_missing
+  409 in progress  error code idempotency_in_progress
+  422 key reused   error code idempotency_key_reused, saved
+                   with the body {"bookId": 9, "memberId": 31}
+  503 unavailable  error code unavailable, message
+                   "No loan was made. Try again shortly,
+                    with the same Idempotency-Key."
+Notify the member  POST {{baseUrl}}/v1/notifications
+                   {"memberId": 31, "loanId": 501,
+                    "template": "loan.created"}
+  201 sent         {"id": 9001, "memberId": 31, "loanId": 501,
+                    "status": "sent"}</code></pre>
+        <details><summary>Check your memory table</summary>
+<pre><code>10:00:00  K1 new          record K1, book 8, in progress;
+                          start the loan
+10:00:05  K1 in progress  409 in progress, nothing done
+10:00:08  first attempt   K1 done, stored answer:
+          finishes        201, loan 501 (sent to whoever
+                          is still listening)
+10:00:20  K1 done, same   201 loan 501 again, from memory,
+                          Idempotent-Replayed: true
+10:00:30  K1, book 9      422 key reused: one key, two
+                          different operations
+10:01:00  K2 new          a new operation: a second loan,
+                          for book 9, as it should be
+
+loans that exist: 501 (book 8) and one for book 9</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I built and mocked Lending API v1, sent each loan answer by name, and played the server&rsquo;s memory on paper</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. The receiver&rsquo;s half: remembering events</h3>
+      <p>Session 7&rsquo;s webhook receiver has the same problem from the other side. A sender retries, so a receiver gets duplicates, and Session 7 gave every delivery attempt of one event the same <code>id</code>. <b>That <code>id</code> is an idempotency key the sender chose for you.</b> So the receiver keeps the same kind of memory, a table of <b>processed event ids</b>, and before acting on a delivery it checks the table.</p>
+      <p>One thing is different, and it is easy to get wrong. A client calling the loans API wants the stored answer back, so the server replays it. A sender only wants to know whether to stop retrying. <b>So a receiver answers a duplicate with a <code>2xx</code>, and does nothing else.</b> Answering <code>409</code> or <code>422</code> would count as a failed attempt, which Session 7&rsquo;s contract says is retried, so the sender would keep sending the very event the receiver is trying to ignore. Put together with Session 7&rsquo;s order, a receiver handles a delivery like this:</p>
+      <div class="hops">
+        <div class="hop"><div class="hi">1</div><div class="hb">Verify the signature on the raw body and the timestamp, as in Session 7. A failure is <code>401</code>, and nothing is recorded.</div></div>
+        <div class="hop"><div class="hi">2</div><div class="hb">Look the event&rsquo;s <code>id</code> up in the processed table. <b>Already there: answer <code>200</code> and stop.</b></div></div>
+        <div class="hop"><div class="hi">3</div><div class="hb">Not there: store the event and record its <code>id</code>, in one step that refuses an <code>id</code> already present, so two attempts arriving together cannot both get in.</div></div>
+        <div class="hop"><div class="hi">4</div><div class="hb">Answer <code>200</code>, then do the slow work, as Session 7 advised.</div></div>
+      </div>
+      <p>Step 3&rsquo;s &ldquo;one step&rdquo; matters because a receiver can be busy with two attempts at once, if its first attempt stalls for over a minute and the retry arrives. Check first, then add the id as a separate step, and both can slip through:</p>
+      <div class="filebox">
+        <div class="fbh">check, then add, as two steps &middot; an illustration</div>
+<pre><code>a1  checks: evt_1001 not in the table
+a2  checks: evt_1001 not in the table     <span class="cm">a1 has not added it yet</span>
+a1  adds evt_1001, acts, answers 200
+a2  adds evt_1001, acts, answers 200      <span class="cm">acted on twice</span></code></pre>
+      </div>
+      <p>Done as one step that refuses an <code>id</code> already present, the second attempt is refused at the moment it tries to record, and only one gets in. Databases offer exactly this, a rule that a column&rsquo;s values must be unique; how to set one up belongs to whoever builds the receiver, and the contract&rsquo;s job is to say it is needed.</p>
+      <p><b>How long to remember.</b> At least as long as the sender keeps retrying. The library&rsquo;s last attempt comes an hour after its first, so an hour is the bare minimum; receivers usually keep ids for days, because remembering a short string is cheap and forgetting too early brings the double-count back.</p>
+      <p><b>Now watch the duplicate get made.</b> Session 7 said a slow receiver causes retries. A mock can show you that moment for real, because Postman lets a mock wait before it answers. When you edit a mock&rsquo;s configuration there is a setting, <b>Simulate a fixed network delay</b>, whose choices are <code>No delay</code>, <code>3G (100 ms)</code>, <code>2G (300 ms)</code> and <code>Custom</code>, in milliseconds. A delay longer than the sender waits turns your receiver mock into a slow receiver. On Postman&rsquo;s web app, this is what the sender saw:</p>
+      <div class="filebox">
+        <div class="fbh">the sender&rsquo;s side, the receiver mock set to wait &middot; as Postman showed it</div>
+<pre><code><span class="cmd">&gt; POST https://&lt;mock-id&gt;.mock.pstmn.io/webhooks/library</span>
+Could not send request
+Cloud Agent Error: Request is taking longer than 30 seconds
+to fulfill. Use another agent to send a request without
+time limitations.                                    <span class="cm">no status code at all</span></code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">the receiver&rsquo;s side, the same delivery, in the mock&rsquo;s call log &middot; captured live</div>
+<pre><code>Request                       Response
+POST /webhooks/library        200 received      <span class="cm">it got there, and was answered</span></code></pre>
+      </div>
+      <p><b>The receiver got the delivery and answered <code>200</code>; the sender never heard.</b> That is section A&rsquo;s case 2 seen from both ends at once, and it is exactly why the library will send <code>evt_1001</code> again a minute later. Two notes on timing. Postman sends every request through an <b>agent</b>, the part of Postman that actually makes the call; the web app shows which one at the bottom right of its window. This was captured with the <b>Cloud Agent</b>, which sends from Postman&rsquo;s own servers and stops waiting at 30 seconds, so the task below sets a delay of 40 seconds. With any other agent, including the desktop app, which this session was not checked on, set <b>Settings</b>, <b>General</b>, <b>Request timeout</b> to <code>10000</code> milliseconds, the contract&rsquo;s 10 seconds, for this task, and back to <code>0</code> afterwards. And a mock&rsquo;s delay is a minimum, not a promise: on the mock built for this session a 15-second delay took 15.3 or 15.4 seconds three times, and 26.2 seconds once.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make the receiver too slow, then handle the duplicate</div>
+        <ol>
+          <li>Open your Session 7 receiver mock&rsquo;s settings, choose <b>Edit Configuration</b>, set <b>Simulate a fixed network delay</b> to <b>Custom</b> with <code>40000</code>, and update it.</li>
+          <li>From <code>Library sender</code>, send <b>Deliver book.returned</b>. Confirm Postman gives up with no status code.</li>
+          <li>Open the receiver mock&rsquo;s call log and find that delivery, answered <code>200 received</code>. Then set the delay back to <b>No delay</b>.</li>
+          <li>Send <b>Retry of evt_1001</b>, the second attempt from Session 7 section F. Confirm <code>200</code>, and find it in the call log beside the first.</li>
+          <li>On paper, play a real receiver&rsquo;s processed table for those two deliveries: what it holds after each, what it answers, and how many times member 31&rsquo;s books-read count goes up.</li>
+        </ol>
+        <details><summary>Hint: if Postman answers 200 after all</summary>
+<pre><code>the request waited out the delay: check the delay is
+Custom 40000, not 4000, and that you pressed update.
+If the agent at the bottom right is not the Cloud
+Agent, set Request timeout to 10000 first.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>attempt 1   signature good, evt_1001 not in the table:
+            store it, record evt_1001, answer 200
+            (the sender never hears it)
+attempt 2   signature good (new timestamp, new signature),
+            evt_1001 IS in the table: answer 200, do nothing
+
+the count goes up once. Without the table, twice.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I made the receiver mock too slow, saw the sender give up while the call log showed 200 received, and traced a receiver ignoring the retry</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Chaining calls into one workflow</h3>
+      <p>Real integrations rarely make one call. Lending a book from the desk app is four, and each later call needs something an earlier one answered. A sequence like this is a <b>workflow</b>:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Call</div><div class="fn">Does</div><div class="fd">Needs, and gives</div></div>
+        <div class="frow"><div class="fc">1 Read the member</div><div class="fn"><code>GET /v1/members/31</code>, a read</div><div class="fd">gives: the member exists and is active</div></div>
+        <div class="frow"><div class="fc">2 Read the book</div><div class="fn"><code>GET /v1/books/8</code>, a read</div><div class="fd">gives: the book exists</div></div>
+        <div class="frow"><div class="fc">3 Lend the book</div><div class="fn"><code>POST /v1/loans</code>, a write, with a key</div><div class="fd">needs: 1 and 2 to have passed; gives: the loan&rsquo;s <code>id</code></div></div>
+        <div class="frow"><div class="fc">4 Notify the member</div><div class="fn"><code>POST /v1/notifications</code>, a write</div><div class="fd">needs: the loan&rsquo;s <code>id</code> from 3</div></div>
+      </div>
+      <p>Session 4&rsquo;s Collection Runner sends a collection&rsquo;s requests in order, which is half a workflow. The other half is carrying a value from one answer into a later request, and that takes a <b>post-response script</b>: the JavaScript Postman runs after a response arrives, which Session 4 used for its status check. Three pieces of it are all you need today, each one line:</p>
+      <ul class="pts">
+        <li><code>pm.response.code</code> is the status code of the answer, as a number, such as <code>201</code>.</li>
+        <li><code>pm.response.json().id</code> reads the answer&rsquo;s body as JSON and takes its <code>id</code> field, the way you would read <code>"id": 501</code> by eye.</li>
+        <li><code>pm.collectionVariables.set("loanId", ...)</code> stores a value in the collection variable <code>loanId</code>, so a later request can write <code>{{loanId}}</code>, exactly as it reads <code>{{baseUrl}}</code>.</li>
+      </ul>
+      <p>On call 3, that becomes the script below, which keeps the loan&rsquo;s <code>id</code> for call 4. Three more pieces of JavaScript hold it together. <code>if (test) { ... }</code> runs the lines inside the braces only when the test is true, and skips them otherwise. <code>===</code> asks &ldquo;is exactly equal to&rdquo;; a single <code>=</code> would set a value instead. And a line starting <code>//</code> is a note for people, which Postman ignores:</p>
+<pre><code><span class="cm">// Lend the book, post-response: keep the new loan's id for call 4</span>
+if (pm.response.code === 201) {
+  pm.collectionVariables.set("loanId", pm.response.json().id);
+}</code></pre>
+      <p>Call 4&rsquo;s body then reads <code>{"memberId": 31, "loanId": {{loanId}}, "template": "loan.created"}</code>. <code>{{loanId}}</code> has no quotes round it, because the loan&rsquo;s <code>id</code> is a number, and Postman puts the value in before it sends. To choose call 3&rsquo;s answer on a mock, its <code>x-mock-response-name</code> header reads <code>{{loanAnswer}}</code>, a collection variable, so you can change the mock&rsquo;s answer for a whole run in one place. On a real server you would leave that header out.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the workflow and run it</div>
+        <ol>
+          <li>In <code>Lend a book</code>, from section C, add a collection variable <code>loanAnswer</code> with the value <code>201 created</code>.</li>
+          <li>On <b>Lend the book</b>, check the header <code>Idempotency-Key</code> reads <code>{{loanKey}}</code>, set the header <code>x-mock-response-name</code> to <code>{{loanAnswer}}</code>, and paste the script above into its post-response script.</li>
+          <li>Change <b>Notify the member</b>&rsquo;s body so <code>501</code> becomes <code>{{loanId}}</code>, with no quotes.</li>
+          <li>Run the collection in the Runner, in the order of the table. Confirm four requests: <code>200</code>, <code>200</code>, <code>201</code>, <code>201</code>, and that call 4&rsquo;s body, in the run&rsquo;s request details, says <code>"loanId": 501</code>.</li>
+        </ol>
+        <details><summary>Hint: if call 4 comes back 400 with badRequest</summary>
+<pre><code>its body is not valid JSON, so the mock refused it itself,
+as in Session 7 section C. Look at what was sent: if it
+says {{loanId}} or "loanId": , the script did not set the
+variable. Check the script is on Lend the book, under
+post-response, and that the variable name is loanId in
+both places, spelled the same, capital I included.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I ran a four-call workflow in the Runner, with call 3&rsquo;s loan id carried into call 4 by a script</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. When call three of four fails</h3>
+      <p>Now make call 3 fail: set <code>loanAnswer</code> to <code>503 unavailable</code> and run again. Session 4 taught that a <code>503</code> is worth retrying after a wait. But look first at what the Runner did:</p>
+      <div class="filebox">
+        <div class="fbh">a run where call 3 answers 503 &middot; captured live with newman, Postman&rsquo;s command-line runner</div>
+<pre><code>1 Read the member     200
+2 Read the book       200
+3 Lend the book       503    <span class="cm">No loan was made.</span>
+4 Notify the member   sent anyway
+  if loanId still holds 501 from the last run:
+    201 sent                <span class="cm">a notice about a loan this run never made</span>
+  if loanId holds nothing:
+    400 badRequest          <span class="cm">the body is no longer valid JSON</span></code></pre>
+      </div>
+      <p><b>A failed request does not stop a run.</b> The Runner sends every request in the collection, so call 4 went out about a loan that does not exist: either it told member 31 about the last run&rsquo;s loan, which is worse than an error because nothing looks wrong, or it sent a broken body. Which of the two you see depends on what <code>loanId</code> holds when the run starts. This is a <b>partial failure</b>: some calls of a workflow happened, some did not, and the ones after the failure acted on a state that was never reached. The fix in the run is to stop on the first answer you cannot continue past. Session 4&rsquo;s optional cursor script used <code>pm.execution.setNextRequest</code> to choose the request the Runner sends next; giving it <code>null</code>, which means &ldquo;no request&rdquo;, ends the run. And <code>if</code> gets a partner: <code>else { ... }</code>, straight after the <code>if</code>&rsquo;s braces, runs its lines only when the test was false:</p>
+<pre><code><span class="cm">// Lend the book, post-response, replacing the script from section E</span>
+if (pm.response.code === 201) {
+  <span class="cm">// the loan exists: keep its id for the next call</span>
+  pm.collectionVariables.set("loanId", pm.response.json().id);
+} else {
+  <span class="cm">// no confirmed loan: stop, so nothing is sent about a loan that may not exist</span>
+  pm.execution.setNextRequest(null);
+}</code></pre>
+      <p>With that in place, the same run sends three requests and stops. Calls 1 and 2 need the same guard, or a member who does not exist still gets a loan. Their success is a <code>200</code>, and <code>!==</code> asks &ldquo;is not exactly equal to&rdquo;:</p>
+<pre><code><span class="cm">// Read the member and Read the book, post-response</span>
+<span class="cm">// anything but 200: stop the run here, nothing after this is sent</span>
+if (pm.response.code !== 200) {
+  pm.execution.setNextRequest(null);
+}</code></pre>
+      <p>That is the run fixed: it stops at the first call it cannot continue past. Designing for partial failure is the bigger job: for every call in a workflow, decide in advance what a failure means. Four questions do it:</p>
+      <ul class="pts">
+        <li><b>Did it change anything?</b> Calls 1 and 2 are reads, so a failure there leaves nothing behind: stop, and start again later.</li>
+        <li><b>If it failed, do we know whether it changed something?</b> The library&rsquo;s <code>503</code> says &ldquo;No loan was made&rdquo;: known. No answer at all, section A&rsquo;s silence, is unknown.</li>
+        <li><b>Is it safe to send again?</b> For call 3, yes in both cases, <b>because it carries a key</b>: if the loan was made, the retry gets it back from memory; if not, the retry makes it. Without a key, the unknown case has no safe move. <b>This is the pattern Session 4 promised, the one that makes a retried write safe.</b></li>
+        <li><b>What about the calls that already worked?</b> If call 4 fails after call 3 made the loan, there are two honest ways forward. <b>Retry forward</b>: send the notice again later, because the loan is what matters and a late notice is fine. Or <b>compensate</b>: undo the earlier write with a request of its own, such as cancelling loan 501, which is called a <b>compensating action</b>. Nothing undoes a write for you; if undoing is the plan, the API needs a way to do it, and the workflow has to call it.</li>
+      </ul>
+      <p>Three habits fall out of those questions. Put the reads first, so most failures happen before anything is written. Give every write its own key, made once for that run. And keep how far a run got, the key and the loan&rsquo;s <code>id</code>, so that running it again <b>resumes</b> with the same key instead of starting a new operation.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Break call 3, stop the run, and recover with the same key</div>
+        <ol>
+          <li>Set <code>loanAnswer</code> to <code>503 unavailable</code> and run <code>Lend a book</code> with the section E script. Confirm four requests went out, and read what call 4 got.</li>
+          <li>Replace the script on <b>Lend the book</b> with the one above, and give <b>Read the member</b> and <b>Read the book</b> the <code>!== 200</code> guard. Run again: confirm three requests, and no call 4.</li>
+          <li>Now recover. Leave <code>loanKey</code> exactly as it is. On a real server, the retry with the same key would make the loan, or return it if it was made after all. Your mock cannot remember, so you play that answer: set <code>loanAnswer</code> to <code>201 replayed</code> and run again. Confirm four requests and <code>"loanId": 501</code> in call 4.</li>
+          <li>In <code>Lend a book</code>&rsquo;s description, answer the four questions above for each of the four calls.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>run 1   4 requests: call 4 was sent though no loan was made
+run 2   3 requests: the else branch stopped the run
+run 3   4 requests: the same key, so one loan, 501
+
+call 1  changes nothing; stop and start again later
+call 2  changes nothing; stop and start again later
+call 3  a write; a 503 is known-not-done, silence is
+        unknown; safe to resend either way, with the
+        same key; nothing before it to undo
+call 4  a write; if it fails the loan still stands:
+        retry the notice later (forward), or cancel
+        the loan (compensate) if a loan without a
+        notice is not acceptable</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I watched a failed call 3 leave call 4 acting on nothing, stopped the run on it, and recovered with the same key</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Tracing a retry end to end, on paper</h3>
+      <p>Everything in this session can go wrong at a moment no test happens to hit. A <b>trace</b> is how you find those moments before anyone builds anything: you walk one scenario through every party, one row per moment, and at the end you count what exists. It needs no tools, and it is how a double-charge gets caught at a whiteboard instead of in a customer&rsquo;s bank statement. A trace has five columns:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Column</div><div class="fn">Holds</div><div class="fd">Why</div></div>
+        <div class="frow"><div class="fc">time</div><div class="fn">when, to the second where it matters</div><div class="fd">timeouts and retry schedules are about time</div></div>
+        <div class="frow"><div class="fc">sent</div><div class="fn">who sends what, with its key or event <code>id</code></div><div class="fd">a key that changes between rows is a bug you can see</div></div>
+        <div class="frow"><div class="fc">receiving side</div><div class="fn">what it does, and its memory afterwards</div><div class="fd">the memory is what makes a retry safe</div></div>
+        <div class="frow"><div class="fc">answer</div><div class="fn">what comes back, or &ldquo;nothing&rdquo;</div><div class="fd">every &ldquo;nothing&rdquo; is a place a retry starts</div></div>
+        <div class="frow"><div class="fc">sender knows</div><div class="fn">what the sender believes, and does next</div><div class="fd">the gap between this and the memory column is where duplicates come from</div></div>
+      </div>
+      <p>Then two rules. <b>Follow the scenario until every party has stopped</b>: the sender is satisfied or has given up, and nothing is still in flight. And <b>end with the effects</b>, a count of what now exists, compared with what was meant. Here is the lost answer from section A, traced with a key:</p>
+      <div class="filebox">
+        <div class="fbh">the lent book, traced with a key &middot; an illustration</div>
+<pre><code>time      sent              server, memory after       answer       desk app knows
+10:00:00  POST K1, book 8   K1 new: in progress,       nothing      nothing yet
+                            makes loan 501; K1 done,   (lost)
+                            stores 201 loan 501
+10:00:10  -                 -                          -            no answer in 10 s:
+                                                                    resend, SAME key
+10:00:12  POST K1, book 8   K1 done, same body:        201 501,     loan 501; go on
+                            nothing made               replayed     to call 4
+
+effects   loans for book 8 and member 31: one, 501. Meant: one.  Correct.
+without K1: the retry makes 502. Two loans. Wrong.</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Trace the impatient retry</div>
+        <p>Same lending, but the server is slow: the loan takes 15 seconds to make, the desk app waits 10, then resends at once with the same key, and if that is refused it waits 10 more and resends again.</p>
+        <ol>
+          <li>Trace it from 10:00:00 with the five columns, until every party has stopped.</li>
+          <li>End with the effects, and say which row would have made a second loan if the desk app had used <code>{{$guid}}</code>.</li>
+        </ol>
+        <details><summary>Show one trace to compare against</summary>
+<pre><code>time      sent      server, memory after    answer    desk app knows
+10:00:00  POST K1   K1 new: in progress,    nothing   nothing yet
+                    starts the loan         yet
+10:00:10  POST K1   K1 in progress:         409       wait 10 s,
+                    nothing done                      resend, same key
+10:00:15  -         loan 501 made; K1 done, 201 501,  nothing: it
+                    stores 201 loan 501     to no one stopped waiting
+10:00:20  POST K1   K1 done, same body:     201 501,  loan 501;
+                    nothing made            replayed  go on to call 4
+
+effects   one loan, 501. Meant: one. Correct.
+{{$guid}} the 10:00:10 resend arrives as a new key and
+          starts loan 502, which is also slower than
+          10 s, so 10:00:20 sends a third new key, loan
+          503, and so on: every resend makes another loan,
+          and the desk app never gets an answer in time.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I traced an impatient retry with five columns, until everyone stopped, and counted the effects</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a receiver contract, and an idempotent retry traced end to end</h3>
+      <p>This completes Level 4&rsquo;s milestone. Session 7 gave you the first half, a receiver contract a stranger could implement. Now add what makes it safe to receive the same event twice, and prove it with a trace.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: duplicates, designed and traced</div>
+        <p>Use <code>Library member webhooks v1</code>, from Session 7&rsquo;s milestone. If you did not finish it, use <code>Library webhooks v1</code> and the book events instead. Without scrolling back up:</p>
+        <ol>
+          <li><b>Add a Duplicates heading</b> to the description, beside Retries, that tells a stranger: what identifies a duplicate, what to keep and for how long, what to answer to one and why, and how to stop two attempts arriving together both being acted on.</li>
+          <li><b>Trace this scenario end to end</b>, with the five columns. <code>member.expired</code>, <code>evt_2002</code>, first sent at 09:00:00. The receiver keeps no processed ids and does all its work before answering, which takes 12 seconds, and its work is to email the member a reminder about the books they still have. The library keeps its Session 7 contract: 10 seconds, then retries after 1 minute, 10 minutes and 1 hour.</li>
+          <li><b>Trace it again</b> for a receiver that keeps your Duplicates heading and Session 7&rsquo;s store-then-answer advice.</li>
+          <li>End each trace with the effects: how many reminder emails member 31 got, against how many were meant.</li>
+        </ol>
+        <p>You have hit the milestone when the heading answers all four things in step 1 without a look-up, and the two traces end with different effects for a reason you can point to in a single row.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">&gt; Duplicates</span>
+identify   every attempt at one event has the same id;
+           a repeated id is a duplicate
+keep       the id of every event you have stored, for at
+           least 7 days (our last retry is 1 hour after
+           the first attempt)
+answer     200 to a duplicate, and do nothing else: any
+           other answer is a failed attempt, and we retry
+together   record the id in one step that refuses an id
+           already present, so only one attempt gets in
+
+<span class="cmd">&gt; trace 1, work before answering</span>
+09:00:00  evt_2002 a1   works 12 s, emails   nothing     library: failed
+09:00:12                answers 200, too late (it stopped at 09:00:10)
+09:01:00  evt_2002 a2   works 12 s, emails   nothing     failed again
+09:10:00  evt_2002 a3   works 12 s, emails   nothing     failed again
+10:00:00  evt_2002 a4   works 12 s, emails   nothing     gives up
+effects   4 emails. Meant: 1. Every attempt "failed" and
+          every one did the work.
+
+<span class="cmd">&gt; trace 2, Duplicates heading + store then answer</span>
+09:00:00  evt_2002 a1   id new: store, record, 200     library: delivered
+                        then emails, after answering
+effects   1 email. Meant: 1. No retry happened at all.
+          (Had a1 been lost anyway, a2 would find the id
+          recorded and get 200 with no second email.)
+
+<span class="cmd">&gt; where yours may honestly differ</span>
+a different keep period, as long as it outlasts the retries;
+different wording, as long as every row has all five columns.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I added a Duplicates heading to a receiver contract and traced a retried event end to end, twice, with the effects counted</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from one lost answer, through a server&rsquo;s memory and a workflow run, to tracing a receiver.</p>
+    <div class="note"><b>Drills about a mock use the lending mock from section C</b>, with its examples and no extra headers unless the drill shows one; they were checked against a real mock on 2026-10-02. <b>Drills about a real server or receiver</b> mean one that keeps the library&rsquo;s contract exactly: keys remembered for 24 hours, and processed event ids for receivers. Where a drill needs to show you something first, it is in the grey box above the question.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading a retry and designing for one. First put a server&rsquo;s handling of a new key back into order, then fill the blanks in a request, a script and a contract.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. There is one sequence today, on purpose: handling a key the server has never seen is the one process in this session where each step needs the one before it.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded request, script and contract)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft each piece in the box, then reveal the reference to compare. A contract or a trace can be right in many wordings; what matters is that yours answers every question the task names. The workbook cannot judge free text, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours covers everything the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">15</span></span>
+        <span>In pile <b id="fc-pile">15</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Three of the six questions below come from <b>Sessions 7, 5 and 4</b> rather than from today, because recalling something after a delay is what moves it from "I read that" to "I know that". Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 08 of 10 &middot; Hit the milestone unassisted, then tick <b>S08</b> on your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>. That completes Level 4.
+    <br><br>
+    <b>Your 15-minute review:</b> trace what happens to your Session 7 webhook if the receiver times out and the sender retries: the event you sketched from your own job, or, for a neutral one, the library&rsquo;s <code>book.returned</code>, <code>evt_1001</code>. Use the five columns, follow it until every party has stopped, and end with the effects, once for a receiver that keeps no processed ids and once for one that does. Keep <a href="https://restfulapi.net/idempotent-rest-apis/" target="_blank" rel="noopener">restfulapi.net&rsquo;s page on idempotent APIs</a> open beside you: a short, free reference for which methods are idempotent and why. &middot; Next: <b>Session 09, put it together</b>, where a real public API and your own mocked one meet in one integration, with every pattern from Levels 1 to 4 on one checklist.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-s08-workbook-v1";
+  /* Spaced review: three Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+  var S03_URL = "api-session-03.html";
+  var S04_URL = "api-session-04.html";
+  var S05_URL = "api-session-05.html";
+  var S06_URL = "api-session-06.html";
+  var S07_URL = "api-session-07.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, status numbers,
+     key names and short words, where capitalisation is presentation. parenLabels is
+     OFF for this session: transcripts print answer tokens as status lines, header
+     names with a colon (Idempotency-Key:), example names (422 key reused), quoted
+     keys, UUIDs, ids and event ids (evt_1001), never in parentheses as a label. Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in this session
+     takes a method or a path, so none is; caseFold stays ON for every drill. The
+     flag stays in the engine because later sessions use it. */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. F2 is cs: true because its blanks are
+     JavaScript and a Postman variable name, both case-sensitive. F1 and F3 fold
+     case: their blanks are header names, which are case-insensitive, and numbers.
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "Location: /v1/books/8", and JSON keys as
+     "author". Whenever a session prints an answer token inside
+     punctuation, that punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 1 count, 1 set, 2 seq. Every mock drill was
+     checked against a real Postman mock built from Lending API v1 on 2026-10-02,
+     with Postman's request headers; the run drills against newman, Postman's
+     command-line runner. D6 asks for every loan answer by name or by a body only
+     one example holds, so no tie decides it. No drill takes a method or a path,
+     so none is cs: true. */
+  var DRILLS = [
+    { type: 'count', lbl: 'a real server, no key',
+      scen: 'The desk app sends this, the server makes loan 501, and the 201 is\nlost on the way back. Twelve seconds later the desk app sends it again,\nunchanged.',
+      ask: 'How many loans for book 8 and member 31 exist now? Answer with a number.',
+      code: 'POST /v1/loans\nContent-Type: application/json\n\n{"bookId": 8, "memberId": 31}', ans: '2', alt: ['two', '2 loans', 'two loans'],
+      why: '2. POST is not idempotent, and nothing in the request lets the server recognise the second one as a retry, so it does the work again and makes loan 502. That is the lost-answer problem: the desk app could not tell “never arrived” from “arrived, answer lost”, and guessed wrong.' },
+
+    { type: 'value', lbl: 'a real server',
+      scen: 'The server’s memory holds:\n\n  7c4f2a9e-...   body book 8, member 31   done   201, loan 501\n\nThis request arrives, carrying that key.',
+      ask: 'What is the id of the loan in the answer? Answer with the number.',
+      code: 'POST /v1/loans\nIdempotency-Key: 7c4f2a9e-3b1d-4e8a-9f60-2d5c8b1a4e73\n\n{"bookId": 8, "memberId": 31}', ans: '501', alt: ['loan 501'],
+      why: '501. The key is in memory, the body is the same and the first attempt is done, so the server answers from memory: the stored 201 with loan 501, and the library adds Idempotent-Replayed: true. No second loan is made. That is the whole point of a key.' },
+
+    { type: 'value', lbl: 'a real server',
+      scen: 'The same memory as D2: the key is done, for book 8 and member 31.\nThis request arrives, with the same key and a different book.',
+      ask: 'What three-digit status code does the server answer?',
+      code: 'POST /v1/loans\nIdempotency-Key: 7c4f2a9e-3b1d-4e8a-9f60-2d5c8b1a4e73\n\n{"bookId": 9, "memberId": 31}', ans: '422', alt: ['422 Unprocessable Content', '422 key reused'],
+      why: '422. The key has been seen, but the body’s fingerprint does not match the one stored with it, so this is not a retry: it is one key used for two different operations, a client bug. The draft names 422 for it. The server does nothing, and the loan for book 9 is not made until the client sends it with a key of its own.' },
+
+    { type: 'value', lbl: 'a real server',
+      scen: 'The desk app sent a loan with key 7c4f2a9e-..., got no answer in 10 seconds,\nresent it, and got this back:\n\n  409 Conflict\n  {"error": {"code": "idempotency_in_progress", ...}}',
+      ask: 'When it tries again in a few seconds, does it send the same key or a new one? Answer same or new.',
+      code: '(the 409 above)', ans: 'same', alt: ['same key', 'the same', 'the same key'],
+      why: 'Same. A 409 here means the first attempt is still being worked on, so the operation is not finished, and it is the same operation. The draft says a 409 needs no correction before a retry. A new key would turn the retry into a new operation, and the server would start a second loan.' },
+
+    { type: 'value', lbl: 'the receiver mock, web app',
+      scen: 'Your Session 7 receiver mock is set to Custom, 40000 ms. From Postman’s\nweb app, you send Deliver book.returned, and Postman says:\n\n  Could not send request\n  Cloud Agent Error: Request is taking longer than 30 seconds ...',
+      ask: 'You open the mock’s call log. What does its Response column show for that delivery? Write it as the call log does.',
+      code: '(the delivery above)', ans: '200 received',
+      why: '200 received. The mock got the delivery and answered with the example that fits, 40 seconds later; the Cloud Agent had stopped waiting at 30. The receiver handled it and the sender never heard, which is exactly the moment a real sender schedules a retry, and the moment a duplicate is born.' },
+
+    { type: 'seq', lbl: 'sent in this order',
+      scen: '  1  Lend the book, x-mock-response-name: 201 created\n  2  Lend the book, x-mock-response-name: 201 replayed\n  3  Lend the book, no name, body {"bookId": 9, "memberId": 31}\n  4  Notify the member, body {"memberId": 31, "loanId": {{loanId}},\n     "template": "loan.created"}, with loanId never set',
+      ask: 'All four go to your lending mock. List the four status codes in order, as numbers separated by commas.',
+      code: '(the four requests above)', ans: '201, 201, 422, 400',
+      why: '201, 201, 422, 400. 1 and 2 are asked for by name. 3 has no name, but its body matches only the 422 example’s saved body, and a matching body wins, as in Session 6. 4 sends the literal text {{loanId}}, which is not valid JSON, so the mock refuses it itself with its own 400 badRequest, as in Session 7. Note what 2 did not prove: the mock never remembered anything.' },
+
+    { type: 'set', lbl: 'Lend a book, no stop script',
+      scen: 'You run the four-call workflow with loanAnswer set to 503 unavailable.\nLend the book has only the section E script, the one with no else.',
+      ask: 'Which calls does the Runner send? Give the call numbers separated by commas. Order does not matter.',
+      code: '1 Read the member   2 Read the book\n3 Lend the book     4 Notify the member', ans: '1, 2, 3, 4', alt: ['all four', 'all'],
+      why: '1, 2, 3 and 4. A failed request does not stop a run: the Runner sends every request in the collection. So call 4 went out about a loan that was never made. Stopping on the first answer you cannot continue past is the script’s job, with pm.execution.setNextRequest(null).' },
+
+    { type: 'value', lbl: 'Lend a book, no stop script',
+      scen: 'The same run as D7, and loanId was never set, so call 4’s body is sent as\n\n  {"memberId": 31, "loanId": {{loanId}}, "template": "loan.created"}',
+      ask: 'What three-digit status code does call 4 get from the mock?',
+      code: 'POST {{baseUrl}}/v1/notifications', ans: '400', alt: ['400 Bad Request', '400 badRequest'],
+      why: '400, Postman’s own badRequest. {{loanId}} with nothing behind it is sent as the literal text, so the body is no longer valid JSON, and a mock reads a JSON body before it matches anything. Had loanId still held 501 from an earlier run, the answer would have been 201 sent, a notice about a loan this run never made, which is worse because nothing looks wrong.' },
+
+    { type: 'value', lbl: 'a real receiver',
+      scen: 'The receiver’s processed table already holds evt_1001. The library’s\nsecond attempt at evt_1001 arrives, with a new timestamp and a signature\nthat checks out.',
+      ask: 'What three-digit status code does the receiver answer?',
+      code: 'POST /webhooks/library\nLibrary-Timestamp: 1790863560\nLibrary-Signature: sha256=0583ae65...77a46\n\n{"id": "evt_1001", "type": "book.returned", ...}', ans: '200', alt: ['200 OK', '200 received'],
+      why: '200, and nothing else happens. The id is in the table, so this is a duplicate: the receiver must not act on it again, and it must answer with a 2xx, because the library counts anything else as a failed attempt and retries. A 409 or a 422 here would make the library keep sending the event the receiver is trying to ignore.' },
+
+    { type: 'seq', lbl: 'trace it',
+      scen: 'A receiver that keeps a processed table, empty at the start, gets five\ndeliveries, every signature good, in this order:\n\n  1  evt_1001, attempt 1\n  2  evt_1002, attempt 1\n  3  evt_1001, attempt 2\n  4  evt_1003, attempt 1\n  5  evt_1002, attempt 2',
+      ask: 'For each delivery in order, does the receiver act on it or skip it? Answer with five words, act or skip, separated by commas.',
+      code: '(the five deliveries above)', ans: 'act, act, skip, act, skip',
+      why: 'act, act, skip, act, skip. Walk the table: 1 adds evt_1001, 2 adds evt_1002, 3 finds evt_1001 already there, 4 adds evt_1003, 5 finds evt_1002. Every delivery gets a 200; only the first attempt at each event is acted on. Note that the attempt number is not what decides it: the table is. An attempt 2 whose attempt 1 never arrived would be acted on.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item, deliberately (build contract section 4): a server handling a key it
+     has never seen is the idempotent retry sequence the contract names, and each
+     tile needs the one before it. The lookup needs the key; recording needs the
+     lookup to have found nothing; the loan is made only once the key is recorded
+     as in progress, so a retry arriving meanwhile gets 409, not a second loan;
+     storing the answer needs the loan; and the answer is sent FROM the stored
+     answer, so it cannot come before the store. Longest tile is 46 characters,
+     inside the ~54 two columns allow. */
+  var PARSONS = [
+    { prompt: 'Put the server’s handling of a loan request with a brand-new key into the only order that works. It reads the key, finds it is not in its memory, records it as in progress with the body’s fingerprint, makes the loan, stores the answer against the key, and then sends the stored answer.',
+      lines: ['Read the Idempotency-Key header',
+              'Look the key up: it is not in memory',
+              'Record key and fingerprint as in progress',
+              'Make loan 501',
+              'Store 201 and loan 501 against the key, done',
+              'Answer with the stored 201 and loan 501'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). F1 folds case: its blanks are header
+     names, which are case-insensitive. F2 is cs: true: its blanks are JavaScript
+     inside a Postman script (a number, a method name and a keyword), and
+     JavaScript is case-sensitive: Set and NULL are errors. F3's blanks are all
+     numbers.
+     Recorded in the build contract. */
+  var FADED = [
+    { prompt: 'Fill the two header names, spelled as the library’s contract spells them: first the request header that carries the key, then the response header that says the answer came from the server’s memory.',
+      code: 'POST {{baseUrl}}/v1/loans\n%%: 7c4f2a9e-3b1d-4e8a-9f60-2d5c8b1a4e73\n\n{"bookId": 8, "memberId": 31}\n\n201 Created\nLocation: /v1/loans/501\n%%: true', ans: ['Idempotency-Key', 'Idempotent-Replayed'] },
+    { cs: true,
+      prompt: 'Fill the blanks in call 3’s post-response script: the status code that means the loan was made, the method that stores a value in a collection variable, and the value that ends the run.',
+      code: 'if (pm.response.code === %%) {\n  pm.collectionVariables.%%("loanId", pm.response.json().id);\n} else {\n  pm.execution.setNextRequest(%%);\n}', ans: ['201', 'set', 'null'] },
+    { prompt: 'Fill the blanks in this part of the lending contract, with numbers: the status for a key whose first request is still running, the status for a key reused with a different body, and the hours a key is remembered.',
+      code: 'Idempotency   send Idempotency-Key with every POST /v1/loans\n  same key, same body, done      the stored answer again\n  same key, still in progress    %%\n  same key, different body       %%\n  keys are remembered for        %% hours', ans: ['409', '422', '24'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Write the Idempotency heading of the Lending API v1 contract for a stranger who has never heard of idempotency: which requests need a key, what a key should look like, what the server answers in each of the five cases, how long keys are remembered, and what a client should do after each refusal.',
+      sol: 'Idempotency\n  which      every POST /v1/loans must carry an\n             Idempotency-Key header; without one: 400,\n             so add the header and resend\n  the key    a random UUID you make ONCE per loan, before\n             the first attempt, and send unchanged on every\n             retry of that loan; never reuse it for another\n  new key            we make the loan: 201\n  seen, done,        we answer again from memory, the\n  same body          same 201 and loan, plus\n                     Idempotent-Replayed: true\n  seen, running      409: wait a few seconds, resend\n                     with the SAME key\n  seen, other body   422: your bug, one key on two\n                     loans; make a new key for the new one\n  remembered         24 hours; after that a key is new\n  503                no loan was made; resend with the\n                     same key' },
+    { task: 'A teammate’s collection resends POST /v1/loans up to three times when no answer comes, and its Idempotency-Key header is {{$guid}}. Members are getting up to four loans for one book. Explain to them, in a few sentences, why, and what to change.',
+      sol: '{{$guid}} is a dynamic variable: Postman makes a new\nvalue every time the request is sent. So each attempt\ncarries a different key, and the server sees up to\nfour unrelated requests, and makes a loan for each.\n\nThe key has to belong to the operation, not the\nattempt. Make it once, before the first attempt, keep\nit in a collection variable such as loanKey, and send\n{{loanKey}} on every attempt. Make a new one only for\na new loan.' },
+    { task: 'A different workflow, joining the library: 1 POST /v1/members creates the member, 2 POST /v1/payments takes the joining fee (the payments API accepts Idempotency-Key), 3 POST /v1/notifications sends a welcome. Call 2 gets no answer at all. Write the plan for every call: did it change anything, do we know, is it safe to resend, and what happens to the calls that already worked.',
+      sol: 'call 1  a write: the member exists once it answered\n        201. Give it a key, so a re-run that resends\n        it gets the same member back, not a second.\ncall 2  a write, and silence is UNKNOWN: the fee may\n        have been taken. Resend only with the SAME\n        key: a taken fee comes back from memory, an\n        untaken one is taken once. Never a new key.\n        If it still fails: stop, keep the keys, and\n        either re-run later (forward) or remove the\n        member (compensate), by the business rule.\ncall 3  a write; a failed welcome leaves a paid\n        member, which is fine: retry it later.\n\nhabits  keep how far the run got, and every key,\n        so a re-run resumes with the same keys\n        instead of joining the member twice.' },
+    { task: 'The receiver’s store stalls for over a minute, so the library’s retry of evt_1001 arrives while the first attempt is still being handled, and both are in progress at once. Trace the two attempts twice: once for a receiver that checks the processed table and then, separately, adds the id; once for one that records the id in one step that refuses an id already present. End each with the effects on member 31’s books-read count.',
+      sol: 'receiver 1, check then add\n  a1  checks: evt_1001 not there\n  a2  checks: evt_1001 not there (a1 has not added it)\n  a1  adds evt_1001, stores, answers 200\n  a2  adds evt_1001, stores, answers 200\n  effects  count +2. Meant +1. Wrong: both got past\n           the check before either recorded the id.\n\nreceiver 2, one step that refuses a repeat\n  a1  records evt_1001: accepted; stores; 200\n  a2  records evt_1001: refused, already there; 200,\n      nothing done\n  effects  count +1. Meant +1. Correct.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your contract text here, then compare it with the reference"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Fifteen cards, sized to the atoms THIS session has. Earlier sessions are
+     deliberately absent: the deck stays session-local and re-testing earlier
+     material is Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'The three things that may have happened when a request gets no answer', b: 'it never arrived; it worked and the answer was lost; it is still working' },
+    { f: 'What an idempotency key is', b: 'a unique value the client makes and sends with a write, so the server can recognise a retry of it' },
+    { f: 'The header that carries it', b: 'Idempotency-Key' },
+    { f: 'One key per what?', b: 'per operation, not per attempt: every retry of it carries the same key' },
+    { f: 'Why {{$guid}} is wrong as a key header', b: 'Postman makes a new value on every send, so every retry looks like a new request' },
+    { f: 'What a key-honouring server keeps for each key', b: 'a fingerprint of the body, a state, and the answer it gave' },
+    { f: 'Same key, same body, first attempt done', b: 'the stored answer again; the work is not done twice' },
+    { f: 'Same key, first attempt still running', b: '409: try again shortly, with the same key' },
+    { f: 'Same key, different body', b: '422: one key used for two operations, a client bug' },
+    { f: 'What a mock can show of idempotency, and what it cannot', b: 'the answers in the contract; never the remembering' },
+    { f: 'What a webhook receiver uses as its idempotency key', b: 'the event’s id, which the sender keeps the same on every attempt' },
+    { f: 'What a receiver answers to a duplicate delivery', b: 'a 2xx, and does nothing else; any other answer gets it retried' },
+    { f: 'Does a failed request stop a Collection Runner run?', b: 'no; a script stops it, with pm.execution.setNextRequest(null)' },
+    { f: 'A compensating action', b: 'a request that undoes an earlier write, such as cancelling a loan' },
+    { f: 'What every trace ends with', b: 'the effects: what now exists, against what was meant' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Q4, Q5 and Q6 are spaced review, from Sessions 7, 5 and 4, and their backlinks
+     carry `ext` so they open that session rather than scrolling here. Target: the
+     correct option's length rank (longest = 1) is 3, 2, 3, 2, 3, 2: never the
+     longest or the shortest (check-quiz.py 0/6 on both), and no single rank
+     reaches the pass mark of 5. Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: 'The desk app sends POST /v1/loans with an Idempotency-Key and gets no answer within 10 seconds. What should it do next?',
+      o: ['Send the same request again, with the same key',
+          'Send it again with a new key, since the attempt that carried the old key has failed and is finished',
+          'Give up for good: a POST can never be retried safely, whatever header it carries',
+          'Wait 24 hours, until the key expires'],
+      c: 0,
+      e: 'Silence means the loan may or may not exist, and the key is what makes resending safe either way: if it was made, the retry gets it back from memory; if not, the retry makes it. A new key would make the server see a new operation and start a second loan. Waiting out the expiry gives up the protection the key exists for, and “never retry a POST” was the rule for a POST with NO key.',
+      part: { id: 'concept-b', label: 'B. The idempotency key' } },
+
+    { q: 'A receiver keeps a processed table, and answers 409 Conflict to any delivery whose id is already in it. What happens when the library retries an event the receiver has already handled?',
+      o: ['Nothing more: the 409 tells the library it was handled',
+          'The library counts each 409 as a failed attempt and keeps resending until it gives up',
+          'The library switches to a new id for the event, so the receiver sees it as a different, brand-new event and acts on it again',
+          'The receiver acts on the event twice'],
+      c: 1,
+      e: 'Under the library’s contract, only a 2xx counts as delivered: anything else is a failed attempt, and is retried. So a 409 brings back the very event the receiver is trying to ignore, until all four attempts are spent. The receiver does not act twice, because its table stops it, and the library never changes an event’s id. Answer a duplicate with 200, and do nothing else.',
+      part: { id: 'concept-d', label: 'D. Remembering events' } },
+
+    { q: 'In a four-call workflow run in the Runner, call 3 (the loan) answers 503, and no script stops the run. What goes wrong?',
+      o: ['The Runner stops at call 3 by itself, as it does on any error status',
+          'Call 4 is still sent, about a loan that was not made',
+          'Call 3 is retried automatically by the Runner, with a new key each time, until a 201 finally comes back',
+          'Calls 1 and 2 are undone'],
+      c: 1,
+      e: 'A failed request does not stop a run: the Runner sends every request in the collection, so call 4 went out about a loan that does not exist, either with a broken body or with an old loanId. The Runner does not retry on its own, and nothing undoes calls 1 and 2, which were reads and changed nothing anyway. The fix is a script that stops the run on anything but a 201.',
+      part: { id: 'concept-f', label: 'F. When call three of four fails' } },
+
+    { q: 'Spaced review, from Session 7. You send a delivery with one digit of the body changed to your receiver mock, and it answers 200 received. What does that tell you?',
+      o: ['The signature is valid, because a mock refuses a forged one with 401',
+          'Nothing about the signature: a mock checks none, it replays an example',
+          'That the mock recomputed the HMAC and found it matched',
+          'That a 200 from a mock means a real receiver will also accept that delivery'],
+      c: 1,
+      e: 'Session 7 showed a mock never computes a signature: it matches the request against its examples and replays the best fit, so a changed body, a wrong signature and no signature all got 200. The 401 example is only reachable by asking for it. A mock shows what a receiver will answer, never that the signature was right, and a real receiver would refuse this one with 401.',
+      part: { ext: S07_URL + '#concept-e', label: 'Session 7, E. Proving the library sent it' } },
+
+    { q: 'Spaced review, from Session 5. A client sends PUT /v1/books/7 with a full book, the connection drops before an answer, and it sends the same PUT again. Does it need an idempotency key to be safe?',
+      o: ['Yes: every write needs a key',
+          'No: PUT is idempotent, so replacing book 7 twice leaves the same book 7',
+          'Yes, because the second PUT would create a book 8 beside book 7, the way a repeated POST makes a second loan',
+          'No, but only because the server answers 404 the second time, since book 7 was already replaced'],
+      c: 1,
+      e: 'Session 5 defined idempotent as many identical requests having the same effect as one, and PUT is idempotent by definition: replace book 7 with these details once or twice, and book 7 ends up the same. A PUT replaces the book at that URL, it never creates another beside it. Keys are for the methods that are not idempotent, chiefly POST. The second PUT gets a 200 like the first, not a 404.',
+      part: { ext: S05_URL + '#concept-c', label: 'Session 5, C. One method per operation' } },
+
+    { q: 'Spaced review, from Session 4. A GET answers 503 Service Unavailable with Retry-After: 30. What does a well-behaved client do?',
+      o: ['Resends at once, then backs off exponentially from 1 second, ignoring the header',
+          'Waits 30 seconds, then sends the same request again',
+          'Never retries: a 503 means the request is wrong',
+          'Waits 30 minutes'],
+      c: 1,
+      e: 'Session 4 put 503 among the failures worth retrying after a wait, because the server is overloaded or down for a moment, and a Retry-After present overrides your own schedule: in the seconds form, wait that many seconds. A 503 says nothing is wrong with the request, unlike a 400. And 30 means seconds, not minutes. A GET is safe to resend; a write would need a key.',
+      part: { ext: S04_URL + '#concept-e', label: 'Session 4, E. After a 429' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S08 on your Hub and move on to Session 9.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
