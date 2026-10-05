@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Session 10: Capstone</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-04.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* S5: a wider three-column table for contract rows, where the first column holds a
+     field name or a whole request line (publishedYear, DELETE /v1/books/{id}) rather
+     than a three-digit code. Same tokens as .fam, so rule 28 is unchanged. */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 46 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is categorymembers (15 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from S4, unused in S5's content but kept so the
+     component stays in the track's shared CSS): its summary must read as clickable.
+     Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the one thing in this session that can actually cost the
+     learner something: putting real company data into a synced Postman workspace.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 10 // Level 5 &middot; Ship It</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Capstone: ship it</h1>
+    <p class="goal">Session 9 joined two APIs with a recipe to follow. Today you ship one of your own from a blank collection: a small API you design and mock, filled from a list Wikipedia hands you a page at a time, with a loop that keeps going until the list ends, written down so a stranger could run it. Then you look at where this track stops, and take the final, which covers all ten sessions.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Ship a documented, mocked integration combining a designed API and a real public API.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start, signed in with the free account from Session 4.</b> Everything today starts from an empty collection, so you need nothing saved from earlier sessions: only what they taught you.</p>
+        <p><b>You send Wikipedia a way to contact you again,</b> exactly as in Session 9: an email address or web address you are happy for the Wikimedia Foundation to see, in a variable called <code>userAgent</code>. It is saved in your collection, so <b>empty that variable before you share, export or hand on the collection</b>.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">10</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, all in Postman. Today&rsquo;s turns build one thing from start to finish, so do them in order. Tick each box once you have done the task, not just read it.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. <b>Every box marked &ldquo;captured live&rdquo; is real</b>: captured on 2026-10-05 from Wikipedia and from Postman mocks built exactly as this session describes, with newman, Postman&rsquo;s command-line runner, which runs a collection with the same engine as the Runner. Your mock has its own address, written <code>https://&lt;mock-id&gt;.mock.pstmn.io</code>, where the angle brackets mark a stand-in, as in Session 3. Wikipedia&rsquo;s editors change pages and categories, so what you see may be worded differently from what is printed here; the shape will not change. Transcripts show only the lines that matter, and a long cursor is cut short with <code>...</code>.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. The brief, and what &ldquo;shipped&rdquo; means</h3>
+      <p>The library wants <b>reading lists</b>: a named list of books, each with a one-line description, that a reader can browse. Wikipedia already groups books into <b>categories</b>, pages that list other pages, such as <code>Category:Earthsea novels</code>, the five novels in Ursula K. Le Guin&rsquo;s Earthsea series. So the integration fills a reading list from a Wikipedia category. It has Session 9&rsquo;s three owners: a new API that you design and own, Wikipedia&rsquo;s, which you do not, and the glue between them, which is yours.</p>
+      <p>It is three requests, but they do not simply run once each in order. A category&rsquo;s members come back a page at a time, so two of the requests take turns until the category runs out:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Call</div><div class="fn">Does</div><div class="fd">Needs, and gives</div></div>
+        <div class="frow"><div class="fc">1 Read the list</div><div class="fn"><code>GET /v1/lists/4</code> on your mock, once</div><div class="fd">gives: the list&rsquo;s Wikipedia category</div></div>
+        <div class="frow"><div class="fc">2 Ask Wikipedia for the next member</div><div class="fn"><code>GET</code> Wikipedia&rsquo;s API, one member of the category</div><div class="fd">needs: the category and a cursor; gives: one book, and the cursor for the next</div></div>
+        <div class="frow"><div class="fc">3 Save the item</div><div class="fn"><code>PUT /v1/lists/4/items/...</code> on your mock</div><div class="fd">needs: the book. Then back to call 2, until there is no next cursor</div></div>
+      </div>
+      <p><b>Shipped</b>, on this track, means five things exist, and the last one has happened:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Deliverable</div><div class="fn">What it is</div><div class="fd">Taught in</div></div>
+        <div class="frow"><div class="fc">1 The contract and its mock</div><div class="fn">your API, designed before it is used, with an example for every answer it can give</div><div class="fd">Sessions 5 and 6</div></div>
+        <div class="frow"><div class="fc">2 The integration</div><div class="fn">a collection whose run does the whole job and stops safely on every failure</div><div class="fd">Sessions 4, 8 and 9</div></div>
+        <div class="frow"><div class="fc">3 The README</div><div class="fn">Session 9&rsquo;s six headings, so a stranger can run it and fix it</div><div class="fd">Session 9</div></div>
+        <div class="frow"><div class="fc">4 The checklist</div><div class="fn">Session 9&rsquo;s eight lines, every one answered</div><div class="fd">Session 9</div></div>
+        <div class="frow"><div class="fc">5 A stranger pass</div><div class="fn">someone, or you a day later, running it from the README alone</div><div class="fd">Sessions 6 and 9</div></div>
+      </div>
+      <p><b>Two ways to do the capstone.</b> The sections below build the Earthsea reading list, so everyone starts from the same real place and every transcript matches what you will see. If you would rather build your own, you can, at the milestone or instead of the worked example: <b>any API you design and mock, paired with any public API that needs no key and hands back a list in pages</b>. Read the public API&rsquo;s documentation for its rate limits and identification rules first, as section B of Session 9 did for Wikipedia. Your own pairing is judged the same way: the five deliverables above.</p>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Your side first: Reading Lists API v1</h3>
+      <p>Design comes before use, as Session 5 said. The library has two kinds of thing here: a <b>list</b>, and the <b>items</b> on it, and an item belongs to one list. So, in Session 5&rsquo;s nested shape, a list lives at <code>/v1/lists/{listId}</code> and its items at <code>/v1/lists/{listId}/items/{itemId}</code>, where the braces mark a stand-in for a real id.</p>
+      <p><b>Whose id is the item&rsquo;s?</b> This is the decision that makes the whole integration safe to repeat. If the library made up an item&rsquo;s id when it was saved, with <code>POST /v1/lists/4/items</code>, then running the integration twice would save every book twice, which is Session 8&rsquo;s problem, and would need Session 8&rsquo;s idempotency key. Instead, <b>an item&rsquo;s id is the Wikipedia page id of the book it describes</b>. Every Wikipedia page has a number, its <code>pageid</code>, which Session 9 saw (<code>2890</code> for A Wizard of Earthsea), and it never changes. So the same book always lands at the same address, and saving it is a <code>PUT</code> to that address: save it twice and the list still has one item. The choice of id did the work a key would otherwise do.</p>
+      <p><b>A <code>PUT</code> that may create.</b> Session 9&rsquo;s about existed from the start, so its <code>PUT</code> always answered <code>200</code>. An item does not exist until the first save. RFC 9110, the HTTP rulebook from Session 5, says what a <code>PUT</code> answers in that case. It calls the stored thing a <b>representation</b>, here the saved item, and the program that sent the request the <b>user agent</b>: &ldquo;If the target resource does not have a current representation and the PUT successfully creates one, then the origin server MUST inform the user agent by sending a 201 (Created) response. If the target resource does have a current representation and that representation is successfully modified in accordance with the state of the enclosed representation, then the origin server MUST send either a 200 (OK) or a 204 (No Content) response to indicate successful completion of the request.&rdquo; So saving an item has two successes: <code>201</code> the first time, <code>200</code> after that. Here is the contract, in Session 5&rsquo;s shape:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Request</div><div class="fn">Success</div><div class="fd">Refusals, with their error code</div></div>
+        <div class="frow"><div class="fc">GET /v1/lists/{listId}</div><div class="fn">200, the list</div><div class="fd">404 list_not_found</div></div>
+        <div class="frow"><div class="fc">PUT /v1/lists/{listId}/items/{itemId}</div><div class="fn">201, the item, if it was new; 200, the item, if it replaced one</div><div class="fd">404 list_not_found &middot; 400 invalid_json &middot; 422 field_required or field_invalid &middot; 503 unavailable, nothing saved</div></div>
+        <div class="frow"><div class="fc">GET /v1/lists/{listId}/items</div><div class="fn">200, every item, with <code>x-total-count</code></div><div class="fd">404 list_not_found</div></div>
+      </div>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Field</div><div class="fn">Type</div><div class="fd">Rules</div></div>
+        <div class="frow"><div class="fc">list: id</div><div class="fn">integer</div><div class="fd">Set by the library.</div></div>
+        <div class="frow"><div class="fc">list: name, category</div><div class="fn">string</div><div class="fd">Required. <code>category</code> is a Wikipedia category&rsquo;s title, <code>Category:</code> included.</div></div>
+        <div class="frow"><div class="fc">item: title</div><div class="fn">string</div><div class="fd">Required. The Wikipedia page&rsquo;s title.</div></div>
+        <div class="frow"><div class="fc">item: description</div><div class="fn">string</div><div class="fd">Required. 1 to 200 characters.</div></div>
+        <div class="frow"><div class="fc">item: listId, pageId</div><div class="fn">integer</div><div class="fd">In answers only, taken from the address.</div></div>
+      </div>
+      <p>As in Session 9, the <code>400</code> gets no example, because a mock answers broken JSON with its own <code>400</code> first (Session 7), and one <code>422</code> example stands for both its codes. Now the mock. Session 6 said a mock replays the example that fits best and, when several fit equally, takes the first with a <code>200</code>. Saving has five examples on one method and path, so watch what that does:</p>
+      <div class="filebox">
+        <div class="fbh">saving an item on the mock built for this session &middot; captured live, each sent three times</div>
+<pre><code><span class="cmd">&gt; PUT https://&lt;mock-id&gt;.mock.pstmn.io/v1/lists/4/items/315900</span>
+<span class="cmd">&gt; {"title": "The Farthest Shore", "description": "1972 fantasy novel by Ursula K. Le Guin"}</span>
+200 OK                         <span class="cm">no name asked for: 200 replaced, every time</span>
+201 Created                    <span class="cm">with x-mock-response-name: 201 added</span>
+503 Service Unavailable        <span class="cm">with x-mock-response-name: 503 unavailable</span>
+{ "listId": 4, "pageId": 2890, "title": "A Wizard of Earthsea", ... }
+                               <span class="cm">every success: the saved example's body</span>
+<span class="cmd">&gt; {"title": "The Farthest Shore", "description": null}</span>
+200 OK                         <span class="cm">a mock checks nothing</span></code></pre>
+      </div>
+      <p>The mock answers <code>200</code> to a first save that a real server would answer <code>201</code>, and it hands back the saved example&rsquo;s book whatever you sent, because, as Session 6 showed, it stores nothing. So the integration will name the answer it wants, as Sessions 8 and 9 did, and its scripts will accept either success.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Design Reading Lists API v1, and mock it</div>
+        <ol>
+          <li>Create a collection <code>Reading Lists API v1</code> with a collection variable <code>baseUrl</code> = <code>https://api.example.com</code>, as in Session 5, and put the contract and field table above in its description.</li>
+          <li>Add three requests and their examples, named exactly as below.
+<pre><code>Read a list     GET {{baseUrl}}/v1/lists/4
+  200 the list           {"id": 4, "name": "Earthsea novels",
+                          "category": "Category:Earthsea novels"}
+  404 list not found     error code list_not_found,
+                         message "No list has the id 4."
+Save an item    PUT {{baseUrl}}/v1/lists/4/items/2890
+                body {"title": "A Wizard of Earthsea",
+                "description": "1968 fantasy novel by Ursula K. Le Guin"}
+  201 added              {"listId": 4, "pageId": 2890, plus the
+  200 replaced            title and description above}, both
+  404 list not found     as for Read a list
+  422 description missing  error code field_required, field
+                         "description"; saved with the request
+                         body {"title": "A Wizard of Earthsea"}
+  503 unavailable        error code unavailable, message
+                         "Nothing was saved. Try again shortly."
+List the items  GET {{baseUrl}}/v1/lists/4/items
+  200 the items          an array of two items, header
+                         x-total-count: 2
+  404 list not found     as for Read a list</code></pre></li>
+          <li>Make a public mock from the collection, as in Session 6 section B, and note its address.</li>
+          <li>Send <code>GET</code> to <code>/v1/lists/4</code> on the mock, then the save twice: once with no <code>x-mock-response-name</code>, once with it set to <code>201 added</code>.</li>
+        </ol>
+        <details><summary>Hint: if the mock says No matching requests</summary>
+<pre><code>check the method and path of the request you saved in the
+collection, and that the mock was made from THIS collection.
+After an edit, wait a few seconds and resend.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>GET list          200, Earthsea novels, Category:Earthsea novels
+save, no name     200 (200 replaced)
+save, 201 added   201
+both saves        the body of the saved example, A Wizard of
+                  Earthsea, whatever book you sent</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I designed Reading Lists API v1 with three requests and their named examples, mocked it, and saw an unnamed save answer 200</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Their side: one member of a category at a time</h3>
+      <p>Session 4 walked a category&rsquo;s members with a cursor: <code>list=categorymembers</code> gave back titles, a page at a time, and <code>continue.cmcontinue</code> held the bookmark for the next page. That gave titles only. To get each book&rsquo;s description as well, Session 9&rsquo;s <code>prop=description</code> has to be asked about those members, and Wikipedia has a form that does both in one request: a <b>generator</b>.</p>
+      <p><code>generator=categorymembers</code> says &ldquo;take the members of this category, and treat them as the pages this request is about&rdquo;. Every <code>prop</code> in the request, here <code>prop=description</code>, then applies to them. A generator&rsquo;s own parameters carry a <code>g</code> in front of their usual names, so Session 4&rsquo;s <code>cmtitle</code>, <code>cmlimit</code> and <code>cmcontinue</code> become <code>gcmtitle</code>, <code>gcmlimit</code> and <code>gcmcontinue</code>:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Parameter</div><div class="fn">What it says</div><div class="fd">Why it is here</div></div>
+        <div class="frow"><div class="fc">action=query, format=json, formatversion=2</div><div class="fn">as in Session 9</div><div class="fd">pages come back as an array</div></div>
+        <div class="frow"><div class="fc">generator=categorymembers</div><div class="fn">&ldquo;The pages are this category&rsquo;s members.&rdquo;</div><div class="fd">new today</div></div>
+        <div class="frow"><div class="fc">gcmtitle=Category:...</div><div class="fn">which category</div><div class="fd">from your list, in call 1</div></div>
+        <div class="frow"><div class="fc">gcmlimit=1</div><div class="fn">&ldquo;One member per answer.&rdquo;</div><div class="fd">each answer is then exactly one item to save</div></div>
+        <div class="frow"><div class="fc">prop=description</div><div class="fn">&ldquo;Give each one&rsquo;s short description.&rdquo;</div><div class="fd">as in Session 9</div></div>
+        <div class="frow"><div class="fc">gcmcontinue=</div><div class="fn">the cursor; empty asks for the first member</div><div class="fd">as Session 4&rsquo;s <code>cmcontinue</code></div></div>
+      </div>
+      <p>Asking for one member at a time costs one request per book, which is fine for five books and is the first thing section G changes for a big list. It keeps today&rsquo;s scripts simple: every answer holds exactly one page, Session 9&rsquo;s <code>pages[0]</code>.</p>
+      <div class="filebox">
+        <div class="fbh">the first member, then the last &middot; captured live</div>
+<pre><code><span class="cmd">&gt; GET https://en.wikipedia.org/w/api.php?action=query&amp;format=json</span>
+<span class="cmd">      &amp;formatversion=2&amp;generator=categorymembers</span>
+<span class="cmd">      &amp;gcmtitle=Category:Earthsea novels&amp;gcmlimit=1</span>
+<span class="cmd">      &amp;prop=description&amp;gcmcontinue=</span>
+200 OK
+{
+  "batchcomplete": true,
+  "continue": {
+    "gcmcontinue": "page|4650...e007|328357",   <span class="cm">the cursor</span>
+    "continue": "gcmcontinue||"
+  },
+  "query": { "pages": [
+    { "pageid": 315900, "ns": 0, "title": "The Farthest Shore",
+      "description": "1972 fantasy novel by Ursula K. Le Guin",
+      "descriptionsource": "local" } ] }
+}
+<span class="cmd">&gt; ...&amp;gcmcontinue=page|563a...dc0b|2890</span>   <span class="cm">the fourth answer's cursor</span>
+200 OK
+{
+  "batchcomplete": true,                        <span class="cm">no continue: last member</span>
+  "query": { "pages": [
+    { "pageid": 2890, "ns": 0, "title": "A Wizard of Earthsea",
+      "description": "1968 fantasy novel by Ursula K. Le Guin", ... } ] }
+}</code></pre>
+      </div>
+      <p>The cursor is <code>continue.gcmcontinue</code>, and you send it back exactly as it came as the next request&rsquo;s <code>gcmcontinue</code>. The second field, <code>"continue": "gcmcontinue||"</code>, is Wikipedia&rsquo;s own bookkeeping; sending only <code>gcmcontinue</code> back was enough every time this was tested, as with Session 4&rsquo;s <code>cmcontinue</code>. The members come in the category&rsquo;s own order, which files a title under its first word after a leading &ldquo;The&rdquo; or &ldquo;A&rdquo;: The Farthest Shore, The Other Wind, Tehanu, The Tombs of Atuan, A Wizard of Earthsea. When there is no next member, there is no <code>continue</code> at all.</p>
+      <p><b>Three ways the question can be wrong</b>, and, as Session 9 warned, all three are <code>200</code>s:</p>
+      <div class="filebox">
+        <div class="fbh">a category that does not exist, a title without its prefix, a made-up cursor &middot; captured live</div>
+<pre><code><span class="cmd">&gt; ...&amp;gcmtitle=Category:Earthsea novelz</span>
+200 OK
+{"batchcomplete": true}                    <span class="cm">the whole body: no error, no query</span>
+
+<span class="cmd">&gt; ...&amp;gcmtitle=Earthsea novels</span>                <span class="cm">no Category: in front</span>
+200 OK
+MediaWiki-API-Error: invalidcategory
+{"error": {"code": "invalidcategory",
+  "info": "The category name you entered is not valid.", ...}}
+
+<span class="cmd">&gt; ...&amp;gcmcontinue=page|zzzz|1</span>
+200 OK
+MediaWiki-API-Error: badcontinue
+{"error": {"code": "badcontinue", "info": "Invalid continue param.
+  You should pass the original value returned by the previous query.", ...}}</code></pre>
+      </div>
+      <p>None of the three has a <code>query</code>, so Session 9&rsquo;s first check, <code>query === undefined</code>, stops a run on every one of them. The first is the one to remember: a misspelt category is not an error to Wikipedia, just a category with nothing in it.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Walk the category by hand</div>
+        <ol>
+          <li>Create a collection <code>Reading list from Wikipedia</code> with a collection variable <code>userAgent</code>, set as in Session 9: <code>ReadingList/1.0 (</code>, your contact, <code>)</code>.</li>
+          <li>Add a request <b>Ask Wikipedia for the next member</b>, with header <code>User-Agent</code> = <code>{{userAgent}}</code> and the URL from the first box above, typed as one line, ending <code>&amp;gcmcontinue=</code>. Send it, and find the title and the cursor.</li>
+          <li>Paste the cursor after <code>gcmcontinue=</code>, exactly, and send. Do it once more. Confirm the three titles come in the order printed above.</li>
+          <li>Change the category to <code>Category:Earthsea novelz</code> and send. Find what is missing from the answer. Then put the URL back to <code>Category:Earthsea novels</code> with <code>gcmcontinue=</code> empty.</li>
+        </ol>
+        <details><summary>Hint: if a send comes back badcontinue</summary>
+<pre><code>a cursor must be pasted exactly as it came, every character,
+from the most recent answer. Copy it again from inside its
+quote marks, without the quote marks.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>send 1   The Farthest Shore, and a cursor ending |328357
+send 2   The Other Wind
+send 3   Tehanu
+novelz   200, the whole body {"batchcomplete": true}: no
+         query, no continue, and no error either</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I walked the Earthsea category one member at a time by passing the cursor back, and saw a misspelt category come back 200 with no query</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. The loop: two requests that take turns</h3>
+      <p>Session 4 walked pages by sending one request over and over. Today two requests take turns, Ask then Save, five times, and the Runner has to be told to go back. Session 8 showed <code>pm.execution.setNextRequest(null)</code>, which ends a run. Give <code>setNextRequest</code> a request&rsquo;s name instead, in quote marks and spelt exactly as the request is named, case and spaces included, and the Runner sends <b>that</b> request next. Spell it wrong, even by one capital letter, and no request matches: in the runs checked for this session the run then simply ended, with no error, exactly as if you had written <code>null</code>. So the end of Save&rsquo;s script can say <code>pm.execution.setNextRequest("Ask Wikipedia for the next member")</code>, and the run goes back. (Session 4 showed the same idea in an optional box, with <code>pm.info.requestName</code>, which is the name of the request whose script is running: a request can send itself again that way.) As Postman&rsquo;s documentation says, this works only in a run, never on a single Send.</p>
+      <p>Four more pieces of JavaScript, each new today:</p>
+      <ul class="pts">
+        <li><code>pm.collectionVariables.get("cursor")</code> reads a collection variable inside a script. Session 8&rsquo;s <code>set</code> writes one; <code>get</code> gives back what it holds.</li>
+        <li><code>&amp;&amp;</code> means &ldquo;and&rdquo; between two tests: the whole test is true only if <b>both</b> sides are. It is Session 9&rsquo;s <code>||</code>&rsquo;s partner, and it stops early the other way round: if the left side is already false, it never looks at the right.</li>
+        <li><code>else if (test) { ... }</code> goes between an <code>if</code> and its <code>else</code>. It is tried only when the test before it was false, so the three branches of an <code>if</code>, <code>else if</code>, <code>else</code> are three cases, and exactly one of them runs.</li>
+        <li>A line that starts with <code>//</code> is a note, as Session 8 said. Putting <code>//</code> in front of a line of code <b>switches that line off</b> without deleting it, which programmers call <b>commenting it out</b>; take the <code>//</code> away and it runs again. Section E uses this.</li>
+      </ul>
+      <p><b>Why call 1 empties the cursor.</b> The cursor is a collection variable, and Postman keeps a variable&rsquo;s value after a run ends. A run that stopped half way leaves a cursor pointing at the middle of the category. So the first thing a run does, once it has its list, is put the cursor back to empty, which asks Wikipedia for the first member. Section E shows what happens when it does not.</p>
+      <p>Now the three scripts. Every value going into a URL gets <code>encodeURIComponent</code> and every value going into a JSON body gets <code>JSON.stringify</code>, Session 9&rsquo;s rule. The one exception is the page id: it is only digits, which <code>encodeURIComponent</code> would leave exactly as they are, so it goes into the path as it is.</p>
+<pre><code><span class="cm">// Read the list, post-response: keep the category, start from the first member</span>
+if (pm.response.code !== 200) {
+  pm.execution.setNextRequest(null);
+} else {
+  pm.collectionVariables.set("categoryParam", encodeURIComponent(pm.response.json().category));
+  pm.collectionVariables.set("cursor", "");
+}</code></pre>
+<pre><code><span class="cm">// Ask Wikipedia for the next member, post-response: keep one book and the next cursor</span>
+if (pm.response.code !== 200 || pm.response.json().query === undefined) {
+  pm.execution.setNextRequest(null);
+} else {
+  var body = pm.response.json();
+  var page = body.query.pages[0];
+  if (page.description === undefined) {
+    pm.execution.setNextRequest(null);
+  } else {
+    pm.collectionVariables.set("pageId", page.pageid);
+    pm.collectionVariables.set("itemTitle", JSON.stringify(page.title));
+    pm.collectionVariables.set("itemDescription", JSON.stringify(page.description));
+    if (body.continue === undefined) {
+      pm.collectionVariables.set("cursor", "");
+    } else {
+      pm.collectionVariables.set("cursor", encodeURIComponent(body.continue.gcmcontinue));
+    }
+  }
+}</code></pre>
+<pre><code><span class="cm">// Save the item, post-response: stop on a failed save, else go back for the next member</span>
+if (pm.response.code !== 200 &amp;&amp; pm.response.code !== 201) {
+  pm.execution.setNextRequest(null);
+} else if (pm.collectionVariables.get("cursor") !== "") {
+  pm.execution.setNextRequest("Ask Wikipedia for the next member");
+} else {
+  pm.execution.setNextRequest(null);
+}</code></pre>
+      <p>Read Save&rsquo;s first test slowly: &ldquo;the status is not 200 <b>and</b> it is not 201&rdquo;, which is true only for a status that is neither, a failure. An empty cursor is how call 2 says the category is finished, so Save goes back only while the cursor holds something. Two collection variables choose the mock&rsquo;s answers, as in Session 9: call 1 sends <code>x-mock-response-name: {{listAnswer}}</code> and call 3 sends <code>x-mock-response-name: {{saveAnswer}}</code>.</p>
+      <div class="filebox">
+        <div class="fbh">a good run of Reading list from Wikipedia &middot; captured live with newman</div>
+<pre><code> 1 Read the list                       200  Category:Earthsea novels
+ 2 Ask Wikipedia for the next member   200  The Farthest Shore
+ 3 Save the item                       201  PUT .../v1/lists/4/items/315900
+ 4 Ask Wikipedia for the next member   200  The Other Wind
+ 5 Save the item                       201  PUT .../items/328357
+ 6 Ask ...                             200  Tehanu
+ 7 Save ...                            201  PUT .../items/350754
+ 8 Ask ...                             200  The Tombs of Atuan
+ 9 Save ...                            201  PUT .../items/78145
+10 Ask ...                             200  A Wizard of Earthsea    <span class="cm">no continue</span>
+11 Save ...                            201  PUT .../items/2890      <span class="cm">cursor empty: stop</span>
+call 3's first body sent:
+  {"title": "The Farthest Shore", "description": "1972 fantasy novel by Ursula K. Le Guin"}</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the loop and run it</div>
+        <ol>
+          <li>In <code>Reading list from Wikipedia</code>, add collection variables: <code>baseUrl</code>, your Reading Lists mock&rsquo;s address; <code>listId</code>, <code>4</code>; <code>listAnswer</code>, <code>200 the list</code>; <code>saveAnswer</code>, <code>201 added</code>; and <code>categoryParam</code>, <code>cursor</code>, <code>pageId</code>, <code>itemTitle</code> and <code>itemDescription</code>, empty.</li>
+          <li>Add <b>Read the list</b> first: <code>GET {{baseUrl}}/v1/lists/{{listId}}</code>, header <code>x-mock-response-name</code> = <code>{{listAnswer}}</code>, and its script.</li>
+          <li>On <b>Ask Wikipedia for the next member</b>, change the URL&rsquo;s values to <code>gcmtitle={{categoryParam}}</code> and <code>gcmcontinue={{cursor}}</code>, and paste its script.</li>
+          <li>Add <b>Save the item</b> last: <code>PUT {{baseUrl}}/v1/lists/{{listId}}/items/{{pageId}}</code>, headers <code>Content-Type: application/json</code> and <code>x-mock-response-name</code> = <code>{{saveAnswer}}</code>, the raw body <code>{"title": {{itemTitle}}, "description": {{itemDescription}}}</code>, and its script.</li>
+          <li>Run the collection in the Runner. Confirm eleven requests, and find the five page ids in the Save addresses.</li>
+        </ol>
+        <details><summary>Hint: if the run stops after three requests</summary>
+<pre><code>look at what call 3 got. Anything but 200 or 201 stops it,
+so check saveAnswer is exactly 201 added. If call 3 got a
+201 and the run still stopped, check that the name inside
+setNextRequest matches the Ask request's name exactly,
+capitals and spaces included.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>11 requests: Read, then Ask and Save five times
+page ids in order: 315900, 328357, 350754, 78145, 2890
+every Save 201, and every answer the mock's saved
+example (A Wizard of Earthsea): the mock stores nothing</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I ran a loop that walked a Wikipedia category and saved every member to my mock, eleven requests in all</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Breaking it, and the rerun question</h3>
+      <p>Session 9&rsquo;s breaks still apply, and the loop stops cleanly on each: <code>listAnswer</code> set to <code>404 list not found</code> sends one request, and a misspelt category sends two, because call 2&rsquo;s query check stops it. The new question a loop raises is this one: <b>a save fails half way through the list. What do you do next?</b></p>
+      <div class="filebox">
+        <div class="fbh">the third save fails &middot; captured live with newman, with a pre-request script added for this capture making only the third save ask for 503 unavailable</div>
+<pre><code>1 Read 200   2 Ask 200 The Farthest Shore   3 Save 201
+4 Ask 200 The Other Wind                    5 Save 201
+6 Ask 200 Tehanu                            7 Save 503    <span class="cm">stopped</span>
+cursor left behind: page|5046...dc08|78145    <span class="cm">points at The Tombs of Atuan</span></code></pre>
+      </div>
+      <p>Two books saved, Tehanu not, and the run stopped, as it should. There are two ways to go on.</p>
+      <p><b>Start again from the top.</b> Call 1 empties the cursor, and the run saves all five. The Farthest Shore and The Other Wind are saved a second time, which changes nothing, because a save is a <code>PUT</code> to the book&rsquo;s own address: section B&rsquo;s choice of id paying off.</p>
+      <p><b>Carry on from where it stopped</b>, by keeping the cursor instead of emptying it. That sounds cheaper, and here is what it does:</p>
+      <div class="filebox">
+        <div class="fbh">the same rerun, with call 1&rsquo;s cursor line commented out &middot; captured live with newman, the failed run&rsquo;s cursor set by hand</div>
+<pre><code>1 Read 200
+2 Ask 200 The Tombs of Atuan     3 Save 201
+4 Ask 200 A Wizard of Earthsea   5 Save 201    <span class="cm">stop: five requests</span>
+
+Tehanu was never saved, and every status is green.</code></pre>
+      </div>
+      <p>Look back at call 2&rsquo;s script. It keeps the <b>next</b> cursor as soon as Wikipedia answers, before call 3 has tried to save the book in hand. So when Tehanu&rsquo;s save failed, the cursor had already moved past Tehanu. The rule this teaches holds far beyond Wikipedia: <b>a bookmark must only move past work that is done.</b> Either move it after the save succeeds, which Part 4 asks you to design, or, as this integration does, restart from the top, which is safe <b>only because every write can be repeated</b>. A loop that saved with <code>POST</code> and no key could do neither safely.</p>
+      <p>Two Runner settings bear on this. <b>Keep variable values</b>, ticked when you first open the Runner, which remembers your choice after that, is what keeps the cursor after a run, which is why call 1 empties it. And Session 9&rsquo;s <b>Stop run if an error occurs</b> does not come into it: a <code>503</code> is an answer, not an error, and call 3&rsquo;s own test is what stops the run.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Break it, then rerun it both ways</div>
+        <ol>
+          <li>Set <code>listAnswer</code> to <code>404 list not found</code> and run. Confirm one request. Set it back to <code>200 the list</code>.</li>
+          <li>Set <code>saveAnswer</code> to <code>503 unavailable</code> and run. Confirm three requests, and which book was not saved. Set <code>saveAnswer</code> back to <code>201 added</code>.</li>
+          <li>In Read the list&rsquo;s script, put <code>//</code> at the start of the line that sets <code>cursor</code> to <code>""</code>, and run. Count the requests, and say which book is missing and why.</li>
+          <li>Take the <code>//</code> away and run again. Confirm eleven requests.</li>
+        </ol>
+        <details><summary>Hint: if step 3 sent eleven requests</summary>
+<pre><code>the cursor must still hold step 2's value when step 3 runs.
+Check Keep variable values is ticked in the Runner.
+Do not send anything else from the collection in between,
+and check the line you commented out is the cursor line in
+Read the list, not the one in Ask Wikipedia. Then repeat
+step 2 and step 3.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>1  1 request
+2  3 requests: The Farthest Shore's save got 503; nothing saved
+3  9 requests: Read, then Ask and Save for The Other Wind,
+   Tehanu, The Tombs of Atuan and A Wizard of Earthsea.
+   The Farthest Shore is missing: call 2 had already kept the
+   cursor for The Other Wind before the 503
+4  11 requests, all five saved</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I made a save fail, then saw a rerun that kept the cursor skip a book while every status was green, and a rerun from the top save them all</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Ship it: the README, the checklist, and one last review</h3>
+      <p>Deliverables 3 and 4 are Session 9&rsquo;s, applied to a loop. The README keeps its six headings: What it does, What it calls, Before you run it, How to run it, When it fails, Known limits. The checklist keeps its eight lines: auth and identity, errors, pagination, retries and rate limits, idempotency, partial failure, the glue, docs. Two lines have more to say than last time. <b>Pagination</b> now applies: the run follows a cursor to the end, and the README says how a stranger can tell it got there. <b>Partial failure</b> now has a middle: a failure at the third book leaves two saved, and the README says what to do about it.</p>
+      <p><b>The final review pass</b> is the reason a capstone exists. Every session of this track should show up somewhere in what you just built, and finding where is the best review there is. Here is the map; the right-hand column is the job:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Session</div><div class="fn">What it taught</div><div class="fd">Where your capstone uses it</div></div>
+        <div class="frow"><div class="fc">1</div><div class="fn">a request, a status, JSON</div><div class="fd">every call; reading <code>pages[0]</code></div></div>
+        <div class="frow"><div class="fc">2</div><div class="fn">reading the whole response</div><div class="fd">a 200 that is not a success</div></div>
+        <div class="frow"><div class="fc">3</div><div class="fn">who you are, and where credentials go</div><div class="fd"><code>userAgent</code>, kept in a variable</div></div>
+        <div class="frow"><div class="fc">4</div><div class="fn">pages, cursors, 429s, the Runner</div><div class="fd">the walk, and its loop</div></div>
+        <div class="frow"><div class="fc">5</div><div class="fn">designing a contract</div><div class="fd">Reading Lists API v1</div></div>
+        <div class="frow"><div class="fc">6</div><div class="fn">mocking it, and what a mock proves</div><div class="fd">the mock, and the Known limits</div></div>
+        <div class="frow"><div class="fc">7</div><div class="fn">webhooks</div><div class="fd">not used: say why</div></div>
+        <div class="frow"><div class="fc">8</div><div class="fn">repeating safely, partial failure</div><div class="fd">a <code>PUT</code> to the page id; the rerun</div></div>
+        <div class="frow"><div class="fc">9</div><div class="fn">two APIs, the glue, the README</div><div class="fd">the whole shape</div></div>
+        <div class="frow"><div class="fc">10</div><div class="fn">shipping</div><div class="fd">the five deliverables</div></div>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write the README, the checklist, and the review</div>
+        <ol>
+          <li>In <code>Reading list from Wikipedia</code>&rsquo;s description, write the README&rsquo;s six headings. Under When it fails, give every failure from sections C and E its own row.</li>
+          <li>Add a heading <b>Checked before shipping</b>, and answer all eight checklist lines.</li>
+          <li>On paper or in a note, fill the map&rsquo;s right-hand column in your own words for each session, one line each, and name the place in your collection where you can see it.</li>
+        </ol>
+        <details><summary>Show one When it fails and checklist to compare against</summary>
+<pre><code><span class="cmd">&gt; When it fails</span>
+1 Read the list  404: no such list (ours). Stops.
+                 Check listId.
+2 Ask Wikipedia  429: too many requests (theirs). Stops.
+                 Wait Retry-After seconds, check User-Agent,
+                 rerun from the top.
+                 200, no query: the category does not exist,
+                 or our URL asks wrongly. Stops. Check the
+                 list's category, Category: included.
+                 200, no description: a member has none.
+                 Stops at that member; see Known limits.
+3 Save the item  503: that book not saved (ours). Stops.
+                 Rerun from the top: safe, every save is a
+                 PUT to the book's page id.
+any              never resume from the cursor a stopped run
+                 left: it is past the book that failed.
+
+<span class="cmd">&gt; Checked before shipping</span>
+auth        Wikipedia: User-Agent with a contact, from
+            userAgent. Mock: public, no key.
+errors      every call checks its status; Ask also checks
+            for no query and no description. Each stops.
+pagination  follows gcmcontinue until there is none; a
+            good run ends with an empty cursor.
+retries     none automatic; a 429 or 503 stops the run.
+idempotency reads and PUTs keyed by page id: the whole run
+            is safe to repeat.
+partial     a stop at book N leaves books before N saved;
+            rerun from the top.
+glue        category and cursor encodeURIComponent'd into
+            the URL; title and description JSON.stringify'd.
+docs        this README; stranger pass: not yet.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I wrote the README and all eight checklist lines, and mapped every session of the track to a place in my capstone</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Where this track stops</h3>
+      <p>What you shipped is real: a designed contract, a real public API, a loop that is safe to repeat, and documents a stranger can work from. It is also a <b>prototype</b>, a working model built to prove the design, not the thing a business runs every night. Here is what a production integration adds, and how far this track took you towards each:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Production adds</div><div class="fn">Why</div><div class="fd">Where this track got to</div></div>
+        <div class="frow"><div class="fc">A real server behind the contract</div><div class="fn">a mock stores nothing and checks nothing; something has to</div><div class="fd">Session 6 said what a mock can never prove; building the server is programming, a different track</div></div>
+        <div class="frow"><div class="fc">Running by itself</div><div class="fn">nobody presses Run at 2 a.m.</div><div class="fd">the Runner, by hand; a scheduler or Postman&rsquo;s own scheduled runs do the rest</div></div>
+        <div class="frow"><div class="fc">Bigger pages</div><div class="fn">one member per request is one request per book</div><div class="fd"><code>gcmlimit=1</code> kept the scripts simple; a real walk takes many members per answer and loops over them</div></div>
+        <div class="frow"><div class="fc">A checkpoint that moves only after the work</div><div class="fn">so a long run can resume instead of restart</div><div class="fd">section E found the bug; Part 4 designs the fix</div></div>
+        <div class="frow"><div class="fc">Someone finding out</div><div class="fn">a failure at 2 a.m. should be noticed by 9</div><div class="fd">the README says what to do; production also records each run and sends an alert when one fails</div></div>
+        <div class="frow"><div class="fc">Real secrets, real sign-in</div><div class="fn">most business APIs need more than a User-Agent</div><div class="fd">Session 3: keys in variables, OAuth2 in outline only</div></div>
+        <div class="frow"><div class="fc">A contract a machine can check</div><div class="fn">so a server that drifts from its contract is caught automatically</div><div class="fd">your contract is prose plus examples; the standard machine-readable form is an <b>OpenAPI</b> description, and <b>contract tests</b> check a server against it. Session 4&rsquo;s status check was the seed of a test</div></div>
+        <div class="frow"><div class="fc">A security review</div><div class="fn">every API you expose is something to attack</div><div class="fd">Sessions 3 and 7 touched it; the API Security Top 10 from OWASP, a non-profit that publishes security checklists, is the usual starting list</div></div>
+      </div>
+      <p>None of these makes what you built wrong. They are what turns a working prototype into a service, and they are where to go next if this is the work you want to do.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Say what production would need</div>
+        <ol>
+          <li>Under Known limits in the README, say what a run against the mock proves and what it never can, and that the walk asks for one member at a time.</li>
+          <li>Add a heading <b>Before production</b>, and pick the three rows above that matter most for this integration. For each, one or two lines: what you would add, and what goes wrong without it.</li>
+        </ol>
+        <details><summary>Show one answer to compare against</summary>
+<pre><code><span class="cmd">&gt; Known limits</span>
+Against the mock, nothing is saved, and every save answers
+the same book whatever was sent; only the scripts check
+what goes out. One Wikipedia request per book. A member
+with no description stops the run. Wikipedia's editors
+change categories and descriptions.
+
+<span class="cmd">&gt; Before production</span>
+server      a real Reading Lists API that stores items and
+            enforces the 422 rules; without it nothing is kept.
+checkpoint  keep the next cursor only after a save succeeds,
+            so a run over 5,000 books can resume; without it,
+            a failure at book 4,000 means starting again.
+schedule    run it nightly and alert someone when a run
+            stops; without it, a stopped run is found when a
+            reader notices a list has not changed.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I wrote Known limits and a Before production list of three things this integration would need</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a second list, unassisted</h3>
+      <p>The library wants a second list: Jane Austen&rsquo;s novels, from <code>Category:Novels by Jane Austen</code>. A different category is a different stranger, and this one is untidier than Earthsea in ways that are hard to spot by looking. Find them by running, decide what the integration should do, and ship it. Do it without scrolling back up.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: ship the Austen list end to end</div>
+        <ol>
+          <li><b>Point the list at the new category.</b> In <code>Reading Lists API v1</code>, change the <code>200 the list</code> example&rsquo;s <code>name</code> to <code>Jane Austen's novels</code> and its <code>category</code> to <code>Category:Novels by Jane Austen</code>. Save, and wait a few seconds.</li>
+          <li><b>Run it as it is,</b> and find where it stops and why. Before changing anything, ask Wikipedia for the whole category in one answer (<code>gcmlimit=50</code>) and look at every member.</li>
+          <li><b>Decide, and change the integration</b> so that it saves every book it honestly can and still stops cleanly on a real failure. Run it to the end.</li>
+          <li><b>Update the README and the checklist</b>, including what the integration now does with a member it cannot save, and why.</li>
+          <li><b>A stranger pass:</b> give the README to someone else, or, alone, to yourself a day later, with an empty collection, and log every question it did not answer. Fix the README. Then set the list example back to Earthsea.</li>
+        </ol>
+        <p><b>Or use your own:</b> do the five steps for your own pairing instead, a list from any public API that needs no key, saved into an API you designed and mocked. You have hit the milestone when a run carries a whole paged list from a real public API into your own mocked API, stops safely on every failure you can provoke, and its README alone lets a stranger run it and know what each failure means.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">&gt; what running it found, captured live with newman</span>
+1 Read 200   2 Ask 200 The Beautifull Cassandra   3 Save 201
+4 Ask 200 Catharine, or The Bower   no description: stopped
+The whole category: 18 members. 12 are articles, one of them,
+Catharine, with no description; 6 are themselves categories
+("Category:Emma (novel)" and others), also with none.
+
+<span class="cmd">&gt; the decision</span>
+Skip a member with nothing to save, keep walking, and list
+what was skipped in Known limits. Stopping at the first one
+would save one book of eleven.
+
+<span class="cmd">&gt; Ask Wikipedia for the next member, post-response</span>
+if (pm.response.code !== 200 ||
+    pm.response.json().error !== undefined) {
+  pm.execution.setNextRequest(null);
+} else {
+  var body = pm.response.json();
+  if (body.continue === undefined) {
+    pm.collectionVariables.set("cursor", "");
+  } else {
+    pm.collectionVariables.set("cursor",
+      encodeURIComponent(body.continue.gcmcontinue));
+  }
+  if (body.query === undefined ||
+      body.query.pages[0].description === undefined) {
+    // nothing to save here: ask for the next member, if any
+    if (body.continue === undefined) {
+      pm.execution.setNextRequest(null);
+    } else {
+      pm.execution.setNextRequest(pm.info.requestName);
+    }
+  } else {
+    var page = body.query.pages[0];
+    pm.collectionVariables.set("pageId", page.pageid);
+    pm.collectionVariables.set("itemTitle", JSON.stringify(page.title));
+    pm.collectionVariables.set("itemDescription",
+      JSON.stringify(page.description));
+  }
+}
+
+<span class="cmd">&gt; the run, captured live with newman</span>
+30 requests: Read, 18 Asks, 11 Saves. Earthsea, rerun with the
+same script: 11 requests, all five saved, as before.
+
+<span class="cmd">&gt; where yours may honestly differ</span>
+Stopping is defensible if the README says so. Adding
+gcmnamespace=0, which leaves categories out, is a good
+instinct, but measured here it saved no requests: with one
+member per answer, Wikipedia still answers for each left-out
+member, with a continue and no query at all. A script that
+treats "no query" as the end stops there. This one checks
+for an error object instead, and lets "no query" mean
+"nothing to save".</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I shipped the Austen list, or my own pairing, end to end: it ran to the end, stopped safely when broken, and a stranger pass fixed my README</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from one answer from Wikipedia, through your mock, to whole runs.</p>
+    <div class="note"><b>Drills about Wikipedia and your mock</b> were checked against the live service and a real mock on 2026-10-05. <b>Drills about a run</b> use <code>Reading list from Wikipedia</code> exactly as section D builds it, with the list pointing at <code>Category:Earthsea novels</code>, unless the drill says otherwise. Where a drill needs to show you something first, it is in the grey box above the question.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading the capstone and building one. First put one turn of the loop back into order, then fill the blanks in a request, a script and a contract.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. There is one sequence today, on purpose: the loop is the one process in this session where each step needs the one before it.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded request, script and contract)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft each piece in the box, then reveal the reference to compare. A design or a README can be right in many wordings; what matters is that yours answers every question the task names. The workbook cannot judge free text, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours covers everything the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">The comprehensive final: 10 questions, one from each session of the track, with the answer options shuffled every time you load the page. 8 of 10 is a pass. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>The whole track, spaced.</b> Questions 1 to 9 come from <b>Sessions 1 to 9</b>, in order, and only question 10 from today. Recalling something long after you learned it is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 10 of 10 &middot; Hit the milestone unassisted, then tick <b>S10</b> on your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>.
+    <br><br>
+    <b>Your 15-minute review is the final above</b>: take it with this page&rsquo;s Part 1 closed, and follow every review link it gives you. Then, a day or more later, do the milestone&rsquo;s stranger pass if you have not, because a README is only finished when someone else has used it. That is the whole track. <b>For what comes after it</b>, a next topic and an honest word on certificates, see <b>Where to next</b> at the end of your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-s10-workbook-v1";
+  /* Spaced review: three Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+  var S03_URL = "api-session-03.html";
+  var S04_URL = "api-session-04.html";
+  var S05_URL = "api-session-05.html";
+  var S06_URL = "api-session-06.html";
+  var S07_URL = "api-session-07.html";
+  var S08_URL = "api-session-08.html";
+  var S09_URL = "api-session-09.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, status numbers,
+     key names and short words, where capitalisation is presentation. parenLabels is
+     OFF for this session: transcripts print answer tokens as status lines, example
+     names (201 added), quoted keys and titles ("continue", "The Farthest Shore"),
+     query values after = (gcmlimit=1) and cursors (page|...|328357), never in
+     parentheses as a label. Wikipedia titles do carry parentheses (Emma (novel)),
+     but as content, and no answer is one. Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in this session
+     is: its answers are titles, status numbers, a field name and a JavaScript value,
+     none of which changes meaning with case. The flag stays in the engine. */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. F1 is cs: true because Wikipedia's parameter
+     names and values are case-sensitive (Titles= is not recognised); F2 because its
+     blanks are JavaScript. F3 folds case: its blanks are status numbers. Copied from
+     sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "Location: /v1/books/8", and JSON keys as
+     "author". Whenever a session prints an answer token inside
+     punctuation, that punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 1 count, 1 set, 2 seq. Wikipedia drills were checked
+     live on 2026-10-05 with a descriptive User-Agent; mock and run drills against real
+     Postman mocks and newman runs (s10-verified-facts.md). No drill is cs: true: the
+     answers are titles, status numbers, a field name and a JavaScript value, and none
+     changes meaning with case. */
+  var DRILLS = [
+    { type: 'value', lbl: 'Wikipedia',
+      scen: 'The first request of a walk: the cursor is empty.',
+      ask: 'Which book does the answer describe? Give its title.',
+      code: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json\n    &formatversion=2&generator=categorymembers\n    &gcmtitle=Category:Earthsea novels&gcmlimit=1\n    &prop=description&gcmcontinue=', ans: 'The Farthest Shore', alt: ['Farthest Shore'],
+      why: 'The Farthest Shore. An empty gcmcontinue asks for the first member, and a category lists its members in its own order, which files a title under its first word after a leading “The” or “A”: Farthest comes before Other, Tehanu, Tombs and Wizard. So the series’ third book comes first, not A Wizard of Earthsea.' },
+
+    { type: 'value', lbl: 'Wikipedia',
+      scen: 'The answer for A Wizard of Earthsea, the category’s last member:\n\n  { "batchcomplete": true,\n    "query": { "pages": [ { "pageid": 2890, "ns": 0,\n      "title": "A Wizard of Earthsea", "description": "1968 fantasy novel\n      by Ursula K. Le Guin", "descriptionsource": "local" } ] } }',
+      ask: 'Every earlier answer in the walk had one more top-level field than this one. Give its name.',
+      code: '(the body above)', ans: 'continue', alt: ['"continue"', '"continue":'],
+      why: 'continue. Every answer that has a next member carries a continue object, with the cursor inside it as gcmcontinue. The last one has none, and that absence is the only signal that the walk is over, which is why call 2’s script tests body.continue === undefined and empties the cursor.' },
+
+    { type: 'value', lbl: 'Wikipedia',
+      scen: 'The category name is misspelt by one letter. No such category exists.',
+      ask: 'What three-digit status code comes back?',
+      code: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json\n    &formatversion=2&generator=categorymembers\n    &gcmtitle=Category:Earthsea novelz&gcmlimit=1\n    &prop=description&gcmcontinue=', ans: '200', alt: ['200 OK'],
+      why: '200, and the whole body is {"batchcomplete": true}. To Wikipedia a category nobody has created is not an error, just a category with nothing in it: no query, no continue, no error object and no MediaWiki-API-Error header. Call 2’s query === undefined check is what stops the run.' },
+
+    { type: 'set', lbl: 'which have a query',
+      scen: 'Five answers from Wikipedia:\n\n  1  the first member of Category:Earthsea novels\n  2  the last member of Category:Earthsea novels\n  3  Category:Earthsea novelz, which does not exist\n  4  gcmtitle=Earthsea novels, with no Category: in front\n  5  gcmcontinue=page|zzzz|1, a cursor nobody was given',
+      ask: 'Which of them have a query in the body? Give the numbers separated by commas. Order does not matter.',
+      code: '(the five answers above)', ans: '1, 2',
+      why: '1 and 2. The last member has a query but no continue. 3 is {"batchcomplete": true} and nothing else. 4 and 5 are error objects, invalidcategory and badcontinue, each with a MediaWiki-API-Error header. All five are 200s, which is why the script reads the body rather than the status.' },
+
+    { type: 'value', lbl: 'your mock',
+      scen: 'Your Reading Lists API v1 mock, with all five Save an item examples. No\nx-mock-response-name is sent.',
+      ask: 'What three-digit status code does the mock answer?',
+      code: 'PUT https://<mock-id>.mock.pstmn.io/v1/lists/4/items/315900\nContent-Type: application/json\n\n{"title": "The Farthest Shore",\n "description": "1972 fantasy novel by Ursula K. Le Guin"}', ans: '200', alt: ['200 OK', '200 replaced'],
+      why: '200, from the 200 replaced example, every time. The body matches no example exactly, so five examples tie, and Session 6 showed a mock settles a tie with the first example whose status is 200. A real server would answer this first save 201. That is why the integration asks for an answer by name and its script accepts either.' },
+
+    { type: 'count', lbl: 'a good run',
+      scen: 'You run Reading list from Wikipedia, built as in section D, with saveAnswer\n201 added. The category has five members.',
+      ask: 'How many requests does the Runner send? Answer with a number.',
+      code: '1 Read the list   2 Ask Wikipedia for the next member   3 Save the item', ans: '11', alt: ['eleven'],
+      why: '11: Read the list once, then Ask and Save once for each of the five members. After the fifth save the cursor is empty, because the last answer had no continue, so Save’s script ends the run instead of going back.' },
+
+    { type: 'seq', lbl: 'a run',
+      scen: 'The same run, but saveAnswer is 503 unavailable.',
+      ask: 'List the three-digit status code of every request the Runner sends, in order, separated by commas.',
+      code: '1 Read the list   2 Ask Wikipedia for the next member   3 Save the item', ans: '200, 200, 503',
+      why: '200, 200, 503. The first save gets the example you asked for by name, 503 is neither 200 nor 201, so Save’s first test is true and it ends the run. The Farthest Shore was not saved, and nothing else was tried.' },
+
+    { type: 'value', lbl: 'trace it',
+      scen: 'Save the item answered 201. Its script reaches this test:\n\n  pm.response.code !== 200 && pm.response.code !== 201',
+      ask: 'Is the whole test true or false?',
+      code: '(the test above, with pm.response.code = 201)', ans: 'false',
+      why: 'false. The left side, 201 !== 200, is true; the right side, 201 !== 201, is false; and && is true only when both sides are. So the run does not stop here, and the else if decides whether to go back. Written with || instead, the test would be true for every status there is, and every run would stop after its first save.' },
+
+    { type: 'value', lbl: 'trace it',
+      scen: 'Straight after the 503 run in drill 7, you put // in front of the line in\nRead the list’s script that empties the cursor, set saveAnswer back to\n201 added, and run again.',
+      ask: 'Which book is never saved? Give its title.',
+      code: '1 Read the list   2 Ask Wikipedia for the next member   3 Save the item', ans: 'The Farthest Shore', alt: ['Farthest Shore'],
+      why: 'The Farthest Shore. In the 503 run, call 2 kept the next cursor, the one for The Other Wind, before call 3 tried to save. With the reset switched off, the new run starts from that cursor: The Other Wind, Tehanu, The Tombs of Atuan and A Wizard of Earthsea are saved, nine requests, every status green. A bookmark must only move past work that is done.' },
+
+    { type: 'seq', lbl: 'trace it',
+      scen: 'Four runs of Reading list from Wikipedia, built as in section D, each changed\nin one way from a good run:\n\n  a  listAnswer is 404 list not found\n  b  the 200 the list example’s category is Category:Earthsea novelz\n  c  saveAnswer is 503 unavailable\n  d  Save’s first test says || where it should say &&',
+      ask: 'How many requests does each run send? Give four numbers, a to d, separated by commas.',
+      code: '(the four runs above)', ans: '1, 2, 3, 3', alt: ['a 1 b 2 c 3 d 3'],
+      why: '1, 2, 3, 3. a: Read the list stops on anything but 200. b: Wikipedia answers {"batchcomplete": true}, no query, and call 2 stops. c: the first save is refused and Save stops. d: the first save succeeds with 201, but “not 200 OR not 201” is true for every status, so Save stops anyway: a run that looks like a failure after a success.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item, deliberately (build contract section 4): one turn of the loop is the
+     ordered process here. The category is needed to ask Wikipedia; the query check
+     needs Wikipedia's answer; the member is kept only once the answer is known to have
+     one; the save needs the member; the save's check needs its answer; going back is
+     decided only after the save. The prompt narrates the order. */
+  var PARSONS = [
+    { prompt: 'Put the capstone’s loop back into the only order that works. It reads the list from your mock, keeps the category and empties the cursor, asks Wikipedia for one member from the cursor, stops unless the answer has a query, keeps the member and the next cursor, saves the item with a PUT, stops unless the save got 200 or 201, and then goes back to Wikipedia while the cursor is not empty.',
+      lines: ['GET the list from your mock',
+              'Keep its category; empty the cursor',
+              'GET one member from Wikipedia, from the cursor',
+              'Stop unless the answer has a query',
+              'Keep the member, and the next cursor',
+              'PUT the item to your mock',
+              'Stop unless the save got 200 or 201',
+              'Cursor not empty: back to Wikipedia'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). F1 is cs: true: Wikipedia parameter names and
+     values are case-sensitive (S9 verified Titles= is unrecognised). F2 is cs: true:
+     its blanks are JavaScript, where Get or NULL would be errors. F3 folds case: its
+     blanks are status numbers. Recorded in the build contract. */
+  var FADED = [
+    { cs: true,
+      prompt: 'Fill the three blanks in call 2’s URL: the generator that turns a category into the pages the request describes, the number of members per answer that keeps the scripts to Session 9’s pages[0], and the parameter that carries the cursor.',
+      code: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json\n    &formatversion=2&generator=%%\n    &gcmtitle={{categoryParam}}&gcmlimit=%%\n    &prop=description&%%={{cursor}}\nUser-Agent: {{userAgent}}', ans: ['categorymembers', '1', 'gcmcontinue'] },
+    { cs: true,
+      prompt: 'Fill the blanks in Save the item’s script: the operator that makes a test true only when both sides are true, the method that reads a collection variable back, and the value that ends a run.',
+      code: 'if (pm.response.code !== 200 %% pm.response.code !== 201) {\n  pm.execution.setNextRequest(null);\n} else if (pm.collectionVariables.%%("cursor") !== "") {\n  pm.execution.setNextRequest("Ask Wikipedia for the next member");\n} else {\n  pm.execution.setNextRequest(%%);\n}', ans: ['&&', 'get', 'null'] },
+    { prompt: 'Fill the status codes in Save an item’s contract row, as your contract gives them: a save that makes a new item, a save that replaces one, and a save to a list that does not exist.',
+      code: 'PUT /v1/lists/{listId}/items/{itemId}\n  %%   the item, when it was new\n  %%   the item, when it replaced one\n  %%   list_not_found\n  503   unavailable, nothing saved', ans: ['201', '200', '404'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'A teammate redesigns Save an item as POST /v1/lists/4/items, with the library choosing each item’s id, and returning 201 with the new id. Explain to them, with the capstone’s own runs, what goes wrong the second time the integration runs, and after a 503 half way through a list, and give them two ways to fix it.',
+      sol: 'With POST and an id the library chooses, every save makes\na new item. Run the integration twice and the Earthsea list\nhas ten items, every book twice. After a 503 at Tehanu, a\nrerun from the top saves The Farthest Shore and The Other\nWind a second time: duplicates again. Nothing in the request\nlets the library tell a repeat from a new book.\n\nFix 1, the capstone’s: make the item’s id the Wikipedia page\nid and save with PUT /v1/lists/4/items/{pageId}. The same book\nalways lands at the same address, so a repeat replaces it\n(200) instead of adding one, and the whole run is safe to\nrepeat.\n\nFix 2, Session 8’s: keep POST, and send an Idempotency-Key\nmade once per book, for example from the page id, so the\nlibrary recognises a repeat and answers from its memory\ninstead of making a second item.' },
+    { task: 'Redesign Ask and Save so that a run stopped by a failed save can carry on from where it stopped, with the reset in Read the list commented out, and never skip a book. Use two collection variables, cursor and nextCursor. Say what each script sets, and when, and trace a run whose third save, Tehanu’s, gets 503, then the run that carries on.',
+      sol: 'Ask      keeps the cursor for the NEXT member in nextCursor\n         (empty when there is no continue). It never\n         touches cursor.\nSave     on 200 or 201 only: set cursor to the value of\n         nextCursor (get, then set), then go back to Ask\n         if cursor is not empty, else end the run.\n         On anything else: end the run, cursor untouched.\n\nThe failed run\n  Farthest saved, cursor moves on to Other Wind’s\n  Other Wind saved, cursor moves on to Tehanu’s\n  Tehanu 503: cursor stays on Tehanu’s\nThe run that carries on\n  Ask uses cursor: Tehanu again, saved; then Tombs,\n  then Wizard. Nothing skipped, nothing saved twice.\n\nChecked with newman, the failed run’s cursor set by hand:\n7 requests, Tehanu, The Tombs of Atuan and A Wizard of\nEarthsea saved. The cursor only\nmoves past a book once its save has succeeded.' },
+    { task: 'A teammate wants to point the integration at a category with 4,000 members, as it is. Using what this track taught, say what it would cost, what is likely to go wrong, and the three changes you would make first.',
+      sol: 'Cost     one Ask and one Save per member: 8,001\n         requests.\nLimits   Wikipedia allows a client with a proper\n         User-Agent 200 requests a minute (Session 9), so\n         the Asks alone take at least 20 minutes. A\n         Postman mock is limited to 120 requests a minute,\n         so the Saves take over half an hour.\nRisks    one 429 or 503 anywhere stops the run; a restart\n         from the top repeats thousands of saves; a member\n         with no description, or a subcategory, stops it.\n\nFirst changes\n  1 the checkpoint from write-it 2, so a stop can\n    carry on instead of starting again\n  2 ask for many members per answer and save each one,\n    so Wikipedia is asked once per page, not per book\n  3 skip members with nothing to save, and list them\n    in the README, as the milestone did' },
+    { task: 'Write the brief for your own capstone pairing: a public API with no key that hands back a list in pages, and an API you design to keep it. If you have none in mind, use jsonplaceholder’s posts, walked with Session 4’s _page and _limit. Give the three calls (what each needs and gives), your item resource with its id and why, how the walk knows it has ended, and the one thing about the public API a stranger must know first.',
+      sol: 'Pairing  jsonplaceholder /posts, paged, into a Reading\n         Notes API v1 I design and mock.\n\nCalls\n  1 Read the notebook   GET /v1/notebooks/{id} (mine):\n                        gives which page size to use\n  2 Ask for a page      GET .../posts?_page={{page}}\n                        &_limit=10 (theirs): gives ten\n                        posts and a link header\n  3 Save a note         PUT /v1/notebooks/{id}/notes/\n                        {postId} (mine), once per post\n\nId       the post’s own id, so a rerun replaces each note\n         instead of adding it again.\nEnd      the last page’s link header has no rel="next"\n         (Session 4); one past the end is 200 [].\nKnow     jsonplaceholder stores nothing it is sent, and a\n         wrongly-named parameter such as page or _Page is\n         ignored with a 200 and the first page again,\n         so the walk repeats page 1.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your contract text here, then compare it with the reference"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Sixteen cards, sized to the atoms THIS session has. Earlier sessions are
+     deliberately absent: the deck stays session-local and re-testing earlier
+     material is Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'The five deliverables of “shipped”', b: 'contract and mock, the integration, the README, the checklist, and a stranger pass' },
+    { f: 'generator=categorymembers', b: 'makes a category’s members the pages a query is about, so prop=description describes them' },
+    { f: 'The g in gcmtitle, gcmlimit and gcmcontinue', b: 'marks a generator’s own parameters' },
+    { f: 'gcmlimit=1', b: 'one member per answer, so every answer is exactly one item to save' },
+    { f: 'Where the next cursor is', b: 'continue.gcmcontinue; send it back, exactly, as gcmcontinue' },
+    { f: 'How the last member’s answer differs', b: 'it has no continue object' },
+    { f: 'Wikipedia’s answer for a category that does not exist', b: '200, {"batchcomplete": true}: no query, no error' },
+    { f: 'What a PUT answers when it creates, per RFC 9110', b: '201; when it replaces, 200 (or 204)' },
+    { f: 'Why the item’s id is the Wikipedia page id', b: 'the same book always lands at the same address, so a rerun replaces instead of duplicating' },
+    { f: 'Your mock’s answer to a save that names no example', b: '200, from 200 replaced: on a tie the first 200 wins' },
+    { f: '&&', b: 'and: true only if both sides are; stops at the first false side' },
+    { f: 'else if', b: 'a test tried only when the one before it was false' },
+    { f: 'pm.collectionVariables.get("cursor")', b: 'reads a collection variable back inside a script' },
+    { f: 'pm.execution.setNextRequest("Ask Wikipedia for the next member")', b: 'sends that request next, in a run; a name that matches no request ended the run' },
+    { f: 'Why Read the list empties the cursor', b: 'Postman keeps variable values after a run, and a stopped run leaves the cursor mid-category' },
+    { f: 'The rule a resumed loop broke', b: 'a bookmark must only move past work that is done' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     The comprehensive final: Q1-Q9 come from Sessions 1-9 in order, Q10 from today.
+     Q1-Q9 carry `ext` so their review link opens that session. Pass mark 8 of 10.
+     Target: the correct option's length rank (longest = 1) never 1 or 4, and no single
+     rank reaching 8 (check-quiz.py 0/10 on both). Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: 'From Session 1. You POST to jsonplaceholder and get 201 Created with "id": 101. A GET of /posts/101 then answers 404. What does that tell you?',
+      o: ['The POST failed, and the 201 was sent by mistake',
+          'jsonplaceholder answered the write convincingly but never stored it',
+          'Someone deleted post 101 between your two requests, so the GET should be retried until the post appears',
+          'Wait a minute for it'],
+      c: 1,
+      e: 'Session 1 said it up front: jsonplaceholder answers every POST convincingly, new id and all, but nothing is persisted, so a GET for post 101 afterwards is a 404. That is what makes it a safe place to practise writes, and it is why no session on this track wrote to a service that keeps the change.',
+      part: { ext: S01_URL + '#concept-f', label: 'Session 1, F. Sending a POST' } },
+
+    { q: 'From Session 2. You send Accept: application/xml to jsonplaceholder and get JSON back, and its Vary header does not mention Accept. What does that show?',
+      o: ['Accept is a request, not a command, and this server ignores it',
+          'Your Accept header was misspelt',
+          'The server broke HTTP: every server must either honour Accept or refuse with 406 Not Acceptable, so this answer is invalid',
+          'XML needs an API key, so without one the server quietly fell back to JSON'],
+      c: 0,
+      e: 'Session 2 asked postman-echo for text/plain and text/html and got them, with Accept listed in Vary; then asked jsonplaceholder for XML and got JSON, with Accept missing from Vary. Accept is a request, not a command, and most JSON APIs ignore it. Vary is the signal: a request header named there is one the server takes into account.',
+      part: { ext: S02_URL + '#concept-f', label: 'Session 2, F. Content negotiation' } },
+
+    { q: 'From Session 3. Over HTTPS, why is the query string still the worst place to put an API key?',
+      o: ['HTTPS leaves the query string unencrypted, so anyone on the network can read the key while it travels',
+          'URLs get written down: server logs, browser history, proxy logs and chat',
+          'A query string has a length limit',
+          'Keys are case-sensitive'],
+      c: 1,
+      e: 'Session 3: HTTPS encrypts the query string and the headers alike, so nothing changes in transit. It matters because a URL is treated as an identifier and gets written down, in server logs, browser history, proxy logs and whatever people paste into chat. A header is in none of those.',
+      part: { ext: S03_URL + '#concept-c', label: 'Session 3, C. Where the key goes' } },
+
+    { q: 'From Session 4. Which of these answers should a client send again by itself, after waiting?',
+      o: ['400 Bad Request',
+          '429 Too Many Requests, after the seconds in Retry-After',
+          '404 Not Found, after a short backoff, because the page may simply not have been created yet when you asked',
+          '401 Unauthorized, after a backoff long enough for the token to refresh'],
+      c: 1,
+      e: 'Session 4 sorted refusals into two kinds. A 429, or a 503, is temporary: the same request will succeed once you slow down, so wait what Retry-After says and send again. A 400, 401, 403 or 404 gets the same answer however long you wait, because the problem is in what you sent; and a write is never retried blindly, which was Session 8’s subject.',
+      part: { ext: S04_URL + '#concept-e', label: 'Session 4, E. After a 429' } },
+
+    { q: 'From Session 5. Clients already use version 1 of your contract. Which change is breaking?',
+      o: ['Adding an optional field',
+          'Renaming a field that clients read',
+          'Adding a new operation that nobody calls yet, under a new path inside the same version of the contract',
+          'Adding an example'],
+      c: 1,
+      e: 'Session 5: a breaking change can stop a client that worked yesterday from working today without the client changing anything. A client reading author finds nothing once it is renamed. An optional field and a new operation are non-breaking, because no existing client depends on them; examples document the contract and change nothing a client sees.',
+      part: { ext: S05_URL + '#concept-e', label: 'Session 5, E. Versioning' } },
+
+    { q: 'From Session 6. Several examples on your mock fit the same request equally well. How do you get the 409 example every time?',
+      o: ['Send the request again and again until the mock happens to pick the 409',
+          'Send x-mock-response-name with the example’s exact name',
+          'Delete every other example from the collection, test, and then recreate them afterwards, so that only one can match',
+          'Add 409 to the end of the URL'],
+      c: 1,
+      e: 'Session 6: when several examples fit, the mock settles the tie its own way, and each mock is consistent with itself, not with other copies. The header x-mock-response-name, set to an example’s exact name, asks for that example outright; x-mock-response-code asks by status. Today’s integration uses the same header for every save.',
+      part: { ext: S06_URL + '#concept-d', label: 'Session 6, D. Ask by name' } },
+
+    { q: 'From Session 7. Why is the timestamp inside the string the library signs?',
+      o: ['So an old, genuinely signed delivery cannot be replayed later',
+          'So the receiver can sort deliveries into order',
+          'Because HMAC needs a number to work with, and without one in the signed string it cannot make a signature at all',
+          'For the call log'],
+      c: 0,
+      e: 'Session 7: a replay is a genuine delivery captured and sent again later, and its signature is perfect because it is the library’s own. The timestamp is inside the signed string, so it cannot be changed without breaking the signature, and the receiver refuses any timestamp older than five minutes. HMAC works on any text, numbers or not.',
+      part: { ext: S07_URL + '#concept-e', label: 'Session 7, E. Proving the library sent it' } },
+
+    { q: 'From Session 8. A webhook receiver gets a delivery whose event id is already in its table of processed events. What does it answer?',
+      o: ['A 2xx, and it does nothing else',
+          '409 Conflict, so the sender learns it was a duplicate',
+          '422, with an error code naming the duplicate id, so the sender can log it and stop sending that event',
+          'Nothing at all'],
+      c: 0,
+      e: 'Session 8: a sender only wants to know whether to stop retrying, so a receiver answers a duplicate with a 2xx and does nothing else. A 409 or 422 counts as a failed attempt, which the library’s contract retries, so the sender would keep sending the very event the receiver is trying to ignore.',
+      part: { ext: S08_URL + '#concept-d', label: 'Session 8, D. Remembering events' } },
+
+    { q: 'From Session 9. A value from one API goes into the other’s URL, and another into its JSON body. What does each need first?',
+      o: ['encodeURIComponent for the URL, JSON.stringify for the body',
+          'JSON.stringify for both',
+          'encodeURIComponent for both, because a JSON body travels inside the same request as the URL and follows its rules',
+          'Nothing: Postman encodes every variable it puts into a URL or a body'],
+      c: 0,
+      e: 'Session 9: in a URL, characters such as & and # mean something, so encodeURIComponent turns them into %26 and %23. In a JSON body a quote mark ends a string, so JSON.stringify adds the quotes and escapes any inside. Postman encodes the spaces in a URL you type, but it cannot know an & inside a value was part of a title.',
+      part: { ext: S09_URL + '#concept-d', label: 'Session 9, D. The glue' } },
+
+    { q: 'A run stopped when Tehanu’s save got 503. You rerun with Read the list’s cursor line commented out, and Tehanu is skipped. Why?',
+      o: ['Wikipedia removed Tehanu from the category after the 503',
+          'Call 2 had kept the next cursor before the save failed',
+          'The mock remembered Tehanu as saved, because a mock keeps every item it is sent and skips any it has already seen',
+          'The 503 deleted the cursor'],
+      c: 1,
+      e: 'Call 2 keeps the next cursor as soon as Wikipedia answers, before call 3 has tried to save the book in hand, so by the time Tehanu’s save failed the cursor already pointed at The Tombs of Atuan. A mock stores nothing, as Session 6 showed. Restart from the top, which is safe because every save is a PUT to the page id, or move the cursor only after a save succeeds.',
+      part: { id: 'concept-e', label: 'E. Breaking it, and the rerun question' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 8
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. A pass. That is the whole track: tick S10 on your Hub once the milestone is done, then see Where to next at the end of the Hub.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, in whichever session it came from, then reset this part and retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
