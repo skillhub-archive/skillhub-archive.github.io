@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Session 9: Put it together</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-04.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* S5: a wider three-column table for contract rows, where the first column holds a
+     field name or a whole request line (publishedYear, DELETE /v1/books/{id}) rather
+     than a three-digit code. Same tokens as .fam, so rule 28 is unchanged. */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 47 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is description (11 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from S4, unused in S5's content but kept so the
+     component stays in the track's shared CSS): its summary must read as clickable.
+     Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the one thing in this session that can actually cost the
+     learner something: putting real company data into a synced Postman workspace.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 09 // Level 5 &middot; Ship It</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Put it together</h1>
+    <p class="goal">Levels 1 and 2 consumed someone else&rsquo;s API, Level 3 designed your own, and Level 4 joined systems with webhooks and keys. Today one integration does both halves: it reads a book from your own mocked library API, asks Wikipedia about it, and saves Wikipedia&rsquo;s answer back to your API. Then you break it from each side on purpose, write it down so a stranger could run it, and check it against every pattern from Levels 1 to 4 in one list.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Wire a real public API and your own mocked API together into one working integration.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start, signed in with the free account from Session 4.</b> You need Session 5&rsquo;s <code>Books API v1</code> collection and the public mock Session 6 made from it. If either is gone, Session 5 section G and Session 6 section B rebuild them.</p>
+        <p><b>Today you send Wikipedia a way to contact you,</b> because its rules ask for one (section B explains why). Use an email address or a web address you are happy for the Wikimedia Foundation to see. A spare address is fine. Never use anything you would not put on a public web page. It also goes to postman-echo in one step, and it is saved in your collection, so <b>empty the <code>userAgent</code> variable before you share, export or hand on the collection</b>.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">15</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. Most of today happens in Postman, and one turn asks you to change your mock on purpose and then change it back. Tick each box once you have done the task, not just read it.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. <b>Every box marked &ldquo;captured live&rdquo; is real</b>: captured on 2026-10-05 from Wikipedia and from Postman mocks built exactly as this session describes, with newman, Postman&rsquo;s command-line runner, which runs a collection with the same engine as the Runner. Your mock has its own address, written <code>https://&lt;mock-id&gt;.mock.pstmn.io</code>, where the angle brackets mark a stand-in, as in Session 3. Wikipedia&rsquo;s editors change pages, so a description you see may be worded differently from the one printed here; the shape will not change. Transcripts show only the lines that matter.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. One integration, three owners</h3>
+      <p>An <b>integration</b> is a piece of work that makes two or more systems act as one: it takes something from one, maybe changes it, and hands it to another. Today&rsquo;s is small and complete. The library wants each book in its catalogue to carry a one-line description, and Wikipedia already has one for most books. So the integration reads a book from the library&rsquo;s API, asks Wikipedia about that book, and saves the answer back to the library. Every integration, however big, has the same three parts, and the useful question about each is who owns it:</p>
+      <div class="areas">
+        <div class="area"><div class="an">Your API</div><div class="ad">The library&rsquo;s <code>Books API v1</code>, which you designed in Session 5 and mocked in Session 6. You own it: you can change its contract, and its mock answers what you tell it to.</div></div>
+        <div class="area"><div class="an">Their API</div><div class="ad">Wikipedia. You own nothing here. You read its documentation, you follow its rules, and you cope with what it sends back, whether you like it or not.</div></div>
+        <div class="area"><div class="an">The glue</div><div class="ad">The requests and scripts that carry values from one to the other. You own it completely, and, as section E shows, it is where most integrations quietly go wrong.</div></div>
+      </div>
+      <p>The integration is three calls, run in order by Session 4&rsquo;s Collection Runner, each needing something the one before it found:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Call</div><div class="fn">Does</div><div class="fd">Needs, and gives</div></div>
+        <div class="frow"><div class="fc">1 Read the book</div><div class="fn"><code>GET /v1/books/8</code> on your mock</div><div class="fd">gives: the book&rsquo;s title</div></div>
+        <div class="frow"><div class="fc">2 Ask Wikipedia</div><div class="fn"><code>GET</code> Wikipedia&rsquo;s API, for that title</div><div class="fd">needs: the title; gives: a description</div></div>
+        <div class="frow"><div class="fc">3 Save the about</div><div class="fn"><code>PUT /v1/books/8/about</code> on your mock</div><div class="fd">needs: the description</div></div>
+      </div>
+      <p>Call 3 is an operation <code>Books API v1</code> does not have yet. Designing it is section C. Before that, section B meets the half you do not control.</p>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Their side: reading Wikipedia like a stranger</h3>
+      <p>You met Wikipedia&rsquo;s API in Session 4: one address, <code>https://en.wikipedia.org/w/api.php</code>, with everything you want said in the query string. Today you ask it a different question, so here are the parameters one at a time:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Parameter</div><div class="fn">What it says</div><div class="fd">Why it is here</div></div>
+        <div class="frow"><div class="fc">action=query</div><div class="fn">&ldquo;I want to read something.&rdquo;</div><div class="fd">as in Session 4</div></div>
+        <div class="frow"><div class="fc">format=json</div><div class="fn">&ldquo;Answer in JSON.&rdquo;</div><div class="fd">leave it out and you get a web page</div></div>
+        <div class="frow"><div class="fc">formatversion=2</div><div class="fn">&ldquo;Use the newer shape of JSON.&rdquo;</div><div class="fd">pages come back as an array, and yes-or-no values as <code>true</code></div></div>
+        <div class="frow"><div class="fc">prop=description</div><div class="fn">&ldquo;For each page, give me its short description.&rdquo;</div><div class="fd">the one-line summary Wikipedia keeps for most pages</div></div>
+        <div class="frow"><div class="fc">redirects=1</div><div class="fn">&ldquo;If the title is another name for a page, go to that page.&rdquo;</div><div class="fd">explained below</div></div>
+        <div class="frow"><div class="fc">titles=...</div><div class="fn">Which page, by its title</div><div class="fd">the value your integration fills in</div></div>
+      </div>
+      <p><b>Before the first request: say who you are.</b> Every request carries a <b><code>User-Agent</code></b> header, which names the program sending it; Postman fills one in for you, <code>PostmanRuntime/</code> and a version number. Wikipedia&rsquo;s rate-limit rules, which are new in 2026 and say they may change, allow a request with &ldquo;no identifying characteristics other than IP address&rdquo; 10 requests a minute, and one whose <code>User-Agent</code> names the program and gives a way to contact its owner 200. In the test below, sent from one home internet connection, Postman&rsquo;s own <code>User-Agent</code> got the 10. Their documentation asks for exactly that: &ldquo;a meaningful User-Agent header that includes contact information such as an email or full URL&rdquo;, written as the program&rsquo;s name, a <code>/</code>, its version, then the contact in brackets. This is how it went building this session:</p>
+      <div class="filebox">
+        <div class="fbh">fourteen requests in a row, then fourteen more a minute later &middot; captured live</div>
+<pre><code><span class="cmd">&gt; User-Agent: PostmanRuntime/7.39.1</span>         <span class="cm">Postman's own; your version differs</span>
+200 200 200 200 200 200 200 200 200 200 429 429 429 429
+
+<span class="cmd">&gt; User-Agent: LibraryAboutCheck/1.0 (you@example.com)</span>
+200 200 200 200 200 200 200 200 200 200 200 200 200 200</code></pre>
+      </div>
+      <p>The eleventh request with Postman&rsquo;s own name was refused, and it looked like this:</p>
+      <div class="filebox">
+        <div class="fbh">the refusal &middot; captured live</div>
+<pre><code>429 Too Many Requests
+Retry-After: 16                       <span class="cm">20 on a second try: it varies</span>
+Content-Type: text/plain               <span class="cm">plain text, not JSON</span>
+
+You are making too many requests to the API.
+Please follow the best practices at                 <span class="cm">one line,</span>
+&lt;https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits&gt;.   <span class="cm">wrapped here</span></code></pre>
+      </div>
+      <p><b>Which agent sends it matters.</b> Session 8 showed that Postman sends every request through an agent, named at the bottom right of the window. On the web app checked for this session, <b>Auto-select</b> chose the <b>Cloud Agent</b>, and it sent the <code>User-Agent</code> set below, as the task&rsquo;s echo step proves. newman sent it too; the desktop app was not checked. The <b>Browser Agent</b> sends from your web browser, and browsers may refuse to let a page change this header, so do not pick it today; it was not checked either. This is Session 3&rsquo;s idea from the other side. An API that needs no key still wants to know who is calling, and a <code>User-Agent</code> with a contact is how you tell it: not a secret, just a name and a way to reach you if your program misbehaves. Session 4&rsquo;s rules for a <code>429</code> still hold: wait the number of seconds <code>Retry-After</code> gives, then send again. Wikipedia&rsquo;s page adds &ldquo;limit the number of concurrent requests to 3 or fewer&rdquo;, where <b>concurrent</b> means at the same time, and the Runner sends one at a time anyway.</p>
+      <p><b>Now the answers.</b> Ask for a page that exists and you get its description:</p>
+      <div class="filebox">
+        <div class="fbh">a page that exists &middot; captured live</div>
+<pre><code><span class="cmd">&gt; GET https://en.wikipedia.org/w/api.php?action=query&amp;format=json</span>
+<span class="cmd">      &amp;formatversion=2&amp;prop=description&amp;redirects=1&amp;titles=A Wizard of Earthsea</span>
+200 OK
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      { "pageid": 2890, "ns": 0, "title": "A Wizard of Earthsea",
+        "description": "1968 fantasy novel by Ursula K. Le Guin",
+        "descriptionsource": "local" }
+    ]
+  }
+}</code></pre>
+      </div>
+      <p><code>pages</code> is an array, Session 1&rsquo;s list of values, each known by its position, and with one title asked for it holds one page. Now misspell the title by one letter:</p>
+      <div class="filebox">
+        <div class="fbh">a page that does not exist &middot; captured live</div>
+<pre><code><span class="cmd">&gt; GET ...&amp;titles=A Wizard of Earthsee</span>
+200 OK
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      { "ns": 0, "title": "A Wizard of Earthsee", "missing": true }
+    ]
+  }
+}</code></pre>
+      </div>
+      <p><b>A <code>200</code> for a page that is not there.</b> No <code>404</code>, no error object: the request was fine, and the honest answer to it is &ldquo;that page is missing&rdquo;, so Wikipedia gives it inside the body as <code>"missing": true</code>. You saw the same habit in Session 4, where a forged cursor came back as a <code>200</code> wrapping an error. Wikipedia&rsquo;s documentation says it plainly: &ldquo;If something goes wrong in an API request, an error or a warning will be thrown (although the HTTP response will usually still be <code>200 OK</code>).&rdquo; A real error, as opposed to a missing page, also sets a response header, <code>MediaWiki-API-Error</code>, whose value is the error&rsquo;s code; a missing page sets none. <b>So with this API, the status code alone tells you almost nothing. Read the body every time.</b></p>
+      <p><b>Two more things a title can do.</b> Wikipedia keeps <b>redirects</b>: titles that are another name for a page, and lead to it. And it capitalises only the first letter of a title for you, so <code>a wizard of earthsea</code> becomes <code>A wizard of earthsea</code>, a different title, which happens to be a redirect. With <code>redirects=1</code> you land on the real page, and the answer tells you every step it took:</p>
+      <div class="filebox">
+        <div class="fbh">a title in the wrong case &middot; captured live</div>
+<pre><code><span class="cmd">&gt; GET ...&amp;redirects=1&amp;titles=a wizard of earthsea</span>
+"normalized": [ { ..., "from": "a wizard of earthsea", "to": "A wizard of earthsea" } ],
+"redirects":  [ { "from": "A wizard of earthsea", "to": "A Wizard of Earthsea" } ],
+"pages": [ { "pageid": 2890, "title": "A Wizard of Earthsea",
+             "description": "1968 fantasy novel by Ursula K. Le Guin", ... } ]</code></pre>
+      </div>
+      <p>So the page you get back can have a different title from the one you asked for. Keep the title Wikipedia answers with, not the one you sent: it is the page the description actually came from.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Ask Wikipedia, as yourself</div>
+        <ol>
+          <li>Create a collection called <code>About from Wikipedia</code>, with a collection variable <code>userAgent</code> whose value is <code>LibraryAbout/1.0 (</code>, your contact, <code>)</code>. For example <code>LibraryAbout/1.0 (you@example.com)</code>, with your own address in place of <code>you@example.com</code>.</li>
+          <li>Add a request <b>Ask Wikipedia</b>: <code>GET https://en.wikipedia.org/w/api.php?action=query&amp;format=json&amp;formatversion=2&amp;prop=description&amp;redirects=1&amp;titles=A Wizard of Earthsea</code>, typed as one line, with a header <code>User-Agent</code> set to <code>{{userAgent}}</code>. Send it, and find the description.</li>
+          <li>Change the title to <code>A Wizard of Earthsee</code> and send. Confirm the status, and find <code>missing</code>.</li>
+          <li>Change it to <code>a wizard of earthsea</code> and send. Find <code>normalized</code> and <code>redirects</code>, and the title of the page you landed on.</li>
+          <li>Add one more request, <code>GET https://postman-echo.com/get</code>, with the same <code>User-Agent</code> header, and send it. postman-echo echoes your headers back, as in Session 1: find <code>user-agent</code> in its answer and confirm it is yours, not Postman&rsquo;s own.</li>
+        </ol>
+        <details><summary>Hint: if you get a 429</summary>
+<pre><code>the 10 a minute were spent before your header counted: by
+your own earlier sends, or by someone else sending from the
+same network address as you. Or your header did not replace
+Postman's own. Wait the seconds Retry-After gives, check the
+header is spelled User-Agent and its value is {{userAgent}},
+and resend.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>Earthsea   200, "1968 fantasy novel by Ursula K. Le Guin"
+Earthsee   200, "missing": true: no description, no error
+lowercase  200, normalized to "A wizard of earthsea", a
+           redirect to "A Wizard of Earthsea", which is the
+           title of the page you got
+echo       "user-agent": "LibraryAbout/1.0 (you@example.com)",
+           with your own contact</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I asked Wikipedia for a page with my own User-Agent, and saw a 200 with missing, and a redirect followed</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Your side: one more operation, designed first</h3>
+      <p>The library has nowhere to keep a description. A book in Session 5&rsquo;s field table has a title, an author, an isbn and a year, and that is all. You could add a field to the book, but the description is not the library&rsquo;s own fact about the book, it is Wikipedia&rsquo;s, fetched by an integration that may run again next month. So it gets a place of its own: the book&rsquo;s <b>about</b>, at <code>/v1/books/{id}/about</code>, a resource that belongs to one book. Session 5 called this a <b>nested</b> URL: the slash reads as &ldquo;belonging to&rdquo;, as in jsonplaceholder&rsquo;s <code>/posts/1/comments</code>.</p>
+      <p>Session 5 section E sorted changes into breaking and non-breaking, and &ldquo;add a new operation or a new resource&rdquo; was non-breaking: &ldquo;Nobody was calling it, so nobody is affected.&rdquo; So this goes into <code>Books API v1</code> itself, with no new version. Here is the contract row, in Session 5&rsquo;s shape:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Request</div><div class="fn">Success</div><div class="fd">Refusals, with their error code</div></div>
+        <div class="frow"><div class="fc">PUT /v1/books/{id}/about</div><div class="fn">200, the about as stored, with the book&rsquo;s id as <code>bookId</code></div><div class="fd">404 book_not_found &middot; 400 invalid_json &middot; 422 field_required or field_invalid &middot; 503 unavailable, nothing saved</div></div>
+      </div>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Field</div><div class="fn">Type</div><div class="fd">Rules</div></div>
+        <div class="frow"><div class="fc">description</div><div class="fn">string</div><div class="fd">Required. 1 to 200 characters. A one-line summary.</div></div>
+        <div class="frow"><div class="fc">wikipediaTitle</div><div class="fn">string</div><div class="fd">Required. The title of the page the description came from.</div></div>
+      </div>
+      <p>The <code>400</code> is Session 5&rsquo;s shared rule for any body that is not valid JSON. It gets no example of its own today: Session 7 showed that a mock answers broken JSON with its own <code>400</code> before it matches anything, so an example could only ever be reached by name. The other four statuses each get one, and, as in Session 5, one <code>422</code> example stands for both of its codes.</p>
+      <p><b>Why <code>PUT</code>, not <code>POST</code>.</b> A book has one about, at one address, and saving it replaces whatever was there, which is exactly what Session 5 said <code>PUT</code> means. The contract makes that literally true: every book has an about from the moment the book exists, empty until something is saved, so a save always replaces one and always answers <code>200</code>. (Had the first save created the about instead, RFC 9110 would want <code>201</code> for that save, and the mock would need a second success example.) And <code>PUT</code> is idempotent: save the same about twice and the book still has one about, the same one. So, unlike Session 8&rsquo;s loans, <b>this write needs no idempotency key</b>. If a save gets no answer, sending it again is safe by the method itself. Choosing the method well removed a whole problem before it existed.</p>
+      <p>Session 6 showed that a mock only answers requests its collection holds examples for. So before you add the operation, your mock knows nothing about it:</p>
+      <div class="filebox">
+        <div class="fbh">the same request, to a mock without the operation and to one with it &middot; captured live</div>
+<pre><code><span class="cmd">&gt; PUT https://&lt;mock-id&gt;.mock.pstmn.io/v1/books/8/about</span>
+<span class="cmd">&gt; {"description": "1968 fantasy novel by Ursula K. Le Guin",</span>
+<span class="cmd">&gt;  "wikipediaTitle": "A Wizard of Earthsea"}</span>
+<span class="cm">a mock whose collection has no such request:</span>
+404 Not Found
+{"error": {"name": "mockRequestNotFoundError", ..., "header": "No matching requests"}}
+<span class="cm">a mock whose collection has Save a book's about:</span>
+200 OK
+{ "bookId": 8, "description": "1968 fantasy novel by Ursula K. Le Guin",
+  "wikipediaTitle": "A Wizard of Earthsea" }</code></pre>
+      </div>
+      <p>The <code>404</code> before is the mock&rsquo;s own, from Session 6, not your contract&rsquo;s <code>book_not_found</code>: it means &ldquo;no example fits this method and path&rdquo;. And one thing to hold on to for section E: on the mock built for this session, <b>every</b> body sent to the new operation got <code>200 saved</code>, including a different book&rsquo;s description and an empty one. The only exceptions were broken JSON, which got the mock&rsquo;s own <code>400</code>, and a body identical to the <code>422</code> example&rsquo;s saved body, which a matching body wins, as in Session 6. Leave out the description with any other title and it is <code>200 saved</code> again. A mock checks nothing, as Session 6 said, so it will happily &ldquo;save&rdquo; nonsense.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Add the operation to Books API v1, and mock it</div>
+        <ol>
+          <li>Before changing anything, send <code>PUT https://&lt;mock-id&gt;.mock.pstmn.io/v1/books/8/about</code>, your mock&rsquo;s address, with the body in the box above. Confirm the mock&rsquo;s own <code>404</code>.</li>
+          <li>In <code>Books API v1</code>, add a request <b>Save a book&rsquo;s about</b>: <code>PUT {{baseUrl}}/v1/books/8/about</code>, with that body and <code>Content-Type: application/json</code>. Add the contract row and field table above to the collection&rsquo;s description.</li>
+          <li>Add four examples, named exactly as listed, with the bodies below. Every example except the <code>422</code> keeps the request body above.
+<pre><code>200 saved                 {"bookId": 8, "description": "1968 fantasy novel
+                           by Ursula K. Le Guin", "wikipediaTitle":
+                           "A Wizard of Earthsea"}
+404 book not found        error code book_not_found,
+                          message "No book has the id 8."
+422 description missing   error code field_required, field
+                          "description"; saved with the request
+                          body {"wikipediaTitle": "A Wizard of Earthsea"}
+503 unavailable           error code unavailable, message
+                          "Nothing was saved. Try again shortly."</code></pre></li>
+          <li>Wait a few seconds, then send step 1&rsquo;s request again. Confirm <code>200</code>. Then send it with <code>x-mock-response-name</code> set to <code>503 unavailable</code>, and confirm <code>503</code>.</li>
+        </ol>
+        <details><summary>Hint: if it still says No matching requests</summary>
+<pre><code>check the request is in Books API v1, the collection your
+mock was made from, that its method is PUT and its path is
+exactly /v1/books/8/about, and that you saved it. Then wait
+a few seconds more and resend.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I added Save a book&rsquo;s about to Books API v1 with four named examples, and saw my mock go from No matching requests to 200 saved</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. The glue: carrying a value from one API to the other</h3>
+      <p>Session 8 carried a loan&rsquo;s <code>id</code> from call 3 to call 4 with a post-response script and a collection variable. The integration does the same twice: the title from call 1 into call 2&rsquo;s URL, and the description from call 2 into call 3&rsquo;s body. But there is a catch Session 8 never met. A loan id is a number, like <code>501</code>, and goes anywhere unchanged. A title is text written by somebody else, and text can hold characters that mean something where you put it.</p>
+      <p><b>Into a URL.</b> Session 1 showed that a query string&rsquo;s pairs are joined by <code>&amp;</code>. So a book called <code>Pride &amp; Prejudice</code> put straight into <code>titles=</code> ends the title at the <code>&amp;</code>, and Wikipedia reads the rest as a separate parameter, called <code>Prejudice</code>, which it does not recognise. A <code>#</code> is worse: everything after it is cut off before it is sent. The cure is <b>percent-encoding</b>: each such character is replaced by <code>%</code> and its number in hex, Session 7&rsquo;s digits 0 to 9 and a to f, so <code>&amp;</code> becomes <code>%26</code> and a space <code>%20</code>, and a server reads them back as the characters they stand for. Postman encodes the spaces in a URL you type for you, which is why section B&rsquo;s titles worked; it cannot know that an <code>&amp;</code> inside a value was meant as part of a title rather than as a separator. JavaScript has a function that does it, <code>encodeURIComponent(text)</code>: give it text, and it gives back the same text made safe to put inside one part of a URL.</p>
+      <div class="filebox">
+        <div class="fbh">a title with an ampersand, sent both ways &middot; captured live</div>
+<pre><code><span class="cmd">&gt; titles=Pride &amp; Prejudice</span>                        <span class="cm">put in as it is</span>
+"warnings": { "main": { "warnings": "Unrecognized parameter: Prejudice." } }
+"title": "Pride", "description": "Positive effect from the perceived
+  value of a person"                                  <span class="cm">the wrong page</span>
+
+<span class="cmd">&gt; titles=Pride%20%26%20Prejudice</span>                  <span class="cm">encodeURIComponent</span>
+"redirects": [ { "from": "Pride &amp; Prejudice", "to": "Pride and Prejudice" } ]
+"title": "Pride and Prejudice", "description": "1813 novel by Jane Austen"</code></pre>
+      </div>
+      <p><b>Into a JSON body.</b> Inside a JSON string, a <code>"</code> ends the string. Session 1 showed a JSON string holding an escaped line break, <code>\n</code>; a quote mark is escaped the same way, as <code>\"</code>. Wikipedia has a page called <code>"Repent, Harlequin!" Said the Ticktockman</code>, quote marks and all, and pasting that title between quotes in a body produces JSON that is broken. The cure is <code>JSON.stringify(value)</code>: give it a value, and it gives back that value written as JSON, so a piece of text comes back <b>with its quote marks round it and every quote inside escaped</b>. Because it adds the quotes itself, the variable goes into the body with no quotes of its own, just as Session 8&rsquo;s <code>{{loanId}}</code> did:</p>
+      <div class="filebox">
+        <div class="fbh">a title with quote marks, sent both ways &middot; captured live, against your mock</div>
+<pre><code><span class="cmd">&gt; {"description": "{{aboutDescription}}", "wikipediaTitle": "{{wikiTitle}}"}</span>
+  sent as: {..., "wikipediaTitle": ""Repent, Harlequin!" Said the Ticktockman"}
+400 Bad Request          <span class="cm">the mock's own badRequest: not valid JSON</span>
+
+<span class="cmd">&gt; {"description": {{aboutDescription}}, "wikipediaTitle": {{wikiTitle}}}</span>
+  sent as: {..., "wikipediaTitle": "\"Repent, Harlequin!\" Said the Ticktockman"}
+200 OK                   <span class="cm">JSON.stringify made both values</span></code></pre>
+      </div>
+      <p>The rule, which holds for any integration: <b>a value going into a URL gets <code>encodeURIComponent</code>; a value going into a JSON body gets <code>JSON.stringify</code>; and neither is ever pasted in as it is.</b></p>
+      <p><b>Reading Wikipedia&rsquo;s answer takes four more pieces of JavaScript</b>, each one line:</p>
+      <ul class="pts">
+        <li><code>var page = ...;</code> keeps a value under a name, <code>page</code>, for the next few lines of the same script. Unlike a collection variable, it is gone when the script ends.</li>
+        <li><code>pages[0]</code> takes the first item of the array <code>pages</code>. Positions in JavaScript count from 0, so <code>[0]</code> is the first, <code>[1]</code> the second.</li>
+        <li><code>undefined</code> is what JavaScript gives you when you ask for a field that is not there: a page with no description has <code>page.description === undefined</code>.</li>
+        <li><code>||</code> means &ldquo;or&rdquo; between two tests: the whole test is true if either side is. JavaScript checks the left side first, and <b>if that is already true it never looks at the right</b>. Section E shows why that order matters here.</li>
+      </ul>
+      <p>Now the three scripts. One case first: a mistake in your request, such as a parameter name typed wrongly, gets a <code>200</code> with no <code>query</code> in the body at all, which is what call 2&rsquo;s first test looks for; section E shows one. Call 1 keeps the title, already encoded for a URL. Call 2 stops the run unless it got a real description, and keeps the description and the page&rsquo;s title, already written as JSON. Call 3 stops if the save failed. Every <code>if</code>, <code>else</code>, <code>!==</code> and <code>setNextRequest(null)</code> is Session 8&rsquo;s.</p>
+<pre><code><span class="cm">// Read the book, post-response: keep the title, ready for a URL</span>
+if (pm.response.code !== 200) {
+  pm.execution.setNextRequest(null);
+} else {
+  pm.collectionVariables.set("titleParam", encodeURIComponent(pm.response.json().title));
+}</code></pre>
+<pre><code><span class="cm">// Ask Wikipedia, post-response: keep the description, ready for a JSON body</span>
+if (pm.response.code !== 200 || pm.response.json().query === undefined) {
+  pm.execution.setNextRequest(null);
+} else {
+  var page = pm.response.json().query.pages[0];
+  if (page.missing === true || page.description === undefined) {
+    pm.execution.setNextRequest(null);
+  } else {
+    pm.collectionVariables.set("aboutDescription", JSON.stringify(page.description));
+    pm.collectionVariables.set("wikiTitle", JSON.stringify(page.title));
+  }
+}</code></pre>
+<pre><code><span class="cm">// Save the about, post-response</span>
+if (pm.response.code !== 200) {
+  pm.execution.setNextRequest(null);
+}</code></pre>
+      <p>Call 3 is the last call, so its stop changes nothing today. It is there so that if a call is ever added after the save, it cannot run after a failed one. Two collection variables choose the mock&rsquo;s answers, the way <code>loanAnswer</code> did in Session 8: call 1 sends <code>x-mock-response-name: {{bookAnswer}}</code> and call 3 sends <code>x-mock-response-name: {{saveAnswer}}</code>. On a real server you would leave both headers out.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build the integration and run it</div>
+        <ol>
+          <li>In <code>About from Wikipedia</code>, add these collection variables: <code>baseUrl</code>, your mock&rsquo;s address; <code>bookId</code>, <code>8</code>; <code>bookAnswer</code>, <code>200 the book</code>; <code>saveAnswer</code>, <code>200 saved</code>; and <code>titleParam</code>, <code>aboutDescription</code> and <code>wikiTitle</code>, empty.</li>
+          <li>Add <b>Read the book</b> before Ask Wikipedia: <code>GET {{baseUrl}}/v1/books/{{bookId}}</code>, header <code>x-mock-response-name</code> = <code>{{bookAnswer}}</code>, and its script.</li>
+          <li>On <b>Ask Wikipedia</b>, change the end of the URL to <code>titles={{titleParam}}</code>, and paste its script.</li>
+          <li>Add <b>Save the about</b> last: <code>PUT {{baseUrl}}/v1/books/{{bookId}}/about</code>, headers <code>Content-Type: application/json</code> and <code>x-mock-response-name</code> = <code>{{saveAnswer}}</code>, the raw body <code>{"description": {{aboutDescription}}, "wikipediaTitle": {{wikiTitle}}}</code>, and its script.</li>
+          <li>Run the collection in the Runner. Confirm three requests, all <code>200</code>, and find call 3&rsquo;s request body in the run&rsquo;s details.</li>
+        </ol>
+        <details><summary>Hint: if Postman marks the body as an error</summary>
+<pre><code>the body editor reads the text as you typed it, braces and
+all, and {{aboutDescription}} with no quotes is not JSON on
+its own. Send it anyway: the value JSON.stringify stored has
+its own quotes, so what goes out is valid.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>1 Read the book    200   titleParam  A%20Wizard%20of%20Earthsea
+2 Ask Wikipedia    200   aboutDescription  "1968 fantasy novel by
+                                           Ursula K. Le Guin"
+3 Save the about   200   body sent:
+  {"description": "1968 fantasy novel by Ursula K. Le Guin",
+   "wikipediaTitle": "A Wizard of Earthsea"}</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I ran a three-call integration in the Runner, from my mock, through Wikipedia, and back to my mock</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. When it breaks: your side, their side, and the glue</h3>
+      <p>An integration can fail in three places, one for each owner from section A, and each looks different when it does. The first job when a run goes wrong is to say where it showed up and who caused it, because that decides what you can do about it. The two are not always the same: Wikipedia reports a missing page, but the title it could not find came from your own API.</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Side</div><div class="fn">What you see</div><div class="fd">What you can do</div></div>
+        <div class="frow"><div class="fc">your API</div><div class="fn">your contract&rsquo;s own refusals: <code>404 book_not_found</code>, <code>422</code>, <code>503 unavailable</code></div><div class="fd">everything: you own the data and the contract. A <code>503</code> means try the run again later.</div></div>
+        <div class="frow"><div class="fc">their API</div><div class="fn">a <code>429</code> with <code>Retry-After</code>; or a <code>200</code> whose body says <code>"missing": true</code>: no page has the title you sent</div><div class="fd">only what their rules allow: wait and resend. For a missing page, check the title in your own data first; their data is not yours to fix.</div></div>
+        <div class="frow"><div class="fc">the glue</div><div class="fn">a <code>200</code> with no <code>query</code>, because your request asked wrongly; or, worse, nothing at all: every call says <code>200</code> and the wrong thing is saved</div><div class="fd">fix your own requests and scripts</div></div>
+      </div>
+      <p><b>Your side and their side, with the scripts in place,</b> stop cleanly. These are all real runs:</p>
+      <div class="filebox">
+        <div class="fbh">four runs, each broken in one place &middot; captured live with newman</div>
+<pre><code>bookAnswer = 404 book not found
+  1 Read the book  404                         <span class="cm">stopped: 1 request</span>
+saveAnswer = 503 unavailable
+  1 200   2 200   3 Save the about  503        <span class="cm">nothing saved</span>
+book 8's title edited to "A Wizard of Earthsee"
+  1 200   2 Ask Wikipedia  200 "missing": true  <span class="cm">stopped: 2 requests</span>
+book 8's title edited to "Pride &amp; Prejudice"
+  1 200   2 200   3 200   saved "1813 novel by Jane Austen",
+                          "Pride and Prejudice"   <span class="cm">correct</span></code></pre>
+      </div>
+      <p>Look at what happens after the <code>503</code>. Nothing was saved, and the whole run is safe to repeat later: calls 1 and 2 are reads, and call 3 is a <code>PUT</code>, which section C chose so that repeating it is harmless. Now look at the <code>||</code> in call 2&rsquo;s first test. A <code>429</code>&rsquo;s body is plain text, and <code>pm.response.json()</code> on plain text stops the script with an error. Because the status test comes first, and <code>||</code> stops at the first true side, a <code>429</code> never reaches the part that reads JSON.</p>
+      <p><b>The glue fails differently: it does not stop.</b> Here are the same scripts written the way a first draft usually is, with the title put into the URL as it is, the description pasted between quotes, and no checks:</p>
+      <div class="filebox">
+        <div class="fbh">a first-draft integration &middot; captured live with newman</div>
+<pre><code>book 8's title "Pride &amp; Prejudice", put into the URL as it is
+  1 200   2 200   3 Save the about  200
+  saved: "description": "Positive effect from the perceived value of a
+          person", "wikipediaTitle": "Pride"        <span class="cm">wrong, and nothing says so</span>
+book 8's title "A Wizard of Earthsee", no checks after call 2
+  1 200   2 200   3 Save the about  200
+  saved: "description": "null"                      <span class="cm">the word null, saved</span></code></pre>
+      </div>
+      <p>Every status is <code>200</code>, and the mock said <code>200 saved</code> both times, because a mock checks nothing. On a real server those would have been a wrong description and the word <code>null</code>, stored against a real book, found weeks later by a reader. <b>The glue&rsquo;s failures are the dangerous ones precisely because nothing fails.</b> (The <code>null</code> is how Postman fills in a variable that a script set to <code>undefined</code>.)</p>
+      <p>One more, which catches careful people: <b>a script that stops with an error.</b> On a run whose call 2 URL had a typing slip, <code>Titles=</code> with a capital T, Wikipedia answered <code>200</code> with a warning and no <code>query</code>, and a script without the <code>query === undefined</code> test stopped with an error. In the web app, the run&rsquo;s results list call 2 as a <code>200</code>, and the error appears under the results&rsquo; <b>Errors</b> tab, marked as coming from the post-response script:</p>
+      <div class="filebox">
+        <div class="fbh">a script error, in the Runner&rsquo;s results &middot; as Postman&rsquo;s web app showed it</div>
+<pre><code>SCRIPT  Post-response: TypeError: can't access property "pages",
+        pm.response.json().query is undefined</code></pre>
+      </div>
+      <p>What happens next depends on one Runner setting, <b>Stop run if an error occurs</b>, which is ticked when you open the Runner. Ticked, the run ends at that call, and Postman reports that the run did not finish. Unticked, the run carries on, and so does newman, Postman&rsquo;s command-line runner, unless it is told otherwise. Carrying on, call 3 went out anyway: with the variables empty, it sent broken JSON and got the mock&rsquo;s <code>400</code>; with values still sitting there from an earlier run, it got <code>200 saved</code>, for the previous run&rsquo;s description. A request that gets an error status, such as a <code>503</code>, does not count as an error for that setting: it is still an answer, and the run goes on past it, as Session 8 found. <b>So do not rely on the setting.</b> Anyone can untick it, and newman, for one, carries on unless told otherwise. The <code>query === undefined</code> test in section D&rsquo;s script stops this run at call 2 whatever the setting says.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Break it from each side, then put it back</div>
+        <ol>
+          <li><b>Your side, the read.</b> Set <code>bookAnswer</code> to <code>404 book not found</code> and run. Confirm one request. Set it back to <code>200 the book</code>.</li>
+          <li><b>Your side, the write.</b> Set <code>saveAnswer</code> to <code>503 unavailable</code> and run. Confirm three requests, the last a <code>503</code>. Set it back to <code>200 saved</code>, run again, and say why repeating the run is safe.</li>
+          <li><b>A failure Wikipedia reports.</b> In <code>Books API v1</code>, open <b>Read a book</b>, its <code>200 the book</code> example, and change the title in its body to <code>A Wizard of Earthsee</code>. Save, wait a few seconds, and run <code>About from Wikipedia</code>. Confirm it stops after call 2, and find <code>missing</code>.</li>
+          <li><b>The glue.</b> Change that title to <code>Pride &amp; Prejudice</code>, save, wait, and run. Confirm three <code>200</code>s, and that call 2&rsquo;s URL says <code>%26</code> and call 3 saved Jane Austen&rsquo;s novel.</li>
+          <li><b>Change it back.</b> Set the example&rsquo;s title to <code>A Wizard of Earthsea</code>, exactly, save, wait, and run once more. Confirm three <code>200</code>s and the Earthsea description in call 3&rsquo;s body. Every transcript in Sessions 6 to 9 assumes book 8 is Earthsea, and so will you next time.</li>
+        </ol>
+        <details><summary>Hint: if a run shows Pride and Prejudice, or Earthsee, when it should not</summary>
+<pre><code>your 200 the book example still has a test title: open Read
+a book in Books API v1 and set the title back to
+A Wizard of Earthsea, capital W and capital E. If the
+example is right and the run is still wrong, wait a few
+seconds after saving: the mock picks up a change shortly
+after you save it, not at the same instant.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>1  1 request: call 1's script stopped the run
+2  3 requests, the last 503, nothing saved. Repeating is safe:
+   1 and 2 only read, and 3 is a PUT, so saving the same
+   about twice leaves one about
+3  2 requests: "missing": true, stopped before the save
+4  3 requests; titles=Pride%20%26%20Prejudice; saved
+   "1813 novel by Jane Austen", "Pride and Prejudice"
+5  3 requests, back to "1968 fantasy novel by Ursula K. Le Guin"</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I broke the integration from my side and from Wikipedia&rsquo;s, watched each stop or succeed correctly, and set book 8&rsquo;s title back to A Wizard of Earthsea</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Writing it down, so someone else can pick it up cold</h3>
+      <p>Session 5 called it the stranger test: a contract is finished when someone could build against it without asking you anything. An integration has the same test with a harder stranger: the person who has to <b>run</b> it, and fix it at nine on a Monday morning, when you are away. They need different things from a contract&rsquo;s reader. Not every field&rsquo;s rules, but what this thing does, what it touches, what to set before running it, and, above all, what each failure looks like and what to do about it. That document is usually called a <b>README</b>, the file people are expected to read first, and in Postman it goes in the collection&rsquo;s description, where Session 5 put the contract. Six headings cover it:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Heading</div><div class="fn">Answers</div><div class="fd">Leave it out and</div></div>
+        <div class="frow"><div class="fc">What it does</div><div class="fn">one or two sentences, in the user&rsquo;s words</div><div class="fd">nobody knows whether to run it</div></div>
+        <div class="frow"><div class="fc">What it calls</div><div class="fn">each API: its address, its documentation, who owns it, how you identify yourself to it, its limits</div><div class="fd">a <code>429</code> looks like a bug</div></div>
+        <div class="frow"><div class="fc">Before you run it</div><div class="fn">every variable, which to set and which the scripts fill in</div><div class="fd">the next person&rsquo;s runs send your contact address</div></div>
+        <div class="frow"><div class="fc">How to run it</div><div class="fn">where, in what order, and what a good run looks like</div><div class="fd">nobody can tell a good run from a bad one</div></div>
+        <div class="frow"><div class="fc">When it fails</div><div class="fn">for each call: what a failure looks like, which side it is, what the run does, what to do</div><div class="fd">every failure is a call to you</div></div>
+        <div class="frow"><div class="fc">Known limits</div><div class="fn">what it does not do, and what it cannot check</div><div class="fd">someone trusts it for something it never did</div></div>
+      </div>
+      <p>&ldquo;When it fails&rdquo; is the heading that earns its keep, and section E has already given you every row of it. Write each row as the stranger would meet it, starting from what they can see.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write the README</div>
+        <ol>
+          <li>In <code>About from Wikipedia</code>&rsquo;s description, write the six headings above, with everything a stranger needs under each.</li>
+          <li>Under &ldquo;When it fails&rdquo;, give every failure from section E its own row: the call, what you see, which side, what the run does, what to do.</li>
+          <li>Under &ldquo;Known limits&rdquo;, say what a run against the mock proves and what it never can, as Session 6 section F did for the mock itself.</li>
+        </ol>
+        <details><summary>Show one README to compare against</summary>
+<pre><code><span class="cmd">&gt; What it does</span>
+Saves Wikipedia's one-line description of a library book as
+that book's about, in the library's Books API v1.
+
+<span class="cmd">&gt; What it calls</span>
+Books API v1   {{baseUrl}}, ours (contract: Books API v1's
+               description). Public mock: no key.
+Wikipedia      https://en.wikipedia.org/w/api.php, the
+               Wikimedia Foundation's. No key, but send
+               User-Agent with a contact, or the limit is 10
+               a minute, not 200. One request at a time.
+               Docs: mediawiki.org/wiki/API:Query
+
+<span class="cmd">&gt; Before you run it</span>
+set     baseUrl, userAgent (your name for it, and YOUR
+        contact: the copy you were given has it empty),
+        bookId
+mock    bookAnswer = 200 the book, saveAnswer = 200 saved
+        (pick a mock example by name; not sent on a real server)
+filled  titleParam, aboutDescription, wikiTitle: the scripts
+        set these; leave them alone
+
+<span class="cmd">&gt; How to run it</span>
+Runner, whole collection, in order: Read the book, Ask
+Wikipedia, Save the about. A good run: three 200s, and call
+3's body holds the description.
+
+<span class="cmd">&gt; When it fails</span>
+1 Read the book   404: no such book (ours). Stops. Check bookId.
+2 Ask Wikipedia   429: too many requests (theirs). Stops. Wait
+                  Retry-After seconds, check User-Agent, rerun.
+                  200, "missing": true: Wikipedia has no page
+                  with that title. Stops. Check the book's
+                  title in our API.
+                  200, no description: the page has none. Stops.
+                  200, no query: our URL asks wrongly (glue).
+                  Stops. Check the parameter names.
+3 Save the about  503: nothing saved (ours). Stops. Rerun later:
+                  safe, reads and a PUT.
+any               a script error: under the run's Errors tab.
+                  It stops the run only if "Stop run if an
+                  error occurs" is ticked. Fix it, rerun.
+
+<span class="cmd">&gt; Known limits</span>
+Against the mock, nothing is saved, and the mock answers
+200 saved to any body, right or wrong. Only the scripts check
+that the description belongs to the book. Wikipedia's editors
+change descriptions; a redirect may give a page whose title
+differs from the book's (wikipediaTitle records which).
+Books API v1 has no GET for the about yet, so nothing can
+read a saved about back.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I wrote a README with all six headings, and a When it fails row for every failure from section E</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. The pre-ship checklist: Levels 1 to 4 on one page</h3>
+      <p>Every level of this track ended with something that goes wrong when it is forgotten. Before an integration <b>ships</b>, meaning before anyone else relies on it, you walk one list, and every line gets an answer written down, including &ldquo;does not apply, because ...&rdquo;. A line left blank is a line nobody checked. Here is the list, with where each line was taught:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Line</div><div class="fn">The question</div><div class="fd">From</div></div>
+        <div class="frow"><div class="fc">Auth and identity</div><div class="fn">How does each API know who is calling? Is every key or credential in a variable, never typed into a request you share?</div><div class="fd">Session 3; section B today</div></div>
+        <div class="frow"><div class="fc">Errors</div><div class="fn">Does every call check the status AND the body? Which of its failures stop the run?</div><div class="fd">Sessions 2 and 4; section E</div></div>
+        <div class="frow"><div class="fc">Pagination</div><div class="fn">Does any call get back a list that comes in pages? If so, does it follow the pages to the end?</div><div class="fd">Session 4</div></div>
+        <div class="frow"><div class="fc">Retries and rate limits</div><div class="fn">Which failures are retried, after how long, how many times? Is <code>Retry-After</code> obeyed? Is a <code>4xx</code> other than <code>429</code> never retried?</div><div class="fd">Session 4</div></div>
+        <div class="frow"><div class="fc">Idempotency</div><div class="fn">Is every write safe to send twice, by its method or by a key? Is the whole run safe to repeat?</div><div class="fd">Sessions 5 and 8</div></div>
+        <div class="frow"><div class="fc">Partial failure</div><div class="fn">If call N fails, what has already happened, and does anything after it still run?</div><div class="fd">Session 8</div></div>
+        <div class="frow"><div class="fc">The glue</div><div class="fn">Is every value encoded for where it goes: <code>encodeURIComponent</code> into a URL, <code>JSON.stringify</code> into a body?</div><div class="fd">section D</div></div>
+        <div class="frow"><div class="fc">Docs</div><div class="fn">Could a stranger run it, and fix it, from the README alone?</div><div class="fd">Sessions 5 and 6; section F</div></div>
+      </div>
+      <p>Webhooks, Session 7, are missing from the list on purpose: this integration receives none. An integration that does would add a line for signatures and duplicate events. <b>The list grows with what the integration does; it never shrinks to what you remembered.</b></p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Check About from Wikipedia before it ships</div>
+        <ol>
+          <li>Add a heading <b>Checked before shipping</b> to the README, and answer all eight lines for <code>About from Wikipedia</code>, one or two lines each.</li>
+          <li>For any line whose answer is &ldquo;no&rdquo;, either fix the integration or write it under Known limits.</li>
+        </ol>
+        <details><summary>Show one set of answers to compare against</summary>
+<pre><code>auth        Wikipedia: no key; User-Agent with a contact,
+            from the userAgent variable. Mock: public, no key.
+errors      every call checks its status; call 2 also checks
+            for no query, missing, and no description. Each
+            stops the run.
+pagination  does not apply: one title asks for one page.
+retries     none automatic. A 429 or 503 stops the run; rerun
+            after Retry-After, or later. No other 4xx is
+            retried.
+idempotency reads, and one PUT: safe to send twice, and the
+            whole run is safe to repeat. No key needed.
+partial     a failure at 1 or 2 leaves nothing written. A
+            503 at 3 leaves nothing written; no answer at 3
+            is unknown, but resending a PUT is safe.
+glue        title encodeURIComponent'd into the URL;
+            description and title JSON.stringify'd into the body.
+docs        README with six headings; stranger pass: not yet.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I answered all eight checklist lines for my integration, in its README</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: one more question for Wikipedia, unassisted</h3>
+      <p>The library now wants the author described too. That means a change to your contract, a fourth call, and every line of the checklist answered again. Do it without scrolling back up.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: the author, wired in end to end</div>
+        <ol>
+          <li><b>The contract.</b> Add an optional field <code>authorDescription</code>, a string, to the about&rsquo;s field table in <code>Books API v1</code>. Say in one line whether that is a breaking change, and why.</li>
+          <li><b>The integration.</b> Make call 1 also keep the book&rsquo;s author, in a variable <code>authorParam</code>, ready for a URL. Add a call <b>Ask Wikipedia about the author</b>, between Ask Wikipedia and Save the about, that keeps its description in <code>authorDescription</code>, ready for a body, and stops the run unless it got one. Add <code>authorDescription</code> to call 4&rsquo;s body.</li>
+          <li><b>Run it.</b> Four <code>200</code>s, and the body of the save holds both descriptions.</li>
+          <li><b>Break it twice</b>, once from your side and once from Wikipedia&rsquo;s, and confirm the run stops where it should. Then put everything back.</li>
+          <li><b>Update the README and the checklist.</b> Decide, and write down, what should happen if the book is found on Wikipedia but its author is not.</li>
+        </ol>
+        <p>You have hit the milestone when a run carries a value from your own mocked API, through a real public API, and back into your API, and the README alone tells a stranger how to run it and what each failure means.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">&gt; the contract</span>
+authorDescription   string   Optional. The author's one-line
+                             description, from Wikipedia.
+Not breaking: a new optional field. Clients that never send it
+are unaffected, and clients reading the about must already
+ignore fields they do not recognise.
+
+<span class="cmd">&gt; call 1's else, one line added</span>
+pm.collectionVariables.set("authorParam",
+  encodeURIComponent(pm.response.json().author));
+
+<span class="cmd">&gt; Ask Wikipedia about the author</span>
+GET ...&amp;titles={{authorParam}}     User-Agent: {{userAgent}}
+the same script as Ask Wikipedia, keeping only
+  pm.collectionVariables.set("authorDescription",
+    JSON.stringify(page.description));
+
+<span class="cmd">&gt; Save the about, body</span>
+{"description": {{aboutDescription}}, "wikipediaTitle": {{wikiTitle}},
+ "authorDescription": {{authorDescription}}}
+
+<span class="cmd">&gt; a good run, captured live with newman</span>
+1 200   2 200   3 200   4 200
+"authorDescription": "American author (1929–2018)"
+
+<span class="cmd">&gt; where yours may honestly differ</span>
+If the author is not found, stopping is the simple answer.
+Saving without authorDescription is also defensible, because
+the field is optional, but it needs the save's body built
+without it, and the README must say which you chose.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I added the author to my contract and my integration, ran it end to end, broke it from both sides, and updated the README and checklist</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from one answer from Wikipedia, through the glue, to whole runs.</p>
+    <div class="note"><b>Drills about Wikipedia and your mock</b> were checked against the live service and a real mock on 2026-10-05. <b>Drills about a run</b> use <code>About from Wikipedia</code> exactly as section D builds it, unless the drill says a script is different. Where a drill needs to show you something first, it is in the grey box above the question.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading an integration and building one. First put one run&rsquo;s steps back into order, then fill the blanks in a request, a script and a README.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. There is one sequence today, on purpose: a value carried from one API to the other is the one process in this session where each step needs the one before it.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded request, script and README)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft each piece in the box, then reveal the reference to compare. A README or a checklist can be right in many wordings; what matters is that yours answers every question the task names. The workbook cannot judge free text, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours covers everything the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">15</span></span>
+        <span>In pile <b id="fc-pile">15</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Three of the six questions below come from <b>Sessions 8, 6 and 3</b> rather than from today, because recalling something after a delay is what moves it from "I read that" to "I know that". Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 09 of 10 &middot; Hit the milestone unassisted, then tick <b>S09</b> on your <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>.
+    <br><br>
+    <b>Your 15-minute review, a hand-off rehearsal:</b> put <code>About from Wikipedia</code> in the hands of someone who has only its README. <b>On your own</b>, the next day if you can: create an empty collection, <code>About from Wikipedia, rebuilt</code>, and build and run the integration from the README alone, never opening the original. As in Session 6&rsquo;s stranger pass, write one line in a look-up log for every fact the README did not give you, then add each one to the README. <b>With someone else, if you can</b>, which is better: give a friend or teammate the README and your mock&rsquo;s address and nothing else, watch them run it and break it, do not help, and log every question they ask. <a href="https://academy.postman.com/" target="_blank" rel="noopener">Postman Academy</a> is free and has courses on collections, scripts and the Collection Runner from Postman&rsquo;s own angle, worth a look if a script in today&rsquo;s integration still feels like a recipe rather than something you could write. &middot; Next: <b>Session 10, the capstone</b>, where you ship one documented, mocked integration of your own end to end, and take the comprehensive final.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-s09-workbook-v1";
+  /* Spaced review: three Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+  var S03_URL = "api-session-03.html";
+  var S04_URL = "api-session-04.html";
+  var S05_URL = "api-session-05.html";
+  var S06_URL = "api-session-06.html";
+  var S07_URL = "api-session-07.html";
+  var S08_URL = "api-session-08.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, status numbers,
+     key names and short words, where capitalisation is presentation. parenLabels is
+     OFF for this session: transcripts print answer tokens as status lines, header
+     names with a colon (Retry-After:), example names (200 saved), quoted keys and
+     values ("missing": true), and query values after = (titles=Pride), never in
+     parentheses as a label. Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. D4 is: its answer is
+     encodeURIComponent output, which keeps the title's capitals exactly. Every other
+     drill folds case. */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. F1 is cs: true because Wikipedia's parameter
+     names are case-sensitive (Titles= is not recognised); F2 because its blanks are
+     JavaScript. F3 folds case: status numbers and a header name, and header names
+     are case-insensitive. Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "Location: /v1/books/8", and JSON keys as
+     "author". Whenever a session prints an answer token inside
+     punctuation, that punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 1 count, 1 set, 2 seq. Wikipedia drills were checked
+     live on 2026-10-05 through newman with Postman's request headers; mock and run
+     drills against real Postman mocks and newman runs (s9-verified-facts.md). D4 is
+     cs: true: its answer is encodeURIComponent output, which keeps the title's case.
+     No other drill takes a case-sensitive token. */
+  var DRILLS = [
+    { type: 'value', lbl: 'Wikipedia',
+      scen: 'The title is misspelt by one letter. The page does not exist.',
+      ask: 'What three-digit status code comes back?',
+      code: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json\n    &formatversion=2&prop=description&redirects=1\n    &titles=A Wizard of Earthsee', ans: '200', alt: ['200 OK'],
+      why: '200. The request itself was fine, so Wikipedia answers it normally, and the answer is that the page is missing. It says so inside the body, as "missing": true. Wikipedia’s documentation says the HTTP response will usually still be 200 OK even when something goes wrong, which is why its status code alone tells you almost nothing.' },
+
+    { type: 'value', lbl: 'Wikipedia',
+      scen: 'The body that came back for D1:\n\n  { "batchcomplete": true,\n    "query": { "pages": [\n      { "ns": 0, "title": "A Wizard of Earthsee", "missing": true } ] } }',
+      ask: 'Which field tells your script there is no such page? Give its name.',
+      code: '(the body above)', ans: 'missing', alt: ['"missing": true', '"missing":true', 'missing: true', 'missing true', 'page.missing'],
+      why: 'missing. With formatversion=2 it is a real true, so the script tests page.missing === true. Notice what is absent too: no description and no pageid. A script that skipped the check and read page.description would get undefined, and, as section E showed, would save the word null.' },
+
+    { type: 'count', lbl: 'Postman’s own User-Agent',
+      scen: 'You send this fourteen times back to back, from one home connection, with no\nUser-Agent header of your own, so Postman sends its own, PostmanRuntime/7.39.1.',
+      ask: 'How many of the fourteen come back 200? Answer with a number.',
+      code: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json\n    &formatversion=2&prop=description&titles=A%20Wizard%20of%20Earthsea', ans: '10', alt: ['ten'],
+      why: '10, and the other four are 429 Too Many Requests, with a Retry-After of about 15 to 20 seconds. Wikipedia’s 2026 rate limits allow 10 requests a minute to a client identified only by its network address, which is how Postman’s own User-Agent was treated, and 200 to one whose User-Agent names the program and a contact. With LibraryAboutCheck/1.0 and an email address, all fourteen came back 200.' },
+
+    { type: 'value', lbl: 'encodeURIComponent', cs: true,
+      scen: 'Call 1 reads a book whose title is Pride & Prejudice, and its script runs:\n\n  pm.collectionVariables.set("titleParam",\n    encodeURIComponent(pm.response.json().title));',
+      ask: 'What does titleParam hold afterwards? Write it exactly, capitals included.',
+      code: '{ "id": 8, "title": "Pride & Prejudice", ... }', ans: 'Pride%20%26%20Prejudice',
+      why: 'Pride%20%26%20Prejudice. encodeURIComponent swaps each character that means something in a URL for % and its number in hex: a space is %20 and & is %26. The letters are untouched, capitals included. Wikipedia then reads the whole thing as one title, follows the redirect, and lands on Pride and Prejudice.' },
+
+    { type: 'value', lbl: 'a first draft',
+      scen: 'The same book, but call 1’s script keeps the title as it is, with no\nencodeURIComponent, so call 2 is sent as:',
+      ask: 'What is the title of the page Wikipedia answers with?',
+      code: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json\n    &formatversion=2&prop=description&redirects=1\n    &titles=Pride & Prejudice', ans: 'Pride', alt: ['"Pride"', 'Pride, the emotion'],
+      why: 'Pride. In a query string, & separates one parameter from the next, as Session 1 showed. So titles ends at "Pride " (Wikipedia trims the space), and the rest becomes a parameter of its own, which Wikipedia warns it does not recognise: Unrecognized parameter: Prejudice. The answer is a perfectly good page, about the emotion, with a 200, which is exactly why nothing looks wrong.' },
+
+    { type: 'value', lbl: 'your mock',
+      scen: 'Your Books API v1 mock, made in Session 6, before you add Save a book’s\nabout. The body is valid JSON.',
+      ask: 'What three-digit status code does the mock answer?',
+      code: 'PUT https://<mock-id>.mock.pstmn.io/v1/books/8/about\nContent-Type: application/json\n\n{"description": "1968 fantasy novel by Ursula K. Le Guin",\n "wikipediaTitle": "A Wizard of Earthsea"}', ans: '404', alt: ['404 Not Found'],
+      why: '404, the mock’s own mockRequestNotFoundError, "No matching requests". A mock can only answer with examples its collection holds, and no request in the collection has the method PUT and this path. It is not your contract’s book_not_found, which would mean the book is missing; this means the operation is.' },
+
+    { type: 'set', lbl: 'which side',
+      scen: 'Five failures from five different runs:\n\n  1  Read the book answers 404 book_not_found\n  2  Ask Wikipedia answers 429 Too Many Requests\n  3  Ask Wikipedia answers 200 with "missing": true\n  4  Save the about answers 503 unavailable\n  5  Save the about answers 200, having saved the description of the\n     page Pride, because the title was put into the URL as it was',
+      ask: 'Which of them does Wikipedia report to you? Give the numbers separated by commas. Order does not matter.',
+      code: '(the five failures above)', ans: '2, 3',
+      why: '2 and 3. 1 and 4 are your own API’s refusals, from your own contract. 5 is the glue: Wikipedia answered the question it was asked, correctly, reported nothing wrong, and the mistake was in how your request asked it. Note that 3, though Wikipedia reports it, may be caused by your own data: the title it could not find came from your API. Saying where a failure shows up, then who caused it, is the first step of every fix.' },
+
+    { type: 'seq', lbl: 'a run',
+      scen: 'You run About from Wikipedia, built as in section D, with saveAnswer set to\n503 unavailable. Book 8 is A Wizard of Earthsea.',
+      ask: 'List the three-digit status code of every request the Runner sends, in order, separated by commas.',
+      code: '1 Read the book   2 Ask Wikipedia   3 Save the about', ans: '200, 200, 503',
+      why: '200, 200, 503. Calls 1 and 2 succeed, so their scripts let the run go on, and call 3 gets the example you asked for by name. Nothing was saved, and the run is safe to repeat: two reads and a PUT, so no idempotency key is needed.' },
+
+    { type: 'value', lbl: 'a first draft',
+      scen: 'Call 2’s script kept the page title as it is, with no JSON.stringify, and\ncall 3’s body puts quotes round the variable itself. The page’s title has\nquote marks in it, so the body goes out as shown.',
+      ask: 'What three-digit status code does your mock answer?',
+      code: 'PUT https://<mock-id>.mock.pstmn.io/v1/books/8/about\n\n{"description": "Short story by Harlan Ellison",\n "wikipediaTitle": ""Repent, Harlequin!" Said the Ticktockman"}', ans: '400', alt: ['400 Bad Request', '400 badRequest'],
+      why: '400, the mock’s own badRequest, "Request body has invalid format." The quote mark after "wikipediaTitle": " ends the string at once, so the rest is not JSON, and Session 7 showed a mock reads a JSON body before it matches anything. JSON.stringify would have written the title as "\\"Repent, Harlequin!\\" Said the Ticktockman", with the inner quotes escaped, and the save would have been a 200.' },
+
+    { type: 'seq', lbl: 'trace it',
+      scen: 'Four runs of About from Wikipedia, built as in section D, each changed in one\nway from a good run:\n\n  a  bookAnswer is 404 book not found\n  b  the 200 the book example’s title is A Wizard of Earthsee\n  c  saveAnswer is 503 unavailable\n  d  call 2’s URL says Titles= with a capital T, so Wikipedia answers 200\n     with a warning and no query',
+      ask: 'How many requests does each run send? Give four numbers, a to d, separated by commas.',
+      code: '(the four runs above)', ans: '1, 2, 3, 2', alt: ['a 1 b 2 c 3 d 2'],
+      why: '1, 2, 3, 2. a: call 1’s script stops the run on anything but 200. b: call 2 gets a 200 with "missing": true, and its script stops before the save. c: nothing stops before call 3, which is the one that fails. d: the first test in call 2’s script, query === undefined, catches the answer with no query, so the run stops after 2. Without that test, the script would stop with an error, and whether call 3 was then sent would depend on the Runner’s Stop run if an error occurs setting.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item, deliberately (build contract section 4): carrying a value from one API
+     to the other is the ordered process here, and each tile needs the one before it.
+     Encoding needs the book's title; Wikipedia's request needs the encoded title; the
+     query check needs Wikipedia's answer; pages[0] exists only once the query does;
+     the description is kept only once it is known to exist; the save needs it. The
+     prompt narrates the order. */
+  var PARSONS = [
+    { prompt: 'Put one good run of the integration back into the only order that works. It reads the book from your mock, keeps its title encoded for a URL, asks Wikipedia for that title, checks the answer has a query, takes the first page and checks it has a description, keeps the description written as JSON, and saves it to your mock.',
+      lines: ['GET the book from your mock',
+              'Keep its title, encodeURIComponent-ed',
+              'GET Wikipedia with that title',
+              'Stop unless 200 and the body has a query',
+              'Take pages[0]; stop unless it has a description',
+              'Keep the description, JSON.stringify-ed',
+              'PUT the about to your mock with it'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). F1 is cs: true: Wikipedia's parameter names
+     and values are case-sensitive (Titles= was "Unrecognized parameter", verified).
+     F2 is cs: true: its blanks are JavaScript, and missing is a JSON member name. F3 folds case: a status number and a
+     header name, and header names are case-insensitive.
+     Recorded in the build contract. */
+  var FADED = [
+    { cs: true,
+      prompt: 'Fill the three blanks in call 2’s URL: the format version number that returns pages as an array, the property that asks for each page’s one-line summary, and the parameter that follows a title that is another name for a page.',
+      code: 'GET https://en.wikipedia.org/w/api.php?action=query&format=json\n    &formatversion=%%&prop=%%&%%=1\n    &titles={{titleParam}}\nUser-Agent: {{userAgent}}', ans: ['2', 'description', 'redirects'] },
+    { cs: true,
+      prompt: 'Fill the blanks in call 2’s script: the position of the first item in an array, the field Wikipedia sets on a page that does not exist, and the method of JSON that writes a value as JSON text.',
+      code: 'if (pm.response.code !== 200 || pm.response.json().query === undefined) {\n  pm.execution.setNextRequest(null);\n} else {\n  var page = pm.response.json().query.pages[%%];\n  if (page.%% === true || page.description === undefined) {\n    pm.execution.setNextRequest(null);\n  } else {\n    pm.collectionVariables.set("aboutDescription", JSON.%%(page.description));\n  }\n}', ans: ['0', 'missing', 'stringify'] },
+    { prompt: 'Fill the blanks in the README’s When it fails rows, the way a stranger meets each failure: the status call 1 gets for a book that does not exist, the status Wikipedia sends to a client asking too often, and the response header that says how long to wait.',
+      code: 'When it fails\n1 Read the book   %%: no such book (ours). Stops.\n                  Check bookId.\n2 Ask Wikipedia   %%: too many requests (theirs). Stops.\n                  Wait the seconds the %% header\n                  gives, check User-Agent, rerun.\n3 Save the about  503: nothing saved (ours). Rerun later.', ans: ['404', '429', 'Retry-After'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'A teammate’s integration reads shop names from your API and sends each to a search API as name={{shopName}} in the URL, then saves what it finds with a body of {"shop": "{{shopName}}", "match": "{{found}}"}. For "Smith & Sons" it saves results for a shop called Smith, and for a shop named Ali "The Best" Kebabs the save fails with 400. Explain both to them, and say exactly what to change.',
+      sol: 'Smith & Sons: in a URL, & separates one query parameter\nfrom the next, so the search API read name=Smith and a\nstray parameter " Sons". It answered, correctly, the\nquestion it was asked. Fix: keep the name for the URL\nwith encodeURIComponent, so & goes out as %26.\n\nAli "The Best" Kebabs: in JSON a " ends a string, so the\nbody stopped being JSON and the API refused it with 400.\nFix: keep each value for the body with JSON.stringify,\nwhich adds the quotes and escapes any inside, and take\nthe quotes out of the body: {"shop": {{shopJson}},\n"match": {{foundJson}}}.\n\nThe rule: a value going into a URL gets encodeURIComponent,\na value going into a JSON body gets JSON.stringify, never\npasted in as it is.' },
+    { task: 'Write the “What it calls” entry for Wikipedia in About from Wikipedia’s README, for a stranger who has never used Wikipedia’s API: its address and documentation, who owns it, how to identify yourself and why, its limits, and the two things about its answers that will surprise someone who only reads status codes.',
+      sol: 'Wikipedia   https://en.wikipedia.org/w/api.php, run by\n            the Wikimedia Foundation. Not ours: we cannot\n            change it, only follow its rules.\n            Docs: mediawiki.org/wiki/API:Query and\n            mediawiki.org/wiki/Wikimedia_APIs/Rate_limits\nidentity    no key. Send User-Agent: LibraryAbout/1.0\n            (your contact). Without it, Postman’s own name\n            gets 10 requests a minute, then 429; with it,\n            200 a minute. One request at a time.\nlimits      429 Too Many Requests carries Retry-After in\n            seconds: wait that long, then rerun.\nsurprises   a page that does not exist is a 200 with\n            "missing": true in the body, not a 404; and a\n            mistake in our request is a 200 too, with a\n            warning or an error object and no query.\n            Read the body every time.' },
+    { task: 'Run the eight-line pre-ship checklist on a different integration. Each morning it reads NASA’s picture of the day (GET https://api.nasa.gov/planetary/apod, Session 3, with a key), then creates a display on a library screen with POST /v1/displays on your own mock, sending the picture’s title and address. Answer every line, including any that does not apply.',
+      sol: 'auth        NASA: a key, sent in the X-Api-Key header,\n            the only header name NASA reads; kept in a\n            variable, never typed into a shared request.\n            DEMO_KEY is shared per network address: get\n            a key of our own. Mock: public, no key.\nerrors      NASA: 403 API_KEY_MISSING (no key),\n            403 API_KEY_INVALID (a wrong key),\n            429 OVER_RATE_LIMIT. Check status and body;\n            stop on either.\npagination  does not apply: one picture per request.\nretries     a 429 carries a Retry-After measured in hours\n            on the demo key: stop, do not retry today.\n            Never retry a 403: it is our mistake.\nidempotency POST /v1/displays is not idempotent: send an\n            Idempotency-Key made once per day’s display,\n            or design it as PUT /v1/displays/today.\npartial     NASA fails: nothing written, rerun later.\n            The POST fails with no answer: resend with the\n            SAME key.\nglue        title and address into the body with\n            JSON.stringify: titles can hold quote marks.\ndocs        README with the six headings, NASA’s key\n            under Before you run it.' },
+    { task: 'A run of someone’s copy of About from Wikipedia shows three 200s, but the about saved for book 8, A Wizard of Earthsea, says "1813 novel by Jane Austen". The run log shows call 2 answered 200 with "Unrecognized parameter: Titles.", and its Errors tab shows a TypeError: the script could not read pages because query is undefined. They had unticked Stop run if an error occurs. The run before it was for Pride & Prejudice. Explain what happened, call by call, and the two fixes.',
+      sol: 'call 1   read Earthsea, fine; titleParam set.\ncall 2   the URL says Titles= with a capital T, which\n         Wikipedia does not recognise: it answered 200,\n         a warning, and no query at all.\n         The script read .query.pages, which is not\n         there, and stopped with a TypeError, before\n         setting anything.\nrun      with Stop run if an error occurs unticked, a\n         script error does not stop the run, so call 3\n         was sent anyway.\ncall 3   aboutDescription still held the LAST run’s value,\n         Jane Austen’s novel, so that was saved for book\n         8, and the mock answered 200 saved: it checks\n         nothing.\n\nfix 1    correct the parameter to titles=.\nfix 2    make the script test for no query first:\n         if (pm.response.code !== 200 ||\n             pm.response.json().query === undefined)\n         then stop the run, so a broken answer never\n         reaches the save.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your contract text here, then compare it with the reference"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Fifteen cards, sized to the atoms THIS session has. Earlier sessions are
+     deliberately absent: the deck stays session-local and re-testing earlier
+     material is Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'The three parts of every integration', b: 'your API, their API, and the glue between them' },
+    { f: 'Wikipedia’s answer for a page that does not exist', b: '200, with "missing": true in the body' },
+    { f: 'What formatversion=2 changes', b: 'pages comes back as an array, and yes-or-no values as true and false' },
+    { f: 'Where Wikipedia names a real error, besides the body', b: 'the MediaWiki-API-Error response header; the status stays 200' },
+    { f: 'Wikipedia’s limit for Postman’s own User-Agent, as measured', b: '10 requests a minute, then 429 with Retry-After' },
+    { f: 'What a User-Agent for Wikipedia should hold', b: 'the program’s name and version, and a way to contact you' },
+    { f: 'encodeURIComponent', b: 'makes text safe inside one part of a URL: & becomes %26, a space %20' },
+    { f: 'JSON.stringify', b: 'writes a value as JSON: text gets its quote marks, and quotes inside are escaped' },
+    { f: 'Why {{aboutDescription}} has no quotes round it in the body', b: 'JSON.stringify already put them in the value' },
+    { f: 'What || does between two tests', b: 'true if either side is; it stops at the first true side' },
+    { f: 'undefined', b: 'what JavaScript gives for a field that is not there' },
+    { f: 'Does a script that stops with an error stop the run?', b: 'only if Stop run if an error occurs is ticked, as it is when the Runner opens; unticked, or in newman, the next request is sent' },
+    { f: 'Why saving the about needs no idempotency key', b: 'it is a PUT: saving the same about twice leaves one about' },
+    { f: 'Adding an operation to Books API v1: breaking or not?', b: 'not breaking: nobody was calling it' },
+    { f: 'The README heading a stranger needs most', b: 'When it fails: each failure, which side, what to do' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Q4, Q5 and Q6 are spaced review, from Sessions 8, 6 and 3, and their backlinks
+     carry `ext` so they open that session rather than scrolling here. Target: the
+     correct option's length rank (longest = 1) is 3, 2, 3, 2, 3, 2: never the
+     longest or the shortest (check-quiz.py 0/6 on both), and no single rank
+     reaches the pass mark of 5. Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: 'Your mock answered 200 saved to a save whose description came from the wrong Wikipedia page. What does that 200 tell you?',
+      o: ['That the description is right, because the mock compares it with the book first',
+          'Nothing about the data: a mock replays an example for any valid body',
+          'That a real server would accept it too',
+          'That Wikipedia has checked the description belongs to the book, since a mock only saves what Wikipedia has already confirmed'],
+      c: 1,
+      e: 'Session 6 showed a mock matches your request against its examples and replays the best fit; it checks no rules and stores nothing. On the mock built for this session, a description of the emotion Pride, an empty description and the right one all got 200 saved. Only your own scripts can check that the right page came back. A real server would check its own rules, but it cannot know the description belongs to the book either.',
+      part: { id: 'concept-e', label: 'E. When it breaks' } },
+
+    { q: 'Call 2, Ask Wikipedia, gets a 200. What must its script still check before keeping the description?',
+      o: ['Nothing: a 200 means the page was found',
+          'That the body has a query, and the page is not missing and has a description',
+          'Only the MediaWiki-API-Error header, because Wikipedia reports every missing page there',
+          'The Retry-After header'],
+      c: 1,
+      e: 'Wikipedia answers 200 for a missing page, with "missing": true in the body, and for a mistake in your request, with a warning or an error and no query at all. So the script checks for a query, then for missing, then for a description. MediaWiki-API-Error is set for real errors only; a missing page sets none. Retry-After belongs to a 429, not a 200.',
+      part: { id: 'concept-b', label: 'B. Reading Wikipedia like a stranger' } },
+
+    { q: 'A run’s last call, Save the about, answers 503 unavailable. What should happen next?',
+      o: ['Rerun the whole integration later: the reads are safe, and the save is a PUT',
+          'Make an idempotency key and resend only the save with it, because a 503 means the about may already have been saved twice',
+          'Nothing more: the about was saved after all, and a 503 is only a warning you can ignore this time',
+          'Delete the book and start again'],
+      c: 0,
+      e: 'The contract says a 503 means nothing was saved, so the work is not done. Repeating the run is safe: calls 1 and 2 only read, and call 3 is a PUT, which section C chose because saving the same about twice leaves one about. That is why no idempotency key is needed here, unlike Session 8’s loans, which were a POST.',
+      part: { id: 'concept-c', label: 'C. One more operation, designed first' } },
+
+    { q: 'Spaced review, from Session 8. The desk app sends POST /v1/loans with an Idempotency-Key, gets no answer, and sends it again. Which key does the retry carry?',
+      o: ['The same key: it is the same operation',
+          'A new one, every time',
+          'A new one from {{$guid}}, so the server can tell the retry from the first attempt and make the loan again if it has to',
+          'No key at all'],
+      c: 0,
+      e: 'One key per operation, not per attempt. The same key lets the server recognise the retry: if the loan was made, it answers from memory; if not, it makes it once. A new key, by hand or from {{$guid}}, which makes a new value on every send, turns the retry into a second operation and a second loan.',
+      part: { ext: S08_URL + '#concept-b', label: 'Session 8, B. The idempotency key' } },
+
+    { q: 'Spaced review, from Session 6. You add a book to your mock with POST, asking for 201 created by name, then GET the list. Is the new book in it?',
+      o: ['No: a mock stores nothing, it replays examples',
+          'Yes: the mock keeps it until the mock is deleted',
+          'Yes, but only after a few seconds',
+          'Only if the POST sent x-mock-response-name with the 201 example’s name, which tells the mock to keep it'],
+      c: 0,
+      e: 'Session 6 watched a book go in and not come out: the POST got the saved example back, Earthsea and all, and the list still said x-total-count: 2. Naming an example chooses which answer you get; it never makes the mock remember anything. That is also why the saves in this session that got 200 saved stored nothing.',
+      part: { ext: S06_URL + '#concept-f', label: 'Session 6, F. What a mock proves' } },
+
+    { q: 'Spaced review, from Session 3. A request to NASA’s API with the header Api-Key: DEMO_KEY gets 403 API_KEY_MISSING. What is the most likely cause?',
+      o: ['The header name: NASA reads only X-Api-Key',
+          'The demo key has run out for your network',
+          'NASA accepts a key only in the query string, so every header is ignored, whatever its name',
+          'A typo in DEMO_KEY'],
+      c: 0,
+      e: 'Session 3 found NASA reads the key from the X-Api-Key header or the api_key query parameter, and nothing else: Api-Key, X-Auth-Token and Authorization all got 403 API_KEY_MISSING. A spent key is a 429 OVER_RATE_LIMIT, a mistyped one is 403 API_KEY_INVALID, because something was supplied, and the header form works perfectly once its name is right. The API’s own documentation is the only authority on the name.',
+      part: { ext: S03_URL + '#concept-c', label: 'Session 3, C. Where the key goes' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S09 on your Hub and move on to Session 10.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
