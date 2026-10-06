@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>APIs Sprint &middot; Session 10: Capstone</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
 </head>
 <body>
 <style>
@@ -16,6 +17,7 @@
      background of every code transcript and the surface --gold paints JSON keys
      on. See _SHARED-BUILD-CONTRACT.md section 1. */
   :root {
+    color-scheme: light;
     --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
     --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
     --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
@@ -27,6 +29,7 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
       --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
       --accent-soft: #3A1F45; --on-accent: #2A1030;
@@ -36,6 +39,7 @@
     }
   }
   :root[data-theme="light"] {
+    color-scheme: light;
     --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
     --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
     --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
@@ -44,6 +48,7 @@
     --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
   }
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
     --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
     --accent-soft: #3A1F45; --on-accent: #2A1030;
@@ -304,11 +309,54 @@
      readable text sits on a prose-weight token (rule 28). */
   .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
   .danger b { color: var(--bad); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
 </style>
 <div class="wrap">
   <header class="hero">
     <div class="topnav">
       <div class="crumb">Session 10 // Level 5 &middot; Ship It</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
       <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
     </div>
     <h1>Capstone: ship it</h1>

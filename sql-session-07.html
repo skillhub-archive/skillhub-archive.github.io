@@ -7,6 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128452;</text></svg>">
 <style>
   :root {
+    color-scheme: light;
     --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
     --ink-soft: #45524F; --ink-faint: #606C6A; --border: #D3E0DE; --accent: #0C7580;
     --accent-soft: #DAEFF0; --gold: #95620F; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
@@ -16,7 +17,8 @@
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
       --ink-soft: #A6B4B1; --ink-faint: #7D8C88; --border: #21322F; --accent: #17A093;
       --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
@@ -25,6 +27,7 @@
     }
   }
   :root[data-theme="light"] {
+    color-scheme: light;
     --bg: #EDF3F4; --surface: #FFFFFF; --surface-2: #E2ECEC; --ink: #13201F;
     --ink-soft: #45524F; --ink-faint: #606C6A; --border: #D3E0DE; --accent: #0C7580;
     --accent-soft: #DAEFF0; --gold: #95620F; --gold-bright: #B87A16; --gold-soft: #F7EEDB;
@@ -32,6 +35,7 @@
     --shadow: 0 1px 2px rgba(12,26,26,.04), 0 6px 20px rgba(12,26,26,.06);
   }
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #0B1413; --surface: #111C1C; --surface-2: #172524; --ink: #E8F1F0;
     --ink-soft: #A6B4B1; --ink-faint: #7D8C88; --border: #21322F; --accent: #17A093;
     --accent-soft: #0E2B29; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
@@ -202,7 +206,18 @@
   .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
   .save-btn:hover { border-color: var(--accent); color: var(--accent); }
   .save-hint { font-size: 12px; color: var(--ink-faint); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
 </style>
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
 </head>
 <body>
 
@@ -210,6 +225,39 @@
   <header class="hero">
     <div class="topnav">
       <div class="crumb">Session 07 // Level 4 &middot; Building &amp; Changing Data</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
       <a class="hublink" href="sql-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
     </div>
     <h1>Data modeling &amp; DDL</h1>

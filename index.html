@@ -7,6 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128218;</text></svg>">
 <style>
   :root {
+    color-scheme: light;
     /* Hub neutrals are warm but almost colourless on purpose, so the chrome reads as a
        shelf and the tracks read as the books. Separation comes from SATURATION, not
        temperature, so a track may take any hue including a warm one. */
@@ -26,7 +27,8 @@
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
       /* Warm near-black, NOT the blue-black #0F1117 the Python track uses. */
       --bg: #12100E; --surface: #1B1815; --surface-2: #24211D; --ink: #F2EFEA;
       --ink-soft: #B8B1A7; --ink-faint: #8E877C; --border: #302C27; --accent: #B5AA9A;
@@ -42,6 +44,7 @@
     }
   }
   :root[data-theme="light"] {
+    color-scheme: light;
     /* Hub neutrals are warm but almost colourless on purpose, so the chrome reads as a
        shelf and the tracks read as the books. Separation comes from SATURATION, not
        temperature, so a track may take any hue including a warm one. */
@@ -59,6 +62,7 @@
     --shadow: 0 1px 2px rgba(40,32,20,.05), 0 6px 20px rgba(40,32,20,.07);
   }
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #12100E; --surface: #1B1815; --surface-2: #24211D; --ink: #F2EFEA;
     --ink-soft: #B8B1A7; --ink-faint: #8E877C; --border: #302C27; --accent: #B5AA9A;
     --accent-soft: #262220; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
@@ -141,11 +145,55 @@
     .tracks { grid-template-columns: 1fr; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
 </style>
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
 </head>
 <body>
 <div class="wrap">
   <header class="hero">
+    <!-- lh-theme:toggle:start -->
+    <div class="theme-slot"><button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button></div>
+    <script>
+      /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+      (function () {
+        var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+        if (!btn || !root) return;
+        var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+        function system() { return mq && mq.matches ? 'dark' : 'light'; }
+        function chosen() {
+          try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+        }
+        function choose(t) {
+          mem = t;
+          try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+        }
+        function render() {
+          var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+          if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+          btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+          btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+        }
+        btn.addEventListener('click', function () {
+          var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+          choose(next === system() ? null : next);
+          render();
+        });
+        if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+        if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+        render();
+      })();
+    </script>
+    <!-- lh-theme:toggle:end -->
     <div class="eyebrow">Learning Hub</div>
     <h1>Hands-on tracks, one skill at a time.</h1>
     <p class="lede">Self-paced, build-as-you-go courses. Pick a track, work through it in your own editor, and your progress saves as you go, no account needed.</p>

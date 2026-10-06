@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Python Sprint · Session 7: HTTP, JSON and your first API call</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128013;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
 </head>
 <body>
 <style>
   :root {
+    color-scheme: light;
     --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
     --ink-soft: #4A4F5C; --ink-faint: #676D7A; --border: #E1E4EA; --accent: #4B47D6;
     --accent-soft: #EEEDFB; --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
@@ -18,7 +20,8 @@
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
       --ink-soft: #AEB4C0; --ink-faint: #838A97; --border: #262B36; --accent: #8A85FF;
       --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
@@ -27,6 +30,7 @@
     }
   }
   :root[data-theme="light"] {
+    color-scheme: light;
     --bg: #F4F5F8; --surface: #FFFFFF; --surface-2: #EDEFF3; --ink: #1A1D26;
     --ink-soft: #4A4F5C; --ink-faint: #676D7A; --border: #E1E4EA; --accent: #4B47D6;
     --accent-soft: #EEEDFB; --gold: #9D6110; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
@@ -34,6 +38,7 @@
     --shadow: 0 1px 2px rgba(20,24,40,.04), 0 6px 20px rgba(20,24,40,.06);
   }
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #0F1117; --surface: #171A22; --surface-2: #1F232D; --ink: #EDEFF4;
     --ink-soft: #AEB4C0; --ink-faint: #838A97; --border: #262B36; --accent: #8A85FF;
     --accent-soft: #211F3A; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
@@ -205,12 +210,55 @@
     .prog .reset { grid-column: 1 / -1; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
 </style>
 
 <div class="wrap">
   <header class="hero">
     <div class="topnav">
       <div class="crumb">Session 07 // Level 4 &middot; APIs &amp; integration</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
       <a class="hublink" href="python-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
     </div>
     <h1>HTTP, JSON &amp; your first API call</h1>
