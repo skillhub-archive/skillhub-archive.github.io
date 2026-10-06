@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APIs Sprint &middot; Bonus: GraphQL</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128268;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette inherited verbatim from api-session-04.html: same role-named tokens,
+     same values, so the whole track reads as one series. Two things worth not
+     "fixing": the accent is violet on purpose (green would collide with --good,
+     the shared correct-answer colour), and --gold is #95590E rather than #9D6110
+     because the lighter value failed WCAG AA against --surface-2, which is the
+     background of every code transcript and the surface --gold paints JSON keys
+     on. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+      --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+      --accent-soft: #3A1F45; --on-accent: #2A1030;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F4FA; --surface: #FFFFFF; --surface-2: #F1EFFA; --ink: #18162A;
+    --ink-soft: #4C4863; --ink-faint: #67637F; --border: #E1DEEF; --accent: #A82FC6;
+    --accent-soft: #F7E9FC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(24,22,42,.04), 0 6px 20px rgba(24,22,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #131126; --surface: #1B1830; --surface-2: #24213C; --ink: #EFEDF7;
+    --ink-soft: #B7B2CC; --ink-faint: #948DAF; --border: #2E2A48; --accent: #EB99FF;
+    --accent-soft: #3A1F45; --on-accent: #2A1030;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript, including the
+     one that says a 304 has no body at all, which is the source of a drill
+     answer. That is prose the learner has to read, so it takes a prose-weight
+     token. Same reasoning as the .hdrs comment below. */
+  .cm { color: var(--ink-soft); }
+  /* a typed/sent line inside a transcript, so it is never confused with what came back */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .jk { color: var(--gold); } /* JSON key, in transcripts only, never the source */
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction pairs, so a learner on any operating system can follow */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the three-parts-of-a-response diagram, reusing Session 1's .areas grid shape */
+  .areas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+  .area { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; }
+  .area .an { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .area .ad { font-size: 12.5px; color: var(--ink-soft); }
+  @media (max-width: 760px) { .areas { grid-template-columns: 1fr; } }
+
+  /* a real header block, sorted into "read this" and "plumbing you can skip".
+     .keep uses --good and .skip uses --ink-soft, both prose-weight tokens on
+     --surface; --ink-faint stays reserved for the column micro-labels only,
+     because the header NAMES are content the learner has to read (rule 28). */
+  .hdrs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .hrow { display: grid; grid-template-columns: 250px 1fr; gap: 12px; padding: 8px 13px; align-items: baseline; }
+  .hrow + .hrow { border-top: 1px dashed var(--border); }
+  .hrow .hn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; }
+  .hrow .hv { font-size: 13px; color: var(--ink-soft); }
+  .hrow.keep .hn { color: var(--good); font-weight: 700; }
+  .hrow.skip .hn { color: var(--ink-soft); }
+  .hrow.lbl .hn, .hrow.lbl .hv { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 620px) { .hrow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* the 3xx family table */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* S5: a wider three-column table for contract rows, where the first column holds a
+     field name or a whole request line (publishedYear, DELETE /v1/books/{id}) rather
+     than a three-digit code. Same tokens as .fam, so rule 28 is unchanged. */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  /* the redirect chain, one row per hop */
+  .hops { margin: 4px 0 14px; }
+  .hop { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 10px 0; }
+  .hop + .hop { border-top: 1px dashed var(--border); }
+  .hop .hi { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 7px; padding: 3px 0; text-align: center; }
+  .hop .hb { font-size: 13px; color: var(--ink-soft); }
+  .hop .hb b { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
+  .hop .hb code { font-size: 12px; word-break: break-all; }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the "already sent" preamble on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 49 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is query (5 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from S4, unused in S5's content but kept so the
+     component stays in the track's shared CSS): its summary must read as clickable.
+     Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* A warning box, for the one thing in this session that can actually cost the
+     learner something: putting real company data into a synced Postman workspace.
+     --ink on --bad-soft for the prose, --bad only for the bolded label, so the
+     readable text sits on a prose-weight token (rule 28). */
+  .danger { font-size: 13.5px; color: var(--ink); background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius: 10px; padding: 12px 15px; margin: 0 0 14px; }
+  .danger b { color: var(--bad); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Bonus // beyond the sprint</div>
+      <a class="hublink" href="api-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>GraphQL: one endpoint, the shape you ask for</h1>
+    <p class="goal">Every API in the ten sessions gave you a URL per thing and decided for you what came back. GraphQL turns both round: one address for the whole API, and the client writes down exactly which fields it wants, nested as deep as it likes, and gets back that shape and nothing else. This workbook sends it, reads its schema, breaks it, writes to it, weighs what it costs against everything Sessions 1 to 10 relied on, and then designs a schema of its own, Level 3&rsquo;s habit in a new language.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Answer a screen with one GraphQL query and count what REST would have cost, then write a schema as the contract for an API you designed.</span>
+
+    <div class="howto">
+      <span class="ic">{ }</span>
+      <div>
+        <p><b>Open Postman before you start, signed in with the free account from Session 4.</b> Everything today is an ordinary HTTP request, so the web app works as it is, through the Cloud Agent. Postman also has a separate GraphQL request type; section A says why this workbook does not use it.</p>
+        <p><b>No signup, no key, and nothing you send is kept.</b> Both services today are public practice APIs. One of them, GraphQLZero, is built on Session 1&rsquo;s jsonplaceholder, so the posts and people are ones you have met.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn. All of it happens in Postman. Tick each box once you have done the task, not just read it.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line starting with <code>&gt;</code> in violet is what you send. <b>Every box marked &ldquo;captured live&rdquo; is real</b>, captured on 2026-10-05 from the two services. Where a query is shown on its own, it is the text you type into Postman&rsquo;s query box, and Postman wraps it for sending, as section A shows. Answers are re-spaced to fit the page; the fields, values and their order are exactly as they came back. Transcripts show only the lines that matter.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. One request, the shape you asked for</h3>
+      <p>Picture a screen that shows one blog post as a card: its title, the name of the person who wrote it, and its comments. With Session 1&rsquo;s tools you could fill it from jsonplaceholder, and it takes three requests, one of which has to wait for another:</p>
+      <div class="filebox">
+        <div class="fbh">one post card, the REST way &middot; captured live</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts/1</span>
+{ "userId": 1, "id": 1, "title": "sunt aut facere repellat ...",
+  "body": "quia et suscipit ..." }               <span class="cm">the author is only a number</span>
+
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/users/1</span>   <span class="cm">needs the 1 from above</span>
+{ "id": 1, "name": "Leanne Graham", "username": "Bret",
+  "email": ..., "address": {...}, "phone": ..., "website": ...,
+  "company": {...} }                             <span class="cm">eight fields; you wanted one</span>
+
+<span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts/1/comments</span>
+[ { "postId": 1, "id": 1, "name": ..., "email": ..., "body": ... },
+  ... ]                                          <span class="cm">five comments, five fields each</span></code></pre>
+      </div>
+      <p>Two problems, each with a name. <b>Over-fetching</b> is getting fields you did not want: the card needs one field of the user, and the answer carried eight, address and company included. <b>Under-fetching</b> is the opposite: no single answer had everything, so the client had to make more requests, and the second could not even start until the first said who wrote the post. On a phone with a slow connection, each extra round trip is time the screen sits empty.</p>
+      <p>To be fair to REST: an API can offer a way round this, and jsonplaceholder does. <code>GET /posts/1?_expand=user&amp;_embed=comments</code> returns the post with the user and all five comments inside it, in one request. But it returns every field of each, and the parameters are this one server&rsquo;s own invention, which another API may not have. The server still decides the shape.</p>
+      <p><b>GraphQL</b> is a query language for APIs: a small language in which the CLIENT writes down the shape of the answer it wants. Three ideas carry all of it:</p>
+      <ul class="pts">
+        <li><b>One endpoint.</b> The whole API lives at one URL. Today&rsquo;s first is <code>https://graphqlzero.almansi.me/api</code>. There is no <code>/posts/1</code> and no <code>/users/1</code>: what you want is said in the request body instead.</li>
+        <li><b>A query.</b> The body carries text written in GraphQL&rsquo;s own language, called a <b>query</b>. A pair of braces <code>{ }</code> holds a <b>selection set</b>: the list of <b>fields</b> you want, written as bare names, one per line or separated by spaces. A field can take an <b>argument</b> in round brackets, <code>post(id: 1)</code>, which works like a REST path or query parameter: it says which post.</li>
+        <li><b>Nesting.</b> When a field is an object rather than a single value, as a post&rsquo;s <code>user</code> is, you give it braces of its own and name the fields you want from inside it. So one query can walk from a post to its author in a single request.</li>
+      </ul>
+      <p>Here is the card&rsquo;s first two parts, as one query, and the answer:</p>
+      <div class="filebox">
+        <div class="fbh">the same card, the GraphQL way &middot; captured live</div>
+<pre><code><span class="cmd">&gt; POST https://graphqlzero.almansi.me/api</span>
+<span class="cmd">&gt; {</span>
+<span class="cmd">&gt;   post(id: 1) {</span>
+<span class="cmd">&gt;     id</span>
+<span class="cmd">&gt;     title</span>
+<span class="cmd">&gt;     user {</span>
+<span class="cmd">&gt;       name</span>
+<span class="cmd">&gt;     }</span>
+<span class="cmd">&gt;   }</span>
+<span class="cmd">&gt; }</span>
+200 OK
+{ "data": { "post": { "id": "1",
+                      "title": "sunt aut facere repellat ...",
+                      "user": { "name": "Leanne Graham" } } } }</code></pre>
+      </div>
+      <p>Read the answer against the query. It sits inside a top-level field called <code>data</code>, and below that it has <b>exactly the query&rsquo;s shape</b>: a <code>post</code> holding <code>id</code>, <code>title</code> and a <code>user</code> holding only <code>name</code>. No <code>body</code>, no <code>userId</code>, no email. The fields also come back in the order you asked for them: the GraphQL specification says a server &ldquo;should preserve the order of requested fields&rdquo;, and this one does. One more detail: <code>"id": "1"</code> is in quotes, a string, where jsonplaceholder sent the number <code>1</code>. Section B explains why.</p>
+      <p><b>How it travels.</b> On the wire this is still Session 1&rsquo;s HTTP: a <code>POST</code> with a JSON body. Postman takes the query text you type and sends it as one JSON field called <code>query</code>, with <code>Content-Type: application/json</code>. Sent to postman-echo, which echoes a request back as in Session 1, a query arrives like this:</p>
+      <div class="filebox">
+        <div class="fbh">what Postman actually sends &middot; captured live, with newman</div>
+<pre><code>content-type: application/json
+{"query":"{ post(id: 1) { title } }"}           <span class="cm">the query text, as one JSON string</span></code></pre>
+      </div>
+      <p><b>Postman offers two ways to send this, and you want the ordinary one.</b> Postman has a dedicated GraphQL request type, but its own documentation says that in the web app it needs the Postman Desktop Agent, a separate program you install, and that such requests &ldquo;can&rsquo;t be saved to collections that contain HTTP requests&rdquo;. The ordinary HTTP request does everything this workbook needs, in the same collections as every earlier session: set the method to <code>POST</code>, open <b>Body</b>, and pick <b>GraphQL</b> in the row of body types. Two boxes appear, <b>QUERY</b> and <b>GRAPHQL VARIABLES</b>, and you type the query into the first. That was checked in the web app through the Cloud Agent.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Ask for a post card, then change its shape</div>
+        <ol>
+          <li>Create a collection called <code>GraphQL bonus</code>. Add a request <b>Post card</b>: method <code>POST</code>, URL <code>https://graphqlzero.almansi.me/api</code>. Open <b>Body</b>, pick <b>GraphQL</b>, and type the query from the box above into <b>QUERY</b>. Send it, and find <code>Leanne Graham</code>.</li>
+          <li>Delete the <code>user</code> block, all three of its lines, and the <code>id</code> line, leaving only <code>title</code> inside <code>post</code>. Send. Confirm the answer shrank to match.</li>
+          <li>Add <code>body</code> below <code>title</code>, and send. Then move <code>body</code> above <code>title</code> and send again. Confirm the answer&rsquo;s order follows yours.</li>
+          <li>Save the request.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>step 1   200, "data": { "post": { "id": "1", "title": ...,
+         "user": { "name": "Leanne Graham" } } }
+step 2   200, "data": { "post": { "title": "sunt aut facere
+         repellat ..." } }: nothing else
+step 3   title then body, then body then title: the answer
+         follows the query's order both times</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I sent a GraphQL query from an ordinary HTTP request, and watched the answer change shape when the query did</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. The schema is the contract</h3>
+      <p>Session 5 wrote a contract as tables in a collection&rsquo;s description: every field, its type, and whether it is required. Every GraphQL API has the same thing built in, called its <b>schema</b>: a typed list of everything a client can ask for. It is written in GraphQL&rsquo;s <b>schema definition language</b>, SDL for short, and the server enforces it, which a table in a description never could. Here is part of GraphQLZero&rsquo;s:</p>
+      <div class="filebox">
+        <div class="fbh">part of GraphQLZero&rsquo;s schema &middot; read from the server</div>
+<pre><code>type Query {
+  post(id: ID!): Post                <span class="cm">one post, by its id</span>
+  user(id: ID!): User
+  ...
+}
+
+type Post {
+  id: ID
+  title: String
+  body: String
+  user: User                         <span class="cm">an object: give it braces</span>
+  comments(options: PageQueryOptions): CommentsPage
+}</code></pre>
+      </div>
+      <p>Read it a line at a time. <code>type Post { ... }</code> defines a <b>type</b>, a kind of object, and lists its fields, each as <code>name: Type</code>. <code>type Query</code> is special: its fields are the places a query can start, which is why your query opened with <code>post(id: 1)</code>. The types a field can have come in two kinds:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Type</div><div class="fn">Holds</div><div class="fd">Notes</div></div>
+        <div class="frow"><div class="fc">String</div><div class="fn">text</div><div class="fd">as in JSON</div></div>
+        <div class="frow"><div class="fc">Int</div><div class="fn">a whole number</div><div class="fd"><code>Float</code> is the one with a decimal point</div></div>
+        <div class="frow"><div class="fc">Boolean</div><div class="fn"><code>true</code> or <code>false</code></div><div class="fd">as in JSON</div></div>
+        <div class="frow"><div class="fc">ID</div><div class="fn">an identifier</div><div class="fd">always comes back as a string, whatever it looks like: Session 5&rsquo;s isbn reasoning, made a rule. In a query, <code>1</code> and <code>"1"</code> both work</div></div>
+        <div class="frow"><div class="fc">Post, User, ...</div><div class="fn">an object, defined by its own <code>type</code></div><div class="fd">a field of this kind needs braces and a selection</div></div>
+      </div>
+      <p>The first four rows, plus <code>Float</code>, are the five built-in <b>scalars</b>: single values, with nothing inside them to select. That is why <code>"id": "1"</code> came back in quotes: the schema says <code>ID</code>, and an ID always comes back as a string. Two marks change a type:</p>
+      <ul class="pts">
+        <li><b><code>!</code> means non-null</b>: the value is never <code>null</code>. On an argument, <code>post(id: ID!)</code>, it means the argument is required. On a field, it is the server&rsquo;s promise that the field always has a value.</li>
+        <li><b>Square brackets mean a list</b>: <code>[Language]</code> is a list of languages. The marks combine, and position matters: <code>[Language!]!</code> is a list that is never null, holding items that are never null. It can still be empty.</li>
+      </ul>
+      <p>GraphQLZero puts <code>!</code> on almost nothing it sends back, so any field might be <code>null</code>. Today&rsquo;s second service is stricter. The <b>Countries API</b>, at <code>https://countries.trevorblades.com/graphql</code>, describes every country, and its schema says:</p>
+      <div class="filebox">
+        <div class="fbh">part of the Countries API&rsquo;s schema &middot; read from the server</div>
+<pre><code>type Query {
+  country(code: ID!): Country
+}
+
+type Country {
+  name: String!                      <span class="cm">always there</span>
+  capital: String                    <span class="cm">may be null</span>
+  currency: String
+  languages: [Language!]!
+  ...
+}</code></pre>
+      </div>
+      <p>Every country has a name, but not every country has a capital, and the schema tells you so before you ask. Antarctica, whose code is <code>AQ</code>, has neither a capital nor a currency:</p>
+      <div class="filebox">
+        <div class="fbh">a field the schema allowed to be null &middot; captured live</div>
+<pre><code><span class="cmd">&gt; { country(code: "AQ") { capital currency } }</span>
+200 OK
+{ "data": { "country": { "capital": null, "currency": null } } }</code></pre>
+      </div>
+      <p><b>Asking the server for its own schema.</b> A GraphQL server answers questions about its schema through the same endpoint, in the same language, which is called <b>introspection</b>. The fields for it start with two underscores. The smallest is <code>__typename</code>, which any selection may include and which names the type you are looking at. <code>__type(name: "Post")</code> describes one type:</p>
+      <div class="filebox">
+        <div class="fbh">introspection &middot; captured live</div>
+<pre><code><span class="cmd">&gt; { __typename }</span>
+{ "data": { "__typename": "Query" } }
+
+<span class="cmd">&gt; { __type(name: "Post") { fields { name } } }</span>
+{ "data": { "__type": { "fields": [ { "name": "id" }, { "name": "title" },
+  { "name": "body" }, { "name": "user" }, { "name": "comments" } ] } } }</code></pre>
+      </div>
+      <p>Postman uses introspection for you. When you type a GraphQL URL into a request with a GraphQL body, it fetches the schema, says <b>Schema Fetched</b> in green beside the body types (with an <b>Auto Fetch</b> menu next to it), and then suggests field names as you type: inside <code>post(id: 1) { }</code>, typing <code>t</code> offered <code>title</code> and <code>__typename</code>. That is the schema acting as a contract in the most practical way: the editor will not even suggest a field the API does not have.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read a schema two ways</div>
+        <ol>
+          <li>In <code>GraphQL bonus</code>, add a request <b>Ask about Post</b> to GraphQLZero with the <code>__type(name: "Post")</code> query above. Send it, and count the fields.</li>
+          <li>In any GraphQLZero request, look for <b>Schema Fetched</b> beside the body types. Then, inside <code>post(id: 1) { }</code>, start typing a field name and watch the suggestions.</li>
+          <li>Add a request <b>Country</b>: <code>POST https://countries.trevorblades.com/graphql</code>, GraphQL body <code>{ country(code: "BR") { capital languages { name } } }</code>. Send it. Then change <code>BR</code> to <code>AQ</code>, and send again.</li>
+          <li>From the schema box above, say which of <code>name</code>, <code>capital</code> and <code>languages</code> can never be null.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>Ask about Post   five fields: id, title, body, user, comments
+Country BR       "capital": "Brasília", "languages":
+                 [ { "name": "Portuguese" } ]
+Country AQ       "capital": null, "languages": [ ]: an empty
+                 list, not null, as [Language!]! promises
+never null       name and languages</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I read a type by introspection, saw Postman fetch the schema, and matched a null against the schema that allowed it</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Arguments anywhere, and variables</h3>
+      <p><b>Any field can take arguments, not only the first.</b> The card also wants the post&rsquo;s comments, and <code>comments</code> takes one argument, <code>options</code>, whose value is an <b>input object</b>: braces holding named values, like a JSON object whose keys have no quote marks. GraphQLZero wraps every list in a page object, with the items under <code>data</code> and a count under <code>meta</code>:</p>
+      <div class="filebox">
+        <div class="fbh">an argument on a nested field &middot; captured live</div>
+<pre><code><span class="cmd">&gt; { post(id: 1) {</span>
+<span class="cmd">&gt;     comments(options: {paginate: {limit: 2}}) {</span>
+<span class="cmd">&gt;       data { id }</span>
+<span class="cmd">&gt;       meta { totalCount } } } }</span>
+{ "data": { "post": { "comments": {
+    "data": [ { "id": "1" }, { "id": "2" } ],
+    "meta": { "totalCount": 5 } } } } }</code></pre>
+      </div>
+      <p><code>limit: 2</code> is Session 4&rsquo;s page size: two comments came back. <code>totalCount</code> still says 5, because it counts every comment the post has, not the ones on this page, the same job <code>x-total-count</code> did in Session 4.</p>
+      <p><b>One thing this server does that its schema does not tell you.</b> Ask for the count without any <code>options</code>, and it answers <code>null</code>:</p>
+      <div class="filebox">
+        <div class="fbh">the same count, with no options &middot; captured live</div>
+<pre><code><span class="cmd">&gt; { post(id: 1) { comments { meta { totalCount } } } }</span>
+{ "data": { "post": { "comments": { "meta": null } } } }
+
+<span class="cmd">&gt; { post(id: 1) { comments(options: {}) { meta { totalCount } } } }</span>
+{ "data": { "post": { "comments": { "meta": { "totalCount": 5 } } } } }</code></pre>
+      </div>
+      <p>Empty options, <code>{}</code>, are enough. The schema allows it, because <code>meta</code> has no <code>!</code>, but no schema can say <i>when</i> a nullable field will be null, and only trying it does. Note that <code>null</code> here does not mean &ldquo;no comments&rdquo;: zero would be <code>0</code>. Read the value itself, as Session 9 read <code>"missing": true</code>, not just whether the field came back.</p>
+      <p><b>Variables.</b> Every query so far had its values typed straight into the text: <code>id: 1</code>, <code>code: "BR"</code>. Session 9 showed where that leads: a value pasted into text written in another language breaks the moment it contains a character that means something there, which is why you met <code>encodeURIComponent</code> and <code>JSON.stringify</code>. GraphQL has its own answer, built in. You declare a <b>variable</b> at the top, use it where the value goes, and send the value separately:</p>
+      <div class="filebox">
+        <div class="fbh">a query with a variable &middot; captured live</div>
+<pre><code><span class="cmd">&gt; query Card($id: ID!) {</span>          <span class="cm">QUERY box</span>
+<span class="cmd">&gt;   post(id: $id) {</span>
+<span class="cmd">&gt;     title</span>
+<span class="cmd">&gt;     user { name }</span>
+<span class="cmd">&gt;   }</span>
+<span class="cmd">&gt; }</span>
+<span class="cmd">&gt; { "id": "2" }</span>                    <span class="cm">GRAPHQL VARIABLES box</span>
+{ "data": { "post": { "title": "qui est esse",
+                      "user": { "name": "Leanne Graham" } } } }</code></pre>
+      </div>
+      <p>The first line now has three parts. <code>query</code> is the keyword for an operation that reads; until now it was left out, which GraphQL allows for a query with no name and no variables. <code>Card</code> is the <b>operation name</b>, a label you choose, so that a person reading a server&rsquo;s records can tell one kind of request from another. <code>($id: ID!)</code> declares one variable: its name always starts with <code>$</code>, and it has a type, here a required ID, exactly as the schema&rsquo;s <code>post(id: ID!)</code> wants. In the body, <code>$id</code> stands where the value goes. The values themselves are JSON, typed into the <b>GRAPHQL VARIABLES</b> box with the names written without the <code>$</code>, and Postman sends them alongside the query:</p>
+      <div class="filebox">
+        <div class="fbh">what Postman sends &middot; captured live, with newman</div>
+<pre><code>{"query":"query Card($id: ID!) {\n  post(id: $id) { title }\n}",
+ "variables":{"id":"1"}}</code></pre>
+      </div>
+      <p>An operation can declare several variables at once, separated by commas, as in <code>query Two($first: ID!, $second: ID!)</code>, and the variables box then holds a value for each. So the query text never changes, and only the variables do. A value with a quote mark or an <code>&amp;</code> in it is just JSON in the variables, never GraphQL text. Leave the variables box empty and Postman sends no <code>variables</code> at all, and this server says so, in a body you have to read, because the status is <code>200</code>:</p>
+      <div class="filebox">
+        <div class="fbh">a required variable left out &middot; captured live</div>
+<pre><code>200 OK
+{ "errors": [ { "message": "Variable \"$id\" of required type \"ID!\" was not provided.",
+    "locations": [ { "line": 1, "column": 12 } ],
+    "extensions": { "code": "BAD_USER_INPUT" } } ] }</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Arguments on a nested field, then a variable</div>
+        <ol>
+          <li>In <b>Post card</b>, add the <code>comments(options: {paginate: {limit: 2}})</code> block from the first box above inside <code>post</code>, and send. Find the two ids and the <code>totalCount</code>.</li>
+          <li>Remove the <code>options</code> argument from <code>comments</code> and send. Then put back <code>(options: {})</code> and send again.</li>
+          <li>Rewrite the query to begin <code>query Card($id: ID!) {</code>, change <code>post(id: 1)</code> to <code>post(id: $id)</code>, and type <code>{ "id": "2" }</code> into <b>GRAPHQL VARIABLES</b>. Send. Change the <code>2</code> to <code>3</code> and send again without touching the query.</li>
+          <li>Empty the variables box and send once more. Read the status, then the body.</li>
+        </ol>
+        <details><summary>Hint: if the answer says a variable was not provided, but you typed one</summary>
+<pre><code>the name in the variables box must match the declaration
+without its $: "id", not "$id" and not "Id". Variable
+names are case-sensitive, like field names.</code></pre>
+        </details>
+        <details><summary>Check your answers</summary>
+<pre><code>step 1   ids "1" and "2", "totalCount": 5
+step 2   "meta": null without options; 5 again with {}
+step 3   post 2 is "qui est esse"; post 3 is "ea molestias
+         quasi exercitationem repellat qui ipsa sit aut";
+         both by Leanne Graham
+step 4   200, with errors: Variable "$id" of required type
+         "ID!" was not provided. BAD_USER_INPUT</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I put an argument on a nested field, saw null where I expected a count, and moved a value out of the query into a variable</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. When it goes wrong: read the body</h3>
+      <p>A GraphQL answer holds <code>data</code>, <code>errors</code>, or both. To see why there are three possibilities, follow what a GraphQL server does with a request, in an order nothing can skip, because each step needs the one before it:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Step</div><div class="fn">What happens</div><div class="fd">If it fails</div></div>
+        <div class="frow"><div class="fc">1 Read the JSON</div><div class="fn">take <code>query</code> and <code>variables</code> out of the request body</div><div class="fd">nothing to run: an error, no data</div></div>
+        <div class="frow"><div class="fc">2 Parse</div><div class="fn">turn the query text into a structure: fields, arguments, braces</div><div class="fd">broken text, like a missing brace: an error, no data</div></div>
+        <div class="frow"><div class="fc">3 Check</div><div class="fn">check that structure against the schema (does every field exist on its type, does every argument fit?), then check the variables against the types the query declared</div><div class="fd">a misspelt field, or a missing variable: an error, no data</div></div>
+        <div class="frow"><div class="fc">4 Execute</div><div class="fn">fetch the value of every field you asked for</div><div class="fd">a field that fails is <code>null</code>, with an error beside the rest of the data</div></div>
+        <div class="frow"><div class="fc">5 Respond</div><div class="fn">send <code>data</code>, and <code>errors</code> if there were any</div><div class="fd"></div></div>
+      </div>
+      <p>So a request that fails before step 4 never runs at all, and its answer has <code>errors</code> and no <code>data</code>: nothing was fetched, so nothing can come back. Only step 4 can produce some data and some errors together. Misspell a field and step 3 stops it, with a message that helps:</p>
+      <div class="filebox">
+        <div class="fbh">the same mistake, two servers &middot; captured live</div>
+<pre><code><span class="cmd">&gt; POST https://graphqlzero.almansi.me/api</span>
+<span class="cmd">&gt; { post(id: 1) { titel } }</span>
+400 Bad Request
+{ "errors": [ { "message": "Cannot query field \"titel\" on type \"Post\".
+    Did you mean \"title\"?", "locations": [ { "line": 3, "column": 5 } ],
+    "extensions": { "code": "GRAPHQL_VALIDATION_FAILED" } } ] }
+
+<span class="cmd">&gt; POST https://countries.trevorblades.com/graphql</span>
+<span class="cmd">&gt; { country(code: "BR") { nam } }</span>
+200 OK
+{ "errors": [ { "message": "Cannot query field \"nam\" on type \"Country\".
+    Did you mean \"name\"?", "locations": [ { "line": 3, "column": 5 } ],
+    "extensions": { "code": "GRAPHQL_VALIDATION_FAILED" } } ] }</code></pre>
+      </div>
+      <p><b>The same failure, two different status codes.</b> Both bodies are the same error, with the same code under <code>extensions</code>, the place a GraphQL error keeps machine-readable details. <code>locations</code> points at a line and column. On GraphQLZero they are in the query you sent (both queries here were sent spread over five lines, as you would type them); the Countries API counts them in its own re-formatted copy of your query, so even a one-line query there reports line 3. But one server says <code>400</code> and the other <code>200</code>. GraphQL itself says nothing about HTTP status codes; how GraphQL should use HTTP is being written down separately, and that document is still a working draft. Some servers answer <code>200</code> to any request they could read, and others use <code>4xx</code> codes for one they could not run.</p>
+      <p><b>The <code>Accept</code> header can change it, too.</b> Session 2 taught <code>Accept</code> as a request about the format of the answer. GraphQL&rsquo;s draft adds a media type of its own, <code>application/graphql-response+json</code>, and a server that knows it may use more precise status codes for a client that asks for it. Postman sends <code>Accept: */*</code>, anything at all, by default. Send the Countries mistake again with the header set:</p>
+      <div class="filebox">
+        <div class="fbh">the Countries mistake, asking for the GraphQL media type &middot; captured live</div>
+<pre><code><span class="cmd">&gt; Accept: application/graphql-response+json</span>
+400 Bad Request
+Content-Type: application/graphql-response+json; charset=utf-8
+{ "errors": [ { "message": "Cannot query field \"nam\" on type \"Country\". ..." } ] }</code></pre>
+      </div>
+      <p>Same body, now <code>400</code>. And on GraphQLZero, a missing variable (section C) was <code>200</code> while a misspelt field was <code>400</code>: one server, two habits. <b>So the rule is Session 9&rsquo;s: read the body every time.</b> If it has <code>errors</code>, something went wrong, whatever the status says.</p>
+      <p><b>Field names are case-sensitive.</b> <code>Title</code> is not <code>title</code>: GraphQLZero answers it <code>400</code> with <code>Cannot query field "Title" on type "Post". Did you mean "title"?</code></p>
+      <p><b>&ldquo;Not found&rdquo; is not an error.</b> In REST, a post that does not exist is a <code>404</code>. In GraphQL the request was perfectly valid, so it runs, and the honest answer is a <code>null</code>:</p>
+      <div class="filebox">
+        <div class="fbh">things that are not there &middot; captured live</div>
+<pre><code><span class="cmd">&gt; { post(id: 9999) { id title } }</span>              <span class="cm">GraphQLZero</span>
+200 OK
+{ "data": { "post": { "id": null, "title": null } } }
+
+<span class="cmd">&gt; { country(code: "ZZ") { capital } }</span>          <span class="cm">Countries: no such code</span>
+200 OK
+{ "data": { "country": null } }
+
+<span class="cmd">&gt; { country(code: "br") { capital } }</span>          <span class="cm">lower case</span>
+200 OK
+{ "data": { "country": null } }</code></pre>
+      </div>
+      <p>Countries answers the clean way: the whole country is <code>null</code>, which its schema allows (<code>country(code: ID!): Country</code>, no <code>!</code>). GraphQLZero hands back a post whose every field is <code>null</code>, a post-shaped nothing, so a client that checks only whether <code>post</code> is there would be fooled; check a field you know every real post has, like <code>id</code>. And the third shows that values are case-sensitive as well as names: country codes are capitals, and <code>br</code> matches nothing. Session 9&rsquo;s <code>"missing": true</code> was the same idea in another API&rsquo;s words.</p>
+      <p><b>One quirk to know about, not to learn from.</b> The Countries API breaks the order rule from section A in one place: it always puts <code>name</code> last. Ask for <code>name capital currency</code> and you get <code>capital, currency, name</code>; every other field keeps your order. The specification says &ldquo;should&rdquo;, not &ldquo;must&rdquo;, so a server is allowed to, and nothing you do here depends on order.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Break it four ways, and read each body</div>
+        <ol>
+          <li>In <b>Post card</b>, misspell <code>title</code> as <code>titel</code>. Send. Note the status and the suggestion. Put it back.</li>
+          <li>In <b>Country</b>, misspell <code>capital</code> as <code>capitol</code>. Send. Note the status. Then add a header <code>Accept</code> set to <code>application/graphql-response+json</code>, and send again. Remove the header and fix the spelling.</li>
+          <li>Ask GraphQLZero for <code>post(id: 9999)</code> with <code>id</code> and <code>title</code>. Ask Countries for <code>country(code: "ZZ")</code>.</li>
+          <li>For each of the four answers, write one line: did anything come back under <code>data</code>, was there an <code>errors</code>, and what did the status say?</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>titel      400; errors, no data; Did you mean "title"?
+capitol    200 with Accept: */*, then 400 with the GraphQL
+           media type; errors, no data, both times
+post 9999  200; data: a post with "id": null, "title": null
+ZZ         200; data: "country": null
+None of the four is a 404. Only the body tells them apart.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I made GraphQL fail four ways and told each failure apart from its body, not its status</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Writing: mutations, and why it is all POST</h3>
+      <p>Reading is a <b>query</b>. Changing something is a <b>mutation</b>: an operation whose fields make a change and then answer with what changed. The schema lists them under <code>type Mutation</code>, as it listed reads under <code>type Query</code>:</p>
+      <div class="filebox">
+        <div class="fbh">part of GraphQLZero&rsquo;s schema &middot; read from the server</div>
+<pre><code>type Mutation {
+  createPost(input: CreatePostInput!): Post
+  updatePost(id: ID!, input: UpdatePostInput!): Post
+  deletePost(id: ID!): Boolean
+  ...
+}
+
+input CreatePostInput {          <span class="cm">input, not type: a shape you send</span>
+  title: String!
+  body: String!
+}</code></pre>
+      </div>
+      <p>An <b><code>input</code></b> is a type for values you send rather than values you get back. It is declared with the keyword <code>input</code> instead of <code>type</code>, and it can never contain an object type like <code>Post</code> or <code>User</code>, so nothing in it needs a selection. A mutation starts with the keyword <code>mutation</code>, and since a mutation&rsquo;s field answers with an object, you select what you want back, as with any other field:</p>
+      <div class="filebox">
+        <div class="fbh">a mutation, then a look for what it made &middot; captured live</div>
+<pre><code><span class="cmd">&gt; mutation AddPost($input: CreatePostInput!) {</span>
+<span class="cmd">&gt;   createPost(input: $input) { id title }</span>
+<span class="cmd">&gt; }</span>
+<span class="cmd">&gt; { "input": { "title": "Hello", "body": "First post" } }</span>
+200 OK
+{ "data": { "createPost": { "id": "101", "title": "Hello" } } }
+
+<span class="cmd">&gt; { post(id: 101) { id title } }</span>
+200 OK
+{ "data": { "post": { "id": null, "title": null } } }</code></pre>
+      </div>
+      <p>If that feels familiar, it should. GraphQLZero is built on jsonplaceholder, and it behaves the same way Session 1 told you about: a write is answered convincingly, new id and all, and never kept. Post 101 does not exist a moment later. It is a safe place to practise exactly because nothing sticks.</p>
+      <p><b>Why everything is <code>POST</code>.</b> A query reads and a mutation writes, but you sent both as <code>POST</code>. Session 5 taught that the method says what a request does: <code>GET</code> only reads and can be repeated and cached, <code>POST</code> may change something. GraphQL moves that meaning into the body: the keyword <code>query</code> or <code>mutation</code> says it, and the HTTP method mostly does not. graphql.org&rsquo;s guide to serving GraphQL over HTTP says a server &ldquo;must handle the HTTP POST method for query and mutation operations, and may also accept the GET method for query operations&rdquo;, with the query in the URL&rsquo;s query string; a mutation is never sent as <code>GET</code>. So <code>POST</code> is the one method every server takes, and <code>GET</code> is optional. GraphQLZero refuses a plain one:</p>
+      <div class="filebox">
+        <div class="fbh">the card query as a GET &middot; captured live</div>
+<pre><code><span class="cmd">&gt; GET https://graphqlzero.almansi.me/api?query={ post(id: 1) { title } }</span>
+400 Bad Request
+{ "errors": [ { "message": "This operation has been blocked as a potential
+    Cross-Site Request Forgery (CSRF). Please either specify a 'content-type'
+    header ... or provide a non-empty value for one of the following headers:
+    x-apollo-operation-name, apollo-require-preflight", ... } ] }</code></pre>
+      </div>
+      <p><b>Cross-Site Request Forgery</b>, CSRF, is an attack in which a web page you are visiting quietly sends a request to another site, and your browser attaches your cookies for that site as it does for any request to it. A plain <code>GET</code> is the easiest such request for a hostile page to make, so this server refuses one unless it carries a header a hostile page cannot easily add. Between that and the simplicity of one method, most GraphQL traffic is <code>POST</code>.</p>
+      <p><b>Session 8 still applies.</b> Send the same <code>createPost</code> twice and a real server makes two posts: a mutation is no more idempotent than a <code>POST</code> was, and GraphQL has no idempotency key built in. If a mutation can be retried, its design has to handle that, with Session 8&rsquo;s key or by making the mutation safe to repeat.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write a post that is never kept</div>
+        <ol>
+          <li>Add a request <b>Add post</b> to GraphQLZero with the mutation and variables from the box above. Send it, and read the new id.</li>
+          <li>In <b>Post card</b>, ask for <code>post(id: 101)</code>, with <code>id</code> and <code>title</code>. Send it.</li>
+          <li>Change <b>Add post</b>&rsquo;s variables to leave out <code>body</code>, and send. Read the body of the answer: which step from section D stopped it?</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>step 1   200, "createPost": { "id": "101", "title": "Hello" }
+step 2   200, "post": { "id": null, "title": null }: nothing
+         was kept, as in Session 1
+step 3   200, errors and no data: Variable "$input" got
+         invalid value ...; Field "body" of required type
+         "String!" was not provided. BAD_USER_INPUT. body is
+         String! in CreatePostInput, so the variables do not
+         fit the type the query declared: step 3 stops it,
+         and step 4 never runs</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I sent a mutation with an input variable, saw it answered but not kept, and saw a missing required input stop it before it ran</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. What it costs, against Sessions 1 to 10</h3>
+      <p>GraphQL fixes over- and under-fetching, and it pays for that with things the ten sessions relied on. Here is the honest comparison, each row tied to the session that taught the REST side:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Concern</div><div class="fn">REST, as the track taught it</div><div class="fd">GraphQL</div></div>
+        <div class="frow"><div class="fc">Addresses</div><div class="fn">a URL per thing (Sessions 1, 5)</div><div class="fd">one endpoint; what you want is in the body</div></div>
+        <div class="frow"><div class="fc">Shape</div><div class="fn">the server decides; some offer extras like <code>_embed</code></div><div class="fd">the client decides, field by field, nested</div></div>
+        <div class="frow"><div class="fc">Status codes</div><div class="fn">mean something (Session 2)</div><div class="fd">depend on the server and on <code>Accept</code>; read the body (section D)</div></div>
+        <div class="frow"><div class="fc">Caching</div><div class="fn">by URL, with <code>Cache-Control</code> and <code>ETag</code> (Session 2)</div><div class="fd">every request is a <code>POST</code> to one URL; see below</div></div>
+        <div class="frow"><div class="fc">Method meaning</div><div class="fn"><code>GET</code> reads, <code>POST</code> writes (Session 5)</div><div class="fd">the keyword says it; the method is nearly always <code>POST</code></div></div>
+        <div class="frow"><div class="fc">Changing the API</div><div class="fn">breaking changes get a new version, <code>/v2</code> (Session 5)</div><div class="fd">add fields freely, mark old ones deprecated, keep one endpoint (section G)</div></div>
+        <div class="frow"><div class="fc">Cost to the server</div><div class="fn">one URL, a known amount of work</div><div class="fd">one small-looking query can be a lot of work; see below</div></div>
+        <div class="frow"><div class="fc">Being told of events</div><div class="fn">webhooks (Session 7)</div><div class="fd">a third operation type, <b>subscription</b>, over a connection that stays open; not covered here</div></div>
+      </div>
+      <p><b>Caching.</b> Session 2 taught the headers that let a cache keep an answer: <code>Cache-Control</code> says for how long, and <code>ETag</code> lets it check later whether the answer changed. What a cache files its copy under is the request&rsquo;s URL: a browser, or a <b>shared cache</b> sitting between many clients and the server, stores the answer to a <code>GET</code> under that URL, so the next <code>GET</code> of the same URL can be answered without asking the server. Answers to <code>POST</code> are, in practice, not kept: RFC 9110 says &ldquo;Responses to POST requests are only cacheable when they include explicit freshness information ... and a Content-Location header field that has the same value as the POST&rsquo;s target URI&rdquo;, and GraphQLZero&rsquo;s answers carry neither. graphql.org&rsquo;s own caching page states the problem plainly: &ldquo;In GraphQL, there&rsquo;s no URL-like primitive that provides this globally unique identifier for a given object.&rdquo; Compare the headers on the same post fetched both ways:</p>
+      <div class="filebox">
+        <div class="fbh">the same post, two caching stories &middot; captured live</div>
+<pre><code><span class="cmd">&gt; GET https://jsonplaceholder.typicode.com/posts/1</span>
+Cache-Control: max-age=43200                     <span class="cm">keep it for 12 hours</span>
+etag: W/"124-yiKdLzqO5gfBrJFrcdJ8Yq0LGnU"
+cf-cache-status: HIT                             <span class="cm">a shared cache answered</span>
+
+<span class="cmd">&gt; POST https://graphqlzero.almansi.me/api</span>
+<span class="cmd">&gt; { post(id: 1) { id title } }</span>
+cache-control: no-store                          <span class="cm">keep nothing</span>
+x-cache: Miss from cloudfront                    <span class="cm">the shared cache passed it on</span></code></pre>
+      </div>
+      <p>GraphQL clients make up for it inside the app instead: a client library keeps each object it has seen, keyed by its type and <code>id</code>, which is why graphql.org recommends every object have an <code>id</code> field. Some servers also accept queries as <code>GET</code>, which graphql.org notes can &ldquo;facilitate HTTP caching or edge caching in a content delivery network&rdquo;. Both are extra work the REST version got for free.</p>
+      <p><b>Cost to the server, and the N+1 problem.</b> A GraphQL server finds each field&rsquo;s value with a small piece of code of its own, called a <b>resolver</b>. That keeps the server&rsquo;s code tidy, and it has a trap that graphql.org names: ask for 20 posts and each one&rsquo;s author, and a naive server runs one lookup for the list of posts and then one more for each post&rsquo;s author, 20 more. graphql.org calls this &ldquo;the N+1 problem, where an initial request to an underlying data source ... leads to N subsequent requests to resolve the data for all of the requested fields&rdquo;. The usual fix is batching, collecting those 20 author lookups and sending them as one, with a tool like DataLoader. You will not write a server in this workbook, but the client-side lesson is real: <b>a short query is not necessarily a cheap one</b>. The GraphQL-over-HTTP draft lets a server add checks of its own, and names a &ldquo;depth limit, complexity limit&rdquo; as examples: a limit on how deep or how costly a query may be, the way Session 4&rsquo;s APIs limited how often.</p>
+      <div class="note"><b>Optional: could Session 6&rsquo;s mock play a GraphQL server?</b> Postman&rsquo;s documentation says a mock can answer GraphQL by matching the request body saved in an example. Tried on a real mock with two examples, book 8 and book 9: book 8&rsquo;s saved query got book 8, even written on one line, because the mock ignores spacing. But <b>anything else</b> fell to Session 6&rsquo;s tie-break, which happened to pick book 9 every time: book 8 with fewer fields (it sent book 9, with all its fields), with its fields in another order, with an operation name, or with a field misspelt (<code>200</code> and the canned data, no error). With <code>x-mock-match-request-body: true</code>, the ones tried that way became the mock&rsquo;s own <code>404</code>. A mock never validates a query and never returns only the fields asked for, which is the whole idea of GraphQL, so this workbook designs its schema on paper instead.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Compare the two caching stories yourself</div>
+        <ol>
+          <li>Send <code>GET https://jsonplaceholder.typicode.com/posts/1</code> and open the response&rsquo;s <b>Headers</b>. Find <code>Cache-Control</code> and <code>etag</code>.</li>
+          <li>Send <b>Post card</b> with <code>post(id: 1) { id title }</code> and open its <b>Headers</b>. Find <code>cache-control</code>.</li>
+          <li>Write two lines in <code>GraphQL bonus</code>&rsquo;s description: why a shared cache can keep the first answer and not the second, and one thing a GraphQL client does to make up for it.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>REST      Cache-Control: max-age=43200, an etag: keep it for
+          12 hours, then check it with If-None-Match
+GraphQL   cache-control: no-store: keep nothing
+why       a shared cache stores answers by URL, and a GET of
+          one URL is one thing. Every GraphQL request is a
+          POST to the same URL with a different body, so the
+          URL says nothing about the answer, and POST answers
+          are not cached anyway.
+make up   the client caches each object by its type and id
+          inside the app (or the server accepts GET for
+          queries, so URLs mean something again)</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I compared caching headers on the same post fetched both ways, and wrote down what GraphQL gives up and how clients compensate</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Designing: a schema as the contract</h3>
+      <p>Level 3 designed before it built: Session 5 wrote the contract first, as tables, and everything after followed it. In GraphQL the schema IS that contract, written in a language a server can enforce and a tool like Postman can read. So designing a GraphQL API starts by writing SDL. Take the brief from Session 5&rsquo;s milestone, the library&rsquo;s members: &ldquo;A member has a name and an email address, and may have a phone number. No two members may share an email address. The library assigns member numbers. Staff need to list the members, look one up, sign one up&rdquo;. Here it is as a schema, a decision per line:</p>
+      <div class="filebox">
+        <div class="fbh">Members, as a GraphQL schema &middot; checked with graphql-js</div>
+<pre><code>"""A library member. Email addresses are unique."""
+type Member {
+  id: ID!               <span class="cm">the member number: the library assigns it</span>
+  name: String!         <span class="cm">required in the brief, so never null</span>
+  email: String!
+  phone: String         <span class="cm">"may have": no !, so it can be null</span>
+}
+
+input NewMember {       <span class="cm">what staff send to sign one up</span>
+  name: String!
+  email: String!
+  phone: String         <span class="cm">no id: the library sets it</span>
+}
+
+type Query {
+  member(id: ID!): Member                    <span class="cm">null if there is none</span>
+  members(page: Int, limit: Int): [Member!]!
+}
+
+type Mutation {
+  """Errors: email_taken."""
+  signUpMember(input: NewMember!): Member!
+}</code></pre>
+      </div>
+      <p>Each line is one of Session 5&rsquo;s decisions in a new notation:</p>
+      <ul class="pts">
+        <li><b>Required or optional becomes <code>!</code> or not.</b> Session 5&rsquo;s &ldquo;Required&rdquo; is <code>!</code>; &ldquo;may have&rdquo; is a type without one.</li>
+        <li><b>Who sets a field decides where it appears.</b> Session 5 said the server sets the id and ignores one sent by a client. So <code>id</code> is in <code>Member</code>, which comes back, and not in <code>NewMember</code>, which is sent: a client cannot even try.</li>
+        <li><b>&ldquo;Not found&rdquo; is a nullable return type.</b> <code>member(id: ID!): Member</code>, without <code>!</code>, is how the schema says a lookup may find nothing, exactly as Countries&rsquo; <code>country</code> did in section D. Session 5&rsquo;s <code>404</code> becomes a <code>null</code>.</li>
+        <li><b>A list that may be empty is <code>[Member!]!</code>.</b> The list itself is always there, possibly empty, and holds no null members. <code>page</code> and <code>limit</code> are Session 4&rsquo;s paging, as optional arguments.</li>
+        <li><b>Rules SDL cannot say go in descriptions.</b> &ldquo;No two members may share an email&rdquo; is not a type, so the schema cannot enforce it. Text in triple quotes <code>"""..."""</code> just before a type or field is its <b>description</b>, which introspection hands to anyone who asks, so the rule is at least written where a client&rsquo;s tools can find it. A line starting <code>#</code> is a comment, for the schema&rsquo;s authors only.</li>
+      </ul>
+      <p><b>Where Session 5&rsquo;s refusals go.</b> Some disappear: a <code>signUpMember</code> with no name, or a name that is a number, is refused at step 3 before anything runs (section D), with no code of yours involved. The rest, like an email that is already taken, come back in <code>errors</code>, and the contract names a code for each in <code>extensions</code>, the way GraphQLZero named <code>BAD_USER_INPUT</code>. So the description says it: <code>email_taken</code>, Session 5&rsquo;s error-code habit with a new home.</p>
+      <p><b>Changing it later, Session 5 section E again.</b> Adding a field is not breaking: no query asked for it, so no query changes. Removing or renaming one is breaking, because a query that names it now fails validation. Instead of a <code>/v2</code>, GraphQL marks the old field and keeps it working while clients move: <code>phone: String @deprecated(reason: "Use phones.")</code>. Introspection reports the field as deprecated, with the reason, to a client that asks for deprecated fields too (they are left out unless it does), so clients can find it before it goes.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Translate Session 9&rsquo;s about into SDL</div>
+        <ol>
+          <li>Session 9 gave every book an <b>about</b>: a required <code>description</code> and a required <code>wikipediaTitle</code>, both text, saved with <code>PUT /v1/books/{id}/about</code>, which answered with the about and the book&rsquo;s id as <code>bookId</code>. Write, in <code>GraphQL bonus</code>&rsquo;s description, a <code>type About</code>, an <code>input</code> for what a save sends, and a <code>type Mutation</code> with one field, <code>saveAbout</code>, that takes the book&rsquo;s id and the input and answers with the about.</li>
+          <li>Add one query field that reads a book&rsquo;s about, and decide whether it may return <code>null</code>. Session 9 said every book has an about from the moment the book exists.</li>
+          <li>Check each line against this list: every required field has <code>!</code>; nothing the server sets is in the input; every argument a lookup cannot do without has <code>!</code>; every object a query might not find has no <code>!</code>.</li>
+        </ol>
+        <details><summary>Check your answers</summary>
+<pre><code>type About {
+  bookId: ID!
+  description: String!
+  wikipediaTitle: String!
+}
+
+input AboutInput {
+  description: String!
+  wikipediaTitle: String!
+}
+
+type Query {
+  about(bookId: ID!): About    # null only if there is no
+}                              # such book: every book has one
+
+type Mutation {
+  saveAbout(bookId: ID!, input: AboutInput!): About!
+}
+
+bookId is not in the input: it is the argument, as the id
+was the path in Session 9. Names may differ from these;
+what has to match is which parts are required.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I wrote a type, an input, a query field and a mutation in SDL, and checked each line against the list</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: both halves, unassisted</h3>
+      <p>One task from each side of the track, the way Levels 1 to 3 split it: consume an API you did not write, then design one you did. Do it without scrolling back up.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: one query, then one schema</div>
+        <ol>
+          <li><b>The screen.</b> A card shows one post&rsquo;s title, its author&rsquo;s name, and how many comments it has. Write ONE GraphQLZero query, with the post&rsquo;s id as a variable, that returns exactly those three things, and run it for post 3.</li>
+          <li><b>What REST would have cost.</b> On jsonplaceholder, without <code>_expand</code> or <code>_embed</code>, how many requests fill the same card, and which one has to wait for another? Then say what the one-request <code>_expand</code>/<code>_embed</code> version would send that the card never shows.</li>
+          <li><b>The contract.</b> Write a schema for Session 5&rsquo;s <code>Books API v1</code>: a <code>Book</code> type with every field from its field table, one query field that looks up one book, an input, and one mutation that adds a book. Put the isbn rules where a client will read them.</li>
+          <li><b>Check it</b> against section G&rsquo;s list.</li>
+        </ol>
+        <p>You have hit the milestone when one request returns exactly the card&rsquo;s shape, you can say what it saved over REST and what it cost, and your schema says, line by line, what Session 5&rsquo;s tables said.</p>
+        <p><b>Or use your own.</b> Any keyless public GraphQL API for steps 1 and 2 (the Countries API counts), and any API you designed on this track for steps 3 and 4. The checks are the same.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">&gt; the query, captured live</span>
+query Card($id: ID!) {
+  post(id: $id) {
+    title
+    user { name }
+    comments(options: {}) { meta { totalCount } }
+  }
+}
+variables  { "id": "3" }
+{ "data": { "post": { "title": "ea molestias quasi
+  exercitationem repellat qui ipsa sit aut",
+  "user": { "name": "Leanne Graham" },
+  "comments": { "meta": { "totalCount": 5 } } } } }
+Without options: {}, meta is null, so there is no count.
+
+<span class="cmd">&gt; what REST would have cost</span>
+3 requests: GET /posts/3, then GET /users/1, which needs
+the userId the first answer gave, and GET /posts/3/comments,
+which can go at the same time as the first.
+?_expand=user&amp;_embed=comments does it in one, but sends
+the post's body, all eight user fields, and every comment
+in full, when the card needs one number.
+
+<span class="cmd">&gt; the contract</span>
+"""A book in the library. No two books share an isbn."""
+type Book {
+  id: ID!
+  title: String!
+  author: String!
+  """Exactly 13 digits."""
+  isbn: String!
+  publishedYear: Int
+}
+
+input NewBook {
+  title: String!
+  author: String!
+  isbn: String!
+  publishedYear: Int
+}
+
+type Query {
+  book(id: ID!): Book
+}
+
+type Mutation {
+  """Errors: isbn_taken, field_required, field_invalid."""
+  addBook(input: NewBook!): Book!
+}
+
+<span class="cmd">&gt; where yours may honestly differ</span>
+Names (addBook, NewBook) are yours to choose. publishedYear
+must stay optional, id must stay out of the input, and the
+lookup must be able to return null.</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> I answered a screen with one variable-driven query, counted what REST would have cost, and wrote a schema as the contract for Books API v1</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants, and they ramp from reading one answer, through arguments and failures, to writes and design.</p>
+    <div class="note"><b>Every drill about GraphQLZero or the Countries API</b> was checked against the live service on 2026-10-05, sent the way Postman sends it, with <code>Accept: */*</code> unless the drill says otherwise. Where a drill needs to show you something first, it is in the grey box above the question.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading GraphQL and writing it. First put a server&rsquo;s steps back into order, then fill the blanks in a query, a schema and a set of answers.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. There is one sequence today, on purpose: what a server does with a request is the one process in this workbook where each step needs the one before it.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded query, schema and statuses)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Draft each piece in the box, then reveal the reference to compare. A query or a schema can be right with different names and spacing; what matters is that yours asks for, or promises, what the task names. The workbook cannot run GraphQL or judge free text, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once yours covers everything the task asked (send the queries in Postman to be sure), or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this workbook. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Three of the six questions below come from <b>Sessions 2, 5 and 9</b> rather than from today, each one a REST habit this workbook leaned on or gave up. Their review links open the earlier session rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Bonus workbook &middot; outside the graded ten. &middot; <b>There is nothing to tick.</b> Your Hub still reads <b>10/10</b> and this workbook does not change it, because the track was already finished before you opened this. Back to the <a href="api-hub.html" target="_blank" rel="noopener">Hub</a>. &middot; The <code>GraphQL bonus</code> collection can go whenever you like.
+    <br><br>
+    <b>Your 15-minute review:</b> close this page. On paper, write the post-card query from memory with a variable, then write beside it the JSON Postman sends for it. Underneath, list the five steps a server takes with a request and, next to each, what comes back if it fails there. Then write Session 5&rsquo;s field table for books as SDL. Check yourself in Postman by sending the query and pasting your schema beside section G&rsquo;s list. <a href="https://graphql.org/learn/" target="_blank" rel="noopener">graphql.org&rsquo;s Learn pages</a> are the natural next read: they cover what this workbook only named, from fragments and subscriptions to pagination and the N+1 fix.
+  </footer>
+</div>
+
+<script>
+  var STORE = "api-bonus-graphql-workbook-v1";
+  /* Spaced review: three Part 6 questions come from earlier sessions, so their review
+     backlinks leave this page instead of scrolling it. Kept as plain string literals
+     because build-site-variant.js rewrites artifact URLs to local site filenames by
+     plain text replacement, and it has to find these. */
+  var S01_URL = "api-session-01.html";
+  var S02_URL = "api-session-02.html";
+  var S03_URL = "api-session-03.html";
+  var S04_URL = "api-session-04.html";
+  var S05_URL = "api-session-05.html";
+  var S06_URL = "api-session-06.html";
+  var S07_URL = "api-session-07.html";
+  var S08_URL = "api-session-08.html";
+  var S09_URL = "api-session-09.html";
+  var S10_URL = "api-session-10.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: drill answers are header names, status numbers,
+     key names and short words, where capitalisation is presentation. parenLabels is
+     OFF for this workbook: transcripts print answer tokens as status lines, quoted
+     JSON keys and values ("id": "1", "totalCount": 5), bare field names inside a
+     query, and null. Parentheses carry GraphQL arguments (post(id: 1)), as content,
+     and no answer is one. Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in this workbook
+     is: its answers are field names in a seq or set (which always fold), a type
+     word, status numbers, a count and null. The flag stays in the engine. */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. F1 and F2 are cs: true because GraphQL keywords,
+     variable names and type names are case-sensitive (Query, $Id and int are errors).
+     F3 folds case: its blanks are status numbers. Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* Colon and quotes are in the split class because this track prints names in wire
+     form BOTH ways: header names as "Location: /v1/books/8", and JSON keys as
+     "author". Whenever a session prints an answer token inside
+     punctuation, that punctuation belongs in this class. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 5 value, 2 set, 1 seq, 2 count. Every GraphQLZero and Countries
+     drill was checked live on 2026-10-05/06, sent with the Accept header Postman sends (star slash star)
+     (bonus-verified-facts.md). No drill is cs: true: the answers are field names in a seq
+     or set (which always fold), a type word, status numbers, a count and null. */
+  var DRILLS = [
+    { type: 'seq', lbl: 'GraphQLZero',
+      scen: 'Session 1 showed post 1 as { "userId": 1, "id": 1, "title": ..., "body": ... }:\nid comes before title.',
+      ask: 'List the field names inside post, in the order they come back, separated by commas.',
+      code: 'POST https://graphqlzero.almansi.me/api\n{\n  post(id: 1) {\n    title\n    id\n  }\n}', ans: 'title, id',
+      why: 'title, id. A GraphQL answer follows the query, not the server’s own layout: the specification says a server should keep fields in the order they were requested, and GraphQLZero does. Session 1’s REST answer had id first because jsonplaceholder decided its shape; here you did.' },
+
+    { type: 'set', lbl: 'GraphQLZero',
+      scen: 'Every key in a JSON answer counts, at every depth, including the outermost.',
+      ask: 'Which field names appear anywhere in the answer? Give them separated by commas. Order does not matter.',
+      code: 'POST https://graphqlzero.almansi.me/api\n{\n  post(id: 1) {\n    id\n    user {\n      name\n    }\n  }\n}', ans: 'data, post, id, user, name',
+      why: 'data, post, id, user and name: {"data":{"post":{"id":"1","user":{"name":"Leanne Graham"}}}}. The answer sits under data and has exactly the query’s shape, so title, body, userId and the user’s seven other fields never appear. That is over-fetching, gone.' },
+
+    { type: 'value', lbl: 'GraphQLZero',
+      scen: 'In Session 1, jsonplaceholder sent post 1’s id as "id": 1.',
+      ask: 'In this answer, is id a string or a number? Answer string or number.',
+      code: 'POST https://graphqlzero.almansi.me/api\n{\n  post(id: 1) {\n    id\n  }\n}', ans: 'string', alt: ['a string'],
+      why: 'A string: "id": "1", in quotes. The schema says id: ID, and an ID always comes back as a string, whatever it looks like (in a query, 1 and "1" both work). It is Session 5’s reasoning about isbn (an identifier, not a quantity) made into a rule of the language.' },
+
+    { type: 'value', lbl: 'GraphQLZero',
+      scen: 'The field is misspelt by one letter.',
+      ask: 'What three-digit status code comes back?',
+      code: 'POST https://graphqlzero.almansi.me/api\n{\n  post(id: 1) {\n    titel\n  }\n}', ans: '400', alt: ['400 Bad Request'],
+      why: '400. The query fails the check against the schema, before anything runs, so the body has errors and no data: Cannot query field "titel" on type "Post". Did you mean "title"? GraphQLZero uses a 4xx code for a request it could not run. Not every server does: see the next drill.' },
+
+    { type: 'value', lbl: 'Countries',
+      scen: 'Sent from Postman, which asks with Accept: */*.',
+      ask: 'What three-digit status code comes back?',
+      code: 'POST https://countries.trevorblades.com/graphql\n{\n  country(code: "BR") {\n    nam\n  }\n}', ans: '200', alt: ['200 OK'],
+      why: '200, with the same kind of error as the last drill and no data. The Countries API answers 200 to a query that fails the check against the schema (a query it cannot even parse gets 400), unless the client asks for application/graphql-response+json, and then it answers 400. Same mistake, two servers, two statuses: read the body.' },
+
+    { type: 'value', lbl: 'GraphQLZero',
+      scen: 'Post 1 has more than two comments.',
+      ask: 'What is the value of totalCount? Answer with a number.',
+      code: 'POST https://graphqlzero.almansi.me/api\n{\n  post(id: 1) {\n    comments(options: {paginate: {limit: 2}}) {\n      data { id }\n      meta { totalCount }\n    }\n  }\n}', ans: '5', alt: ['five'],
+      why: '5. limit: 2 sets the page size, so data holds two comments, but totalCount counts every comment the post has, like Session 4’s x-total-count. Leave out options altogether and this server answers "meta": null instead: options: {} is enough to get the count.' },
+
+    { type: 'value', lbl: 'GraphQLZero',
+      scen: 'There is no post 9999.',
+      ask: 'What is the value of title in the answer?',
+      code: 'POST https://graphqlzero.almansi.me/api\n{\n  post(id: 9999) {\n    id\n    title\n  }\n}', ans: 'null',
+      why: 'null: the answer is 200 with {"post": {"id": null, "title": null}}. A post that does not exist is not an error in GraphQL, so there is no 404 and no errors array. GraphQLZero even hands back a post-shaped nothing, so check a field every real post has, like id.' },
+
+    { type: 'count', lbl: 'GraphQLZero',
+      scen: 'A screen lists 20 posts, each with its author’s name.',
+      ask: 'How many HTTP requests does the client send? Answer with a number.',
+      code: 'POST https://graphqlzero.almansi.me/api\n{\n  posts(options: {paginate: {limit: 20}}) {\n    data {\n      title\n      user { name }\n    }\n  }\n}', ans: '1', alt: ['one'],
+      why: '1. However much the query nests, it is one POST to one endpoint, and the answer holds all 20 posts with their authors. The work of finding 20 authors moves to the server, which is where section F’s N+1 problem lives.' },
+
+    { type: 'set', lbl: 'a schema',
+      scen: 'Part of the Countries API’s schema:\n\n  type Country {\n    code: ID!\n    name: String!\n    capital: String\n    currency: String\n    languages: [Language!]!\n  }',
+      ask: 'Which of these five fields can come back as null? Give them separated by commas. Order does not matter.',
+      code: '(the schema above)', ans: 'capital, currency',
+      why: 'capital and currency: their types have no !. Antarctica (AQ) answers "capital": null, "currency": null. languages is [Language!]!, so the list is always there, though it can be empty, as Antarctica’s is: [].' },
+
+    { type: 'count', lbl: 'REST',
+      scen: 'A card shows post 1’s title, its author’s name and its comments. You use jsonplaceholder\nas in Session 1, without _expand or _embed.',
+      ask: 'How many requests does it take? Answer with a number.',
+      code: 'GET https://jsonplaceholder.typicode.com/...', ans: '3', alt: ['three'],
+      why: '3: /posts/1, then /users/1 (which needs the userId the first answer gave), and /posts/1/comments. That is under-fetching. jsonplaceholder’s own ?_expand=user&_embed=comments does it in one, but sends every field of every comment and all eight of the user’s.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     One sequence, with a real dependency on every line: nothing can be parsed before it
+     is read, checked before it is parsed, run before it is checked, or answered before
+     it has run. The prompt narrates the order. */
+  var PARSONS = [
+    { prompt: 'Put a GraphQL server’s handling of one request back into the only order that works. It receives a POST at its one endpoint, reads the query and the variables out of the JSON body, parses the query text into fields and arguments, checks those and the variables against the schema, runs each field to fetch its value, and sends back data, with errors if there were any.',
+      lines: ['Receive a POST at the one endpoint',
+              'Read query and variables from the JSON',
+              'Parse the query into fields and arguments',
+              'Check them, and the variables, against the schema',
+              'Run each field to fetch its value',
+              'Send data, and errors if there were any'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     F1 and F2 are cs: true: GraphQL keywords, variable names and type names are
+     case-sensitive (Query, $Id and int are all errors). F3 folds case: its blanks are
+     status numbers. Recorded in the build contract, section 4. */
+  var FADED = [
+    { cs: true,
+      prompt: 'Fill the three blanks in the post card’s query: the keyword that starts an operation that reads, the declared variable as it is used inside the argument, and the author’s field that holds their name.',
+      code: '%% Card($id: ID!) {\n  post(id: %%) {\n    title\n    user {\n      %%\n    }\n  }\n}', ans: ['query', '$id', 'name'] },
+    { cs: true,
+      prompt: 'Fill the three type names in this part of a schema: the scalar for an identifier, the scalar for a whole number, and the type name a lookup of one book returns, written so that it may find none.',
+      code: 'type Book {\n  id: %%!\n  title: String!\n  publishedYear: %%\n}\n\ntype Query {\n  book(id: ID!): %%\n}', ans: ['ID', 'Int', 'Book'] },
+    { prompt: 'Fill the status codes, as the two services answered them on 2026-10-05: a misspelt field on GraphQLZero, the same mistake on the Countries API with Accept: */*, again with Accept: application/graphql-response+json, and a required variable left out on GraphQLZero.',
+      code: 'GraphQLZero, misspelt field             %%\nCountries, misspelt field, */*           %%\nCountries, same, graphql-response+json   %%\nGraphQLZero, required variable missing   %%', ans: ['400', '200', '400', '200'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'A to-do screen shows one to-do’s title, whether it is done, and the name of the person it belongs to. GraphQLZero has todo(id: ID!): Todo, and a Todo has the fields id, title, completed (a Boolean) and user. Write the query, with the to-do’s id as a variable, and the variables for to-do 1.',
+      sol: 'query Todo($id: ID!) {\n  todo(id: $id) {\n    title\n    completed\n    user {\n      name\n    }\n  }\n}\n\nvariables  { "id": "1" }\n\n# captured live for to-do 1:\n# { "data": { "todo": { "title": "delectus aut autem",\n#   "completed": false, "user": { "name": "Leanne Graham" } } } }\n\nid is not selected: the screen does not show it. The\noperation name is yours to choose.' },
+    { task: 'Write a mutation that renames post 1 to New title and asks for the post’s id and title back, with both the id and the new title in the variables. The schema has updatePost(id: ID!, input: UpdatePostInput!): Post, and UpdatePostInput has two optional fields, title and body. Then say what a later query for post 1 shows, and why.',
+      sol: 'mutation Rename($id: ID!, $input: UpdatePostInput!) {\n  updatePost(id: $id, input: $input) {\n    id\n    title\n  }\n}\n\nvariables  { "id": "1", "input": { "title": "New title" } }\n\n# captured live:\n# { "data": { "updatePost": { "id": "1", "title": "New title" } } }\n\nbody can be left out: it is optional in UpdatePostInput.\nA later query for post 1 still shows "sunt aut facere\nrepellat ...": GraphQLZero, like jsonplaceholder in\nSession 1, answers a write convincingly and never keeps it.' },
+    { task: 'A teammate is putting a GraphQL API behind two things that worked for the team’s REST API: a shared cache that stores answers by URL, as section F describes, and an alert that fires whenever a response status is 4xx or 5xx. Explain what each will miss with GraphQL, and suggest one replacement for each.',
+      sol: 'The cache: every GraphQL request is a POST to the same\nURL, with what is wanted in the body. A cache keyed by URL\ncannot tell two queries apart, and POST answers are not\ncached anyway, so it stores nothing useful (GraphQLZero even\nsends cache-control: no-store). Replacement: cache objects\nin the client by type and id, or, if the server accepts\nGET for queries, send queries as GET so URLs mean\nsomething again.\n\nThe alert: a GraphQL failure can arrive as a 200 with an\nerrors array (the Countries API answers a misspelt field\n200; GraphQLZero answers a missing variable 200), and a\nmissing record is a 200 with null. Replacement: alert on\nthe body: any response with an errors array, plus nulls\nwhere the screen expected data.' },
+    { task: 'The library now wants members to have several phone numbers instead of one. Change section G’s Members schema so that no existing client breaks, and say which change would have broken them.',
+      sol: 'type Member {\n  id: ID!\n  name: String!\n  email: String!\n  phone: String @deprecated(reason: "Use phones.")\n  phones: [String!]!\n}\n\nAdding phones breaks nothing: no existing query asks for\nit. phone stays and keeps working, marked deprecated, so\nclients can find it by introspection (asking for deprecated\nfields too) and move over. NewMember\ngets phones: [String!] too.\n\nWhat would have broken them: removing or renaming phone,\nbecause any query that names it would then fail the check\nagainst the schema, the way titel does. Changing phone to\na list would break them too, more quietly: the query still\npasses the check, but the answer holds a list where their\ncode expects a string. That is Session 5 section E: add freely,\nnever remove or rename what a client may use.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your contract text here, then compare it with the reference"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Sixteen cards, sized to the atoms THIS workbook has. Earlier sessions are
+     deliberately absent: the deck stays local and re-testing earlier material is
+     Part 6's job. See the build contract, section 4. */
+  var CARDS = [
+    { f: 'Over-fetching', b: 'getting fields you did not want' },
+    { f: 'Under-fetching', b: 'no single answer has everything, so the client makes more requests' },
+    { f: 'A selection set', b: 'braces listing the fields you want back' },
+    { f: 'Where a GraphQL answer sits', b: 'under "data", in exactly the query’s shape' },
+    { f: 'How Postman sends a query', b: 'a POST with a JSON body {"query": ...} and Content-Type: application/json' },
+    { f: 'The ID type', b: 'an identifier; always comes back as a string' },
+    { f: 'A ! after a type', b: 'never null; on an argument, required' },
+    { f: '[Language!]!', b: 'a list that is always there, possibly empty, of items that are never null' },
+    { f: 'Introspection', b: 'asking a server for its own schema, in GraphQL, at the same endpoint' },
+    { f: 'query Card($id: ID!)', b: 'the keyword, an operation name, and a declared variable with its type' },
+    { f: 'Where a variable’s value goes', b: 'in "variables", as JSON, named without the $' },
+    { f: 'A misspelt field’s status code', b: 'depends on the server and on Accept: 400 on GraphQLZero, 200 on Countries with */*' },
+    { f: '“Not found” in GraphQL', b: 'a 200 with null, not a 404' },
+    { f: 'A mutation', b: 'an operation that changes data; still sent as a POST' },
+    { f: 'The N+1 problem', b: 'one lookup for a list, then one more for every item in it' },
+    { f: '@deprecated', b: 'marks a field to stop using while it keeps working' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Track standard: 6 questions, pass mark 5. Q1-Q3 from today, Q4-Q6 from Sessions 2, 5
+     and 9, with `ext` so their review links open that session. Target: the correct
+     option's length rank (longest = 1) is 2,3,2,3,2,3: never longest, never shortest,
+     and no single rank reaching 5. Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: 'A screen needs post 1’s title and its author’s name from GraphQLZero. What does the client send?',
+      o: ['One POST to the one endpoint, with both fields nested in one query',
+          'Two GETs, /post/1 then /user/1',
+          'One GET to /graphql/post/1?fields=title,user.name, since a query names its fields in the URL path',
+          'Two POSTs, one for each field'],
+      c: 0,
+      e: 'One POST to https://graphqlzero.almansi.me/api, with { post(id: 1) { title user { name } } } in the JSON body. GraphQL has one endpoint for everything; what you want is said in the query, and nesting walks from the post to its author in the same request.',
+      part: { id: 'concept-a', label: 'A. One request, the shape you asked for' } },
+
+    { q: 'GraphQLZero answers 200 with an "errors" array and no "data", because a required variable was left out. What does that tell you?',
+      o: ['It worked: a 200 always means success, so the data is just empty',
+          'The request was refused before anything ran, despite the 200',
+          'The server is broken: the GraphQL specification forbids errors in an answer whose status is 200, so retry',
+          'Some of the data came back, but not all'],
+      c: 1,
+      e: 'No data at all means the request stopped before anything ran: here at the check of the variables against the types the query declared. GraphQL itself says nothing about status codes, and this server answers that failure 200 while it answers a misspelt field 400. The status alone cannot tell you; the errors array can.',
+      part: { id: 'concept-d', label: 'D. When it goes wrong: read the body' } },
+
+    { q: 'In a schema, why is book(id: ID!): Book written without a ! after Book?',
+      o: ['Because books are optional in the library',
+          'A lookup may find no book, and then it returns null',
+          'Because ! is only allowed on scalars like String and ID, never on object types such as Book',
+          'Book is a type, not a field'],
+      c: 1,
+      e: 'A ! promises the value is never null. A lookup by id may find nothing, and GraphQL says “not found” with null rather than a 404, so the return type must allow it. ! is allowed on object types: signUpMember returns Member!, because a successful sign-up always has a member to return.',
+      part: { id: 'concept-g', label: 'G. Designing: a schema as the contract' } },
+
+    { q: 'From Session 2. jsonplaceholder answers GET /posts/1 with Cache-Control: max-age=43200. What does that let a cache do?',
+      o: ['Refuse every request for the post until 43,200 seconds have passed, to protect the server from repeated GETs',
+          'Reuse that answer for up to 12 hours without asking the server',
+          'Nothing: it is a note for people reading the headers',
+          'Keep the answer forever, and check it against the ETag once every 43,200 requests to see whether it changed'],
+      c: 1,
+      e: 'Session 2: max-age=N says the answer stays fresh for N seconds, and 43,200 seconds is 12 hours, so a cache can answer from its copy until then. After that it can check with If-None-Match, sending the ETag back, and a 304 means nothing changed. GraphQLZero’s answer says cache-control: no-store, keep nothing, which is part of what GraphQL gives up.',
+      part: { ext: S02_URL + '#concept-c', label: 'Session 2, C. Caching hints' } },
+
+    { q: 'From Session 5. Which change to a published contract is breaking?',
+      o: ['Adding a new optional field',
+          'Removing a field that some clients may already read',
+          'Adding a new operation that nobody calls yet',
+          'Adding a description to an existing field, so that tools can show a short note explaining it to readers'],
+      c: 1,
+      e: 'Session 5 section E: removing or renaming something a client may use is breaking, and adding something new is not, because nobody was relying on it. GraphQL keeps the same rule: add fields freely, and mark an old one @deprecated instead of removing it, because a query that names a removed field fails the check against the schema.',
+      part: { ext: S05_URL + '#concept-e', label: 'Session 5, E. Versioning, before anyone depends on it' } },
+
+    { q: 'From Session 9. Wikipedia answered a missing page with 200 and "missing": true; GraphQLZero answers a missing post with 200 and every field null. What habit do both demand?',
+      o: ['Retry until a 404 arrives',
+          'Treat any 200 as success and save what came back, because the status code is the server’s own verdict',
+          'Read the body, not just the status',
+          'Send a User-Agent with a contact address, so that the server answers honestly'],
+      c: 2,
+      e: 'Session 9: a request can succeed while the answer is “that is not there”, so the status says the request was fine and only the body says what happened. Wikipedia puts it in "missing": true; GraphQLZero in a post whose id is null; the Countries API in "country": null. Read the body every time.',
+      part: { ext: S09_URL + '#concept-b', label: 'Session 9, B. Their side: reading Wikipedia like a stranger' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed. There is nothing to tick: your Hub still reads 10 of 10, and it did before you opened this.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
