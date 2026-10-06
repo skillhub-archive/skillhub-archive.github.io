@@ -20,6 +20,7 @@
     --track-sql: #0D7C88; --track-sql-soft: #E1F0F2; --track-sql-ink: #FFFFFF;
     --track-git: #1B62C4; --track-git-soft: #E5EDFA; --track-git-ink: #FFFFFF;
     --track-api: #A82FC6; --track-api-soft: #F7E9FC; --track-api-ink: #FFFFFF;
+    --track-ps: #56690C; --track-ps-soft: #F0F4DC; --track-ps-ink: #FFFFFF;
     --shadow: 0 1px 2px rgba(40,32,20,.05), 0 6px 20px rgba(40,32,20,.07);
     --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
@@ -36,6 +37,7 @@
       --track-sql: #17A093; --track-sql-soft: #0E2A2A; --track-sql-ink: #05201E;
       --track-git: #7FB3FF; --track-git-soft: #16243A; --track-git-ink: #0E1218;
       --track-api: #EB99FF; --track-api-soft: #3A1F45; --track-api-ink: #2A1030;
+      --track-ps: #C8E066; --track-ps-soft: #2A3112; --track-ps-ink: #1A1F06;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
     }
   }
@@ -53,6 +55,7 @@
     --track-sql: #0D7C88; --track-sql-soft: #E1F0F2; --track-sql-ink: #FFFFFF;
     --track-git: #1B62C4; --track-git-soft: #E5EDFA; --track-git-ink: #FFFFFF;
     --track-api: #A82FC6; --track-api-soft: #F7E9FC; --track-api-ink: #FFFFFF;
+    --track-ps: #56690C; --track-ps-soft: #F0F4DC; --track-ps-ink: #FFFFFF;
     --shadow: 0 1px 2px rgba(40,32,20,.05), 0 6px 20px rgba(40,32,20,.07);
   }
   :root[data-theme="dark"] {
@@ -64,6 +67,7 @@
     --track-sql: #17A093; --track-sql-soft: #0E2A2A; --track-sql-ink: #05201E;
     --track-git: #7FB3FF; --track-git-soft: #16243A; --track-git-ink: #0E1218;
     --track-api: #EB99FF; --track-api-soft: #3A1F45; --track-api-ink: #2A1030;
+    --track-ps: #C8E066; --track-ps-soft: #2A3112; --track-ps-ink: #1A1F06;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
   }
 
@@ -106,6 +110,7 @@
   .track.t-sql { --track: var(--track-sql); --track-soft: var(--track-sql-soft); --track-ink: var(--track-sql-ink); }
   .track.t-git { --track: var(--track-git); --track-soft: var(--track-git-soft); --track-ink: var(--track-git-ink); }
   .track.t-api { --track: var(--track-api); --track-soft: var(--track-api-soft); --track-ink: var(--track-api-ink); }
+  .track.t-ps  { --track: var(--track-ps);  --track-soft: var(--track-ps-soft);  --track-ink: var(--track-ps-ink); }
 
   /* The inset shadow draws the track-coloured bar inside the rounded top edge. */
   .track { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: inset 0 3px 0 var(--track, transparent), var(--shadow); display: flex; flex-direction: column; }
@@ -200,6 +205,17 @@
         </div>
       </div>
 
+      <div class="track t-ps">
+        <div class="icon">&#9881;</div>
+        <h3>PowerShell &amp; Automation</h3>
+        <p>Stop clicking, start telling. From never having opened a terminal to tested scripts that run on a schedule: commands and paths, the object pipeline, files, CSV and JSON, scripts with parameters and help, error handling and scheduling, then modules and tests. Every session shows the Bash way beside it.</p>
+        <div class="meta">10 sessions &middot; 5 levels &middot; ~20 hours</div>
+        <div class="foot">
+          <a class="open" href="ps-hub.html">Open track &#8599;</a>
+          <span class="prog none" id="ps-prog">Not started</span>
+        </div>
+      </div>
+
       <div class="track soon">
         <span class="tag">Coming soon</span>
         <div class="icon">&#127919;</div>
@@ -259,6 +275,16 @@
       var p = JSON.parse(localStorage.getItem('api-sprint-progress-v1')) || {};
       var done = 0; for (var k in p) if (p[k]) done++;
       var el = document.getElementById('api-prog');
+      if (done > 0) { el.textContent = done + '/10 sessions done'; el.className = 'prog'; }
+    } catch (e) {}
+  })();
+
+  // Reflect PowerShell track progress (read the PowerShell sprint Hub's own saved state)
+  (function () {
+    try {
+      var p = JSON.parse(localStorage.getItem('ps-sprint-progress-v1')) || {};
+      var done = 0; for (var k in p) if (p[k]) done++;
+      var el = document.getElementById('ps-prog');
       if (done > 0) { el.textContent = done + '/10 sessions done'; el.className = 'prog'; }
     } catch (e) {}
   })();

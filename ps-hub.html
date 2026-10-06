@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell &amp; Automation // 20-Hour Sprint</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<style>
+  /* Track family house style, inherited from python-hub.html / sql-hub.html /
+     git-hub.html / api-hub.html. Differentiated ONLY by accent colour,
+     favicon, copy and the hero specimen. Do not diverge structurally: the
+     family's consistency is the design.
+
+     PowerShell accent is olive (hue ~72), chosen on 2026-10-06 because it is the
+     only open band left on the family's colour wheel: gold sits at ~33 and the
+     shared --good green at ~153, with nothing between. Crimson was ruled out
+     because it reads as --bad (the wrong-answer red), and PowerShell's own brand
+     navy would sit beside git's blue on the landing page. Every text/fill pair
+     clears WCAG AA in both modes (rule 28): weakest are --ink-faint 4.91 light /
+     4.94 dark, the accent 5.27 light, --gold on --surface-2 4.97 light.
+     Neutrals carry a slight olive bias, the same pattern api used with violet. */
+  :root {
+    --bg: #F6F6F0;
+    --surface: #FFFFFF;
+    --surface-2: #F0F1E7;
+    --ink: #1A1C12;
+    --ink-soft: #4A4D3C;
+    --ink-faint: #64685A;
+    --border: #E2E4D6;
+    --accent: #56690C;
+    --accent-soft: #F0F4DC;
+    --on-accent: #FFFFFF;
+    --gold: #95590E;
+    --gold-bright: #C77F1A;
+    --gold-soft: #FBF1DF;
+    --good: #1C7B51;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12130D;
+      --surface: #1A1C14;
+      --surface-2: #23251B;
+      --ink: #EEEFE6;
+      --ink-soft: #B6B9A6;
+      --ink-faint: #9A9E8B;
+      --border: #2E3124;
+      --accent: #C8E066;
+      --accent-soft: #2A3112;
+      --on-accent: #1A1F06;
+      --gold: #E6A94B;
+      --gold-bright: #E6A94B;
+      --gold-soft: #2A2213;
+      --good: #3FBE82;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F6F6F0; --surface: #FFFFFF; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF; --gold: #95590E; --gold-bright: #C77F1A;
+    --gold-soft: #FBF1DF; --good: #1C7B51;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06; --gold: #E6A94B; --gold-bright: #E6A94B;
+    --gold-soft: #2A2213; --good: #3FBE82;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+  }
+
+  /* ---- Header ---- */
+  header.hero { padding: 56px 0 32px; border-bottom: 1px solid var(--border); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+  }
+  .trackback { display: inline-block; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; margin-bottom: 14px; }
+  .trackback:hover { color: var(--accent); }
+  h1 {
+    font-size: clamp(32px, 5vw, 52px); line-height: 1.05; margin: 14px 0 10px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 800;
+  }
+  .lede { font-size: 18px; color: var(--ink-soft); max-width: 62ch; margin: 0; }
+
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; }
+  @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; gap: 24px; } }
+
+  /* ---- Hero specimen: the smallest honest example of what you will produce.
+     Static on purpose, matching python/sql/git/api: a pipeline's result is
+     text, so it is shown as text. A five-stage pipeline run against the
+     practice lab, and the table it printed, captured in PowerShell 7.6 and
+     Windows PowerShell 5.1 (identical rows; 5.1 pads the header with spaces).
+     Sorting on Count AND Name is deliberate: on Count alone the two versions
+     order the tied rows differently. ---- */
+  .specimen {
+    margin: 0; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px;
+    box-shadow: var(--shadow);
+  }
+  /* Rule 28: this line carries the specimen's prompt, which is content the reader
+     is meant to read, not a receding label. */
+  .specimen-cmd {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft);
+    padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--border);
+  }
+  .specimen-cmd b { color: var(--ink); font-weight: 600; }
+  .specimen-out {
+    margin: 0; overflow-x: auto; font-family: var(--mono);
+    font-size: 12.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .specimen-out .g { color: var(--accent); }
+  .specimen-out .h { color: var(--gold); }
+  /* Rule 28: prose explaining what the specimen is and when the reader will be
+     able to write it. Prose-weight token. */
+  .specimen-note {
+    margin-top: 11px; padding-top: 9px; border-top: 1px dashed var(--border);
+    font-size: 12.5px; color: var(--ink-soft);
+  }
+
+  /* ---- Progress panel ---- */
+  .progress-panel {
+    margin-top: 32px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 1fr auto; gap: 18px 32px; align-items: center;
+  }
+  .pp-stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .pp-stat .num {
+    font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .pp-stat .lbl {
+    font-size: 12px; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: .08em; margin-top: 6px;
+  }
+  .pp-stat .num.accent { color: var(--accent); }
+  .bar-wrap { grid-column: 1 / -1; }
+  .bar-track { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--gold-bright)); border-radius: 99px; transition: width .5s ease; }
+  /* Rule 28: reads "Not started, tick a session when you finish it", an instruction. */
+  .bar-caption { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
+  .reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--ink-faint);
+    font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 7px;
+    cursor: pointer; letter-spacing: .04em;
+  }
+  .reset-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  /* armed by the first tap of the two-tap reset: the accent says "this will act" */
+  .reset-btn.armed { color: var(--accent); border-color: var(--accent); }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  /* Rule 28: explains what Export/Import does, and reports the result after a
+     click ("Imported N entries"), so the reader has to be able to read it. */
+  .save-hint { font-size: 12px; color: var(--ink-soft); }
+
+  /* ---- Section headings ---- */
+  .sec { margin-top: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .sec-head h2 { font-size: 24px; margin: 0; letter-spacing: -.01em; font-weight: 750; }
+  .sec-kicker { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: .1em; }
+  .sec-sub { color: var(--ink-soft); margin: 0 0 26px; max-width: 68ch; }
+
+  /* ---- How it works strip ---- */
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .fact {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .fact .k { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); }
+  .fact .v { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* ---- Levels ---- */
+  .level { margin-top: 30px; }
+  .level-head {
+    display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px;
+    padding-left: 4px;
+  }
+  .level-badge {
+    flex: none; width: 52px; height: 52px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-family: var(--mono);
+    font-weight: 700; font-size: 16px; text-align: center; line-height: 1.1;
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .level-badge small { display: block; font-size: 11px; letter-spacing: .1em; opacity: .8; }
+  .level-title { font-size: 19px; font-weight: 750; margin: 2px 0 4px; }
+  .level-milestone {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 15px;
+    color: var(--gold); background: var(--gold-soft); border-radius: 8px;
+    padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent);
+    font-weight: 600;
+  }
+  .level-milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; opacity: .85; text-transform: uppercase; }
+
+  .sessions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 20px 18px; box-shadow: var(--shadow); position: relative;
+    display: flex; flex-direction: column; transition: border-color .2s, transform .2s;
+  }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+  .card.done::after {
+    content: "\2713 done"; position: absolute; top: 16px; right: 16px;
+    font-family: var(--mono); font-size: 11px; color: var(--good); font-weight: 700;
+  }
+  .card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .snum {
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; letter-spacing: .03em;
+  }
+  .sdur { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
+  .card h3 { font-size: 17px; margin: 0 0 10px; letter-spacing: -.01em; line-height: 1.25; padding-right: 44px; }
+  .learn { margin: 0 0 12px; padding-left: 18px; }
+  .learn li { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .card-meta { margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .mrow { font-size: 12.5px; display: flex; gap: 8px; }
+  .mrow .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); flex: none; width: 62px; padding-top: 1px; }
+  .mrow .txt { color: var(--ink-soft); }
+  .mrow .txt b { color: var(--gold); font-weight: 600; }
+  .check {
+    margin-top: 14px; display: flex; align-items: center; gap: 9px; cursor: pointer;
+    font-size: 13px; color: var(--ink-soft); user-select: none;
+  }
+  .check input { width: 16px; height: 16px; accent-color: var(--good); cursor: pointer; }
+  .check:hover { color: var(--ink); }
+  .card-open { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 8px 14px; border-radius: 8px; text-decoration: none; }
+  .card-open:hover { filter: brightness(1.06); }
+  .card-pending { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); border: 1px dashed var(--border); padding: 7px 11px; border-radius: 8px; letter-spacing: .02em; }
+
+  /* ---- Resources ---- */
+  .res-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .res {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .res .rnum { font-family: var(--mono); font-size: 12px; color: var(--gold); font-weight: 700; }
+  .res h4 { margin: 6px 0 2px; font-size: 16px; }
+  .res .cost { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--good); margin-bottom: 8px; }
+  /* Rule 28: carries the price signal plus the authors and publisher, all content. */
+  .res .cost.paid { color: var(--ink-soft); }
+  .res p { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 10px; }
+  /* Rule 28: this is the "when to use this resource" guidance, the whole reason the
+     resource block is more useful than a list of links. Prose-weight token. */
+  .res .when { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .res a { color: var(--accent); text-decoration: none; font-size: 12.5px; font-family: var(--mono); word-break: break-all; }
+  .res a:hover { text-decoration: underline; }
+
+  /* ---- callout ---- */
+  .callout {
+    margin-top: 40px; background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 12px; padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .callout h3 { margin: 0 0 8px; font-size: 16px; }
+  .callout p { margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; }
+  .callout code {
+    font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
+    padding: 2px 6px; border-radius: 5px; color: var(--ink);
+  }
+  /* Rule 28: the footer explains where progress is stored and tells the reader to
+     use Export to keep a copy, which is an instruction. Fixed 2026-09-08. */
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+
+  @media (max-width: 720px) {
+    .progress-panel { grid-template-columns: 1fr; }
+    .facts { grid-template-columns: 1fr 1fr; }
+    .sessions { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <a class="trackback" href="index.html">&#8592; Learning Hub</a>
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">PowerShell &amp; Automation // 20-Hour Sprint</div>
+        <h1>PowerShell, stop clicking, start telling</h1>
+        <p class="lede">Every job you do by clicking through folders, opening files and copying numbers out of them is a job a few lines of PowerShell can do for you, the same way every time. This sprint takes you from never having opened a terminal to writing tested scripts that run on a schedule, and shows the Linux shell&rsquo;s way of doing each thing beside PowerShell&rsquo;s. Ten two-hour sessions, five levels, a milestone at every step.</p>
+      </div>
+
+      <div class="specimen">
+        <div class="specimen-cmd"><b>PS ps-lab&gt;</b> <span style="color:var(--ink-soft)">which log files hold the most errors?</span></div>
+<pre class="specimen-out"><span class="g">Get-ChildItem logs -Filter *.log |</span>
+<span class="g">  Select-String ERROR |</span>
+<span class="g">  Group-Object Filename |</span>
+<span class="g">  Sort-Object Count, Name -Descending |</span>
+<span class="g">  Select-Object Count, Name</span>
+
+<span class="h">Count Name</span>
+<span class="h">----- ----</span>
+    2 web-2026-03-03.log
+    1 web-2026-03-02.log
+    1 web-2026-03-01.log</pre>
+        <div class="specimen-note">A real pipeline, run against the practice files Session 1 builds, and the real table it printed. By the end of Level 2 you write commands like this from a plain question, and by Level 4 you schedule them.</div>
+      </div>
+    </div>
+
+    <div class="progress-panel">
+      <div class="pp-stats">
+        <div class="pp-stat"><div class="num accent" id="stat-sessions">0/10</div><div class="lbl">Sessions done</div></div>
+        <div class="pp-stat"><div class="num" id="stat-level">Level 1</div><div class="lbl">Current level</div></div>
+        <div class="pp-stat"><div class="num" id="stat-hours">0h</div><div class="lbl">Hours invested</div></div>
+      </div>
+      <button class="reset-btn" id="reset">reset progress</button>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+        <div class="bar-caption"><span id="bar-label">Not started, tick a session when you finish it</span><span id="bar-pct">0%</span></div>
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole Learning Hub).</span>
+    </div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the shape</span><h2>How this Sprint Works</h2></div>
+    <p class="sec-sub">Each session is about 1h45 of hands-on work in a real terminal plus a built-in 15-minute review. You practise on the files of a made-up online shop, which Session 1 builds on your own computer with one paste, so nothing you run can touch anything real. Every session also shows how the same job is done in Bash, the standard shell on Linux and close kin to zsh on a Mac, because that is the natural next step. The arc: talk to the shell, work with real data, write scripts, make them robust and scheduled, then package and test them.</p>
+    <div class="facts">
+      <div class="fact"><div class="k">5</div><div class="v">Levels, beginner &rarr; advanced, each with a clear "you can now&hellip;" milestone.</div></div>
+      <div class="fact"><div class="k">10</div><div class="v">Two-hour hands-on workbooks you complete in a real terminal. New sessions ship over time; Session 1 is live now.</div></div>
+      <div class="fact"><div class="k">6</div><div class="v">Practice modes each session: learn-and-do, predict, arrange &amp; fill, write, recall, quick check.</div></div>
+      <div class="fact"><div class="k">&sum;</div><div class="v">Cumulative review, later sessions re-test earlier ones (spaced practice).</div></div>
+    </div>
+  </section>
+
+  <!-- LEVELS -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the path</span><h2>The Five Levels</h2></div>
+    <p class="sec-sub">Sessions ship one at a time, so each can absorb what was learned building the last one. Work them in order, Session 1 through 10, since later sessions build on earlier ones and re-test them. Tick the box when you finish a session so this page tracks where you are. Nothing here needs an account or a paid tier: Session 1 installs PowerShell 7, Session 5 adds a free code editor, and Session 9 downloads a free testing module.</p>
+
+    <div id="level-track"></div>
+  </section>
+
+  <div class="callout">
+    <h3>Using this Hub</h3>
+    <p><b>Go in order.</b> Every session assumes the one before it. Levels 3 through 5 build directly on the commands and the pipeline Level 1 sets up.</p>
+    <p><b>One terminal and one practice lab, all ten sessions.</b> Session 1 installs PowerShell 7 and builds a folder of made-up shop files in your home folder. Every later session works on those files, and any session can rebuild them from scratch with one paste.</p>
+    <p><b>Windows, macOS or Linux.</b> PowerShell 7 runs on all three. The sessions are written and checked on Windows, and wherever a step differs on macOS or Linux, the session says so. Windows PowerShell 5.1, the older version built into Windows, is flagged wherever it behaves differently.</p>
+    <p><b>Two hours is a guide, not a target.</b> Finishing in ninety minutes is fine, and so is taking three hours.</p>
+    <p><b>Tick sessions as you finish them</b> so the panel above stays honest, and export a copy if you switch machines.</p>
+  </div>
+
+  <!-- RESOURCES -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// keep going</span><h2>Top 5 Resources</h2></div>
+    <p class="sec-sub">Four of these five are free. Each is here for a specific job, so use them where they help rather than reading them end to end.</p>
+    <div class="res-grid">
+      <div class="res">
+        <div class="rnum">01</div>
+        <h4>PowerShell 101</h4>
+        <div class="cost">Free &middot; Microsoft Learn &middot; Mike F. Robbins</div>
+        <p>A short, practical book republished free on Microsoft&rsquo;s own documentation site, written for people who have only ever pointed and clicked. It covers the same ground as this track&rsquo;s Levels 1 and 2. Its examples were written in Windows PowerShell 5.1, so where its output differs from yours, this track&rsquo;s 5.1 notes explain why.</p>
+        <a href="https://learn.microsoft.com/en-us/powershell/scripting/learn/ps101/00-introduction" target="_blank" rel="noopener">learn.microsoft.com &middot; PowerShell 101</a>
+        <div class="when">During: alongside Levels 1&ndash;2, for a second explanation of the same ideas.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">02</div>
+        <h4>Learn PowerShell in a Month of Lunches</h4>
+        <div class="cost paid">Paid &middot; 4th edition, 2022 &middot; Plunk, Petty, Leonhardt &middot; Manning</div>
+        <p>The standard beginner&rsquo;s book, in short chapters meant to take an hour each. The fourth edition was updated by members of the PowerShell team for PowerShell 7 on Windows, Linux and macOS, which matches this track exactly.</p>
+        <a href="https://www.manning.com/books/learn-powershell-in-a-month-of-lunches" target="_blank" rel="noopener">manning.com &middot; Month of Lunches</a>
+        <div class="when">During: any level, when you want the longer version of a topic.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">03</div>
+        <h4>PowerShell reference: the about topics</h4>
+        <div class="cost">Free &middot; official</div>
+        <p>Microsoft&rsquo;s reference pages on how the language itself works, one topic per page: aliases, the pipeline, wildcards, error handling, scripts and more. Dense and not a tutorial, which is exactly why it belongs here: once you know what a thing is called, this is where you learn all of it.</p>
+        <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about" target="_blank" rel="noopener">learn.microsoft.com &middot; about topics</a>
+        <div class="when">After: for precision on one feature, not for learning it the first time.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">04</div>
+        <h4>PowerShell Practice and Style Guide</h4>
+        <div class="cost">Free &middot; community, PoshCode</div>
+        <p>A community guide to writing PowerShell that other people can read and reuse: naming, layout, help, output and error handling. Guidelines rather than rules, written by people who maintain a lot of scripts.</p>
+        <a href="https://poshcode.gitbook.io/powershell-practice-and-style" target="_blank" rel="noopener">poshcode.gitbook.io &middot; Practice and Style</a>
+        <div class="when">During: Levels 3&ndash;5, once you are writing scripts to keep.</div>
+      </div>
+      <div class="res">
+        <div class="rnum">05</div>
+        <h4>Pester documentation</h4>
+        <div class="cost">Free &middot; official</div>
+        <p>Pester is the testing tool for PowerShell: you write small checks that prove your functions do what you meant, and run them before every change. Its own documentation starts with a quick start and is the reference for Level 5.</p>
+        <a href="https://pester.dev/docs/quick-start" target="_blank" rel="noopener">pester.dev &middot; quick start</a>
+        <div class="when">During: Level 5, when you write your first tests.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    PowerShell &amp; Automation // 20-Hour Sprint &middot; ten sessions, five levels, about twenty hours. Your progress lives in this browser; use Export to keep a copy.
+  </footer>
+</div>
+
+<script>
+  var BUILT = [1];  /* session numbers whose workbook has shipped; add as each is built */
+
+  /* Session links. null means derive local site filenames, which is what the site
+     wants. The internal claude.ai variant is generated by
+     tools/learning-hub-hosting/build-artifact-variant.js, which replaces this one
+     declaration with an {n: artifactUrl} map. Keep it on its own line: it is the
+     single swap point between the two publish targets. */
+  var LINKS = null;
+
+  var LEVELS = [
+    { n: 1, title: "Talking to the shell",
+      milestone: "Answer a question about the practice lab with a pipeline you wrote yourself.",
+      sessions: [
+        { n: 1, title: "Your first commands, from zero",
+          learn: ["Installing PowerShell 7, and checking you are in it rather than the older Windows PowerShell 5.1",
+                  "Building the practice lab, a made-up shop's files, with one paste",
+                  "Verb-Noun commands, parameters, and moving around folders",
+                  "Finding commands you have never seen with Get-Command and Get-Help"],
+          ms: "Find, list and read anything in the lab with commands you looked up yourself.",
+          res: "PowerShell 101 (free)",
+          rev: "Close the terminal, open it again, and get back into the lab's logs folder and read a log without looking anything up." },
+        { n: 2, title: "Objects and the pipeline",
+          learn: ["What the pipeline passes along: objects with properties, not lines of text",
+                  "Get-Member, the command that tells you what an object holds",
+                  "Filtering, picking and sorting with Where-Object, Select-Object and Sort-Object",
+                  "The same job done in Bash with text, and what objects save you"],
+          ms: "Answer a question about the practice lab with a pipeline you wrote yourself.",
+          res: "Learn PowerShell in a Month of Lunches (paid)",
+          rev: "Answer Session 1's milestone questions again, this time as pipelines." }
+      ] },
+    { n: 2, title: "Working with data",
+      milestone: "Turn a folder of raw logs into a CSV summary report.",
+      sessions: [
+        { n: 3, title: "Files and text",
+          learn: ["Searching inside files with Select-String, PowerShell's counterpart to grep",
+                  "Writing files with Out-File, Set-Content and redirection",
+                  "Text encoding, and why the same command can write different files in 5.1 and 7",
+                  "Creating, copying, moving and renaming files and folders"],
+          ms: "Search every log for errors and save what you find to a new file.",
+          res: "PowerShell reference: about topics (free)",
+          rev: "Rebuild the lab, then redo the error search from memory." },
+        { n: 4, title: "Structured data: CSV and JSON",
+          learn: ["Import-Csv: a spreadsheet's rows become objects",
+                  "Counting and totalling with Group-Object and Measure-Object",
+                  "Calculated properties: adding a column of your own",
+                  "Export-Csv and ConvertTo-Json: writing results other people can open"],
+          ms: "Turn a folder of raw logs into a CSV summary report.",
+          res: "Learn PowerShell in a Month of Lunches (paid)",
+          rev: "Summarise the support tickets by state and priority, without notes." }
+      ] },
+    { n: 3, title: "Scripting",
+      milestone: "Write a reusable script that takes parameters and documents itself.",
+      sessions: [
+        { n: 5, title: "Your first script",
+          learn: ["Variables, text and numbers, and what type a value has",
+                  "if and foreach, the two shapes most scripts are built from",
+                  "Saving and running a .ps1 file in VS Code with the PowerShell extension",
+                  "Execution policy: why Windows may refuse to run your script, and the safe fix"],
+          ms: "Write and run a script that reports on the practice lab.",
+          res: "PowerShell 101 (free)",
+          rev: "Rewrite Session 4's summary as a script you can run again tomorrow." },
+        { n: 6, title: "Functions and parameters",
+          learn: ["function and param(), with parameters of a fixed type",
+                  "[CmdletBinding()] and the common parameters, such as -Verbose",
+                  "Taking input from the pipeline",
+                  "Comment-based help, so Get-Help works on your own command"],
+          ms: "Write a reusable script that takes parameters and documents itself.",
+          res: "PowerShell Practice and Style Guide (free)",
+          rev: "Run Get-Help on your own function as a stranger would, and fix whatever it fails to say." }
+      ] },
+    { n: 4, title: "Robust automation",
+      milestone: "Schedule a script that records what it did and fails loudly.",
+      sessions: [
+        { n: 7, title: "When things go wrong",
+          learn: ["Terminating and non-terminating errors, and why a script can carry on after one",
+                  "try, catch and finally",
+                  "-ErrorAction and $ErrorActionPreference",
+                  "Exit codes, $LASTEXITCODE and $?, side by side with Bash's $?"],
+          ms: "Make a script stop on the errors that matter and report each one clearly.",
+          res: "PowerShell reference: about topics (free)",
+          rev: "Break your Session 6 script three different ways and check each failure is reported." },
+        { n: 8, title: "Scheduling and logging",
+          learn: ["Running a script on a schedule: Task Scheduler on Windows, cron on macOS and Linux",
+                  "Start-Transcript, and writing log lines of your own",
+                  "Scripts that are safe to run twice",
+                  "Testing a scheduled job before you trust it"],
+          ms: "Schedule a script that records what it did and fails loudly.",
+          res: "PowerShell Practice and Style Guide (free)",
+          rev: "Read a week of your scheduled job's log and explain every line." }
+      ] },
+    { n: 5, title: "Professional tooling",
+      milestone: "Ship a tested module that runs on a schedule.",
+      sessions: [
+        { n: 9, title: "Modules and tests",
+          learn: ["Turning your functions into a module and importing it",
+                  "Installing a module from the PowerShell Gallery, and checking it first",
+                  "Pester: writing tests that prove your functions work",
+                  "Running the tests before every change"],
+          ms: "Package your functions as a module with passing Pester tests.",
+          res: "Pester documentation (free)",
+          rev: "Add a test for a bug you can imagine, watch it fail, then fix the code." },
+        { n: 10, title: "Capstone and comprehensive final",
+          learn: ["The capstone: a lab-maintenance module with tests, run on a schedule",
+                  "A final review pass against every level",
+                  "Where this track stops, and what comes next",
+                  "The comprehensive final, covering all ten sessions"],
+          ms: "Ship a tested module that runs on a schedule.",
+          res: "Learn PowerShell in a Month of Lunches (paid)",
+          rev: "The comprehensive final, covering all ten sessions." }
+      ] }
+  ];
+
+  /* Level track rendered from data, matching python-hub / sql-hub / git-hub / api-hub.
+     MUST run before the progress IIFE, which queries input[data-check] immediately. */
+  (function renderLevels() {
+    var track = document.getElementById("level-track");
+    if (!track) { return; }
+
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+    function sessionHref(n) {
+      return LINKS ? LINKS[n] : "ps-session-" + pad(n) + ".html";
+    }
+
+    function sessionCard(s, levelNo) {
+      var bullets = s.learn.map(function (b) { return "<li>" + b + "</li>"; }).join("");
+      var isBuilt = BUILT.indexOf(s.n) !== -1;
+      var action = isBuilt
+        ? '<a class="card-open" href="' + sessionHref(s.n) + '" target="_blank" rel="noopener">Open workbook &#8599;</a>'
+        : '<span class="card-pending">Not built yet</span>';
+      return '<div class="card" data-session="' + s.n + '" data-level="' + levelNo + '">' +
+               '<div class="card-top"><span class="snum">S' + pad(s.n) + '</span>' +
+               '<span class="sdur">1h45 + 15m review</span></div>' +
+               "<h3>" + s.title + "</h3>" +
+               '<ul class="learn">' + bullets + "</ul>" +
+               '<div class="card-meta">' +
+                 '<div class="mrow"><span class="tag">Milestone</span><span class="txt"><b>' + s.ms + "</b></span></div>" +
+                 '<div class="mrow"><span class="tag">Resource</span><span class="txt">' + s.res + "</span></div>" +
+                 '<div class="mrow"><span class="tag">Review</span><span class="txt">' + s.rev + "</span></div>" +
+               "</div>" +
+               '<label class="check"><input type="checkbox" data-check="' + s.n + '"> Mark session complete</label>' +
+               action +
+             "</div>";
+    }
+
+    var html = LEVELS.map(function (lv) {
+      var cards = lv.sessions.map(function (s) { return sessionCard(s, lv.n); }).join("");
+      return '<div class="level">' +
+               '<div class="level-head">' +
+                 '<div class="level-badge">LVL<small>' + pad(lv.n) + "</small></div>" +
+                 "<div>" +
+                   '<div class="level-title">' + lv.title + "</div>" +
+                   '<span class="level-milestone"><span class="flag">Milestone</span> ' + lv.milestone + "</span>" +
+                 "</div>" +
+               "</div>" +
+               '<div class="sessions">' + cards + "</div>" +
+             "</div>";
+    }).join("");
+
+    track.innerHTML = html;
+  })();
+
+  (function () {
+    var KEY = "ps-sprint-progress-v1";
+    var TOTAL = 10;
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+      catch (e) { return {}; }
+    }
+    function save(state) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    var boxes = Array.prototype.slice.call(document.querySelectorAll(".check input"));
+    var elSessions = document.getElementById("stat-sessions");
+    var elLevel = document.getElementById("stat-level");
+    var elHours = document.getElementById("stat-hours");
+    var elBar = document.getElementById("bar");
+    var elBarLabel = document.getElementById("bar-label");
+    var elBarPct = document.getElementById("bar-pct");
+
+    function render() {
+      var state = load();
+      var done = 0;
+
+      boxes.forEach(function (b) {
+        var id = b.getAttribute("data-check");
+        var on = !!state[id];
+        b.checked = on;
+        if (on) { done++; }
+        var card = b.closest(".card");
+        if (card) { card.classList.toggle("done", on); }
+      });
+
+      var pct = Math.round(done / TOTAL * 100);
+      elSessions.textContent = done + "/" + TOTAL;
+      elHours.textContent = (done * 2) + "h";
+      elBar.style.width = pct + "%";
+      elBarPct.textContent = pct + "%";
+
+      if (done === 0) {
+        elLevel.textContent = "Level 1";
+        elBarLabel.textContent = "Not started, tick a session when you finish it";
+      } else if (done >= TOTAL) {
+        elLevel.textContent = "Complete";
+        elBarLabel.textContent = "All ten sessions done";
+      } else {
+        elLevel.textContent = "Level " + Math.min(5, Math.floor(done / 2) + 1);
+        elBarLabel.textContent = done + " of " + TOTAL + " sessions done";
+      }
+    }
+
+    boxes.forEach(function (b) {
+      b.addEventListener("change", function () {
+        var state = load();
+        var id = b.getAttribute("data-check");
+        if (b.checked) { state[id] = true; } else { delete state[id]; }
+        save(state);
+        render();
+      });
+    });
+
+    /* Two-tap reset, identical on every track Hub. The claude.ai artifact viewer
+       never shows a browser confirm dialog (it answers "no" at once), so the page
+       asks for itself: the first tap arms the button for four seconds, and only a
+       second tap inside that window clears. Same behaviour on the site. */
+    var resetBtn = document.getElementById("reset");
+    var resetLabel = resetBtn.textContent, resetTimer = null;
+    function disarmReset() {
+      clearTimeout(resetTimer); resetTimer = null;
+      resetBtn.textContent = resetLabel; resetBtn.classList.remove("armed");
+    }
+    resetBtn.addEventListener("click", function () {
+      if (!resetTimer) {
+        resetBtn.textContent = "tap again to clear";
+        resetBtn.classList.add("armed");
+        resetTimer = setTimeout(disarmReset, 4000);
+        return;
+      }
+      disarmReset();
+      save({});
+      render();
+    });
+
+    render();
+
+    // File-based export / import of ALL progress on this origin, every track.
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById("save-hint");
+    document.getElementById("export-btn").addEventListener("click", function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = "learning-hub-progress.json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      sHint.textContent = "Downloaded learning-hub-progress.json";
+    });
+    var sFile = document.getElementById("import-file");
+    document.getElementById("import-btn").addEventListener("click", function () { sFile.click(); });
+    sFile.addEventListener("change", function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) { return; }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); }
+        catch (e) { sHint.textContent = "That file is not a valid progress file."; return; }
+        if (!data || typeof data !== "object") { sHint.textContent = "That file is not a valid progress file."; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        sHint.textContent = "Imported " + n + " entries. Reloading...";
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = "";
+    });
+  })();
+</script>
+</body>
+</html>

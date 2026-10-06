@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 1: Your first commands, from zero</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    --bg: #F6F6F0; --surface: #FFFFFF; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F6F6F0; --surface: #FFFFFF; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 30 characters, well inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is PSVersion (9 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 01 // Level 1 &middot; Talking to the Shell</div>
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Your first commands, from zero</h1>
+    <p class="goal">Today you install PowerShell 7, open it, and build a small practice folder full of a made-up shop&rsquo;s files. Then you learn the shape every PowerShell command shares, move around those folders by typing instead of clicking, and find commands you have never seen before without leaving the terminal.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Find, list and read anything in the lab with commands you looked up yourself.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep a terminal open beside this page.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. Section A shows you how to open a terminal if you never have.</p>
+        <p><b>Nothing today needs an account or costs anything.</b> You install one free program, and every command after that works on practice files this session creates for you, never on your own documents.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/7</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">15</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. Every transcript was captured on Windows 11 in PowerShell 7.6, in a window 120 characters wide. Where a path shows <code>you</code>, your own user name appears instead. Dates print in your computer&rsquo;s own date format, so yours may be laid out differently, but the dates themselves will match, because the practice files set them. Listings were captured on Windows, which prints <code>\</code> between folder names; on macOS and Linux expect <code>/</code>, the separator those systems use, and the order of names in a listing may differ there.</div>
+
+    <div class="block" id="concept-a">
+      <h3>A. A terminal, a shell, and two PowerShells</h3>
+      <p>A <b>terminal</b> is a window you type into. The program running inside it is the <b>shell</b>: it reads what you type, runs it, and prints the result. Each instruction you give it is a <b>command</b>. The shell shows a <b>prompt</b>, a short piece of text that means &ldquo;ready, type a command&rdquo;, you type after it and press Enter, and the result appears underneath.</p>
+      <p><b>PowerShell</b> is a shell made by Microsoft, and also a language for writing scripts, which this track reaches in Level 3. There are two PowerShells, and telling them apart matters from today:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">Name</div><div class="fn">Program</div><div class="fd">What it is</div></div>
+        <div class="frow"><div class="fc">Windows PowerShell 5.1</div><div class="fn"><code>powershell.exe</code></div><div class="fd">Built into every copy of Windows 10 and 11. Still supported, but it gets no new features. You will meet it at work.</div></div>
+        <div class="frow"><div class="fc">PowerShell 7</div><div class="fn"><code>pwsh</code></div><div class="fd">The current version: free, and it runs on Windows, macOS and Linux. <b>This track teaches PowerShell 7.</b></div></div>
+      </div>
+      <p>The two are close cousins, so almost everything you learn works in both. Where 5.1 behaves differently, a box marked <b>Windows PowerShell 5.1</b> says so. You will also see boxes marked <b>In Bash</b>. Bash is the standard shell on Linux. zsh, the default on a Mac, behaves the same as Bash for everything in this session; where it differs in a later one, the box says so. Those boxes show how the same job is done there, because the Linux shell is the natural next thing to learn after this.</p>
+      <p>On Windows, the friendliest terminal is <b>Terminal</b>, which comes with Windows 11. It can hold several shells, each in its own tab. Until you install PowerShell 7, it opens Windows PowerShell 5.1, and that is fine for the one install command below. <b>winget</b> is the program Windows 11 includes for installing other programs from the command line.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Install PowerShell 7</div>
+        <div class="shells">
+          <div class="srow"><span class="sl">Windows</span><code>1. Open Start, type Terminal, and open it. Its prompt starts with PS.
+2. Type this, then press Enter:
+   winget install --id Microsoft.PowerShell --source winget
+3. If it asks you to agree to terms, read them and type Y.
+4. When it says the install has finished, close Terminal
+   completely and open it again, so it finds the new program.</code></div>
+          <div class="srow"><span class="sl">macOS</span><code>Download the .pkg for your Mac's processor from Microsoft's
+macOS page (link below), open it, and follow the installer.
+Then open the Terminal app, type pwsh, and press Enter.</code></div>
+          <div class="srow"><span class="sl">Ubuntu Linux</span><code>Run the commands on Microsoft's Ubuntu page (link below)
+in your terminal. Then type pwsh and press Enter.</code></div>
+        </div>
+        <p>Microsoft&rsquo;s install pages: <a href="https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows" target="_blank" rel="noopener">Windows</a>, <a href="https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-macos" target="_blank" rel="noopener">macOS</a>, <a href="https://learn.microsoft.com/en-us/powershell/scripting/install/install-ubuntu" target="_blank" rel="noopener">Ubuntu</a>, and <a href="https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell" target="_blank" rel="noopener">every other system</a>. This workbook was checked in PowerShell 7.6 on Windows 11, installed from Microsoft&rsquo;s MSI package. The winget command above installs Microsoft&rsquo;s MSIX package instead; Microsoft&rsquo;s Windows page lists that package&rsquo;s limits, and none of them touch this session. The macOS and Linux steps are Microsoft&rsquo;s own, from those pages, and were not run for this workbook.</p>
+        <details><summary>Hint</summary><p>Type the winget line exactly, including the two hyphens before <code>id</code> and before <code>source</code>. If winget says PowerShell is already installed, or upgrades it, you already have PowerShell 7: go straight on to section B and check.</p></details>
+        <label class="did"><input type="checkbox" data-task="1"> I installed PowerShell 7</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Which PowerShell am I in?</h3>
+      <p>The two PowerShells look alike, so check rather than guess. Type this and press Enter:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell 7 &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you&gt; $PSVersionTable.PSVersion</span>
+
+Major  Minor  Patch  PreReleaseLabel BuildLabel
+-----  -----  -----  --------------- ----------
+7      6      5</code></pre>
+      </div>
+      <p>The number under <b>Major</b> is the one that matters: <code>7</code> means PowerShell 7. The minor and patch numbers may be higher on your machine, because they grow with every update. You do not need to understand how this command works yet, only to type it and recognise what it says; you will use it often. For the curious: <code>$</code> marks a <b>variable</b>, a named value PowerShell keeps; <code>$PSVersionTable</code> is one PowerShell fills in itself with facts about its own version; and <code>.PSVersion</code> reads one part of it. Session 5 teaches variables properly.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The same command in Windows PowerShell 5.1 printed this, on the same machine:
+<pre><code><span class="cmd">PS C:\Users\you&gt; $PSVersionTable.PSVersion</span>
+
+Major  Minor  Build  Revision
+-----  -----  -----  --------
+5      1      26100  9168</code></pre>
+A <code>5</code> under Major means you are in the older version. Even the column names differ. Open a PowerShell 7 tab instead.</div>
+      <p><b>On Windows, choose the shell from Terminal&rsquo;s tab menu.</b> Select the <b>&#709;</b> arrow next to the <b>+</b> at the top of the window: the list shows every shell Terminal knows. On the Windows 11 machine this workbook was checked on, PowerShell 7 appears as <b>PowerShell</b> and the older one as <b>Windows PowerShell</b>. To make new tabs open PowerShell 7 every time, open the same menu, choose <b>Settings</b>, select <b>Startup</b>, set <b>Default profile</b> to the PowerShell 7 entry, and save. Then run the version check again in a new tab: that number, not the tab&rsquo;s name, is the proof.</p>
+      <p><b>On macOS and Linux</b> there is nothing to change: your terminal starts your usual shell, typing <code>pwsh</code> starts PowerShell 7 inside it, and typing <code>exit</code> takes you back.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Prove you are in PowerShell 7</div>
+        <ol>
+          <li>Open a terminal running PowerShell 7 and run <code>$PSVersionTable.PSVersion</code>. Confirm Major is <code>7</code>.</li>
+          <li>On Windows: make PowerShell 7 Terminal&rsquo;s default profile, close Terminal, open it again, and run the check once more.</li>
+        </ol>
+        <details><summary>Hint</summary><p>If Major still says 5 after you changed the default, the change was not saved, or the old tab is still open. A new tab or a new window picks up the default; the tab you already had open keeps the shell it started with.</p></details>
+        <label class="did"><input type="checkbox" data-task="2"> A new terminal opens PowerShell 7, and the check says Major 7</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Build the practice lab</h3>
+      <p>Every session in this track practises on the same thing: the files of <b>Fernhill Goods</b>, a made-up online shop that sells kitchenware. You build them now, in your <b>home folder</b>, the folder your computer keeps for your own files (on Windows, <code>C:\Users\</code> followed by your user name). The block below creates a folder there called <code>ps-lab</code>, with web server logs, the shop&rsquo;s orders and support tickets as <b>CSV</b> files (a spreadsheet saved as plain text: one row per line, commas between the columns), and a messy folder of exports.</p>
+      <p>It is a set of PowerShell commands you paste rather than type. You are not expected to read it yet; by Level 3 you will be able to write one like it. Lines starting with <code>#</code> are <b>comments</b>: notes for people, which PowerShell ignores. The block sets every file&rsquo;s contents and date exactly, so your lab matches this workbook to the byte. <b>It deletes any folder called <code>ps-lab</code> in your home folder before it builds the new one</b>, so if you already have one for something else, rename it first.</p>
+      <ol class="pts">
+        <li>In your terminal, check you are in PowerShell 7 (section B).</li>
+        <li>Select the whole block with the button under it, and copy it with Ctrl+C (Cmd+C on a Mac).</li>
+        <li>Paste it into the terminal with Ctrl+V (Cmd+V on a Mac). If Windows Terminal warns that the text contains more than one line and asks whether to paste it, choose to paste it: the block is meant to be many lines.</li>
+        <li>If nothing starts running, press Enter. When it finishes, it moves you into the lab and lists what is there.</li>
+      </ol>
+      <div class="filebox">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <div class="note"><b>Lost your lab, or broke it?</b> Paste the same block again, any time, in any session. It deletes <code>ps-lab</code> and builds it fresh, exactly as it was. Every later session carries the same block near its top.</div>
+      <p>When it finishes, it prints this:</p>
+      <div class="filebox">
+        <div class="fbh">the end of the setup &middot; captured live</div>
+<pre><code>    Directory: C:\Users\you\ps-lab
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----            3/4/2026  8:00 AM                data
+d----            3/4/2026  8:00 AM                exports
+d----            3/4/2026  8:00 AM                logs
+-a---            3/1/2026  8:00 AM            183 README.txt</code></pre>
+      </div>
+      <p>Four things are in the lab: three folders and one file. Read the columns from the right. <b>Name</b> is the item&rsquo;s name. <b>Length</b> is a file&rsquo;s size in bytes, left empty for a folder. <b>LastWriteTime</b> is when it was last changed. <b>Mode</b> is a row of flags, where a <code>d</code> at the start marks a folder (a <b>directory</b>; the two words mean the same thing). Your prompt now ends in <code>ps-lab&gt;</code>, because the block moved you there.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Build your lab</div>
+        <p>Paste the setup block into PowerShell 7 and check that your terminal prints the same four names, sizes and dates as the box above.</p>
+        <details><summary>Hint</summary><p>Red text means something went wrong. The most common cause is a block that was only partly selected: use the button to select it, copy, and paste again. Pasting the whole block a second time is always safe. If the red text says <code>ps-lab</code> is being used by another process, another program has that folder open, most often a second terminal sitting inside it: close it, then paste again.</p></details>
+        <label class="did"><input type="checkbox" data-task="3"> My lab exists, and its listing matches the box above</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. The shape of every command: Verb-Noun</h3>
+      <p>PowerShell&rsquo;s own commands are called <b>cmdlets</b> (say &ldquo;command-lets&rdquo;), and every one is named the same way: a <b>verb</b>, a hyphen, then a <b>noun</b>. The verb says what to do and the noun says what to do it to. Three you use today:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Verb</div><div class="fn">Cmdlet</div><div class="fd">Asks</div></div>
+        <div class="frow"><div class="fc">Get</div><div class="fn">Get-Location</div><div class="fd">Which folder am I in?</div></div>
+        <div class="frow"><div class="fc">Get</div><div class="fn">Get-ChildItem</div><div class="fd">What is inside this folder? Anything inside a folder is one of its <b>child items</b>.</div></div>
+        <div class="frow"><div class="fc">Get</div><div class="fn">Get-Content</div><div class="fd">What does this file say?</div></div>
+      </div>
+      <p>The folder you are in right now is your <b>current location</b>, and a command that needs a folder uses it unless you name another. That is why <code>Get-ChildItem</code> on its own listed the lab:</p>
+      <div class="filebox">
+        <div class="fbh">where am I &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Location</span>
+
+Path
+----
+C:\Users\you\ps-lab</code></pre>
+      </div>
+      <p><b>Parameters</b> change what a command does. Each is written after the command&rsquo;s name as a hyphen and a name, usually followed by a value, with spaces between them. <code>-Path</code> tells <code>Get-ChildItem</code> which folder to look in:</p>
+      <div class="filebox">
+        <div class="fbh">a parameter with a value &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem -Path logs</span>
+
+    Directory: C:\Users\you\ps-lab\logs
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----            3/4/2026  8:00 AM                archive
+-a---            3/3/2026 11:59 PM            147 app-2026-03-03.log
+-a---            3/1/2026 11:59 PM            292 web-2026-03-01.log
+-a---            3/2/2026 11:59 PM            193 web-2026-03-02.log
+-a---            3/3/2026 11:59 PM            366 web-2026-03-03.log</code></pre>
+      </div>
+      <p>Some parameters can be given without their name, because the command knows which value comes first: for <code>Get-ChildItem</code> that is the path, so <code>Get-ChildItem logs</code> does exactly the same as the command above. Section F shows how to find out which parameters work like that.</p>
+      <p>Other parameters take no value at all. These are <b>switches</b>: they are on just by being there. Four switches of <code>Get-ChildItem</code> you use today: <code>-Name</code> prints only the names; <code>-File</code> lists only files and <code>-Directory</code> only folders; and <code>-Recurse</code> looks inside every folder within the folder too, all the way down.</p>
+      <div class="filebox">
+        <div class="fbh">switches &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -Name</span>
+archive
+app-2026-03-03.log
+web-2026-03-01.log
+web-2026-03-02.log
+web-2026-03-03.log
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -File -Name</span>
+app-2026-03-03.log
+web-2026-03-01.log
+web-2026-03-02.log
+web-2026-03-03.log</code></pre>
+      </div>
+      <p><code>-File</code> left the <code>archive</code> folder out. To read a file, give <code>Get-Content</code> its path; it prints every line in the file, in order:</p>
+      <div class="filebox">
+        <div class="fbh">reading a file &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content logs/web-2026-03-02.log</span>
+2026-03-02 10:11:00 INFO  GET /products 200
+2026-03-02 10:11:30 INFO  GET /products/1077 200
+2026-03-02 10:12:02 ERROR GET /products/9999 404 not found
+2026-03-02 10:14:55 INFO  POST /cart 201</code></pre>
+      </div>
+      <p>Each line of the shop&rsquo;s web log is one visit to its website: when, how serious (<code>INFO</code>, <code>WARN</code> or <code>ERROR</code>), what was asked for, and the three-digit code that came back, where <code>200</code> and <code>201</code> mean it worked and anything from <code>400</code> up means it did not.</p>
+      <p>Three habits that save typing. <b>Case does not matter</b> in command and parameter names: <code>get-childitem -name</code> works, though the capitalised form is easier to read. <b>Press Tab to finish a name</b>: type <code>Get-Chi</code> and press Tab, and PowerShell completes it. On Windows, pressing Tab again shows the next possibility, if there is one. And <b>a word in capitals</b> in this workbook&rsquo;s prose, like <code>Get-Content FILE</code>, is a stand-in for something you supply: you type a real file&rsquo;s name, never the word FILE.</p>
+      <p><b>Mistakes are safe here, so read the error.</b> A misspelt command name gets this:</p>
+      <div class="filebox">
+        <div class="fbh">a typo &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItm</span>
+Get-ChildItm: The term 'Get-ChildItm' is not recognized as a name of a cmdlet,      <span class="cm">one line,</span>
+function, script file, or executable program.                                     <span class="cm">wrapped here</span>
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+[General Feedback]
+  The most similar commands are:
+    &#10148; Get-ChildItem</code></pre>
+      </div>
+      <p>The first word is the command that went wrong, and the rest says why: no command has that name. Nothing was changed. Under <b>[General Feedback]</b>, PowerShell 7 even suggests the command you probably meant. The arrow before it is drawn as <code>&#10148;</code> in a terminal that can show it, and as <code>&gt;</code> in one that cannot. Press the up arrow key to bring your last command back, fix it, and press Enter.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1 reports the same mistake at more length, and makes no suggestion. Under its message it adds a line starting <code>At line:1 char:1</code>, your command again with a row of <code>~</code> marks under the bad word, and two indented lines starting with <code>+</code> that name the kind of error. The message at the top says the same thing as 7&rsquo;s, so read that first. PowerShell 7 prints the short form by default.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Your first commands</div>
+        <ol>
+          <li>In the lab, run <code>Get-Location</code>, then <code>Get-ChildItem</code>, then <code>Get-ChildItem data</code>.</li>
+          <li>List the names only of everything in <code>exports</code>, then the names of the files only in <code>logs</code>.</li>
+          <li>Read <code>README.txt</code> with <code>Get-Content</code>.</li>
+          <li>Type <code>Get-Chi</code> and press Tab, then finish the command by hand.</li>
+          <li>Misspell a command on purpose, read the error, then use the up arrow to fix it.</li>
+        </ol>
+        <details><summary>Hint</summary><p>A switch goes after the folder, with a space before its hyphen. Two switches can go together in one command.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem exports -Name</span>
+empty.tmp
+inventory-dump.csv
+notes.txt
+report-FINAL-really.csv
+report-final-v2.csv
+report-final.csv
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content README.txt</span>
+Fernhill Goods: practice lab
+A made-up online shop that sells kitchenware.
+Everything here is fake and safe to change or delete.
+Rebuild it any time by pasting the setup block again.</code></pre>
+<p>The files only in <code>logs</code> are <code>Get-ChildItem logs -File -Name</code>, shown above.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I ran each command, used Tab, and recovered from a typo</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Moving around: paths</h3>
+      <p>A <b>path</b> is the address of a file or folder: the folder names on the way to it, with a slash between each. There are two kinds. An <b>absolute path</b> starts at the very top, so it means the same thing wherever you are: <code>C:\Users\you\ps-lab\logs</code> on Windows, <code>/Users/you/ps-lab/logs</code> on a Mac. A <b>relative path</b> starts from your current location: from inside the lab, <code>logs/archive</code> means the <code>archive</code> folder inside <code>logs</code>, inside here.</p>
+      <p>Three short names save most of the typing:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Write</div><div class="fn">Means</div><div class="fd">Example from the lab</div></div>
+        <div class="frow"><div class="fc">..</div><div class="fn">the folder above this one</div><div class="fd">from <code>logs</code>, <code>..</code> is <code>ps-lab</code>; <code>../..</code> goes up two</div></div>
+        <div class="frow"><div class="fc">~</div><div class="fn">your home folder</div><div class="fd"><code>~/ps-lab</code> is the lab, from anywhere</div></div>
+        <div class="frow"><div class="fc">.</div><div class="fn">this folder</div><div class="fd">rarely needed today; it returns in Level 3</div></div>
+      </div>
+      <p><code>Set-Location</code> moves you: give it a path and it makes that your current location. It prints nothing when it works; the prompt changes instead, so the prompt always tells you where you are:</p>
+      <div class="filebox">
+        <div class="fbh">moving down and back up &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location logs</span>
+<span class="cmd">PS C:\Users\you\ps-lab\logs&gt; Set-Location archive</span>
+<span class="cmd">PS C:\Users\you\ps-lab\logs\archive&gt; Get-Content web-2026-02-28.log</span>
+2026-02-28 16:40:00 INFO  GET /products 200
+2026-02-28 16:41:12 ERROR GET /cart 503 maintenance
+<span class="cmd">PS C:\Users\you\ps-lab\logs\archive&gt; Set-Location ../..</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt;</span></code></pre>
+      </div>
+      <p>A relative path is read from where you are when you type it, so the same command can work in one place and fail in another. From the lab itself there is no <code>archive</code> to move into:</p>
+      <div class="filebox">
+        <div class="fbh">the wrong starting point &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location archive</span>
+Set-Location: Cannot find path 'C:\Users\you\ps-lab\archive' because it does not exist.</code></pre>
+      </div>
+      <p>The error even prints the absolute path it tried, which tells you where it looked. <b>Slashes:</b> Windows writes paths with <code>\</code>, and PowerShell on Windows also accepts <code>/</code>, which is what macOS and Linux use. This workbook types <code>/</code> so every command works on all three; PowerShell still prints Windows paths with <code>\</code>. <b>Capital letters:</b> on Windows, <code>readme.txt</code> finds <code>README.txt</code>. Microsoft&rsquo;s documentation says file systems on macOS and Linux are usually case-sensitive, and PowerShell follows the file system, so type every name exactly as it is printed and your commands work everywhere.</p>
+      <p><b>Short names for long commands.</b> An <b>alias</b> is a second, shorter name for a cmdlet. PowerShell on Windows comes with aliases that match the commands of older shells, so people can keep typing what they know. <code>Get-Alias</code> shows what a short name really runs:</p>
+      <div class="filebox">
+        <div class="fbh">aliases on Windows &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Alias cd, ls, dir, cat, pwd</span>
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Alias           cd -&gt; Set-Location
+Alias           ls -&gt; Get-ChildItem
+Alias           dir -&gt; Get-ChildItem
+Alias           cat -&gt; Get-Content
+Alias           pwd -&gt; Get-Location</code></pre>
+      </div>
+      <p>Several names are separated by commas here, and <code>Get-Alias</code> looked up each one.</p>
+      <div class="note"><span class="nk">In Bash</span>Most of those aliases are borrowed from Bash, where they are the real commands (<code>dir</code> comes from the older Windows Command Prompt instead):
+<div class="fam" style="margin:8px 0 8px">
+  <div class="frow lbl"><div class="fc">Bash</div><div class="fn">PowerShell</div><div class="fd">Job</div></div>
+  <div class="frow"><div class="fc">pwd</div><div class="fn">Get-Location</div><div class="fd">which folder am I in?</div></div>
+  <div class="frow"><div class="fc">cd</div><div class="fn">Set-Location</div><div class="fd">move to another folder</div></div>
+  <div class="frow"><div class="fc">ls</div><div class="fn">Get-ChildItem</div><div class="fd">what is in this folder?</div></div>
+  <div class="frow"><div class="fc">cat</div><div class="fn">Get-Content</div><div class="fd">what does this file say?</div></div>
+</div>
+Paths, <code>..</code> and <code>~</code> mean the same in Bash. One difference to know now: Microsoft&rsquo;s page on <a href="https://learn.microsoft.com/en-us/powershell/scripting/whats-new/unix-support" target="_blank" rel="noopener">PowerShell on non-Windows platforms</a> says that on macOS and Linux, <code>ls</code> and <code>cat</code> are not aliases: they run the system&rsquo;s own <code>ls</code> and <code>cat</code>, which print in their own format and know nothing of PowerShell&rsquo;s switches. <code>cd</code> and <code>pwd</code> are not on that page&rsquo;s list. So this track writes the full cmdlet names, which work the same on every system.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Walk the lab</div>
+        <ol>
+          <li>From the lab, move into <code>logs</code>, then <code>archive</code>, read the log there, and come back up to the lab, one folder at a time, watching the prompt change.</li>
+          <li>Move to your home folder with <code>~</code>, then straight into <code>ps-lab/data</code> with one <code>Set-Location</code>, and read the first file there.</li>
+          <li>Try <code>Set-Location archive</code> from the lab, and read the path in the error.</li>
+          <li>Run <code>Get-Alias</code> on <code>cd</code> and on <code>dir</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Going up is <code>..</code>, once per folder. Going from home into a folder inside a folder takes a relative path with a slash in it.</p></details>
+        <details><summary>Show the commands for step 2</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~</span>
+<span class="cmd">PS C:\Users\you&gt; Set-Location ps-lab/data</span>
+<span class="cmd">PS C:\Users\you\ps-lab\data&gt; Get-Content orders.csv</span>
+OrderId,Date,Customer,Product,Qty,Total,Status
+5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped
+                                       <span class="cm">six more orders: eight in all</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I moved around the lab by path, and read an error about a path</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Finding commands you have never seen</h3>
+      <p>Nobody remembers every command. What experienced people know is how to find one, and PowerShell has two cmdlets for exactly that. <b><code>Get-Command</code></b> finds commands by name. Because every name is Verb-Noun, you can search by either half. A <code>*</code> in a name is a <b>wildcard</b>, standing for any number of any characters, so <code>*-Location</code> means &ldquo;every name that ends in -Location&rdquo;. <code>-Noun</code> searches the noun half for you:</p>
+      <div class="filebox">
+        <div class="fbh">every command about locations &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command -Noun Location</span>
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Cmdlet          Get-Location                                       7.0.0.0    Microsoft.PowerShell.Management
+Cmdlet          Pop-Location                                       7.0.0.0    Microsoft.PowerShell.Management
+Cmdlet          Push-Location                                      7.0.0.0    Microsoft.PowerShell.Management
+Cmdlet          Set-Location                                       7.0.0.0    Microsoft.PowerShell.Management</code></pre>
+      </div>
+      <p>Read the <b>Name</b> column. Two of those are new. <code>Push-Location</code> moves you to a folder, like <code>Set-Location</code>, but first remembers where you were; <code>Pop-Location</code> then takes you back there. The other columns say where each command comes from, and their numbers differ between versions: 5.1 shows <code>3.1.0.0</code> where 7 shows <code>7.0.0.0</code>. <code>-Verb</code> searches the other half in the same way, and a wildcard works in either: <code>Get-Command -Noun *Item*</code> finds every noun with Item in it. That one also lists commands from other programs installed on your computer, so its list varies from machine to machine.</p>
+      <p><b><code>Get-Help</code></b> tells you how to use a command once you know its name. On a new install it shows a short version, and its most useful part is <b>SYNTAX</b>, which lists every parameter the command takes:</p>
+      <div class="filebox">
+        <div class="fbh">Get-Help Get-ChildItem, the start &middot; captured live, long lines cut short here</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help Get-ChildItem</span>
+
+NAME
+    Get-ChildItem
+
+SYNTAX
+    Get-ChildItem [[-Path] &lt;string[]&gt;] [[-Filter] &lt;string&gt;] [-Include &lt;string[]&gt;]   <span class="cm">cut short</span>
+    [-Depth &lt;uint&gt;] [-Force] [-Name]                                           <span class="cm">cut short</span>
+                                      <span class="cm">it goes on, then ALIASES and REMARKS</span></code></pre>
+      </div>
+      <p>The syntax has its own small language, and these marks cover almost all of it:</p>
+      <div class="fam wide">
+        <div class="frow lbl"><div class="fc">In SYNTAX</div><div class="fn">Means</div><div class="fd">So you can type</div></div>
+        <div class="frow"><div class="fc">[-Recurse]</div><div class="fn">square brackets: optional</div><div class="fd">leave it out, or add <code>-Recurse</code>. No angle brackets after it, so it is a switch.</div></div>
+        <div class="frow"><div class="fc">&lt;string&gt;</div><div class="fn">angle brackets: the kind of value</div><div class="fd">a <b>string</b> is text; <code>&lt;string[]&gt;</code>, with <code>[]</code>, means one or more of them, separated by commas</div></div>
+        <div class="frow"><div class="fc">&lt;int&gt; &lt;long&gt; &lt;uint&gt;</div><div class="fn">kinds of whole number</div><div class="fd">a value such as <code>2</code>; the names differ only in how big a number fits</div></div>
+        <div class="frow"><div class="fc">[-Path] &lt;string[]&gt;</div><div class="fn">only the NAME is in brackets</div><div class="fd">the value is required, the name is optional: <code>Get-Content README.txt</code></div></div>
+        <div class="frow"><div class="fc">[[-Path] &lt;string[]&gt;]</div><div class="fn">the whole thing in brackets too</div><div class="fd">leave it out completely, as <code>Get-ChildItem</code> alone does</div></div>
+        <div class="frow"><div class="fc">order</div><div class="fn">parameters whose name is optional take values in the order listed</div><div class="fd">for <code>Get-ChildItem</code>: first <code>-Path</code>, then <code>-Filter</code></div></div>
+      </div>
+      <p>That last row explains a command you can now read. <b><code>-Filter</code></b> keeps only the names that match a pattern, wildcards included, so <code>Get-ChildItem logs -Filter *.log</code> lists the names in <code>logs</code> ending in <code>.log</code>. Because <code>-Filter</code> comes second in the syntax, <code>Get-ChildItem logs *.log</code> means the same thing: the first value is the path and the second is the filter.</p>
+      <p>Under SYNTAX, <b>ALIASES</b> lists the command&rsquo;s short names, and <b>REMARKS</b> says this is only partial help. The full version, with a description of every parameter and worked examples, comes in two ways: <code>Get-Help Get-ChildItem -Online</code> opens it on Microsoft&rsquo;s website, or <code>Update-Help</code> downloads all of it to your computer once. Neither is needed today.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Look it up</div>
+        <ol>
+          <li>Find every command whose noun is <code>Content</code>. Which one have you used already?</li>
+          <li>Run <code>Get-Help Get-ChildItem</code> and find, in its SYNTAX, the switch that lists only folders. Use it on the lab.</li>
+          <li>Run <code>Get-Help Get-Content</code>. Is a path optional for it? How can you tell?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 2&rsquo;s switch has no angle brackets after it, and its name is the other word for a folder that section C mentioned.</p></details>
+        <details><summary>Show the answers</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command -Noun Content</span>
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Cmdlet          Add-Content                                        7.0.0.0    Microsoft.PowerShell.Management
+Cmdlet          Clear-Content                                      7.0.0.0    Microsoft.PowerShell.Management
+Cmdlet          Get-Content                                        7.0.0.0    Microsoft.PowerShell.Management
+Cmdlet          Set-Content                                        7.0.0.0    Microsoft.PowerShell.Management
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem -Directory -Name</span>
+data
+exports
+logs</code></pre>
+<p><code>Get-Content</code> is the one you have used. For <code>Get-Content</code>, SYNTAX shows <code>[-Path] &lt;string[]&gt;</code>: only the name is in brackets, so a path is required, but you may leave out the word <code>-Path</code>.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I found commands with Get-Command and read a SYNTAX block with Get-Help</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. The milestone: answer questions about the lab, unassisted</h3>
+      <p>Answer each of these from your terminal, without scrolling back up. Where you need a parameter you have not used, find it with <code>Get-Help</code>.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: find, list and read</div>
+        <ol>
+          <li>Starting in your home folder, and without moving, list just the names of everything in the lab&rsquo;s <code>exports</code> folder.</li>
+          <li>From the lab, list the names of every <code>.log</code> file anywhere in it, including the one inside <code>archive</code>.</li>
+          <li>Move into the folder that holds <code>tickets.csv</code> and read it. How many tickets are still <code>open</code>?</li>
+          <li>Find the parameter of <code>Get-ChildItem</code> that limits how many folders deep <code>-Recurse</code> goes, and use it to list the names of everything in the lab and one level below, but no deeper.</li>
+        </ol>
+        <p>You have hit the milestone when every answer came from a command you typed, and step 4 from a parameter you found yourself.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">PS C:\Users\you&gt; Get-ChildItem ps-lab/exports -Name</span>
+empty.tmp
+inventory-dump.csv
+notes.txt
+report-FINAL-really.csv
+report-final-v2.csv
+report-final.csv
+<span class="cmd">PS C:\Users\you&gt; Set-Location ps-lab</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem -Recurse -Filter *.log -Name</span>
+logs\app-2026-03-03.log
+logs\web-2026-03-01.log
+logs\web-2026-03-02.log
+logs\web-2026-03-03.log
+logs\archive\web-2026-02-28.log
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location data</span>
+<span class="cmd">PS C:\Users\you\ps-lab\data&gt; Get-Content tickets.csv</span>
+TicketId,Opened,Customer,Topic,Priority,State
+T-101,2026-03-01,Dara Singh,refund,high,closed
+T-102,2026-03-02,Chen Wei,delivery,low,closed
+T-103,2026-03-03,Gus Lind,payment,high,open
+T-104,2026-03-03,Ana Ruiz,payment,medium,open
+T-105,2026-03-03,Eli Moss,delivery,low,open
+                                        <span class="cm">three are open</span>
+<span class="cmd">PS C:\Users\you\ps-lab\data&gt; Set-Location ..</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem -Recurse -Depth 1 -Name</span>
+data
+exports
+logs
+README.txt
+data\orders.csv
+data\tickets.csv
+exports\empty.tmp
+exports\inventory-dump.csv
+exports\notes.txt
+exports\report-FINAL-really.csv
+exports\report-final-v2.csv
+exports\report-final.csv
+logs\archive
+logs\app-2026-03-03.log
+logs\web-2026-03-01.log
+logs\web-2026-03-02.log
+logs\web-2026-03-03.log</code></pre>
+<p><code>-Depth</code> is in <code>Get-ChildItem</code>&rsquo;s SYNTAX as <code>[-Depth &lt;uint&gt;]</code>: it takes a whole number. With <code>-Depth 1</code>, the log inside <code>archive</code>, two levels down, is left out. With <code>-Recurse -Name</code>, each name below the lab is printed with the folders on the way to it.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I answered all four questions from my terminal, and found -Depth myself</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from reading one listing, through moving around, to reading SYNTAX and errors.</p>
+    <div class="note"><b>Every drill runs in your lab</b>, exactly as the setup block builds it, and starts in <code>ps-lab</code> unless it says otherwise. Each one was run on 2026-10-06 in PowerShell 7.6 and Windows PowerShell 5.1, and printed the same answer in both. Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading commands and writing them. First put a walk through the lab back into order, then fill the blanks in three commands.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. There is one sequence today, on purpose: a walk by relative paths is the one process in this session where each step only works after the one before it.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the command in the box, run it in your terminal, then reveal the reference to compare. More than one command can be right, so judge yours by what it printed. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your command printed what the task asked for, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">15</span></span>
+        <span>In pile <b id="fc-pile">15</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from. From Session 2 on, each quick check also mixes in questions from earlier sessions.</p>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 01 of 10 &middot; Hit the milestone unassisted, then tick <b>S01</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>.
+    <br><br>
+    <b>Your 15-minute review, tomorrow if you can:</b> close every terminal, open a new one, and with this page closed: check which PowerShell you are in, go to the lab, list every <code>.log</code> file in it by name, read the newest web log, and come back to your home folder. Then look up one cmdlet you have never used with <code>Get-Command</code> and read its SYNTAX with <code>Get-Help</code>. Anything you had to look up goes on a sticky note for next time. <a href="https://learn.microsoft.com/en-us/powershell/scripting/learn/ps101/00-introduction" target="_blank" rel="noopener">PowerShell 101</a>, free on Microsoft&rsquo;s site, covers today&rsquo;s ground in its first two chapters if you want a second explanation. &middot; Next: <b>Session 2, objects and the pipeline</b>, where you join commands together with <code>|</code> and find out why PowerShell&rsquo;s output is not just text.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s01-workbook-v1";
+  /* No spaced-review backlinks in Session 1: every Part 6 question is about this
+     session, so every review link scrolls this page. From Session 2 on, earlier
+     sessions' artifact URLs are declared here as plain string literals, because
+     build-site-variant.js rewrites them to local site filenames by text replacement. */
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare names, one per line (README.txt, Get-Location), as an alias line
+     (cat -> Get-Content), and as log lines ending in a status number. 5.1's long
+     error form wraps some text in parentheses, but no answer is taken from it.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 1 is:
+     its answers are file, folder and cmdlet names and status numbers. The flag stays
+     in the engine for later sessions (-ceq, case-sensitive file names on Linux). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in Session 1 is: its blanks are
+     parameter, cmdlet and property names, which PowerShell matches in any case, and
+     the path shortcuts ~ and .. . Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 4 value, 3 set, 2 count, 1 seq. Every drill was run on
+     2026-10-06 against the lab exactly as the setup block builds it, in PowerShell
+     7.6.5 and Windows PowerShell 5.1.26100, and printed the same answer in both
+     (_build/s01-verified-facts.md). No drill is cs: true: the answers are names of
+     files, folders and cmdlets, and status numbers. No drill asks for a path with a
+     slash in it (Windows prints \, macOS and Linux /), and none depends on the ORDER of a
+     directory listing, which is a Windows order (s01-review M4). */
+  var DRILLS = [
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Which names does it print? Give them separated by commas. Order does not matter.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-ChildItem -Name', ans: 'data, exports, logs, README.txt',
+      why: 'data, exports, logs, README.txt. -Name prints only each item’s name, one per line: the three folders and the one file that the full listing in section C showed with their dates and sizes. Nothing inside the folders appears, because Get-ChildItem only looks one level down unless you add -Recurse.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'How many lines does it print? Answer with a number.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-ChildItem logs -File -Name', ans: '4', alt: ['four'],
+      why: '4: app-2026-03-03.log and the three web logs. logs holds five items, but one of them, archive, is a folder, and the -File switch lists files only.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'How many lines does it print? Answer with a number.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-ChildItem logs -Recurse -Filter *.log -Name', ans: '5', alt: ['five'],
+      why: '5. -Filter *.log keeps the names ending in .log, so the archive folder itself is not listed, and -Recurse also looks inside every folder within logs. That finds the four logs in logs and the one in archive, which is printed as archive\\web-2026-02-28.log on Windows.' },
+
+    { type: 'seq', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'List the three-digit code on each line it prints, in order, separated by commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-Content logs/web-2026-03-02.log', ans: '200, 200, 404, 201',
+      why: '200, 200, 404, 201. Get-Content prints a file’s lines in the order they are stored, top to bottom. The third visit asked for a product that does not exist, and got 404 not found; the last one put something in a basket, and got 201.' },
+
+    { type: 'value', lbl: 'trace it',
+      scen: 'You start in C:\\Users\\you\\ps-lab and run these four commands, one after another.',
+      ask: 'Which folder are you in now? Give just its name.',
+      code: 'Set-Location logs\nSet-Location archive\nSet-Location ../..\nSet-Location data', ans: 'data', alt: ['ps-lab/data', 'ps-lab\\data', '~/ps-lab/data'],
+      why: 'data. logs, then archive inside it, takes you two folders down; ../.. climbs two folders back up, to ps-lab; and data is then read from ps-lab. Each relative path starts from wherever the command before it left you.' },
+
+    { type: 'value', lbl: 'an error',
+      scen: 'In ps-lab, you type the command below. PowerShell prints:\n\nSet-Location: Cannot find path \'C:\\Users\\you\\ps-lab\\archive\' because it does not exist.',
+      ask: 'Which folder of the lab is archive actually in? Give its name.',
+      code: 'PS C:\\Users\\you\\ps-lab> Set-Location archive', ans: 'logs', alt: ['ps-lab/logs', 'ps-lab\\logs'],
+      why: 'logs. A relative path starts from where you are, so from ps-lab, archive means ps-lab\\archive, which is exactly the path the error says it tried. The archive folder is inside logs, so from ps-lab the path is logs/archive.' },
+
+    { type: 'value', lbl: 'on Windows',
+      scen: '',
+      ask: 'On Windows, which cmdlet does cat run? Give its full name.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-Alias cat', ans: 'Get-Content',
+      why: 'Get-Content. An alias is a second name for a cmdlet, and Get-Alias prints it as cat -> Get-Content. On Windows, cat is one of the aliases borrowed from Bash, where cat is the real command for printing a file. On macOS and Linux, Microsoft’s documentation says cat is not an alias at all.' },
+
+    { type: 'value', lbl: 'Get-Help Get-ChildItem, SYNTAX',
+      scen: 'Get-ChildItem [[-Path] <string[]>] [[-Filter] <string>] [-Include <string[]>] ...',
+      ask: 'In this command, which parameter receives *.log? Give its name, with or without the hyphen.',
+      code: 'Get-ChildItem logs *.log', ans: 'Filter', alt: ['-Filter'],
+      why: 'Filter. Both -Path and -Filter have their names in square brackets, so both can be given without their names, and values given that way are taken in the order the syntax lists them: the first, logs, is the path, and the second, *.log, is the filter.' },
+
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Which command names does it list? Give them separated by commas. Order does not matter.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-Command -Noun Location', ans: 'Get-Location, Pop-Location, Push-Location, Set-Location',
+      why: 'Get-Location, Pop-Location, Push-Location and Set-Location: every command whose noun is Location. You have used two of them; the other two are new, and Get-Help would tell you how to use them. The Version and Source columns differ between 5.1 and 7, but the names do not.' },
+
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Which names does it print? Give them separated by commas. Order does not matter.',
+      code: 'PS C:\\Users\\you\\ps-lab> get-childitem logs -FILE -NAME', ans: 'app-2026-03-03.log, web-2026-03-01.log, web-2026-03-02.log, web-2026-03-03.log',
+      why: 'The four log files in logs, exactly as Get-ChildItem logs -File -Name prints them. Command and parameter names do not care about capital letters, so this is the same command written in an odd mix of cases.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item, deliberately (build contract section 4): a walk by relative paths is the
+     ordered process in this session, because each Set-Location is read from the folder
+     the one before it left you in. ps-lab exists only inside ~, logs only inside
+     ps-lab, archive only inside logs, the log can be read by its bare name only from
+     archive, and ../.. lands in the lab only from archive. The prompt narrates it. */
+  var PARSONS = [
+    { prompt: 'From anywhere on your computer: go to your home folder, then into the lab, then into logs, then into archive, read the log that is there, and finally climb back up to the lab in one move.',
+      lines: ['Set-Location ~',
+              'Set-Location ps-lab',
+              'Set-Location logs',
+              'Set-Location archive',
+              'Get-Content web-2026-02-28.log',
+              'Set-Location ../..'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: cmdlet names, parameter
+     names and the property name PSVersion are all case-insensitive in PowerShell. F1's
+     two switches could go in either order, so its prompt names which comes first.
+     F3's home blank could also be $HOME, so its prompt asks for the one-character form.
+     Recorded in the build contract. */
+  var FADED = [
+    { prompt: 'From the lab, list just the names of every .log file anywhere in logs, including inside archive. Fill in the switch that also looks inside every folder within it, then the switch that prints names only. The hyphen before each is already in place.',
+      code: 'Get-ChildItem logs -%% -Filter *.log -%%', ans: ['Recurse', 'Name'] },
+    { prompt: 'Find every command whose noun is Location, then show the SYNTAX of one of them. Fill in the noun of each of the two cmdlets that do those jobs.',
+      code: 'Get-%% -Noun Location\nGet-%% Set-Location', ans: ['Command', 'Help'] },
+    { prompt: 'Check which PowerShell you are in, go into the lab from your home folder, then go up one folder. Fill in the part of $PSVersionTable that holds the version, the one-character shortcut for your home folder, and the two-character name for the folder above.',
+      code: '$PSVersionTable.%%\nSet-Location %%/ps-lab\nSet-Location %%', ans: ['PSVersion', '~', '..'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'You are in your home folder. Without moving, list just the names of everything in the lab’s data folder.',
+      sol: 'Get-ChildItem ps-lab/data -Name\n\nIt prints:\norders.csv\ntickets.csv\n\nA relative path is read from where you are: from your home\nfolder the lab is ps-lab, so its data folder is ps-lab/data.\nGet-ChildItem ~/ps-lab/data -Name works from anywhere.' },
+    { task: 'From the lab, list the names of every folder in it, including folders inside folders, and nothing else.',
+      sol: 'Get-ChildItem -Recurse -Directory -Name\n\nIt prints:\ndata\nexports\nlogs\nlogs\\archive\n\n-Directory keeps folders only, and -Recurse goes inside each\none, which is how logs\\archive is found.' },
+    { task: 'From your home folder, get into the lab’s archive folder with ONE Set-Location, read the log there, and get back to the lab with one more Set-Location.',
+      sol: 'Set-Location ps-lab/logs/archive\nGet-Content web-2026-02-28.log\nSet-Location ../..\n\nGet-Content prints:\n2026-02-28 16:40:00 INFO  GET /products 200\n2026-02-28 16:41:12 ERROR GET /cart 503 maintenance\n\nOne relative path can pass through several folders, with a\nslash between each. ../.. climbs two folders: archive to\nlogs, then logs to ps-lab.' },
+    { task: 'Get-Help Get-Content lists three parameters that take a whole number: -ReadCount, -TotalCount and -Tail. Try each one with 2 on the lab’s data/orders.csv, and work out which one reads only the first 2 lines.',
+      sol: 'Get-Content data/orders.csv -TotalCount 2\n\nIt prints:\nOrderId,Date,Customer,Product,Qty,Total,Status\n5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped\n\nThe other two:\n-Tail 2       prints the LAST two lines, orders 5007 and 5008.\n-ReadCount 2  prints all nine lines: it sets how many lines\n              are passed along at a time, not how many are read.\n\nThe first line of a CSV file names its columns, so the\nfirst two lines are the column names and the first order.\nSYNTAX names a parameter; trying it is how you learn what\nit does when the short help has no descriptions.' }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Fifteen cards, sized to the atoms THIS session has. The deck stays session-local:
+     re-testing earlier material is Part 6's job from Session 2 on. See the build
+     contract, section 4. */
+  var CARDS = [
+    { f: 'What a shell does', b: 'reads the command you type, runs it, and prints the result' },
+    { f: 'pwsh and powershell.exe', b: 'PowerShell 7, and the older Windows PowerShell 5.1' },
+    { f: 'Which PowerShell am I in?', b: '$PSVersionTable.PSVersion: Major 7 or Major 5' },
+    { f: 'The shape of every cmdlet’s name', b: 'Verb-Noun, such as Get-ChildItem' },
+    { f: 'Get-Location', b: 'prints the folder you are in (Bash: pwd)' },
+    { f: 'Set-Location', b: 'moves you to another folder (Bash: cd)' },
+    { f: 'Get-ChildItem', b: 'lists what is inside a folder (Bash: ls)' },
+    { f: 'Get-Content', b: 'prints the lines of a file, in order (Bash: cat)' },
+    { f: 'A switch parameter', b: 'takes no value; it is on just by being there, such as -Recurse' },
+    { f: '-Name, -File, -Directory, -Recurse', b: 'names only; files only; folders only; look inside every folder too' },
+    { f: '.. and ~ in a path', b: 'the folder above this one, and your home folder' },
+    { f: 'Absolute path or relative path', b: 'starts from the very top, or starts from where you are now' },
+    { f: 'An alias', b: 'a second, shorter name for a cmdlet, such as cd for Set-Location' },
+    { f: 'Get-Command', b: 'finds commands by name, verb or noun; a * stands for anything' },
+    { f: 'Reading SYNTAX: [ ] and < >', b: 'square brackets mean optional; angle brackets name the kind of value' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Session 1 is all Session 1: spaced review starts in Session 2. Target: the
+     correct option's length rank (longest = 1) is mid-pack on every question, never
+     the longest or the shortest (check-quiz.py 0/6 on both), and no single rank
+     reaches the pass mark of 5. Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: 'You open a new terminal tab and run $PSVersionTable.PSVersion. Under Major it says 5. What does that tell you?',
+      o: ['This tab is Windows PowerShell 5.1: open a PowerShell 7 tab instead',
+          'PowerShell 7 cannot be installed on this computer',
+          'Your PowerShell is out of date, and an update will bring it to version 7',
+          'Nothing that matters: Major is only the first part of the number, and 5 and 7 behave the same'],
+      c: 0,
+      e: 'Major is the main version number, and 5 means the older Windows PowerShell 5.1, which comes with Windows 10 and 11. It does not prove PowerShell 7 is missing: the two install side by side, and Terminal may simply have opened the old one. Choose PowerShell 7 from the tab menu, or make it the default profile. An update never turns 5.1 into 7: they are separate programs. And PowerShell 7 installs on Windows, macOS and Linux alike.',
+      part: { id: 'concept-b', label: 'B. Which PowerShell am I in?' } },
+
+    { q: 'In the lab, which command lists only the names of the files in logs, leaving out the archive folder?',
+      o: ['Get-ChildItem logs -Name',
+          'Get-ChildItem logs -File -Name',
+          'Get-Content logs -File',
+          'Get-ChildItem logs -Recurse -Directory -Name'],
+      c: 1,
+      e: '-File keeps files only, and -Name prints just their names. Without -File, the archive folder is listed too. Get-Content reads what a file says, not what a folder holds, and -Directory lists folders, the opposite of what was asked.',
+      part: { id: 'concept-d', label: 'D. The shape of every command' } },
+
+    { q: 'You are in C:\\Users\\you\\ps-lab\\logs\\archive. Where does Set-Location ../.. take you?',
+      o: ['C:\\Users\\you\\ps-lab',
+          'C:\\Users\\you\\ps-lab\\logs',
+          'C:\\Users\\you',
+          'Nowhere: .. works once per command, so ../.. is an error'],
+      c: 0,
+      e: 'Each .. climbs one folder, and a path can hold several: archive up to logs, then logs up to ps-lab. One .. alone would stop in logs, and three would reach your home folder.',
+      part: { id: 'concept-e', label: 'E. Moving around: paths' } },
+
+    { q: 'Get-Help Get-ChildItem shows [[-Filter] <string>] in its SYNTAX. What does that tell you about -Filter?',
+      o: ['It is required, and takes text',
+          'It is optional, takes text, and its name can be left out',
+          'It is a switch',
+          'It takes several values, separated by commas, and must always be typed with its name'],
+      c: 1,
+      e: 'The outer square brackets make the whole parameter optional, the inner ones around -Filter make its name optional, and <string> says its value is text. A switch has no angle brackets at all, and several values would be written <string[]>.',
+      part: { id: 'concept-f', label: 'F. Finding commands you have never seen' } },
+
+    { q: 'On a Linux machine, in PowerShell 7, you type ls and press Enter. According to Microsoft’s documentation, what runs?',
+      o: ['Get-ChildItem, because ls is an alias for it everywhere',
+          'Linux’s own ls program, which prints in its own format',
+          'Nothing: ls is not a PowerShell command',
+          'Get-Location'],
+      c: 1,
+      e: 'Microsoft’s page on PowerShell on non-Windows platforms lists ls among the aliases removed on macOS and Linux, so that the system’s own ls runs. It works, but it prints plain text in its own layout and knows nothing of -File or -Name. That is why this track writes Get-ChildItem in full: it does the same thing on every system.',
+      part: { id: 'concept-e', label: 'E. Moving around: paths' } },
+
+    { q: 'In the lab, Set-Location archive prints: Cannot find path \'C:\\Users\\you\\ps-lab\\archive\' because it does not exist. What went wrong?',
+      o: ['archive is inside logs, and a relative path starts from where you are',
+          'The archive folder has been deleted',
+          'Set-Location needs -Path written out',
+          'Set-Location needs an absolute path; relative paths only work with Get-ChildItem and Get-Content'],
+      c: 0,
+      e: 'The error shows the full path it tried: ps-lab\\archive. A relative path is read from your current location, and from ps-lab the archive folder is at logs/archive. Nothing was deleted, -Path can be left out because its name is optional, and Set-Location accepts a relative path just as Get-ChildItem and Get-Content do.',
+      part: { id: 'concept-e', label: 'E. Moving around: paths' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S01 on your Hub and move on to Session 2.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
