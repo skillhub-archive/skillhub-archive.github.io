@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 3: Files and text</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 46 characters, inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is ExpandProperty (14 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 03 // Level 2 &middot; Working with Data</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Files and text</h1>
+    <p class="goal">Today you search inside files for the lines you care about, and save what you find to new files of your own. You find out why the same command can write two different files in two versions of PowerShell, and you copy, move, rename and delete files without ever deleting the wrong one.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Search every log for errors and save what you find to a new file.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep PowerShell 7 open beside this page, in your lab.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. If you need a fresh lab, the first box below rebuilds it.</p>
+        <p><b>Today you write files, and every one goes in a new folder, <code>ps-lab/out</code>,</b> which you make in section A. The practice files from Session 1 are only ever read. Nothing to install; the Bash boxes are for reading, and nothing graded needs Bash.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Today the sections build on each other&rsquo;s files, so work them in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. Every transcript was captured on Windows 11 in PowerShell 7.6, in a window 120 characters wide, running the sections in order from a fresh lab. Where a path shows <code>you</code>, your own user name appears instead. Dates print in your computer&rsquo;s own date format; a folder or file you make today shows the date and time you made it, marked <i>your date</i>. Listings were captured on Windows: on macOS and Linux, expect paths with <code>/</code>, and expect that the order of a listing that was not sorted may differ there. The Bash boxes were captured in Git Bash on the same Windows machine, with its prompt shortened to <code>$</code>. A command too long for this page is wrapped after a <code>|</code> and marked <i>one line, wrapped here</i>: type it as one line, or press Enter after the <code>|</code> and finish it on the next line, as Session 2 showed. A printed line too long for this page is marked the same way.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Today is the first session that writes files, so start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including anything you add to it today, builds it fresh, exactly as Session 1 did, and moves you into it. That makes it your undo button for the whole session: whatever goes wrong in your <code>out</code> folder, pasting the block again puts everything back.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 and 2)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. It ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. A place to write: New-Item and Test-Path</h3>
+      <p>Before you write anything, make a folder for it. <b><code>New-Item</code></b> makes a new <b>item</b>, which is PowerShell&rsquo;s word for anything that lives at a path: a file or a folder. Its <code>-ItemType</code> parameter says which: <code>Directory</code> makes a folder (directory is the older word for a folder), and when you leave <code>-ItemType</code> out, it makes an empty file. Either way, it prints the new item the way <code>Get-ChildItem</code> would:</p>
+      <div class="filebox">
+        <div class="fbh">a folder, then an empty file inside it &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out</span>
+
+    Directory: C:\Users\you\ps-lab
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           10/7/2026  9:53 AM                out                       <span class="cm">your date</span>
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item out/todo.txt</span>
+
+    Directory: C:\Users\you\ps-lab\out
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           10/7/2026  9:53 AM              0 todo.txt                  <span class="cm">your date</span></code></pre>
+      </div>
+      <p>The file is 0 bytes long, an empty file, ready to be written to. To ask whether something exists without listing anything, use <b><code>Test-Path</code></b>: it answers <code>True</code> or <code>False</code>, the same two answers a comparison gives.</p>
+      <div class="filebox">
+        <div class="fbh">does it exist? &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path out</span>
+True
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path out/nothing.txt</span>
+False</code></pre>
+      </div>
+      <p>Making something that is already there is an <b>error</b>: PowerShell stops that command and prints a message in red saying what went wrong. Read the message before anything else; it usually names the problem exactly.</p>
+      <div class="filebox">
+        <div class="fbh">the folder is already there &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out</span>
+New-Item: An item with the specified name C:\Users\you\ps-lab\out already exists.</code></pre>
+      </div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1 prints the same message in its longer error form, with <code>At line:1 char:1</code>, a row of <code>~</code> marks under your command, and two indented lines starting with <code>+</code>. Session 1 showed the same shape for a typo.</div>
+      <div class="note"><span class="nk">In Bash</span>The <code>mkdir</code> command makes a folder (<code>mkdir out</code>), and <code>touch out/todo.txt</code> makes an empty file. Neither prints anything when it works, where <code>New-Item</code> shows you what it made.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make your out folder</div>
+        <ol>
+          <li>From the lab, make the folder <code>out</code>, and an empty file <code>todo.txt</code> inside it.</li>
+          <li>Use <code>Test-Path</code> to check that <code>out/todo.txt</code> exists, then that <code>out/done.txt</code> does not.</li>
+          <li>Run the command that makes <code>out</code> again, and read the error it gives.</li>
+        </ol>
+        <details><summary>Hint</summary><p>A folder needs <code>-ItemType Directory</code>; a file needs only its path. Paths inside <code>out</code> start with <code>out/</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<p>The commands are the ones in the transcripts above: <code>New-Item -ItemType Directory out</code>, <code>New-Item out/todo.txt</code>, then <code>Test-Path out/todo.txt</code> (True) and <code>Test-Path out/done.txt</code> (False). The second <code>New-Item -ItemType Directory out</code> gives the &ldquo;already exists&rdquo; error, and changes nothing.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I made out and a file in it, and checked both with Test-Path</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Searching inside files: Select-String</h3>
+      <p>In Session 2 you found the ERROR lines of a log with <code>Where-Object { $_ -like '*ERROR*' }</code>. PowerShell has a command built for that job: <b><code>Select-String</code></b>, which searches inside files for a piece of text and prints every line that contains it. The first thing after it is the <b>pattern</b>, the text to look for, and the second is the file to look in. (Its SYNTAX starts <code>Select-String [-Pattern] &lt;string[]&gt; [-Path] &lt;string[]&gt;</code>: both names are optional, as Session 1 taught, so the pattern and the path can simply come in that order.)</p>
+      <div class="filebox">
+        <div class="fbh">one log, one pattern &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/web-2026-03-03.log</span>
+
+logs\web-2026-03-03.log:3:2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:4:2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout</code></pre>
+      </div>
+      <p>Each line it prints has three parts, separated by colons: the <b>file</b> it was found in, the <b>line number</b> in that file (the first line is 1), and the <b>line</b> itself. In PowerShell 7 the matching text is also highlighted on your screen. The path is written from the folder you are standing in, so from your home folder the same search prints paths that start <code>ps-lab\logs\</code> instead. A wildcard in the path searches several files at once, which is where the file part earns its place:</p>
+      <div class="filebox">
+        <div class="fbh">every web log, then from your home folder &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/*.log</span>
+
+logs\web-2026-03-01.log:5:2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-02.log:3:2026-03-02 10:12:02 ERROR GET /products/9999 404 not found
+logs\web-2026-03-03.log:3:2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:4:2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout
+
+<span class="cmd">PS C:\Users\you&gt; Select-String ERROR ps-lab/logs/web-2026-03-02.log</span>
+
+ps-lab\logs\web-2026-03-02.log:3:2026-03-02 10:12:02 ERROR GET /products/9999 404 not found</code></pre>
+      </div>
+      <p><code>logs/*.log</code> means every file in <code>logs</code> whose name ends in <code>.log</code>; the app log is one of them, but it has no ERROR line. The search <b>ignores capital letters</b>, like <code>-like</code> in Session 2. Add the switch <code>-CaseSensitive</code> when capitals matter:</p>
+      <div class="filebox">
+        <div class="fbh">capitals, ignored and then not &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String error logs/web-2026-03-02.log</span>
+
+logs\web-2026-03-02.log:3:2026-03-02 10:12:02 ERROR GET /products/9999 404 not found
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String error logs/web-2026-03-02.log -CaseSensitive</span></code></pre>
+      </div>
+      <p>The second one printed nothing: no line has <code>error</code> in small letters. <code>Select-String</code> also searches whatever is piped into it. Lines that arrive from <code>Get-Content</code> did not come from a file it opened, so it prints them without the file and line number:</p>
+      <div class="filebox">
+        <div class="fbh">searching piped lines &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content logs/web-2026-03-03.log | Select-String ERROR</span>
+
+2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout</code></pre>
+      </div>
+      <p><b>Two ways a search goes wrong.</b> A file that is not there is an error. A <b>folder</b> given as the path is worse: PowerShell 7 searches nothing and says nothing, so it looks like a search that found no matches:</p>
+      <div class="filebox">
+        <div class="fbh">a missing file, then a folder &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/web-2026-03-04.log</span>
+Select-String: Cannot find path 'C:\Users\you\ps-lab\logs\web-2026-03-04.log'  <span class="cm">one line, wrapped here</span>
+because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs</span></code></pre>
+      </div>
+      <p>So when a search prints nothing and you expected something, check the path first: <code>logs/*.log</code>, the files, not <code>logs</code>, the folder.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every search in this section printed the same lines in 5.1, without the highlighting. Given the folder <code>logs</code>, 5.1 does complain, with an error saying access to the path is denied.</div>
+      <div class="note"><span class="nk">In Bash</span>Session 2 met <code>grep</code>. Given several files it puts the file name in front, as <code>Select-String</code> does, but it adds the line number only when you ask with <code>-n</code>, and it cares about capitals unless you add <code>-i</code>:
+<pre><code><span class="cmd">$ grep -n ERROR logs/web-2026-03-03.log</span>
+3:2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+4:2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout
+<span class="cmd">$ grep -i error logs/web-2026-03-02.log</span>
+2026-03-02 10:12:02 ERROR GET /products/9999 404 not found</code></pre>
+</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Search the logs</div>
+        <ol>
+          <li>From the lab, find every line in the <code>.log</code> files in <code>logs</code> that contains <code>checkout</code>.</li>
+          <li>From your home folder, without moving into the lab, find the WARN lines in the app log, then go back into <code>ps-lab</code>.</li>
+          <li>Search one log for <code>error</code>, with and without <code>-CaseSensitive</code>.</li>
+          <li>Search a log that does not exist, and read the error.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Pattern first, then the path. A wildcard such as <code>*.log</code> in the path searches every matching file. From your home folder, every path starts with <code>ps-lab/</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String checkout logs/*.log</span>
+
+logs\web-2026-03-01.log:5:2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-01.log:6:2026-03-01 09:06:40 INFO  POST /checkout 201
+logs\web-2026-03-03.log:3:2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:4:2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:5:2026-03-03 14:22:12 INFO  POST /checkout 201
+
+<span class="cmd">PS C:\Users\you&gt; Select-String WARN ps-lab/logs/app-2026-03-03.log</span>
+
+ps-lab\logs\app-2026-03-03.log:3:2026-03-03 06:00:00 WARN  disk 81% full on /var</code></pre>
+<p>Then <code>Set-Location ps-lab</code> takes you back. In step 3, <code>error</code> finds the ERROR lines; with <code>-CaseSensitive</code> it finds none.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I searched one log, many logs, and from another folder</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. What Select-String hands on: one object per match</h3>
+      <p>What you saw in section B was PowerShell <b>displaying</b> what <code>Select-String</code> produced, just as Session 2 showed for <code>Get-ChildItem</code>. What it actually produces is one object per matching line. <code>Get-Member</code> shows what each one holds:</p>
+      <div class="filebox">
+        <div class="fbh">what a match holds &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/web-2026-03-03.log |</span>
+<span class="cmd">  Get-Member -MemberType Property</span>                                            <span class="cm">one line, wrapped here</span>
+
+   TypeName: Microsoft.PowerShell.Commands.MatchInfo
+
+Name       MemberType Definition
+----       ---------- ----------
+Context    Property   Microsoft.PowerShell.Commands.MatchInfoContext Context {get;set;}
+Filename   Property   string Filename {get;}
+IgnoreCase Property   bool IgnoreCase {get;set;}
+Line       Property   string Line {get;set;}
+LineNumber Property   ulong LineNumber {get;set;}
+Matches    Property   System.Text.RegularExpressions.Match[] Matches {get;set;}
+Path       Property   string Path {get;set;}
+Pattern    Property   string Pattern {get;set;}</code></pre>
+      </div>
+      <p>The kind is <code>MatchInfo</code>: information about one match. Three properties carry the three parts you saw: <b>Filename</b>, the file&rsquo;s name on its own; <b>LineNumber</b>, the line&rsquo;s number (<code>ulong</code> is one more kind of whole number); and <b>Line</b>, the text of the line. <b>Path</b> holds the file&rsquo;s full path. Because they are properties, everything from Session 2 works on them: pick them, sort by them, filter on them.</p>
+      <div class="filebox">
+        <div class="fbh">the three parts as columns &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/*.log | Select-Object Filename, LineNumber, Line</span>
+
+Filename           LineNumber Line
+--------           ---------- ----
+web-2026-03-01.log          5 2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout
+web-2026-03-02.log          3 2026-03-02 10:12:02 ERROR GET /products/9999 404 not found
+web-2026-03-03.log          3 2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+web-2026-03-03.log          4 2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout</code></pre>
+      </div>
+      <p>That is how to rely on a search: ask for the property you need, rather than reading it out of the <code>file:number:line</code> display. One more thing <code>Select-String</code> takes from the pipe is file objects. <code>logs/*.log</code> never reaches the old log in <code>logs/archive</code>, but <code>Get-ChildItem -Recurse</code> does, and <code>Select-String</code> searches every file it is handed:</p>
+      <div class="filebox">
+        <div class="fbh">every log, archive included &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -Recurse -File | Select-String ERROR</span>
+
+logs\web-2026-03-01.log:5:2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-02.log:3:2026-03-02 10:12:02 ERROR GET /products/9999 404 not found
+logs\web-2026-03-03.log:3:2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:4:2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout
+logs\archive\web-2026-02-28.log:2:2026-02-28 16:41:12 ERROR GET /cart 503 maintenance</code></pre>
+      </div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1 lists the same eight properties; its LineNumber is an <code>int</code>, another whole number. The searches print the same lines.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Ask a match for its parts</div>
+        <ol>
+          <li>Pipe a search to <code>Get-Member -MemberType Property</code>, and find the property that holds a match&rsquo;s line number.</li>
+          <li>Show the Filename and LineNumber of every WARN line in every log anywhere in <code>logs</code>.</li>
+          <li>Print just the Line, with nothing else, of the match for <code>404</code> in the <code>.log</code> files in <code>logs</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 2 starts with <code>Get-ChildItem</code> and <code>-Recurse</code>. Step 3 is <code>-ExpandProperty</code> from Session 2, on a match.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -Recurse -File | Select-String WARN |</span>
+<span class="cmd">  Select-Object Filename, LineNumber</span>                                          <span class="cm">one line, wrapped here</span>
+
+Filename           LineNumber
+--------           ----------
+app-2026-03-03.log          3
+web-2026-03-01.log          3
+web-2026-03-03.log          2
+web-2026-03-03.log          7
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String 404 logs/*.log | Select-Object -ExpandProperty Line</span>
+2026-03-02 10:12:02 ERROR GET /products/9999 404 not found</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I read a match&rsquo;s properties and picked the ones I needed</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. When the pattern is not plain text</h3>
+      <p>So far every pattern has been letters and digits, and those simply mean themselves. But <code>Select-String</code> reads its pattern as a <b>regular expression</b>, a small language for describing text, used by search tools everywhere, in which some punctuation has a special meaning. You do not need that language today; you need to know the two characters that trip people up. The first is <code>*</code>. In Session 2&rsquo;s <code>-like</code>, <code>'*ERROR*'</code> meant &ldquo;ERROR anywhere&rdquo;. Here it is an error:</p>
+      <div class="filebox">
+        <div class="fbh">a -like pattern given to Select-String &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String '*ERROR*' logs/*.log</span>
+Select-String: The string *ERROR* is not a valid regular expression:         <span class="cm">one line, wrapped here</span>
+Invalid pattern '*ERROR*' at offset 1. Quantifier '*' following nothing.</code></pre>
+      </div>
+      <p>You do not need the stars: <code>Select-String</code> already finds the pattern anywhere in the line, so <code>ERROR</code> alone does what <code>'*ERROR*'</code> did with <code>-like</code>. The second character is the dot, <code>.</code>, which in a regular expression means &ldquo;any one character&rdquo;. Looking for the text <code>.50</code>, as in a price like 22.50, finds lines that contain no dot at all:</p>
+      <div class="filebox">
+        <div class="fbh">the dot matches anything &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String '.50' logs/*.log</span>
+
+logs\web-2026-03-01.log:5:2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:3:2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:4:2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:6:2026-03-03 14:25:00 INFO  GET /orders/5003 200
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String '.50' logs/*.log -SimpleMatch</span></code></pre>
+      </div>
+      <p>The dot matched the space before <code>500</code> and the <code>/</code> before <code>5003</code>. The switch <b><code>-SimpleMatch</code></b> tells <code>Select-String</code> to take your pattern literally, character for character, so the second search looks for a real dot followed by 50, and the logs have none. Patterns with punctuation or spaces in them go in single quotes, as text values did in Session 2. The rule for today: <b>letters, digits and spaces are safe; when your pattern has any other punctuation, add <code>-SimpleMatch</code></b>. (With <code>-SimpleMatch</code>, <code>'*ERROR*'</code> is no longer an error, but it looks for real stars, and finds nothing.)</p>
+      <div class="note"><span class="nk">In Bash</span><code>grep</code> reads a regular expression too, and the dot behaves the same way: <code>grep '.50' logs/*.log</code> prints the same four lines, each starting <code>logs/</code>. Its <code>-F</code>, for fixed text, is the counterpart of <code>-SimpleMatch</code>, and with it the search finds nothing.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Plain text, on purpose</div>
+        <ol>
+          <li>Run <code>Select-String '*ERROR*' logs/*.log</code>, read the error, then fix the search.</li>
+          <li>Search <code>data/orders.csv</code> for <code>.00</code>, first as a regular expression and then with <code>-SimpleMatch</code>, and work out why the first finds more lines.</li>
+          <li>Search the <code>.log</code> files in <code>logs</code> for <code>GET /cart</code>, which has a space and a slash in it, with <code>-SimpleMatch</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>For step 2, look for a <code>00</code> on a line that has no dot just before it. The order numbers are the place to start.</p></details>
+        <details><summary>Show the answers</summary>
+<p>Step 1: <code>Select-String ERROR logs/*.log</code>, because <code>Select-String</code> already looks anywhere in the line. Step 2: with <code>-SimpleMatch</code> it finds seven lines, every order whose price ends in <code>.00</code>; order 5003 cost 22.50. Without it, the dot means any character followed by <code>00</code>, and every order number starts with <code>500</code>, so it finds all eight order lines, 5003 included. Step 3:</p>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String 'GET /cart' logs/*.log -SimpleMatch</span>
+
+logs\web-2026-03-01.log:3:2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms
+logs\web-2026-03-03.log:7:2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I fixed a -like pattern and searched with -SimpleMatch</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Writing files: &gt;, &gt;&gt;, Out-File, Set-Content and Add-Content</h3>
+      <p>Anything that would print on your screen can go into a file instead. The <b>redirection operator</b> <code>&gt;</code> sends a command&rsquo;s output into the file named after it, creating the file, or <b>replacing everything in it without asking</b> if it already exists. <code>&gt;&gt;</code> <b>appends</b>: it adds to the end of the file and keeps what was there. <code>Out-File</code> is the same thing as a cmdlet: <code>| Out-File FILE</code> does what <code>&gt; FILE</code> does, and <code>| Out-File FILE -Append</code> what <code>&gt;&gt;</code> does. (FILE in capitals is a placeholder: you type a real path in its place.) Text in single quotes, typed on its own, is output like anything else: <code>&#39;first&#39;</code> alone just prints <code>first</code>, so <code>&#39;first&#39; &gt; out/two.txt</code> writes it to the file instead.</p>
+      <div class="filebox">
+        <div class="fbh">replace, then append &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; 'first' &gt; out/two.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; 'second' &gt;&gt; out/two.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/two.txt</span>
+first
+second
+<span class="cmd">PS C:\Users\you\ps-lab&gt; 'only' &gt; out/two.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/two.txt</span>
+only</code></pre>
+      </div>
+      <p>A redirect prints nothing on screen: the output went into the file. Notice what the last <code>&gt;</code> did to <code>first</code> and <code>second</code>. And do not use <code>&gt;</code> to mean &ldquo;greater than&rdquo;: Microsoft&rsquo;s about_Redirection page warns that <code>36 &gt; 42</code> does not compare anything, it writes 36 into a new file called <code>42</code>. Comparisons are <code>-gt</code> and <code>-lt</code>, as in Session 2.</p>
+      <p><b>What <code>&gt;</code> writes is what the screen would show.</b> Here is a search sent to a file and read back:</p>
+      <div class="filebox">
+        <div class="fbh">a search, redirected &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/*.log &gt; out/errors-raw.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/errors-raw.txt</span>
+
+logs\web-2026-03-01.log:5:2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-02.log:3:2026-03-02 10:12:02 ERROR GET /products/9999 404 not found
+logs\web-2026-03-03.log:3:2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+logs\web-2026-03-03.log:4:2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout</code></pre>
+      </div>
+      <p>The blank lines at the top and bottom and the <code>file:number:</code> in front came along too, because that is how a match is displayed. (A table sent to a file is cut to the width of your window, too, Microsoft&rsquo;s page notes, so a narrow window writes a narrower file.) Fine for a quick note to yourself; not what you want to hand to anyone else.</p>
+      <p><b><code>Set-Content</code></b> works differently: it writes the objects it is given as plain text, one per line, replacing the file&rsquo;s contents. <code>Set-Content FILE 'text'</code> writes the text you name, and <code>| Set-Content FILE</code> writes whatever comes down the pipe. Its partner <b><code>Add-Content</code></b> appends instead of replacing. Handed whole matches, <code>Set-Content</code> writes each one in yet another form, with the file&rsquo;s full path in front:</p>
+      <div class="filebox">
+        <div class="fbh">whole matches, given to Set-Content &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/*.log | Set-Content out/errors-set.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/errors-set.txt -TotalCount 1</span>
+C:\Users\you\ps-lab\logs\web-2026-03-01.log:5:2026-03-01 09:06:03          <span class="cm">one line, wrapped here</span>
+ERROR POST /checkout 500 payment timeout</code></pre>
+      </div>
+      <p>The way to get exactly the text you want is the habit from Session 2: <b>pick the property first</b>. <code>-ExpandProperty Line</code> hands on just the text of each line, and <code>Set-Content</code> writes those lines and nothing else:</p>
+      <div class="filebox">
+        <div class="fbh">just the lines &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/*.log | Select-Object -ExpandProperty Line |</span>
+<span class="cmd">  Set-Content out/errors.txt</span>                                                  <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/errors.txt</span>
+2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout
+2026-03-02 10:12:02 ERROR GET /products/9999 404 not found
+2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Add-Content out/two.txt 'again'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/two.txt</span>
+only
+again</code></pre>
+      </div>
+      <p>Which to use: <code>&gt;</code> or <code>Out-File</code> to keep what you saw on screen; <code>Set-Content</code> and <code>Add-Content</code>, after picking the text, to write a file someone or something else will read. In Windows PowerShell 5.1, do not use <code>&gt;&gt;</code> to add to a file <code>Set-Content</code> wrote: section F shows why.</p>
+      <div class="note"><span class="nk">In Bash</span><code>&gt;</code> and <code>&gt;&gt;</code> mean the same in Bash: replace, and append. What goes into the file is the text the command printed, because text is all a Bash command produces.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write, append, replace</div>
+        <ol>
+          <li>Send a search for ERROR in the <code>.log</code> files in <code>logs</code> to <code>out/errors-raw.txt</code> with <code>&gt;</code>, and read it back.</li>
+          <li>Save just the text of those lines to <code>out/errors.txt</code> with <code>Set-Content</code>, and read it back.</li>
+          <li>In <code>out/two.txt</code>, write a line with <code>&gt;</code>, add one with <code>&gt;&gt;</code>, replace both with <code>&gt;</code>, then add one with <code>Add-Content</code>, reading the file after each step.</li>
+        </ol>
+        <details><summary>Hint</summary><p>A redirect goes at the end of the command, followed by the file. <code>Set-Content</code> goes at the end of a pipeline, after <code>Select-Object -ExpandProperty Line</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<p>They are the commands in the transcripts above, in order. If <code>out/errors.txt</code> has the four ERROR lines and nothing else, and <code>out/two.txt</code> ends with <code>only</code> and <code>again</code>, you have it.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I wrote, appended and replaced, and saved just the lines I wanted</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Bytes, encodings and line endings</h3>
+      <p>A file on disk is a row of <b>bytes</b>, small numbers from 0 to 255, and a file&rsquo;s Length is how many there are. Text has to be turned into bytes to be saved, and the rule for doing that is the file&rsquo;s <b>encoding</b>. PowerShell 7 uses <b>UTF-8</b>, the most common encoding today, in which each plain English letter, digit or space is one byte. So <code>hello</code> should be five bytes. It is seven:</p>
+      <div class="filebox">
+        <div class="fbh">one word, two ways &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; 'hello' | Out-File out/hello.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Content out/hello2.txt 'hello'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem out/hello*.txt | Select-Object Name, Length</span>
+
+Name       Length
+----       ------
+hello.txt       7
+hello2.txt      7</code></pre>
+      </div>
+      <p>The other two bytes mark the <b>end of the line</b>. On Windows, PowerShell ends every line it writes with two invisible characters: a carriage return, called <b>CR</b>, and a line feed, <b>LF</b>. Together they are CRLF, the Windows line ending. The lab&rsquo;s own files were written with LF alone, the line ending of Linux and macOS, which is why copying <code>README.txt</code>&rsquo;s four lines makes a file four bytes longer:</p>
+      <div class="filebox">
+        <div class="fbh">the same four lines, two line endings &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content README.txt | Set-Content out/readme-copy.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem README.txt, out/readme-copy.txt | Select-Object Name, Length</span>
+
+Name            Length
+----            ------
+README.txt         183
+readme-copy.txt    187</code></pre>
+      </div>
+      <p>Every byte count in this session was taken on Windows. Microsoft&rsquo;s .NET documentation gives LF alone as the line ending on Unix systems such as Linux and macOS, so there expect one byte less per line; this workbook did not run them there.</p>
+      <p><b>Letters beyond plain English take more bytes.</b> In UTF-8, <code>é</code> is two bytes, so <code>café</code> on one line is seven: three, two, and the line ending. (Copy the command from this page if your keyboard has no é.)</p>
+      <div class="filebox">
+        <div class="fbh">an accented letter &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Content out/cafe.txt 'café'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem out/cafe.txt | Select-Object -ExpandProperty Length</span>
+7
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/cafe.txt</span>
+café</code></pre>
+      </div>
+      <p><b>Why the same command can write two different files.</b> Windows PowerShell&rsquo;s defaults were set before UTF-8 became the norm on Windows, and its file-writing commands do not even agree with each other. <code>Out-File</code>, <code>&gt;</code> and <code>&gt;&gt;</code> write <b>UTF-16</b>, an encoding with two bytes for every plain letter, and start the file with a <b>BOM</b>, a byte order mark: a few bytes at the very start that announce which encoding follows. <code>Set-Content</code> and <code>Add-Content</code> use the older Windows encoding Microsoft calls <b>ANSI</b>, one byte per letter, whose letters beyond plain English depend on the computer&rsquo;s language settings. Microsoft&rsquo;s about_Character_Encoding page lists every default, and in 5.1 this machine gave:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Command</div><div class="fn">5.1 writes</div><div class="fd"><code>hello</code> took</div></div>
+        <div class="frow"><div class="fc">Out-File, &gt;, &gt;&gt;</div><div class="fn">UTF-16, with a BOM</div><div class="fd">16 bytes: 2 for the BOM, 2 per letter, 4 for CRLF</div></div>
+        <div class="frow"><div class="fc">Set-Content, Add-Content</div><div class="fn">ANSI (Add-Content on an existing file matches that file&rsquo;s encoding)</div><div class="fd">7 bytes</div></div>
+        <div class="frow"><div class="fc">all of them, in PowerShell 7</div><div class="fn">UTF-8, no BOM</div><div class="fd">7 bytes</div></div>
+      </div>
+      <p>Plain English text survives all of this: every version reads every one of these <code>hello</code> files back as <code>hello</code>. The trouble comes with letters beyond plain English, when one version writes and the other reads. A UTF-8 file with no BOM gives 5.1 no hint, so it assumes ANSI and reads each two-byte letter as two wrong ones. Telling it the encoding with <b><code>-Encoding</code></b> fixes it:</p>
+      <div class="filebox">
+        <div class="fbh">PowerShell 7&rsquo;s cafe.txt, read in Windows PowerShell 5.1 &middot; captured live</div>
+<pre data-shell="5.1"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/cafe.txt</span>
+cafÃ©
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/cafe.txt -Encoding utf8</span>
+café</code></pre>
+      </div>
+      <p>The habit to take away: <b>when a file is going to another program, another computer or the other version, say which encoding to use, with <code>-Encoding utf8</code>, when you write it and when you read it.</b> <code>Out-File</code>, <code>Set-Content</code>, <code>Add-Content</code>, <code>Get-Content</code> and <code>Select-String</code> all take it. One catch: in 5.1, <code>-Encoding utf8</code> writes a BOM, and in 7 it does not (7 calls the BOM version <code>utf8BOM</code>). Given <code>-Encoding utf8</code>, both versions read either kind correctly. And if you ever need UTF-16 itself, its <code>-Encoding</code> name is <code>unicode</code>, for historical reasons: <code>'hello' | Out-File FILE -Encoding unicode</code> makes the same kind of file 5.1&rsquo;s <code>Out-File</code> does. The 5.1 trap from section E is one direction only: <code>&gt;&gt;</code> onto a file <code>Set-Content</code> made adds UTF-16 to an ANSI file, because, as the about_Character_Encoding page warns, <code>&gt;&gt;</code> makes no attempt to match the file&rsquo;s existing encoding. <code>Add-Content</code> does match it, which makes it the safe way to append in either version.</p>
+      <details class="note"><summary><b>Look under the hood: the bytes themselves</b> (optional, not graded, PowerShell 7)</summary>
+      <p>When two files look the same on screen but one of them breaks the program that reads it, the difference is in the bytes, and <code>Format-Hex</code> shows them. It prints each byte as two characters from <code>00</code> to <code>FF</code> (a counting system called hexadecimal, which you do not need to learn to read this). Ignore the long Offset numbers on the left and the column on the right; read only the Bytes in the middle, and look for three landmarks:</p>
+      <ul class="pts">
+        <li><b><code>0D 0A</code></b> at the end of a line is CRLF, the Windows line ending. <code>0A</code> on its own is LF.</li>
+        <li><b><code>FF FE</code></b> at the very start is the BOM of a UTF-16 file.</li>
+        <li><b><code>00</code></b> after every letter means UTF-16: the second byte of each two-byte letter.</li>
+      </ul>
+      <p>With <code>-Encoding unicode</code> from above you can make 5.1&rsquo;s kind of file in 7, and compare:</p>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Format-Hex out/hello.txt</span>
+
+   Label: C:\Users\you\ps-lab\out\hello.txt
+
+          Offset Bytes                                           Ascii
+                 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+          ------ ----------------------------------------------- -----
+0000000000000000 68 65 6C 6C 6F 0D 0A                            hello&#xFFFD;&#xFFFD;
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; 'hello' | Out-File out/hello16.txt -Encoding unicode</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Format-Hex out/hello16.txt</span>
+
+   Label: C:\Users\you\ps-lab\out\hello16.txt
+
+          Offset Bytes                                           Ascii
+                 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+          ------ ----------------------------------------------- -----
+0000000000000000 FF FE 68 00 65 00 6C 00 6C 00 6F 00 0D 00 0A 00 ÿþh e l l o &#xFFFD; &#xFFFD; 
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Format-Hex README.txt -Count 32</span>
+
+   Label: C:\Users\you\ps-lab\README.txt
+
+          Offset Bytes                                           Ascii
+                 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+          ------ ----------------------------------------------- -----
+0000000000000000 46 65 72 6E 68 69 6C 6C 20 47 6F 6F 64 73 3A 20 Fernhill Goods: 
+0000000000000010 70 72 61 63 74 69 63 65 20 6C 61 62 0A 41 20 6D practice lab&#xFFFD;A m</code></pre>
+      <p>In the first, <code>hello</code> is five bytes and <code>0D 0A</code> ends it. In the second, the file starts <code>FF FE</code> and every letter is followed by <code>00</code>. In the third (<code>-Count 32</code> shows just the first 32 bytes), README&rsquo;s first line, &ldquo;Fernhill Goods: practice lab&rdquo;, ends in <code>0A</code> alone. (The right-hand column shows each byte as a character where it can: <code>00</code> as a space, <code>FF FE</code> as <code>ÿþ</code>, and <code>&#xFFFD;</code> for the line-ending bytes; your terminal may draw these differently.) You will meet that difference again in the Linux &amp; the Shell track: a Bash script saved with CRLF endings fails in confusing ways, and this is how you see why. Windows PowerShell 5.1 has <code>Format-Hex</code> too, laid out differently and without <code>-Count</code>.</p>
+      </details>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Count the bytes</div>
+        <p>These counts are Windows counts. On macOS or Linux, expect one byte less for every line written, and the README copy to stay 183 bytes, because there PowerShell ends a line with LF alone.</p>
+        <ol>
+          <li>Write <code>hello</code> to <code>out/hello.txt</code> with <code>Out-File</code> and to <code>out/hello2.txt</code> with <code>Set-Content</code>, and compare their Lengths. Account for every byte.</li>
+          <li>Copy <code>README.txt</code>&rsquo;s lines into <code>out/readme-copy.txt</code> with <code>Set-Content</code>, and explain why, on Windows, it is four bytes longer.</li>
+          <li>Write <code>café</code> to <code>out/cafe.txt</code>, and check its Length.</li>
+          <li>Optional, on Windows only: open <b>Windows PowerShell</b> (5.1) from the Start menu, go to <code>~/ps-lab</code>, and read <code>out/cafe.txt</code> with and without <code>-Encoding utf8</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Each line written on Windows ends in two bytes. README.txt has four lines, each ending in one byte.</p></details>
+        <details><summary>Show the answers</summary>
+<p>Step 1: both are 7 bytes in PowerShell 7 on Windows, five letters and CRLF (expect 6 on macOS and Linux). Step 2: on Windows, <code>Set-Content</code> ends each of the four lines with CRLF where the original had LF, one more byte per line: 183 + 4 = 187 (expect 183 on macOS and Linux). Step 3: 7 bytes on Windows (expect 6 on macOS and Linux), because é takes two. In step 4, 5.1 shows <code>cafÃ©</code> until you add <code>-Encoding utf8</code>.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I accounted for every byte in a file I wrote</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Copy, rename, move and delete</h3>
+      <p>Four cmdlets do the rest, each with the path of the item first:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Cmdlet</div><div class="fn">What comes second</div><div class="fd">Example</div></div>
+        <div class="frow"><div class="fc">Copy-Item</div><div class="fn">where the copy goes: a folder, or a new path</div><div class="fd"><code>Copy-Item exports/notes.txt out</code></div></div>
+        <div class="frow"><div class="fc">Rename-Item</div><div class="fn">the new <b>name</b> only, never a folder</div><div class="fd"><code>Rename-Item out/a.txt b.txt</code></div></div>
+        <div class="frow"><div class="fc">Move-Item</div><div class="fn">where it goes: a folder, or a new path</div><div class="fd"><code>Move-Item out/b.txt out/archive</code></div></div>
+        <div class="frow"><div class="fc">Remove-Item</div><div class="fn">nothing: it deletes</div><div class="fd"><code>Remove-Item out/b.txt -WhatIf</code></div></div>
+      </div>
+      <p>Copying a file into a folder keeps its name; copying it to a path gives the copy that name. A wildcard works in <code>Copy-Item</code>&rsquo;s first path, as it did for <code>Select-String</code>: <code>Copy-Item exports/report* out</code> copies every report.</p>
+      <div class="filebox">
+        <div class="fbh">two copies of one file &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Copy-Item exports/notes.txt out</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Copy-Item exports/notes.txt out/notes-copy.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem out -Filter 'notes*' -Name</span>
+notes-copy.txt
+notes.txt</code></pre>
+      </div>
+      <p><b>A copy onto a name that is already taken replaces that file, without asking.</b> Here the report is copied over the copy of the notes, and the notes are gone:</p>
+      <div class="filebox">
+        <div class="fbh">copying over an existing file &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Copy-Item exports/report-final.csv out/notes.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/notes.txt</span>
+Day,Orders,Revenue
+2026-03-01,2,92.00</code></pre>
+      </div>
+      <p><code>Rename-Item</code> and <code>Move-Item</code> are more careful: onto a name that is taken, they stop with an error and change nothing. <code>Move-Item</code> into a folder keeps the name, so you make the folder first:</p>
+      <div class="filebox">
+        <div class="fbh">rename, refuse, move &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Rename-Item out/notes-copy.txt notes-old.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Rename-Item out/notes-old.txt notes.txt</span>
+Rename-Item: Cannot create a file when that file already exists.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Move-Item out/notes-old.txt out/two.txt</span>
+Move-Item: Cannot create a file when that file already exists.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/archive</span>
+
+    Directory: C:\Users\you\ps-lab\out
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           10/7/2026  9:53 AM                archive                   <span class="cm">your date</span>
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Move-Item out/notes-old.txt out/archive</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem out/archive -Name</span>
+notes-old.txt</code></pre>
+      </div>
+      <p><b>Preview, then delete.</b> <code>Remove-Item</code> deletes for good: it does not send files to the Recycle Bin. Every cmdlet in this session that creates, writes, copies, moves, renames or deletes takes the switch <b><code>-WhatIf</code></b>, which prints what it <i>would</i> do and does nothing. With a wildcard, that preview is the only way to see the list before it is too late:</p>
+      <div class="filebox">
+        <div class="fbh">a preview, then the real thing &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item out/errors*.txt -WhatIf</span>
+What if: Performing the operation "Remove File" on target "C:\Users\you\ps-lab\out\errors-raw.txt".
+What if: Performing the operation "Remove File" on target "C:\Users\you\ps-lab\out\errors-set.txt".
+What if: Performing the operation "Remove File" on target "C:\Users\you\ps-lab\out\errors.txt".
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item out/notes.txt -WhatIf</span>
+What if: Performing the operation "Remove File" on target "C:\Users\you\ps-lab\out\notes.txt".
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item out/notes.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path out/notes.txt</span>
+False</code></pre>
+      </div>
+      <p>The wildcard preview showed three files where you might have meant one; nothing was deleted. Make it a habit: run the command with <code>-WhatIf</code>, read the list, then press the up arrow, delete <code>-WhatIf</code> and run it for real. A folder that still has things in it needs <code>-Recurse</code> as well, which deletes everything inside it; without <code>-Recurse</code>, Microsoft&rsquo;s Remove-Item page says PowerShell stops and asks you to confirm. In this workbook, delete only inside <code>out</code>.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every command in this section behaves the same in 5.1; the two refusals print the longer error form.</div>
+      <div class="note"><span class="nk">In Bash</span>The commands are <code>cp</code> (copy), <code>mv</code> (move, and also rename) and <code>rm</code> (delete; <code>rm -r</code> for a folder and everything in it). <code>cp</code> replaces an existing file without asking, like <code>Copy-Item</code>; <code>mv</code> does too, unlike <code>Move-Item</code>. <code>rm</code> has no <code>-WhatIf</code>.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Copy, rename, move, delete</div>
+        <ol>
+          <li>Copy <code>data/tickets.csv</code> into <code>out</code>, then copy it again to <code>out/tickets-backup.csv</code>.</li>
+          <li>Rename <code>out/tickets-backup.csv</code> to <code>tickets-old.csv</code>, and move it into <code>out/archive</code>.</li>
+          <li>Preview deleting every <code>.csv</code> file in <code>out</code> with <code>-WhatIf</code>. Then delete just <code>out/tickets.csv</code>, and check it is gone.</li>
+        </ol>
+        <details><summary>Hint</summary><p><code>Rename-Item</code> takes the new name without a folder. <code>out/archive</code> already exists from the transcript above; if you skipped it, make it first.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Copy-Item data/tickets.csv out</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Copy-Item data/tickets.csv out/tickets-backup.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Rename-Item out/tickets-backup.csv tickets-old.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Move-Item out/tickets-old.csv out/archive</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item out/*.csv -WhatIf</span>
+What if: Performing the operation "Remove File" on target "C:\Users\you\ps-lab\out\tickets.csv".
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item out/tickets.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path out/tickets.csv</span>
+False</code></pre>
+<p>The preview lists one file, because <code>tickets-old.csv</code> is in <code>out/archive</code> by then, and <code>out/*.csv</code> looks only in <code>out</code>.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I copied, renamed, moved, and deleted only after a preview</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: an error report of your own</h3>
+      <p>Do this from your terminal, without scrolling back up. It joins today&rsquo;s pieces: a search, its results saved as clean text, and the file handled safely.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: save the errors</div>
+        <ol>
+          <li>From the lab, with one pipeline, search <b>every</b> log anywhere in <code>logs</code>, the archive included, for ERROR, and save just the text of each matching line to <code>out/errors.txt</code>, replacing what is there.</li>
+          <li>Read the file back, and check it has the old archive error in it.</li>
+          <li>Make a folder <code>out/sent</code>, copy <code>out/errors.txt</code> into it, and rename the copy <code>errors-2026-03.txt</code>.</li>
+          <li>Preview deleting <code>out/errors.txt</code>, without deleting it.</li>
+        </ol>
+        <p>You have hit the milestone when each step came from a command you typed, without copying it from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -Recurse -File | Select-String ERROR |</span>
+<span class="cmd">  Select-Object -ExpandProperty Line | Set-Content out/errors.txt</span>      <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/errors.txt</span>
+2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout
+2026-03-02 10:12:02 ERROR GET /products/9999 404 not found
+2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout
+2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout
+2026-02-28 16:41:12 ERROR GET /cart 503 maintenance
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/sent</span>
+
+    Directory: C:\Users\you\ps-lab\out
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           10/7/2026  9:53 AM                sent                      <span class="cm">your date</span>
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Copy-Item out/errors.txt out/sent</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Rename-Item out/sent/errors.txt errors-2026-03.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem out/sent -Name</span>
+errors-2026-03.txt
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item out/errors.txt -WhatIf</span>
+What if: Performing the operation "Remove File" on target "C:\Users\you\ps-lab\out\errors.txt".</code></pre>
+<p><code>logs/*.log</code> would have missed the archive: only <code>Get-ChildItem -Recurse</code> reaches inside <code>logs/archive</code>. Without <code>-ExpandProperty Line</code>, the file would hold full paths and line numbers as well. The copy has to go into <code>out/sent</code> before it can be renamed there, so the order of step 3 is fixed.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> I built the error report from memory</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from reading one search, through patterns and match properties, to writing, copying and tracing a whole sequence.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh lab with an empty <code>out</code> folder</b> (paste the setup block, then <code>New-Item -ItemType Directory out</code>). Where a drill runs several commands, they run in the order shown. Each was run on 2026-10-07 in PowerShell 7.6 and Windows PowerShell 5.1 and printed the same answer in both; D7&rsquo;s byte count is a Windows count. Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading commands and writing them. First put a short job back into order, then fill the blanks in three commands.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. The first three lines are one pipeline typed over three lines, each ending in <code>|</code> until the last.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the commands in the box, run them in your terminal, then reveal the reference to compare. More than one answer can be right, so judge yours by what it did. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your commands did what the task asked, or <b>Needs another pass</b> to keep going. Every file goes in <code>out</code>. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the six questions below come from earlier sessions, one from <b>Session 2</b> and one from <b>Session 1</b>, because recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 03 of 10 &middot; Hit the milestone unassisted, then tick <b>S03</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>.
+    <br><br>
+    <b>Your 15-minute review, tomorrow if you can:</b> paste the setup block to rebuild the lab, which also clears your <code>out</code> folder. Then, with this page closed, redo the error search from memory: make <code>out</code>, save every ERROR line from every log, archive included, to <code>out/errors.txt</code>, and read it back. Finish by previewing a delete with <code>-WhatIf</code>. Anything you had to look up goes on a sticky note for next time. The <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about" target="_blank" rel="noopener">about topics</a> in Microsoft&rsquo;s PowerShell reference (free) are where today&rsquo;s details live: start with about_Redirection and about_Character_Encoding, the two pages this session quotes. &middot; Next: <b>Session 4, structured data</b>, where a CSV file&rsquo;s rows become objects you can count and total.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s03-workbook-v1";
+  /* Spaced review: Part 6's Q5 comes from Session 2 and Q6 from Session 1, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S01_URL = "ps-session-01.html";
+  var S02_URL = "ps-session-02.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare values, one per line (-ExpandProperty LineNumber, Filename, Length), inside
+     file:number:line search results (the colon is in the split class), as table cells,
+     and inside log lines (a time such as 09:06:03). No answer is ever wrapped in
+     parentheses; 5.1's long error form wraps text in them, but no answer comes from it.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 3 is:
+     its answers are line numbers, counts, file names, a word, a CSV header and a time.
+     D2 is ABOUT -CaseSensitive, but its answer is a count, so case never reaches the
+     grader (build contract section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in Session 3 is: its blanks are cmdlet,
+     parameter and property names and the redirection operator >, all of which
+     PowerShell matches in any case. Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 4 value, 2 set, 1 seq, 3 count. S3's grader flags are in the
+     build contract, section 4: caseFold ON, parenLabels OFF, no drill cs: true. Every drill
+     was run on 2026-10-07 from a fresh lab with an empty out folder, in PowerShell 7.6.5 and
+     Windows PowerShell 5.1.26100, and printed the same answer in both (_build/verify_s03.py).
+     D7's byte count is scoped to Windows in its ask: on Linux and macOS lines end in LF
+     alone. No answer depends on the order of an unsorted listing: D1 reads one file, whose
+     line order is fixed; D5 and D8 are sets. */
+  var DRILLS = [
+    { type: 'seq', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'List the numbers it prints, in order, separated by commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> Select-String checkout logs/web-2026-03-01.log |\n  Select-Object -ExpandProperty LineNumber', ans: '5, 6',
+      why: '5, 6. The fifth line of the 1 March log is the failed checkout and the sixth is the retry that worked; both contain checkout. LineNumber is the property of each match that holds its line number, counting the first line as 1.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'How many matching lines does it print? Answer with a number.',
+      code: 'PS C:\\Users\\you\\ps-lab> Select-String error logs/web-2026-03-03.log -CaseSensitive', ans: '0', alt: ['zero', 'none'],
+      why: '0. The log has two ERROR lines, but they are in capitals. Select-String ignores capitals unless you add -CaseSensitive, and with it, error in small letters matches nothing.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Which file name does it print? Give the name only, without a folder.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-ChildItem logs -Recurse -File | Select-String 503 |\n  Select-Object -ExpandProperty Filename', ans: 'web-2026-02-28.log',
+      why: 'web-2026-02-28.log, the old log in logs/archive. Its 503 maintenance error is the only line in any log with 503 in it, and -Recurse is what hands that file to Select-String. Filename holds just the name; Path would hold the full path.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'How many matching lines does it print? Answer with a number.',
+      code: "PS C:\\Users\\you\\ps-lab> Select-String '.50' logs/web-2026-03-03.log", ans: '3', alt: ['three'],
+      why: '3. In a regular expression the dot means any one character, so .50 matches any character followed by 50: the space before 500 on the two failed checkouts, and the slash before 5003 in GET /orders/5003. The log has no real dot followed by 50 at all; with -SimpleMatch the answer would be 0.' },
+
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Which numbers does it print? Give them separated by commas. Order does not matter.',
+      code: "PS C:\\Users\\you\\ps-lab> Select-String 'GET /products' logs/web-2026-03-02.log -SimpleMatch |\n  Select-Object -ExpandProperty LineNumber", ans: '1, 2, 3',
+      why: '1, 2 and 3. -SimpleMatch takes GET /products literally, and it is found anywhere in a line: line 1 is GET /products, line 2 is GET /products/1077, and line 3 is the ERROR line for GET /products/9999. Line 4 is a POST, so it does not match.' },
+
+    { type: 'value', lbl: 'in ps-lab, out is empty',
+      scen: '',
+      ask: 'The four commands run in order. What does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> 'one' > out/t.txt\nPS C:\\Users\\you\\ps-lab> 'two' >> out/t.txt\nPS C:\\Users\\you\\ps-lab> 'three' > out/t.txt\nPS C:\\Users\\you\\ps-lab> Get-Content out/t.txt", ans: 'three',
+      why: 'three. > replaces everything in the file, and >> appends. After the first two the file held one and two; the third > threw both away and wrote three alone, without asking.' },
+
+    { type: 'count', lbl: 'in ps-lab, out is empty',
+      scen: '',
+      ask: 'On Windows, what number does the second command print?',
+      code: "PS C:\\Users\\you\\ps-lab> Set-Content out/ok.txt 'ok'\nPS C:\\Users\\you\\ps-lab> Get-ChildItem out/ok.txt | Select-Object -ExpandProperty Length", ans: '4', alt: ['four'],
+      why: '4. Length counts bytes: one each for o and k, and two for the line ending, because on Windows each line written ends in CR and LF. Linux and macOS end a line with LF alone, so there it would be 3.' },
+
+    { type: 'set', lbl: 'in ps-lab, out is empty',
+      scen: '',
+      ask: 'The five commands run in order. Which names does the last one print? Give them separated by commas. Order does not matter.',
+      code: "PS C:\\Users\\you\\ps-lab> Copy-Item exports/notes.txt out\nPS C:\\Users\\you\\ps-lab> Copy-Item out/notes.txt out/notes2.txt\nPS C:\\Users\\you\\ps-lab> Rename-Item out/notes.txt read-me.txt\nPS C:\\Users\\you\\ps-lab> Remove-Item out/read-me.txt -WhatIf\nPS C:\\Users\\you\\ps-lab> Get-ChildItem out -Name", ans: 'notes2.txt, read-me.txt',
+      why: 'notes2.txt and read-me.txt. The first copy keeps the name notes.txt, the second makes notes2.txt, and the rename turns notes.txt into read-me.txt. -WhatIf only describes the delete, so read-me.txt is still there.' },
+
+    { type: 'value', lbl: 'in ps-lab, out is empty',
+      scen: '',
+      ask: 'The three commands run in order. What does the last one print? Give the line exactly as printed.',
+      code: 'PS C:\\Users\\you\\ps-lab> Copy-Item exports/notes.txt out\nPS C:\\Users\\you\\ps-lab> Copy-Item exports/report-final.csv out/notes.txt\nPS C:\\Users\\you\\ps-lab> Get-Content out/notes.txt | Select-Object -First 1', ans: 'Day,Orders,Revenue', alt: ['Day, Orders, Revenue'],
+      why: 'Day,Orders,Revenue, the first line of the report. Copying onto a name that is already taken replaces that file without asking, so out/notes.txt now holds the report, not the notes. Rename-Item and Move-Item would have refused; Copy-Item does not.' },
+
+    { type: 'value', lbl: 'trace it: the matches, as Select-Object Filename, LineNumber shows them',
+      scen: 'web-2026-03-01.log          5\nweb-2026-03-02.log          3\nweb-2026-03-03.log          3\nweb-2026-03-03.log          4',
+      ask: 'Work through it one stage at a time. What time is on the line it prints? Give it as printed.',
+      code: 'Select-String ERROR logs/*.log | Where-Object LineNumber -gt 4 |\n  Select-Object -ExpandProperty Line', ans: '09:06:03', alt: ['9:06:03'],
+      why: '09:06:03. Each match is an object with a LineNumber, so Where-Object can test it like any property. Only the match on line 5 of the 1 March log has a LineNumber greater than 4 (line 4 is not greater than 4), and -ExpandProperty Line prints its text: 2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item (build contract section 4): its order is forced. The three pipeline lines
+     must run search, pick, write (a stage only receives what the one before it handed
+     on, and only the last line has no |); the copy needs out/errors.txt to exist; the
+     rename needs the copy. The prompt narrates the steps in that order. */
+  var PARSONS = [
+    { prompt: 'From the lab, with out already made: in one pipeline typed over three lines, search the .log files in logs for ERROR and save just the text of each matching line to out/errors.txt. Then copy that file to out/errors-copy.txt, and rename the copy errors-old.txt.',
+      lines: ['Select-String ERROR logs/*.log |',
+              'Select-Object -ExpandProperty Line |',
+              'Set-Content out/errors.txt',
+              'Copy-Item out/errors.txt out/errors-copy.txt',
+              'Rename-Item out/errors-copy.txt errors-old.txt'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: cmdlet, parameter and
+     property names and the redirection operator are case-insensitive in PowerShell. F1
+     and F3 ask for FULL cmdlet names (sls and del are aliases). F2's last blank is a
+     redirection operator; "replacing anything in it" rules out >>. Every hyphen sits
+     outside its box, and each prompt names the order of its blanks. */
+  var FADED = [
+    { prompt: 'Find the lines in the .log files in logs that contain GET /cart, taking the slash and the space literally. Fill in the full name of the cmdlet that searches inside files, then the switch that takes a pattern literally. The hyphen is already in place.',
+      code: "%% 'GET /cart' logs/*.log -%%", ans: ['Select-String', 'SimpleMatch'] },
+    { prompt: 'Save just the text of every ERROR line in the .log files in logs to out/errors.txt, replacing anything already in it. Fill in the parameter that hands on one property’s bare values, then the property that holds a match’s text, then a redirection operator (not a cmdlet). The hyphen is already in place.',
+      code: 'Select-String ERROR logs/*.log | Select-Object -%% %% %% out/errors.txt', ans: ['ExpandProperty', 'Line', '>'] },
+    { prompt: 'Preview deleting every .txt file in out, without deleting anything. Fill in the full name of the cmdlet that deletes, then the switch that only describes what would happen. The hyphen is already in place.',
+      code: '%% out/*.txt -%%', ans: ['Remove-Item', 'WhatIf'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'From the lab, show the Filename, LineNumber and Line of every line, in every log anywhere in logs, that contains slow.',
+      sol: "Get-ChildItem logs -Recurse -File | Select-String slow |\n  Select-Object Filename, LineNumber, Line\n\nIt prints:\nFilename           LineNumber Line\n--------           ---------- ----\nweb-2026-03-01.log          3 2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms\nweb-2026-03-03.log          2 2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms\nweb-2026-03-03.log          7 2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms\n\nThe first line ends in |, so PowerShell waits for the rest.\n-Recurse hands Select-String every log, the archive too.\nNo archived line is slow, so logs/*.log would have printed\nthe same; -Recurse is the habit that never misses one." },
+    { task: 'Save the lines of data/orders.csv for orders that are still pending to out/pending.txt, with nothing else in the file, then read the file back.',
+      sol: "Select-String pending data/orders.csv | Select-Object -ExpandProperty Line |\n  Set-Content out/pending.txt\nGet-Content out/pending.txt\n\nIt prints:\n5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending\n5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending\n\nWithout -ExpandProperty Line, Set-Content would write each\nmatch with the file’s full path and line number in front." },
+    { task: 'Copy every file in exports whose name starts with report into out, keeping their names. Then list just the names of the report files now in out.',
+      sol: "Copy-Item exports/report* out\nGet-ChildItem out -Filter 'report*' -Name\n\nIt prints:\nreport-FINAL-really.csv\nreport-final-v2.csv\nreport-final.csv\n\nA wildcard in Copy-Item’s first path copies every match.\nThe listing is not sorted; this is the order Windows gave." },
+    { task: 'Write the word hello to out/word16.txt in UTF-16, then print just its Length. Account for every byte.',
+      sol: "'hello' | Out-File out/word16.txt -Encoding unicode\nGet-ChildItem out/word16.txt | Select-Object -ExpandProperty Length\n\nIt prints:\n16\n\nOn Windows: 2 bytes for the BOM, 2 for each of the five\nletters, and 4 for the line ending, CR and LF at 2 bytes\neach. unicode is the -Encoding name for UTF-16." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Sixteen cards, sized to the atoms THIS session has (band 12-16, cap 18). The deck
+     stays session-local: re-testing Sessions 1 and 2 is Part 6's job. */
+  var CARDS = [
+    { f: 'New-Item -ItemType Directory out', b: 'makes a folder called out; without -ItemType, New-Item makes an empty file' },
+    { f: 'Test-Path out/todo.txt', b: 'True if it exists, False if it does not' },
+    { f: 'Select-String ERROR logs/*.log', b: 'prints every line containing ERROR in every .log file in logs, as file:line number:line' },
+    { f: 'Does Select-String care about capital letters?', b: 'no; add -CaseSensitive when it should' },
+    { f: 'Filename, LineNumber, Line', b: 'a match’s file name, its line number, and the text of the line' },
+    { f: 'Searching logs/archive as well', b: 'Get-ChildItem logs -Recurse -File | Select-String ERROR' },
+    { f: '. and * in a Select-String pattern', b: '. means any one character, and * does not work the way -like uses it; when your text has either, add -SimpleMatch' },
+    { f: '-SimpleMatch', b: 'take the pattern literally, character for character' },
+    { f: '> and >>', b: 'replace the file’s contents, without asking; append to the end of the file' },
+    { f: 'Set-Content and Add-Content', b: 'write the text they are given, replacing the file; the same, appending' },
+    { f: 'Saving just the text of each match', b: 'Select-Object -ExpandProperty Line | Set-Content FILE' },
+    { f: 'What PowerShell 7 writes', b: 'UTF-8 with no BOM, from every command; plain English letters are one byte each' },
+    { f: 'Out-File and > in Windows PowerShell 5.1', b: 'UTF-16 with a BOM: two bytes per plain letter, plus two at the start' },
+    { f: 'CRLF and LF', b: 'the Windows line ending, two bytes; the Linux and macOS line ending, one byte' },
+    { f: 'Copy-Item onto a name that is taken', b: 'replaces that file without asking (Rename-Item and Move-Item refuse)' },
+    { f: '-WhatIf', b: 'shows what the command would do, and does nothing' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four questions on Session 3 and two spaced-review questions, Q5 from Session 2 and
+     Q6 from Session 1, whose review links open those sessions. Correct-option length
+     ranks (longest = 1), computed by hand: 3, 2, 2, 3, 2, 3. Never strictly the longest
+     or shortest (check-quiz.py 0/6 on both), and no single rank reaches the pass mark of
+     5. Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: "Select-String '*ERROR*' logs/*.log stops with an error saying the pattern is not a valid regular expression. What is the simplest fix?",
+      o: ['Drop the stars: Select-String ERROR logs/*.log',
+          'Use double quotes instead: "*ERROR*"',
+          'Add -CaseSensitive, so the pattern is read exactly as typed',
+          'Add -SimpleMatch, so the stars are read as wildcards the way -like reads them'],
+      c: 0,
+      e: 'Select-String already finds the pattern anywhere in a line, so the stars that -like needed are not needed here, and in a regular expression a * cannot come first. -SimpleMatch takes the stars literally, as real star characters, so it finds nothing; -CaseSensitive is about capitals; and the kind of quotes changes nothing.',
+      part: { id: 'concept-d', label: 'D. When the pattern is not plain text' } },
+
+    { q: "In Windows PowerShell 5.1, 'hello' | Out-File out/hello.txt made a 16-byte file, but Set-Content out/hello2.txt 'hello' made a 7-byte one. Why?",
+      o: ['Out-File wrote UTF-16: a BOM, then two bytes for each character',
+          'Out-File adds a blank line at the end',
+          'Out-File saves the text twice, once for the screen and once for the file',
+          'Set-Content drops the line ending'],
+      c: 0,
+      e: '5.1’s Out-File, > and >> write UTF-16: 2 bytes of BOM at the start, then 2 bytes for each of the five letters and for each of CR and LF, 16 in all. Set-Content writes ANSI, one byte each, and it keeps the line ending: five letters plus CR and LF is 7. PowerShell 7 writes UTF-8 from both, 7 bytes each.',
+      part: { id: 'concept-f', label: 'F. Bytes, encodings and line endings' } },
+
+    { q: 'Which command saves just the text of each ERROR line in the .log files in logs, with no file names and no blank lines?',
+      o: ['Select-String ERROR logs/*.log | Select-Object -ExpandProperty Line | Set-Content out/errors.txt',
+          'Select-String ERROR logs/*.log > out/errors.txt',
+          'Select-String ERROR logs/*.log | Set-Content out/errors.txt',
+          'Select-String ERROR logs/*.log | Select-Object Filename, LineNumber, Line | Set-Content out/errors.txt'],
+      c: 0,
+      e: '-ExpandProperty Line hands on only the text of each match, and Set-Content writes that text. > writes what the screen shows, blank line and file:number: prefix included; whole matches given to Set-Content come out with the full path in front; and picking three properties keeps the file name and line number.',
+      part: { id: 'concept-e', label: 'E. Writing files' } },
+
+    { q: 'out/notes.txt already exists. What does Copy-Item exports/report-final.csv out/notes.txt do?',
+      o: ['Replaces out/notes.txt with the report, without asking',
+          'Stops with an error, because a file called notes.txt is already in out',
+          'Saves the copy beside it under a new name, notes (2).txt, keeping both',
+          'Asks you to confirm before replacing it'],
+      c: 0,
+      e: 'Copy-Item replaces a file whose name is taken, silently, so out/notes.txt now holds the report. Rename-Item and Move-Item are the ones that stop with "Cannot create a file when that file already exists". Nothing gets a new name, and nothing asks: preview with -WhatIf when it matters.',
+      part: { id: 'concept-g', label: 'G. Copy, rename, move and delete' } },
+
+    { q: 'Spaced review, from Session 2. Get-ChildItem logs -File | Sort-Object LastWriteTime -Descending put a different file first in 5.1 and in 7. What is the fix?',
+      o: ['Sort on LastWriteTime, Name, so Name settles the tie',
+          'Run it only in PowerShell 7',
+          'Add -First 1 to Sort-Object',
+          'Pipe it to Format-Table before sorting, so both versions draw the same table'],
+      c: 0,
+      e: 'Two logs were last changed at the same minute, a tie, and nothing says which of two tied objects comes first. A second property after a comma breaks the tie, the same way in both versions. -First belongs to Select-Object, not Sort-Object, and Format-Table goes last: after it, there is nothing left to sort.',
+      part: { ext: S02_URL + '#concept-d', label: 'Session 2, D. Sorting, then picking' } },
+
+    { q: 'Spaced review, from Session 1. You are in ps-lab/logs. Which command lists what is in the lab’s exports folder?',
+      o: ['Get-ChildItem ../exports',
+          'Get-ChildItem exports',
+          'Get-ChildItem ~/ps-lab/logs/exports',
+          'Get-ChildItem ../../exports'],
+      c: 0,
+      e: '.. is the folder one level up, here ps-lab, and exports is inside it. exports alone looks inside logs; ../.. climbs two levels, to your home folder; and ~/ps-lab/logs/exports looks for an exports folder inside logs, where there is none.',
+      part: { ext: S01_URL + '#concept-e', label: 'Session 1, E. Moving around: paths' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S03 on your Hub and move on to Session 4.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
