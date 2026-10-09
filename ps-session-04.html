@@ -1,0 +1,2027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 4: Structured data</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 35 characters, inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is Measure-Object (14 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 04 // Level 2 &middot; Working with Data</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Structured data: CSV and JSON</h1>
+    <p class="goal">Today a spreadsheet stops being lines of text and becomes rows of objects you can filter, count and total. You learn why a number in a CSV file is not yet a number, add columns of your own, and write your results as CSV and JSON files that other people and other programs can open.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Turn a folder of raw logs into a CSV summary report.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep PowerShell 7 open beside this page, in your lab.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. If you need a fresh lab, the first box below rebuilds it.</p>
+        <p><b>Every file you write today goes in <code>ps-lab/out</code></b>, which you make again in the first box, as in Session 3. The practice files from Session 1 are only ever read. Nothing to install; the Bash boxes are for reading, and nothing graded needs Bash.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">17</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Some tasks read files an earlier step wrote, so work each section in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. Every transcript was captured on Windows 11 in PowerShell 7.6, in a window 120 characters wide, running the sections in order from a fresh lab. Where a path shows <code>you</code>, your own user name appears instead. Listings were captured on Windows: on macOS and Linux, expect paths with <code>/</code>. The Bash boxes were captured in Git Bash on the same Windows machine, with its prompt shortened to <code>$</code>. A command too long for this page is wrapped after a <code>|</code> and marked <i>one line, wrapped here</i>: type it as one line, or press Enter after the <code>|</code> and finish it on the next line, as Session 2 showed. A printed line too long for this page is marked the same way, and one this page shortens is marked <i>cut short</i>.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including your <code>out</code> folder from Session 3, builds it fresh, exactly as Session 1 did, and moves you into it. Pasting it again is your undo button for the whole session.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 to 3)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. It ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+      <p>Then make the folder for today&rsquo;s files. <code>| Out-Null</code> on the end throws away what a command prints, so this one prints nothing; Session 3 showed the listing <code>New-Item</code> prints without it.</p>
+      <div class="filebox">
+        <div class="fbh">a place to write &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span></code></pre>
+      </div>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. Import-Csv: a spreadsheet&rsquo;s rows become objects</h3>
+      <p>Session 1 called a CSV file a spreadsheet saved as plain text: one row per line, commas between the columns, and a first line, the <b>header</b>, that names the columns. Read with <code>Get-Content</code>, it is just that, lines of text:</p>
+      <div class="filebox">
+        <div class="fbh">the tickets file, as text &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/tickets.csv</span>
+TicketId,Opened,Customer,Topic,Priority,State
+T-101,2026-03-01,Dara Singh,refund,high,closed
+T-102,2026-03-02,Chen Wei,delivery,low,closed
+T-103,2026-03-03,Gus Lind,payment,high,open
+T-104,2026-03-03,Ana Ruiz,payment,medium,open
+T-105,2026-03-03,Eli Moss,delivery,low,open</code></pre>
+      </div>
+      <p>In Session 2 you found the open tickets in those lines with <code>Where-Object { $_ -like '*,open' }</code>, which works only because State happens to be the last column. <b><code>Import-Csv</code></b> reads the same file as data: it turns each row into one object, and the header&rsquo;s names become that object&rsquo;s properties. Here are the first two rows:</p>
+      <div class="filebox">
+        <div class="fbh">the same file, as objects &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Select-Object -First 2</span>
+
+TicketId : T-101
+Opened   : 2026-03-01
+Customer : Dara Singh
+Topic    : refund
+Priority : high
+State    : closed
+
+TicketId : T-102
+Opened   : 2026-03-02
+Customer : Chen Wei
+Topic    : delivery
+Priority : low
+State    : closed</code></pre>
+      </div>
+      <p>Each object is shown as a <b>list</b>, one property per line, because it has six properties. For objects like these rows, which have no display layout of their own, PowerShell draws a table for four properties or fewer and a list for five or more (files have a layout, which is why their listings are tables), so pick fewer columns with <code>Select-Object</code> when you want a table (or end with <code>Format-Table</code>, the display command from Session 2, which always goes last). Now every tool from Session 2 works on columns by name, whatever their position in the file:</p>
+      <div class="filebox">
+        <div class="fbh">filter on a column, pick three &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Where-Object State -eq 'open' |</span>
+<span class="cmd">  Select-Object TicketId, Customer, Priority</span>                                  <span class="cm">one line, wrapped here</span>
+
+TicketId Customer Priority
+-------- -------- --------
+T-103    Gus Lind high
+T-104    Ana Ruiz medium
+T-105    Eli Moss low</code></pre>
+      </div>
+      <p><b>What kind of object is a row?</b> In Session 2, <code>Get-Member -MemberType Property</code> listed a file&rsquo;s properties. On a CSV row it prints nothing at all:</p>
+      <div class="filebox">
+        <div class="fbh">Property finds nothing; NoteProperty finds the columns &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Get-Member -MemberType Property</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Get-Member -MemberType NoteProperty</span>
+
+   TypeName: System.Management.Automation.PSCustomObject
+
+Name     MemberType   Definition
+----     ----------   ----------
+Customer NoteProperty string Customer=Dara Singh
+Opened   NoteProperty string Opened=2026-03-01
+Priority NoteProperty string Priority=high
+State    NoteProperty string State=closed
+TicketId NoteProperty string TicketId=T-101
+Topic    NoteProperty string Topic=refund</code></pre>
+      </div>
+      <p>A row is a <b>PSCustomObject</b>, an object PowerShell builds on the spot from data, and its columns are <b>NoteProperty</b> rows, one of the extra kinds Session 2 said <code>-MemberType Property</code> leaves out. Read the third column: <b>every one is a <code>string</code></b>, text. Hold on to that; section B is about why it matters.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Everything in this section prints the same in 5.1, with its extra blank lines and padding.</div>
+      <div class="note"><span class="nk">In Bash</span>Bash has no command that reads a CSV as data. The <code>cut</code> command picks columns out of text: <code>-d,</code> says the columns are split by commas and <code>-f1,6</code> picks the first and sixth. It works on this file, but it counts commas, so a value with a comma inside it, which a CSV allows inside quotes, would break it.
+<pre><code><span class="cmd">$ cut -d, -f1,6 data/tickets.csv</span>
+TicketId,State
+T-101,closed
+T-102,closed
+T-103,open
+T-104,open
+T-105,open</code></pre>
+</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read the orders as objects</div>
+        <ol>
+          <li>Import <code>data/orders.csv</code>, and use <code>Get-Member -MemberType NoteProperty</code> to list its columns.</li>
+          <li>Show the OrderId, Product and Total of every order whose Customer is <code>Ana Ruiz</code>.</li>
+          <li>Show every ticket, all six columns, as a table.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 2 is <code>Where-Object</code> with <code>-eq</code> and the name in single quotes, then <code>Select-Object</code> with three columns. Step 3 needs a command that always draws a table.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Where-Object Customer -eq 'Ana Ruiz' |</span>
+<span class="cmd">  Select-Object OrderId, Product, Total</span>                                       <span class="cm">one line, wrapped here</span>
+
+OrderId Product       Total
+------- -------       -----
+5001    Cast iron pan 34.00
+5006    Chef knife    29.00
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Format-Table</span>
+
+TicketId Opened     Customer   Topic    Priority State
+-------- ------     --------   -----    -------- -----
+T-101    2026-03-01 Dara Singh refund   high     closed
+T-102    2026-03-02 Chen Wei   delivery low      closed
+T-103    2026-03-03 Gus Lind   payment  high     open
+T-104    2026-03-03 Ana Ruiz   payment  medium   open
+T-105    2026-03-03 Eli Moss   delivery low      open</code></pre>
+<p>Step 1 lists seven columns, OrderId to Status, each a <code>string</code>.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I read a CSV as objects and worked with its columns by name</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Text that looks like a number</h3>
+      <p>A Total of <code>34.00</code> is text, the same as <code>'34.00'</code> in single quotes, and Session 2 showed what that does to a sort: <code>'96'</code> lands after <code>'366'</code>. It does more than that. When PowerShell combines two values, <b>the value on the left decides how</b>. With text on the left, <code>+</code> joins text, and a comparison compares text, letter by letter:</p>
+      <div class="filebox">
+        <div class="fbh">text on the left &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; '34.00' + 1</span>
+34.001
+<span class="cmd">PS C:\Users\you\ps-lab&gt; '9' -gt 30</span>
+True</code></pre>
+      </div>
+      <p><code>34.001</code> is <code>34.00</code> with a <code>1</code> stuck on the end, and <code>'9'</code> is &ldquo;greater&rdquo; than 30 because the character 9 comes after the character 3. And when one text runs out first, as <code>'1'</code> against <code>'10'</code>, the shorter one is smaller, as in a dictionary. To get a number, <b>convert the text</b> by putting a type name in square brackets in front of it. <b><code>[int]</code></b> makes a whole number (int is short for integer), and <b><code>[double]</code></b> makes a number that can have a decimal point, which is what you want for a price. (Double is .NET&rsquo;s name for that kind of number.)</p>
+      <div class="filebox">
+        <div class="fbh">converted first &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; [double]'34.00' + 1</span>
+35
+<span class="cmd">PS C:\Users\you\ps-lab&gt; [int]'9' -gt 30</span>
+False
+<span class="cmd">PS C:\Users\you\ps-lab&gt; [int]'22.50'</span>
+22
+<span class="cmd">PS C:\Users\you\ps-lab&gt; [int]'23.50'</span>
+24</code></pre>
+      </div>
+      <p>The last two are the catch with <code>[int]</code>: it rounds to the nearest whole number, and an exact half goes to whichever neighbour is even, so 22.50 becomes 22 but 23.50 becomes 24. Either way the price is changed: use <code>[double]</code> for prices and <code>[int]</code> for counts. Notice too that a number prints without its trailing zeros: <code>35</code>, not <code>35.00</code>. Here is the trap in a real file. <code>exports/inventory-dump.csv</code> has a Stock column, from 0 to 36. Asked for items with more than 30 in stock, <code>Where-Object</code> compares Stock as text, because Stock is on the left:</p>
+      <div class="filebox">
+        <div class="fbh">more than 30 in stock? &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv exports/inventory-dump.csv | Where-Object Stock -gt 30 |</span>
+<span class="cmd">  Select-Object -First 3</span>                                                      <span class="cm">one line, wrapped here</span>
+
+Sku      Name   Stock
+---      ----   -----
+SKU-0004 Item 4 4
+SKU-0005 Item 5 5
+SKU-0006 Item 6 6</code></pre>
+      </div>
+      <p>4, 5 and 6 all passed. To convert inside a filter, use Session 2&rsquo;s script block form, where <code>$_</code> is each row and the dot reads its Stock: <code>{ [int]$_.Stock -gt 30 }</code>. Converted, the first three are the right ones:</p>
+      <div class="filebox">
+        <div class="fbh">converted, then compared &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv exports/inventory-dump.csv |</span>
+<span class="cmd">  Where-Object { [int]$_.Stock -gt 30 } | Select-Object -First 3</span>             <span class="cm">one line, wrapped here</span>
+
+Sku      Name    Stock
+---      ----    -----
+SKU-0031 Item 31 31
+SKU-0032 Item 32 32
+SKU-0033 Item 33 33</code></pre>
+      </div>
+      <p><code>Sort-Object</code> takes a script block too, and sorts by whatever the block gives back for each object. Without one, a sort on Stock is a text sort, and the &ldquo;biggest&rdquo; stock is 9:</p>
+      <div class="filebox">
+        <div class="fbh">the biggest stock, sorted as text and as a number &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv exports/inventory-dump.csv | Sort-Object Stock -Descending |</span>
+<span class="cmd">  Select-Object -First 1 -ExpandProperty Stock</span>                                <span class="cm">one line, wrapped here</span>
+9
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv exports/inventory-dump.csv |</span>
+<span class="cmd">  Sort-Object { [int]$_.Stock } -Descending |</span>                               <span class="cm">one line, wrapped here</span>
+<span class="cmd">  Select-Object -First 1 -ExpandProperty Stock</span>
+36</code></pre>
+      </div>
+      <p>The rule for today: <b>a column from a CSV is text; convert it with <code>[int]</code> or <code>[double]</code> before you compare it, sort it or do arithmetic with it.</b></p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Text, then numbers</div>
+        <ol>
+          <li>Run <code>'5' + 5</code>, then <code>[int]'5' + 5</code>, and explain the difference.</li>
+          <li>List the first three inventory items with fewer than 3 in stock, first comparing Stock as it is, then converting it with <code>[int]</code>. Explain why the third item differs.</li>
+          <li>Find the smallest Total in <code>data/orders.csv</code> by sorting the Totals as numbers.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Fewer than is <code>-lt</code>. For step 2, compare <code>'10'</code> and <code>'3'</code> letter by letter. Step 3 sorts with a script block, then picks the first one.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; '5' + 5</span>
+55
+<span class="cmd">PS C:\Users\you\ps-lab&gt; [int]'5' + 5</span>
+10
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv exports/inventory-dump.csv | Where-Object Stock -lt 3 |</span>
+<span class="cmd">  Select-Object -First 3</span>                                                      <span class="cm">one line, wrapped here</span>
+
+Sku      Name    Stock
+---      ----    -----
+SKU-0001 Item 1  1
+SKU-0002 Item 2  2
+SKU-0010 Item 10 10
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv exports/inventory-dump.csv |</span>
+<span class="cmd">  Where-Object { [int]$_.Stock -lt 3 } | Select-Object -First 3</span>              <span class="cm">one line, wrapped here</span>
+
+Sku      Name    Stock
+---      ----    -----
+SKU-0001 Item 1  1
+SKU-0002 Item 2  2
+SKU-0037 Item 37 0
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Sort-Object { [double]$_.Total } |</span>
+<span class="cmd">  Select-Object -First 1 -ExpandProperty Total</span>                                <span class="cm">one line, wrapped here</span>
+22.50</code></pre>
+<p>Step 1: with text on the left, <code>+</code> joins, so <code>55</code>; converted, it adds. Step 2: as text, <code>'10'</code> is &ldquo;less than&rdquo; <code>'3'</code>, because the character 1 comes before 3; converted, the third item is the first with none in stock. Step 3 prints <code>22.50</code> as the file has it, because the sort only used the converted number to put the rows in order.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I saw text compare as text, and converted it to fix that</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Counting and totalling: Measure-Object</h3>
+      <p><b><code>Measure-Object</code></b> counts what comes down the pipe. Name a column after it and add any of the switches <code>-Sum</code>, <code>-Average</code>, <code>-Maximum</code> and <code>-Minimum</code>, and it also works out the total, the average (the mean), the largest and the smallest value in that column:</p>
+      <div class="filebox">
+        <div class="fbh">count the rows, then measure a column &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Measure-Object</span>
+
+Count             : 8
+Average           : 
+Sum               : 
+Maximum           : 
+Minimum           : 
+StandardDeviation : 
+Property          : 
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv |</span>                        <span class="cm">one line, wrapped here</span>
+<span class="cmd">  Measure-Object Total -Sum -Average -Maximum -Minimum</span>
+
+Count             : 8
+Average           : 43.1875
+Sum               : 345.5
+Maximum           : 82
+Minimum           : 22.5
+StandardDeviation : 
+Property          : Total</code></pre>
+      </div>
+      <p>It prints one object, as a list: Count is always filled in, the rest only when you ask, and Property names the column it measured. (StandardDeviation is a measure of spread you will not need here.) Two things to notice. <b><code>Measure-Object</code> converts the text to numbers for you</b>, so no <code>[double]</code> is needed. And the results are numbers, so they print without trailing zeros: <code>345.5</code>, <code>82</code>. For just the number, so you can use it or save it, pick the property with <code>-ExpandProperty</code>, and to measure only some rows, filter first:</p>
+      <div class="filebox">
+        <div class="fbh">just the number, of all orders and of the shipped ones &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Measure-Object Total -Sum |</span>
+<span class="cmd">  Select-Object -ExpandProperty Sum</span>                                           <span class="cm">one line, wrapped here</span>
+345.5
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Where-Object Status -eq 'shipped' |</span>
+<span class="cmd">  Measure-Object Total -Sum | Select-Object -ExpandProperty Sum</span>               <span class="cm">one line, wrapped here</span>
+200.5</code></pre>
+      </div>
+      <p><b>Two ways a measure goes wrong.</b> A column that is not a number cannot be totalled: <code>Measure-Object</code> prints an error for every row that is not numeric, then a result with no Sum. A column name that is misspelt is quieter: PowerShell 7 prints nothing at all, which looks like a total of nothing.</p>
+      <div class="filebox">
+        <div class="fbh">a column of names, then a misspelt column &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Measure-Object Customer -Sum</span>
+Measure-Object: Input object "Dara Singh" is not numeric.
+Measure-Object: Input object "Chen Wei" is not numeric.
+Measure-Object: Input object "Gus Lind" is not numeric.
+Measure-Object: Input object "Ana Ruiz" is not numeric.
+Measure-Object: Input object "Eli Moss" is not numeric.
+
+Count             : 5
+Average           : 
+Sum               : 
+Maximum           : 
+Minimum           : 
+StandardDeviation : 
+Property          : Customer
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Measure-Object Totl -Sum</span></code></pre>
+      </div>
+      <p>So when a measure prints nothing, check the column&rsquo;s spelling against the header, exactly as Session 2 said for a filter that returns nothing.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1 prints the same numbers, without the StandardDeviation line. It is louder about a misspelt column: <code>Measure-Object : The property "Totl" cannot be found in the input for any objects.</code>, in its longer error form, and each &ldquo;is not numeric&rdquo; error comes in that form too.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Count and total</div>
+        <ol>
+          <li>Count the tickets in <code>data/tickets.csv</code>.</li>
+          <li>Find the total and the average of the Totals of the orders that are still <code>pending</code>.</li>
+          <li>Find the largest Qty anyone ordered, as just the number.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Filter first, then measure. A measure of Qty with <code>-Maximum</code>, then <code>-ExpandProperty</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Measure-Object |</span>
+<span class="cmd">  Select-Object -ExpandProperty Count</span>                                       <span class="cm">one line, wrapped here</span>
+5
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Where-Object Status -eq 'pending' |</span>
+<span class="cmd">  Measure-Object Total -Sum -Average</span>                                          <span class="cm">one line, wrapped here</span>
+
+Count             : 2
+Average           : 55.5
+Sum               : 111
+Maximum           : 
+Minimum           : 
+StandardDeviation : 
+Property          : Total
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Measure-Object Qty -Maximum |</span>
+<span class="cmd">  Select-Object -ExpandProperty Maximum</span>                                       <span class="cm">one line, wrapped here</span>
+3</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I counted rows and totalled a column</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Counting by group: Group-Object</h3>
+      <p><code>Measure-Object</code> counts everything it is given. <b><code>Group-Object</code></b> sorts what it is given into groups, one for each different value of the column you name, and counts each group:</p>
+      <div class="filebox">
+        <div class="fbh">tickets by state &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object State</span>
+
+Count Name                      Group
+----- ----                      -----
+    2 closed                    {@{TicketId=T-101; Opened=2026-03-01;   <span class="cm">one line, wrapped here</span>
+Customer=Dara Singh; Topic=refund; Priority=high…
+    3 open                      {@{TicketId=T-103; Opened=2026-03-03;   <span class="cm">one line, wrapped here</span>
+Customer=Gus Lind; Topic=payment; Priority=high;…</code></pre>
+      </div>
+      <p>Each group is an object with three properties: <b>Count</b>, how many rows it holds; <b>Name</b>, the value they share; and <b>Group</b>, the rows themselves, which PowerShell squeezes into one column and cuts off with <code>…</code> at the edge of your window. (A group has a fourth property, Values, which repeats the Name as a list; you can ignore it.) Usually you want only the first two, so pick them, the way the Hub&rsquo;s first page does:</p>
+      <div class="filebox">
+        <div class="fbh">just the counts &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object State | Select-Object Count, Name</span>
+
+Count Name
+----- ----
+    2 closed
+    3 open</code></pre>
+      </div>
+      <p><b>Always sort the groups yourself.</b> PowerShell 7 hands the groups on sorted by Name; Windows PowerShell 5.1 hands them on in the order it first met each value, which for the orders&rsquo; Status is shipped, refunded, pending. The same command gives a different report in each. Sorting with Session 2&rsquo;s tie-breaker settles it, biggest group first and the Name breaking a tie, the same way in both:</p>
+      <div class="filebox">
+        <div class="fbh">orders by status, then sorted; tickets by priority, with a tie &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Group-Object Status | Select-Object Count, Name</span>
+
+Count Name
+----- ----
+    2 pending
+    1 refunded
+    5 shipped
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Group-Object Status |</span>
+<span class="cmd">  Sort-Object Count, Name -Descending | Select-Object Count, Name</span>             <span class="cm">one line, wrapped here</span>
+
+Count Name
+----- ----
+    5 shipped
+    2 pending
+    1 refunded
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object Priority |</span>
+<span class="cmd">  Sort-Object Count, Name -Descending | Select-Object Count, Name</span>             <span class="cm">one line, wrapped here</span>
+
+Count Name
+----- ----
+    2 low
+    2 high
+    1 medium</code></pre>
+      </div>
+      <p>High and low tie at 2; with <code>-Descending</code>, the Names are sorted from Z to A as well, so low comes before high. Name two columns and <code>Group-Object</code> makes a group for each <b>combination</b> of their values, with both values in the Name, joined by a comma and a space:</p>
+      <div class="filebox">
+        <div class="fbh">tickets by state and priority &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object State, Priority |</span>
+<span class="cmd">  Sort-Object Name | Select-Object Count, Name</span>                                <span class="cm">one line, wrapped here</span>
+
+Count Name
+----- ----
+    1 closed, high
+    1 closed, low
+    1 open, high
+    1 open, low
+    1 open, medium</code></pre>
+      </div>
+      <p>And now you can write the Hub&rsquo;s front-page pipeline, here in a shorter form that hands <code>Select-String</code> the paths itself. <code>Group-Object</code> groups any objects, not just CSV rows, so it can group Session 3&rsquo;s matches by their Filename:</p>
+      <div class="filebox">
+        <div class="fbh">which log holds the most errors? &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String ERROR logs/*.log | Group-Object Filename |</span>
+<span class="cmd">  Sort-Object Count, Name -Descending | Select-Object Count, Name</span>             <span class="cm">one line, wrapped here</span>
+
+Count Name
+----- ----
+    2 web-2026-03-03.log
+    1 web-2026-03-02.log
+    1 web-2026-03-01.log</code></pre>
+      </div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Apart from the order of the unsorted groups, 5.1 gives the same groups and counts. It cuts the Group column off with three dots instead of <code>…</code>.</div>
+      <div class="note"><span class="nk">In Bash</span>The classic way to count by value is a chain of small commands. Bash has no idea that line 1 is a header: to it, every line is just a line, so it would count <code>State</code> as one more value. Skip it first. Session 2&rsquo;s <code>head</code> keeps the first lines of a file, and its partner <code>tail</code> keeps the last ones; <code>tail -n +2</code> means &ldquo;start at line 2 and keep everything from there&rdquo;. Then <code>cut</code> picks the column, <code>sort</code> puts equal values next to each other, and <code>uniq -c</code> counts each run of equal lines. <code>Import-Csv</code> never needs that first step, because it knows the header is a header:
+<pre><code><span class="cmd">$ tail -n +2 data/tickets.csv | cut -d, -f6 | sort | uniq -c</span>
+      2 closed
+      3 open</code></pre>
+</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Group and count</div>
+        <ol>
+          <li>Count the orders for each Product, biggest group first, ties broken by Name, showing just Count and Name.</li>
+          <li>Count the tickets for each Topic, the same way.</li>
+          <li>Type the Hub&rsquo;s pipeline yourself, from memory if you can.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Import, group, sort on <code>Count, Name</code> with <code>-Descending</code>, then pick <code>Count, Name</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Group-Object Product |</span>
+<span class="cmd">  Sort-Object Count, Name -Descending | Select-Object Count, Name</span>             <span class="cm">one line, wrapped here</span>
+
+Count Name
+----- ----
+    2 Tea kettle
+    2 Chef knife
+    2 Cast iron pan
+    1 Spice rack
+    1 Mixing bowls
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object Topic |</span>
+<span class="cmd">  Sort-Object Count, Name -Descending | Select-Object Count, Name</span>             <span class="cm">one line, wrapped here</span>
+
+Count Name
+----- ----
+    2 payment
+    2 delivery
+    1 refund</code></pre>
+<p>Step 3 is the pipeline in the last transcript above. The Hub&rsquo;s own version starts <code>Get-ChildItem logs -Filter *.log |</code> and prints the same table.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I grouped rows, counted them and sorted the groups</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Calculated properties: a column of your own</h3>
+      <p><code>Select-Object</code> can do more than pick columns: it can add one that you work out from the others. You describe the new column with a small recipe in this exact shape, <code>@{ Name = 'TITLE'; Expression = { CODE } }</code>, where TITLE and CODE in capitals are placeholders: you type the new column&rsquo;s title in place of TITLE, and in place of CODE the PowerShell that works out its value.</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Part</div><div class="fn">What it is</div><div class="fd">Example</div></div>
+        <div class="frow"><div class="fc">@{ }</div><div class="fn">a <b>hashtable</b>: a little list of name = value pairs, separated by <code>;</code></div><div class="fd"><code>@{ Name = 'Each'; Expression = { [double]$_.Total / $_.Qty } }</code></div></div>
+        <div class="frow"><div class="fc">Name = 'TITLE'</div><div class="fn">the new column&rsquo;s title, in single quotes</div><div class="fd"><code>Name = 'Each'</code></div></div>
+        <div class="frow"><div class="fc">Expression = { CODE }</div><div class="fn">a script block, run once for each object, with <code>$_</code> as that object; what it gives back is the column&rsquo;s value (<code>/</code> means divide)</div><div class="fd"><code>Expression = { [double]$_.Total / $_.Qty }</code></div></div>
+      </div>
+      <p>The whole recipe goes in <code>Select-Object</code>&rsquo;s list of columns, like any other column name, and the result is called a <b>calculated property</b>. Here is the price of one item in each order, the Total divided by the Qty:</p>
+      <div class="filebox">
+        <div class="fbh">a column worked out from two others &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv |</span>                        <span class="cm">one line, wrapped here</span>
+<span class="cmd">  Select-Object OrderId, Qty, Total, @{ Name = 'Each'; Expression = { [double]$_.Total / $_.Qty } }</span>
+
+OrderId Qty Total  Each
+------- --- -----  ----
+5001    1   34.00 34.00
+5002    2   58.00 29.00
+5003    1   22.50 22.50
+5004    1   34.00 34.00
+5005    1   41.00 41.00
+5006    1   29.00 29.00
+5007    3   45.00 15.00
+5008    2   82.00 41.00</code></pre>
+      </div>
+      <p>Order 5007 bought three spice racks for 45.00, so one cost 15. The Each column shows <code>34.00</code> although section B said numbers print without trailing zeros: that is PowerShell 7&rsquo;s <b>table</b> lining up the decimal points in a column. The value itself is 34, and picked on its own it prints as one:</p>
+      <div class="filebox">
+        <div class="fbh">one value from the new column &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv |</span>
+<span class="cmd">  Select-Object OrderId, @{ Name = 'Each'; Expression = { [double]$_.Total / $_.Qty } } |</span>
+<span class="cmd">  Where-Object OrderId -eq '5002' | Select-Object -ExpandProperty Each</span>        <span class="cm">one line, wrapped here</span>
+29</code></pre>
+      </div>
+      <p>The new column is a real property, so <code>Where-Object</code>, <code>Sort-Object</code> and everything else can use it. Two more jobs it does well. It can <b>rename</b> a column, here Group-Object&rsquo;s Name, which really holds a State:</p>
+      <div class="filebox">
+        <div class="fbh">Name renamed to State &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object State |</span>
+<span class="cmd">  Select-Object @{ Name = 'State'; Expression = { $_.Name } }, Count</span>        <span class="cm">one line, wrapped here</span>
+
+State  Count
+-----  -----
+closed     2
+open       3</code></pre>
+      </div>
+      <p>And it can <b>fix a text column once</b>, so everything after it sees a number. Converted with <code>[int]</code>, Stock compares as a number with the plain <code>Where-Object Stock -gt 30</code> that went wrong in section B, and the count is right:</p>
+      <div class="filebox">
+        <div class="fbh">Stock as a number, then counted &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv exports/inventory-dump.csv |</span>             <span class="cm">one line, wrapped here</span>
+<span class="cmd">  Select-Object Sku, @{ Name = 'Stock'; Expression = { [int]$_.Stock } } |</span>
+<span class="cmd">  Where-Object Stock -gt 30 | Measure-Object | Select-Object -ExpandProperty Count</span>
+60</code></pre>
+      </div>
+      <p>Sixty items have more than 30 in stock. Compared as text, the same filter lets through 126, every item from 4 to 9 as well.</p>
+      <div class="note"><span class="nk">You will also see</span>Examples online often shorten the two names to their first letters: <code>@{ n = 'Each'; e = { [double]$_.Total / $_.Qty } }</code> does exactly the same. This workbook writes them in full, because <code>Name</code> and <code>Expression</code> say what they are.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1 does not line up the decimals: its Each column reads <code>34</code>, <code>29</code>, <code>22.5</code>. The values are the same; only 7&rsquo;s table display adds the zeros.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Add a column</div>
+        <ol>
+          <li>Show each order&rsquo;s OrderId, Customer, and a column <code>Items</code> holding its Qty converted to a whole number.</li>
+          <li>Group the tickets by Topic, and show two columns: <code>Topic</code> (the group&rsquo;s Name, renamed) and Count.</li>
+          <li>Count the inventory items with more than 30 in stock, using the calculated property above.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Each new column is <code>@{ Name = 'TITLE'; Expression = { CODE } }</code> in <code>Select-Object</code>&rsquo;s list, with commas between the columns. Inside the script block, <code>$_</code> is the object.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv |</span>                        <span class="cm">one line, wrapped here</span>
+<span class="cmd">  Select-Object OrderId, Customer, @{ Name = 'Items'; Expression = { [int]$_.Qty } }</span>
+
+OrderId Customer     Items
+------- --------     -----
+5001    Ana Ruiz         1
+5002    Ben Okafor       2
+5003    Chen Wei         1
+5004    Dara Singh       1
+5005    Eli Moss         1
+5006    Ana Ruiz         1
+5007    Femi Adeyemi     3
+5008    Gus Lind         2
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object Topic |</span>
+<span class="cmd">  Select-Object @{ Name = 'Topic'; Expression = { $_.Name } }, Count</span>        <span class="cm">one line, wrapped here</span>
+
+Topic    Count
+-----    -----
+delivery     2
+payment      2
+refund       1</code></pre>
+<p>A number lines up on the right of its column, text on the left: Items is a number now. The groups come out sorted by Name here because this is PowerShell 7; add <code>Sort-Object</code> before trusting the order. Step 3 is the last transcript above: 60.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I added a column of my own with a calculated property</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Writing a CSV: Export-Csv</h3>
+      <p>Everything so far has printed on your screen. <b><code>Export-Csv</code></b> writes objects to a CSV file instead, one row per object, with a header made from their property names, so other people can open your result in a spreadsheet program such as Excel (the end of this section shows the one switch Excel needs). Like <code>&gt;</code> and <code>Copy-Item</code> in Session 3, it <b>replaces a file that is already there, without asking</b>:</p>
+      <div class="filebox">
+        <div class="fbh">tickets by state, saved and read back &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object State |</span>
+<span class="cmd">  Select-Object Name, Count | Export-Csv out/by-state.csv</span>                   <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/by-state.csv</span>
+"Name","Count"
+"closed","2"
+"open","3"
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/by-state.csv</span>
+
+Name   Count
+----   -----
+closed 2
+open   3</code></pre>
+      </div>
+      <p>Read as text, every value is in double quotes. That is allowed in a CSV, and it keeps a value with a comma inside it in one piece; <code>Import-Csv</code> drops the quotes when it reads the file back. Read back with <code>Import-Csv</code>, the file is objects again, and Count is text again, lined up on the left.</p>
+      <p><b>Pick the columns before you export.</b> <code>Export-Csv</code> writes every property, and a group&rsquo;s Group property holds a whole list of rows, which a single CSV value cannot hold. Exported as they come, the groups are written as the <i>names</i> of the kinds of object that held them:</p>
+      <div class="filebox">
+        <div class="fbh">whole groups, exported &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object State | Export-Csv out/raw.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/raw.csv</span>
+"Values","Count","Group","Name"
+"System.Collections.ArrayList","2","System.Collections.ObjectModel.Collection`1[System.Ma  <span class="cm">cut short</span>
+"System.Collections.ArrayList","3","System.Collections.ObjectModel.Collection`1[System.Ma  <span class="cm">cut short</span></code></pre>
+      </div>
+      <p>Nobody can use that. The fix is the habit from Session 3: choose what goes into the file first, here with <code>Select-Object Name, Count</code>, as the first transcript did. A CSV you write by hand reads back the same way. <code>Set-Content</code> with two values in single quotes, separated by a comma, writes two lines:</p>
+      <div class="filebox">
+        <div class="fbh">a small CSV made by hand, then exported &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Content out/menu.csv 'Dish,Price', 'café,3.50'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/menu.csv | Export-Csv out/menu-copy.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/menu-copy.csv</span>
+"Dish","Price"
+"café","3.50"</code></pre>
+      </div>
+      <p><b>Writing a CSV for Excel.</b> Most people you send a CSV to will open it in Excel, and Excel needs to be told the file is UTF-8. Checked in Excel on Windows: it opened <code>out/menu-copy.csv</code>, but showed <code>café</code> as <code>cafÃ©</code>. PowerShell 7 writes UTF-8 with no BOM, and without one Excel guesses the older Windows encoding, the same misreading Session 3 showed Windows PowerShell 5.1 making. The fix is Session 3&rsquo;s BOM: add <b><code>-Encoding utf8BOM</code></b>, and Excel shows <code>café</code>. The text is the same; the file is three bytes longer, because the BOM is three bytes at its start. (Excel also showed 3.50 as 3.5. That is only how Excel displays a number; the file still says 3.50.)</p>
+      <div class="filebox">
+        <div class="fbh">a copy for Excel, with a BOM &middot; captured live, on Windows</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/menu.csv | Export-Csv out/menu-excel.csv -Encoding utf8BOM</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem out/menu-copy.csv, out/menu-excel.csv |</span>
+<span class="cmd">  Select-Object Name, Length</span>                                                <span class="cm">one line, wrapped here</span>
+
+Name           Length
+----           ------
+menu-copy.csv      32
+menu-excel.csv     35</code></pre>
+      </div>
+      <p>Those are Windows counts, with CRLF line endings; on macOS and Linux both files are two bytes shorter, and the difference is still the three bytes of the BOM. Make it a habit: <b>a CSV that a person will open in Excel gets <code>-Encoding utf8BOM</code></b>.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1&rsquo;s <code>Export-Csv</code> differs in two ways, and both matter when a script might run in either version. It writes an extra first line starting <code>#TYPE</code>, naming the kind of object, which is not part of your data. And it writes ASCII, an encoding with no letters beyond plain English, so <code>é</code> becomes <code>?</code> for good. Two switches fix both: <code>-NoTypeInformation</code> leaves the <code>#TYPE</code> line out, and <code>-Encoding utf8</code> keeps the letters, as in Session 3. 5.1 has no <code>utf8BOM</code> (it stops with an error that the argument &ldquo;does not belong to the set&rdquo;), but its <code>utf8</code> already writes a BOM, so that file is ready for Excel too. PowerShell 7 accepts <code>-NoTypeInformation</code> too, and simply has nothing to leave out. Captured in 5.1, reading 7&rsquo;s <code>out/menu.csv</code>:
+<pre data-shell="5.1"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/menu.csv -Encoding utf8 | Export-Csv out/menu-51.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/menu-51.csv</span>
+#TYPE System.Management.Automation.PSCustomObject
+"Dish","Price"
+"caf?","3.50"
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/menu.csv -Encoding utf8 |</span>
+<span class="cmd">  Export-Csv out/menu-51.csv -NoTypeInformation -Encoding utf8</span>                <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/menu-51.csv -Encoding utf8</span>
+"Dish","Price"
+"café","3.50"</code></pre>
+</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Save a summary</div>
+        <ol>
+          <li>Save the number of orders in each Status to <code>out/by-status.csv</code>, with two columns, <code>Status</code> (the group&rsquo;s Name, renamed) and Count, biggest first, then read it back with <code>Import-Csv</code>.</li>
+          <li>Export the groups without picking columns to <code>out/raw.csv</code>, and look at what was written.</li>
+          <li>Run step 1 again with the columns in the other order. Did <code>Export-Csv</code> ask before replacing the file?</li>
+          <li>Save the same summary for Excel, as <code>out/by-status-excel.csv</code>, and compare the two files&rsquo; Lengths.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Group, sort, then a calculated property to rename Name, then <code>Export-Csv</code>. The sort has to come before the renaming, while the column is still called Name.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Group-Object Status |</span>
+<span class="cmd">  Sort-Object Count, Name -Descending |</span>
+<span class="cmd">  Select-Object @{ Name = 'Status'; Expression = { $_.Name } }, Count |</span>
+<span class="cmd">  Export-Csv out/by-status.csv</span>                                                <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/by-status.csv</span>
+
+Status   Count
+------   -----
+shipped  5
+pending  2
+refunded 1</code></pre>
+<p>In step 3, <code>Export-Csv</code> replaced the file without asking. Step 4 is the same pipeline ending in <code>-Encoding utf8BOM</code>:</p>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Group-Object Status |</span>
+<span class="cmd">  Sort-Object Count, Name -Descending |</span>
+<span class="cmd">  Select-Object @{ Name = 'Status'; Expression = { $_.Name } }, Count |</span>
+<span class="cmd">  Export-Csv out/by-status-excel.csv -Encoding utf8BOM</span>                        <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem out/by-status*.csv | Select-Object Name, Length</span>
+
+Name                Length
+----                ------
+by-status-excel.csv     67
+by-status.csv           64</code></pre>
+<p>Three bytes longer, the BOM (these are Windows counts). The listing is not sorted; this is the order Windows gave.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I wrote a CSV summary and read it back</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Writing JSON: ConvertTo-Json</h3>
+      <p>CSV suits people with spreadsheets. Programs, and web services in particular, usually want <b>JSON</b>, a text format for data: curly braces <code>{ }</code> hold one object, square brackets <code>[ ]</code> hold a list, and inside an object each property is written <code>"name": value</code>, with commas between them. <b><code>ConvertTo-Json</code></b> turns objects into JSON text:</p>
+      <div class="filebox">
+        <div class="fbh">two tickets, two columns, as JSON &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv |</span>                       <span class="cm">one line, wrapped here</span>
+<span class="cmd">  Select-Object -First 2 TicketId, State | ConvertTo-Json</span>
+[
+  {
+    "TicketId": "T-101",
+    "State": "closed"
+  },
+  {
+    "TicketId": "T-102",
+    "State": "closed"
+  }
+]</code></pre>
+      </div>
+      <p>A list of two objects. Unlike a CSV, JSON keeps the difference between text and a number: text is in double quotes and a number is not. <code>Group-Object</code>&rsquo;s Count is a real number, so it stays one. <code>ConvertTo-Json</code> only <i>converts</i>; to save the result, send the text to a file with Session 3&rsquo;s <code>Set-Content</code>:</p>
+      <div class="filebox">
+        <div class="fbh">a number stays a number; then saved &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object State |</span>
+<span class="cmd">  Select-Object Name, Count | ConvertTo-Json</span>                                <span class="cm">one line, wrapped here</span>
+[
+  {
+    "Name": "closed",
+    "Count": 2
+  },
+  {
+    "Name": "open",
+    "Count": 3
+  }
+]
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Group-Object State |</span>
+<span class="cmd">  Select-Object Name, Count |</span>                                               <span class="cm">one line, wrapped here</span>
+<span class="cmd">  ConvertTo-Json | Set-Content out/by-state.json</span>                              <span class="cm">one line, wrapped here</span></code></pre>
+      </div>
+      <p><b>The depth trap.</b> JSON can put an object inside an object, a list inside that, and so on; each step inward is one level of <b>depth</b>. <code>ConvertTo-Json</code> writes only two levels unless told otherwise. Keep the whole Group of each group, here for the high-priority tickets, and the tickets sit one level too deep:</p>
+      <div class="filebox">
+        <div class="fbh">groups with their rows, as JSON &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Where-Object Priority -eq 'high' |</span>
+<span class="cmd">  Group-Object State | Select-Object Name, Group | ConvertTo-Json</span>           <span class="cm">one line, wrapped here</span>
+WARNING: Resulting JSON is truncated as serialization has exceeded the set depth of 2.
+[
+  {
+    "Name": "closed",
+    "Group": [
+      "@{TicketId=T-101; Opened=2026-03-01; Customer=Dara Singh;        <span class="cm">one line, wrapped here</span>
+Topic=refund; Priority=high; State=closed}"
+    ]
+  },
+  {
+    "Name": "open",
+    "Group": [
+      "@{TicketId=T-103; Opened=2026-03-03; Customer=Gus Lind;          <span class="cm">one line, wrapped here</span>
+Topic=payment; Priority=high; State=open}"
+    ]
+  }
+]</code></pre>
+      </div>
+      <p>Each ticket became one long string of text, its properties flattened into one line starting <code>@{</code>, and a program reading it gets no TicketId to look up. PowerShell 7 warns you, in the first line. There are two fixes. One is section F&rsquo;s habit: keep only flat columns, such as Name and Count, before converting. The other, when you want the nested objects, is <b><code>-Depth</code></b> with a number of levels big enough to reach them:</p>
+      <div class="filebox">
+        <div class="fbh">the same, with -Depth 3 &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Where-Object Priority -eq 'high' |</span>
+<span class="cmd">  Group-Object State | Select-Object Name, Group | ConvertTo-Json -Depth 3</span>  <span class="cm">one line, wrapped here</span>
+[
+  {
+    "Name": "closed",
+    "Group": [
+      {
+        "TicketId": "T-101",
+        "Opened": "2026-03-01",
+        "Customer": "Dara Singh",
+        "Topic": "refund",
+        "Priority": "high",
+        "State": "closed"
+      }
+    ]
+  },
+  {
+    "Name": "open",
+    "Group": [
+      {
+        "TicketId": "T-103",
+        "Opened": "2026-03-03",
+        "Customer": "Gus Lind",
+        "Topic": "payment",
+        "Priority": "high",
+        "State": "open"
+      }
+    ]
+  }
+]</code></pre>
+      </div>
+      <p>No warning, and every ticket is an object with its properties. Count the levels: the list of groups, a group, its Group list, then a ticket; three steps inward from the outer list, so 3 is enough.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1 writes the same values laid out differently, with wider indents and two spaces after each colon, so compare JSON by its values, never by its spacing. And it does the depth damage <b>silently</b>: the same command writes the same flattened strings with no warning at all, which makes <code>-Depth</code> worth knowing even when you never see the warning.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write JSON</div>
+        <ol>
+          <li>Save the TicketId, Customer and Priority of the open tickets as JSON to <code>out/open.json</code>, and read the file back.</li>
+          <li>Run the depth-trap command above, read the warning, then fix it with <code>-Depth 3</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Filter, pick three columns, <code>ConvertTo-Json</code>, then <code>Set-Content</code>. Read it back with <code>Get-Content</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Where-Object State -eq 'open' |</span>
+<span class="cmd">  Select-Object TicketId, Customer, Priority | ConvertTo-Json |</span>
+<span class="cmd">  Set-Content out/open.json</span>                                                 <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/open.json</span>
+[
+  {
+    "TicketId": "T-103",
+    "Customer": "Gus Lind",
+    "Priority": "high"
+  },
+  {
+    "TicketId": "T-104",
+    "Customer": "Ana Ruiz",
+    "Priority": "medium"
+  },
+  {
+    "TicketId": "T-105",
+    "Customer": "Eli Moss",
+    "Priority": "low"
+  }
+]</code></pre>
+<p>Step 2 is the two transcripts above.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I wrote JSON, met the depth trap and fixed it</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a CSV report from raw logs</h3>
+      <p>Do this from your terminal, without scrolling back up. It joins Session 3&rsquo;s search to today&rsquo;s grouping, columns and export: raw log lines in, a report anyone can open out.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: the error report</div>
+        <ol>
+          <li>From the lab, with one pipeline, count the ERROR lines in <b>every</b> log anywhere in <code>logs</code>, the archive included, for each log file.</li>
+          <li>In the same pipeline, sort the counts biggest first, ties broken by name, and give the report two columns: <code>Log</code>, the file&rsquo;s name, and <code>Errors</code>, its count.</li>
+          <li>Save it to <code>out/error-summary.csv</code>, and read it back with <code>Import-Csv</code>.</li>
+          <li>Save the same report as JSON to <code>out/error-summary.json</code>.</li>
+        </ol>
+        <p>You have hit the milestone when each step came from a command you typed, without copying it from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -Recurse -File | Select-String ERROR |</span>
+<span class="cmd">  Group-Object Filename | Sort-Object Count, Name -Descending |</span>
+<span class="cmd">  Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count |</span>
+<span class="cmd">  Select-Object Log, @{ Name = 'Errors'; Expression = { $_.Count } } |</span>
+<span class="cmd">  Export-Csv out/error-summary.csv</span>                                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/error-summary.csv</span>
+
+Log                Errors
+---                ------
+web-2026-03-03.log 2
+web-2026-03-02.log 1
+web-2026-03-01.log 1
+web-2026-02-28.log 1
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/error-summary.csv | ConvertTo-Json |</span>
+<span class="cmd">  Set-Content out/error-summary.json</span>                                        <span class="cm">one line, wrapped here</span></code></pre>
+<p>The archive&rsquo;s log is there because <code>Get-ChildItem -Recurse</code> handed it to <code>Select-String</code>. The sort comes before the renaming, while the columns are still Count and Name. Renaming one column per <code>Select-Object</code> keeps each line short; one <code>Select-Object</code> with both recipes, separated by a comma, works too. The JSON copy is made from the CSV you just wrote, so its Errors are text, in quotes; build it from the pipeline instead, ending in <code>ConvertTo-Json</code>, and they stay numbers.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> I built the CSV report from memory</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from reading rows, through text that looks like numbers, measuring and grouping, to a column of your own and a file you wrote.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh lab with an empty <code>out</code> folder</b> (paste the setup block, then <code>New-Item -ItemType Directory out</code>). Where a drill runs several commands, they run in the order shown. Each was run on 2026-10-07 in PowerShell 7.6 and Windows PowerShell 5.1 and printed the same answer in both. Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading commands and writing them. First put a short job back into order, then fill the blanks in three commands.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your sequence on the right, and tap it again to send it back. The first five lines are one pipeline typed over five lines, each ending in <code>|</code> until the last.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded commands)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the commands in the box, run them in your terminal, then reveal the reference to compare. More than one answer can be right, so judge yours by what it did. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your commands did what the task asked, or <b>Needs another pass</b> to keep going. Every file goes in <code>out</code>. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">17</span></span>
+        <span>In pile <b id="fc-pile">17</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the six questions below come from earlier sessions, one from <b>Session 3</b> and one from <b>Session 2</b>, because recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 04 of 10 &middot; Hit the milestone unassisted, then tick <b>S04</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>. That also completes <b>Level 2, Working with Data</b>.
+    <br><br>
+    <b>Your 15-minute review, tomorrow if you can:</b> paste the setup block to rebuild the lab, make <code>out</code>, and, with this page closed, summarise the support tickets by state and priority: one row for each combination, with its count, sorted, saved to <code>out/ticket-summary.csv</code> and read back with <code>Import-Csv</code>. Then total the shipped orders, and count the inventory items with more than 30 in stock without letting text compare as text. Anything you had to look up goes on a sticky note for next time. <a href="https://www.manning.com/books/learn-powershell-in-a-month-of-lunches-fourth-edition" target="_blank" rel="noopener">Learn PowerShell in a Month of Lunches</a> (a paid book) is the classic next read for this ground: it gives objects and the pipeline far more room than one session can. &middot; Next: <b>Session 5, your first script</b>, where the commands you can now write go into a <code>.ps1</code> file you can run again, with variables to hold your results.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s04-workbook-v1";
+  /* Spaced review: Part 6's Q5 comes from Session 3 and Q6 from Session 2, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S02_URL = "ps-session-02.html";
+  var S03_URL = "ps-session-03.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare values, one per line (-ExpandProperty Customer, Name, Sum, Count), as table
+     and list cells (Count : 8, where the colon is in the split class), as quoted CSV
+     values ("open","3") and as JSON ("Name": "closed"; quotes and colon are in the class).
+     Square brackets appear in casts such as [int], never around an answer, and no answer
+     is ever wrapped in parentheses.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 4 is:
+     its answers are customer names, counts, a Sku, sums, Topic names and one CSV line,
+     none of which a learner could get wrong by case alone (build contract section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in Session 4 is: its blanks are cmdlet and
+     parameter names, the hashtable keys Name and Expression, and the type name int, all
+     of which PowerShell matches in any case. Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 5 value, 2 set, 1 seq, 2 count. S4's grader flags are in the
+     build contract, section 4: caseFold ON, parenLabels OFF, no drill cs: true. Every drill
+     was run on 2026-10-07 from a fresh lab with an empty out folder, in PowerShell 7.6.5 and
+     Windows PowerShell 5.1.26100, and printed the same answer in both (_build/verify_s04.py).
+     No answer depends on the order of an unsorted listing or on Group-Object's own order
+     (7 sorts groups by Name, 5.1 keeps first-seen order): D5 is a set, D6 sorts with a
+     tie-breaker, D10 has one group that passes. No answer is a price read from a table
+     (7 pads decimals there); D4's Sum is read with -ExpandProperty. */
+  var DRILLS = [
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Which names does it print? Give them as printed, separated by commas. Order does not matter.',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Csv data/tickets.csv | Where-Object State -eq 'closed' |\n  Select-Object -ExpandProperty Customer", ans: 'Dara Singh, Chen Wei',
+      why: 'Dara Singh and Chen Wei. Import-Csv turns each row into an object whose properties are the header names, so Where-Object can test the State column by name, and -ExpandProperty prints the Customer of each of the two closed tickets, T-101 and T-102.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What number does it print?',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Csv data/tickets.csv | Where-Object Priority -ne 'low' |\n  Measure-Object | Select-Object -ExpandProperty Count", ans: '3', alt: ['three'],
+      why: '3. -ne means not equal, so the two low-priority tickets are dropped and T-101 (high), T-103 (high) and T-104 (medium) pass. Measure-Object with no column counts what it is given, and -ExpandProperty Count prints just the number.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Which Sku does it print? Give it as printed.',
+      code: 'PS C:\\Users\\you\\ps-lab> Import-Csv exports/inventory-dump.csv | Where-Object Stock -gt 10 |\n  Select-Object -First 1 -ExpandProperty Sku', ans: 'SKU-0002',
+      why: 'SKU-0002, which has 2 in stock. Stock is text, and with text on the left -gt compares letter by letter: the character 2 comes after 1, so "2" counts as greater than "10". SKU-0001 fails, because "1" is a shorter start of "10". Converted with [int], the first item over 10 would be SKU-0011.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What number does it print?',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Csv data/orders.csv | Where-Object Customer -eq 'Ana Ruiz' |\n  Measure-Object Total -Sum | Select-Object -ExpandProperty Sum", ans: '63', alt: ['63.00', '63.0'],
+      why: '63. Ana Ruiz placed two orders, 34.00 and 29.00. Measure-Object converts the Total text to numbers itself, so no [double] is needed, and the Sum is a number, which prints without trailing zeros.' },
+
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Which dates does it print? Give them as printed, separated by commas. Order does not matter.',
+      code: 'PS C:\\Users\\you\\ps-lab> Import-Csv data/orders.csv | Group-Object Date | Where-Object Count -gt 2 |\n  Select-Object -ExpandProperty Name', ans: '2026-03-02, 2026-03-03',
+      why: '2026-03-02 and 2026-03-03. Group-Object makes one group per Date, each with a Count: two orders on 1 March, three on each of the next two days. A group is an object like any other, so Where-Object can keep the groups whose Count is greater than 2, and Name holds the Date they share.' },
+
+    { type: 'seq', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'List the names it prints, in order, separated by commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> Import-Csv data/orders.csv | Group-Object Customer |\n  Sort-Object Count, Name -Descending | Select-Object -First 3 -ExpandProperty Name', ans: 'Ana Ruiz, Gus Lind, Femi Adeyemi',
+      why: 'Ana Ruiz, Gus Lind, Femi Adeyemi. Her group is the only one with a Count of 2, so it sorts first. Every other group has a Count of 1, a tie, and with -Descending the Name breaks it from Z to A: Gus, then Femi.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What does it print?',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Csv data/orders.csv |\n  Select-Object OrderId, @{ Name = 'Next'; Expression = { $_.Qty + 1 } } |\n  Select-Object -First 1 -ExpandProperty Next", ans: '11',
+      why: '11. The calculated property runs its script block for each order, and the first order has a Qty of 1. But Qty is text, and with text on the left, + joins: "1" and 1 make 11. With [int]$_.Qty + 1 it would print 2.' },
+
+    { type: 'count', lbl: 'in ps-lab, out is empty',
+      scen: '',
+      ask: 'The three commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Csv data/orders.csv | Where-Object Status -eq 'shipped' |\n  Export-Csv out/o.csv\nPS C:\\Users\\you\\ps-lab> Import-Csv data/orders.csv | Where-Object Status -eq 'pending' |\n  Export-Csv out/o.csv\nPS C:\\Users\\you\\ps-lab> Import-Csv out/o.csv | Measure-Object | Select-Object -ExpandProperty Count", ans: '2', alt: ['two'],
+      why: '2. Export-Csv replaces a file that is already there, without asking, so the second command threw away the five shipped orders and wrote the two pending ones. Import-Csv reads the file back as two rows; the header is not counted.' },
+
+    { type: 'value', lbl: 'in ps-lab, out is empty',
+      scen: '',
+      ask: 'The two commands run in order. What does the last one print? Give the line exactly as printed.',
+      code: 'PS C:\\Users\\you\\ps-lab> Import-Csv data/tickets.csv | Group-Object Priority |\n  Sort-Object Count, Name -Descending | Select-Object Name, Count |\n  Export-Csv out/s.csv\nPS C:\\Users\\you\\ps-lab> Get-Content out/s.csv | Select-Object -Last 1', ans: '"medium","1"', alt: ['"medium", "1"'],
+      why: '"medium","1". The groups are high 2, low 2 and medium 1; sorted by Count with -Descending, medium comes last. Export-Csv writes one row per group, Name then Count, the columns picked, and puts every value in double quotes, so the last line of the file is the medium row.' },
+
+    { type: 'value', lbl: 'trace it: the orders, as Select-Object OrderId, Customer shows them',
+      scen: 'OrderId Customer\n------- --------\n5001    Ana Ruiz\n5002    Ben Okafor\n5003    Chen Wei\n5004    Dara Singh\n5005    Eli Moss\n5006    Ana Ruiz\n5007    Femi Adeyemi\n5008    Gus Lind',
+      ask: 'Work through it one stage at a time. What does it print?',
+      code: 'Import-Csv data/orders.csv | Group-Object Customer | Where-Object Count -gt 1 |\n  Select-Object -ExpandProperty Name', ans: 'Ana Ruiz',
+      why: 'Ana Ruiz. Group-Object makes one group per customer, seven in all, and only Ana Ruiz has two orders (5001 and 5006), so hers is the only group whose Count is greater than 1. Name holds the value the group shares, her name.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item (build contract section 4): its order is forced. Import-Csv is the only line
+     that starts the pipeline; Where-Object needs the Status column, which only the rows
+     have (a group has none); Group-Object needs the rows' Product; Select-Object Name,
+     Count needs the groups; Export-Csv is the only pipeline line with no |; and the file
+     can be read back only after it is written. The prompt narrates that order. */
+  var PARSONS = [
+    { prompt: 'From the lab, with out already made: in one pipeline typed over five lines, read the orders, keep only the shipped ones, group them by Product, keep just the Name and Count columns, and save the result to out/shipped.csv. Then read the file back as objects.',
+      lines: ['Import-Csv data/orders.csv |',
+              "Where-Object Status -eq 'shipped' |",
+              'Group-Object Product |',
+              'Select-Object Name, Count |',
+              'Export-Csv out/shipped.csv',
+              'Import-Csv out/shipped.csv'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: cmdlet, parameter, key and
+     type names are case-insensitive in PowerShell. Every prompt asks for FULL names (measure,
+     group and epcsv are aliases, and n and e are the short keys, named in a callout and
+     graded nowhere). Every hyphen sits outside its box, and each prompt names the order
+     of its blanks. F2's [int] blank: the prompt asks for a whole number, which rules out
+     double. */
+  var FADED = [
+    { prompt: 'Find the average Total of all the orders. Fill in the full name of the cmdlet that counts and totals, then the switch that works out the average. The hyphen is already in place.',
+      code: 'Import-Csv data/orders.csv | %% Total -%%', ans: ['Measure-Object', 'Average'] },
+    { prompt: 'Show each inventory item’s Sku and its Stock as a whole number. Fill in the key name this workbook uses for the new column’s title, then the one it uses for its script block, then the type that makes a whole number (inside the square brackets).',
+      code: "Import-Csv exports/inventory-dump.csv | Select-Object Sku, @{ %% = 'Stock'; %% = { [%%]$_.Stock } }", ans: ['Name', 'Expression', 'int'] },
+    { prompt: 'Count the tickets for each Topic and save just the Name and Count of each group to out/topics.csv. Fill in the full name of the cmdlet that makes the groups, then the full name of the cmdlet that writes a CSV file.',
+      code: 'Import-Csv data/tickets.csv | %% Topic | Select-Object Name, Count | %% out/topics.csv', ans: ['Group-Object', 'Export-Csv'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'From the lab, print just the average Total of the orders that have shipped, as a bare number.',
+      sol: "Import-Csv data/orders.csv | Where-Object Status -eq 'shipped' |\n  Measure-Object Total -Average | Select-Object -ExpandProperty Average\n\nIt prints:\n40.1\n\nFive orders shipped, for 200.5 in all, and 200.5 / 5 = 40.1.\nMeasure-Object converts the Total text to numbers itself." },
+    { task: 'Count the items in exports/inventory-dump.csv that have fewer than 3 in stock, comparing Stock as a number.',
+      sol: "Import-Csv exports/inventory-dump.csv | Where-Object { [int]$_.Stock -lt 3 } |\n  Measure-Object | Select-Object -ExpandProperty Count\n\nIt prints:\n32\n\nWithout [int], Stock compares as text, and 10 to 29 also pass\n(252 items instead of 32), because the characters 1 and 2\ncome before 3." },
+    { task: 'Save the number of tickets for each Topic to out/topics.csv, with two columns, Topic and Count, biggest first, ties broken by Topic. Then read it back as objects.',
+      sol: "Import-Csv data/tickets.csv | Group-Object Topic |\n  Sort-Object Count, Name -Descending |\n  Select-Object @{ Name = 'Topic'; Expression = { $_.Name } }, Count |\n  Export-Csv out/topics.csv\nImport-Csv out/topics.csv\n\nIt prints:\nTopic    Count\n-----    -----\npayment  2\ndelivery 2\nrefund   1\n\nSort while the column is still called Name; after the\nrenaming it is Topic, and there is no Name left to sort on." },
+    { task: 'Save the OrderId and Total of the pending orders as JSON to out/pending.json, then read the file back.',
+      sol: "Import-Csv data/orders.csv | Where-Object Status -eq 'pending' |\n  Select-Object OrderId, Total | ConvertTo-Json | Set-Content out/pending.json\nGet-Content out/pending.json\n\nIt prints:\n[\n  {\n    \"OrderId\": \"5006\",\n    \"Total\": \"29.00\"\n  },\n  {\n    \"OrderId\": \"5008\",\n    \"Total\": \"82.00\"\n  }\n]\n\nThe Totals are in quotes because they are still text from\nthe CSV; [double] in a calculated property would make them\nnumbers. Windows PowerShell 5.1 spaces the same values\ndifferently." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Seventeen cards, sized to the atoms THIS session has (band 12-16, cap 18; the
+     seventeenth, Excel's BOM, was added at Patrick's request after the review). The deck
+     stays session-local: re-testing Sessions 1 to 3 is Part 6's job. */
+  var CARDS = [
+    { f: 'Import-Csv data/orders.csv', b: 'one object per row; the header line names the properties' },
+    { f: 'What kind of value is every column Import-Csv reads?', b: 'text (a string), even when it looks like a number' },
+    { f: 'Why is a row shown as a list, not a table?', b: 'it has five or more properties; pick fewer with Select-Object, or end with Format-Table' },
+    { f: "'34.00' + 1", b: '34.001: with text on the left, + joins text' },
+    { f: '[int] and [double]', b: 'turn text into a whole number; into a number that can have a decimal point' },
+    { f: 'Sorting or filtering a CSV column as a number', b: "convert it in a script block: Sort-Object { [int]$_.Stock }, Where-Object { [int]$_.Stock -gt 30 }" },
+    { f: 'Measure-Object Total -Sum -Average -Maximum -Minimum', b: 'the total, the average, the largest and the smallest Total; it converts the text itself' },
+    { f: 'Just the number from Measure-Object', b: 'Select-Object -ExpandProperty Sum (or Count, Average, Maximum, Minimum)' },
+    { f: 'Group-Object State', b: 'one group per State value, each with a Count, a Name and a Group (the rows)' },
+    { f: 'After Group-Object, before you trust the order', b: 'Sort-Object Count, Name -Descending (7 and 5.1 order groups differently)' },
+    { f: "@{ Name = 'Each'; Expression = { [double]$_.Total / $_.Qty } }", b: 'a calculated property: a new column, Each, worked out for each object' },
+    { f: 'Export-Csv out/FILE.csv', b: 'writes the objects as a CSV, every value in quotes, replacing the file without asking' },
+    { f: 'Before Export-Csv on groups', b: 'pick the columns first: Select-Object Name, Count' },
+    { f: 'A CSV a person will open in Excel', b: 'Export-Csv FILE -Encoding utf8BOM: without the BOM, Excel misreads letters such as é' },
+    { f: 'ConvertTo-Json', b: 'turns objects into JSON text: { } an object, [ ] a list, text in quotes, numbers without' },
+    { f: 'WARNING: Resulting JSON is truncated', b: 'objects nested deeper than 2 levels were flattened to text; pick flat columns, or add -Depth with enough levels (3 for groups of rows)' },
+    { f: '#TYPE on the first line of a CSV', b: 'Windows PowerShell 5.1 wrote it; -NoTypeInformation leaves it out (7 writes it only if asked to)' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four questions on Session 4 and two spaced-review questions, Q5 from Session 3 and
+     Q6 from Session 2, whose review links open those sessions. Correct-option length
+     ranks (longest = 1), computed by hand: 3, 3, 2, 3, 3, 2, with no tie for the correct
+     option's length. Never strictly the longest
+     or shortest (check-quiz.py 0/6 on both), and no single rank reaches the pass mark of
+     5. Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: 'Import-Csv exports/inventory-dump.csv | Where-Object Stock -gt 30 let through items with 4, 5 and 6 in stock. Why?',
+      o: ['Stock is text, so -gt compared it letter by letter: 4 comes after 3',
+          'Where-Object reads the header row as one of the items',
+          '-gt means greater than or equal to, so it lets through anything near 30',
+          'Import-Csv rounds every number in the file down to its first digit, so 31 is read as 3'],
+      c: 0,
+      e: 'Every column Import-Csv reads is text, and with text on the left, -gt compares text: the character 4 comes after 3, so "4" counts as greater than "30". Convert first: Where-Object { [int]$_.Stock -gt 30 }. The header is not a row, -gt is strictly greater than, and Import-Csv changes no value.',
+      part: { id: 'concept-b', label: 'B. Text that looks like a number' } },
+
+    { q: 'Group-Object State | Select-Object Name, Group | ConvertTo-Json wrote each ticket as one long string starting "@{TicketId=". What fixes it?',
+      o: ['Add -Depth 3, so each ticket is written as an object',
+          'Save it with Set-Content instead of printing it',
+          'Use Export-Csv instead, which keeps the tickets as separate rows inside each group',
+          'Run it in Windows PowerShell 5.1, which has no depth limit'],
+      c: 0,
+      e: 'ConvertTo-Json writes two levels unless told otherwise, and each ticket sits three levels in, so it was flattened into text: PowerShell 7 warns, 5.1 does the same silently. -Depth 3 reaches them, or keep only flat columns such as Name and Count. Set-Content only saves what was converted, and Export-Csv writes a list as the name of its type.',
+      part: { id: 'concept-g', label: 'G. Writing JSON' } },
+
+    { q: 'Import-Csv data/tickets.csv | Group-Object State | Export-Csv out/raw.csv wrote System.Collections.ArrayList into the file. What is the fix?',
+      o: ['Pick the columns first: | Select-Object Name, Count | Export-Csv out/raw.csv',
+          'Add -NoTypeInformation to Export-Csv',
+          'Use ConvertTo-Json instead; a CSV file cannot hold a count',
+          'Sort the groups with Sort-Object before exporting, so Export-Csv knows which columns come first'],
+      c: 0,
+      e: 'Export-Csv writes every property, and a group’s Group and Values each hold a list, which one CSV value cannot hold, so it writes the list’s type name instead. Choosing Name and Count first leaves only values a CSV can hold. -NoTypeInformation only drops 5.1’s #TYPE line, a CSV holds a count fine, and sorting changes the order of the rows, not the columns.',
+      part: { id: 'concept-f', label: 'F. Writing a CSV' } },
+
+    { q: 'Import-Csv data/orders.csv | Group-Object Status | Select-Object Count, Name lists pending first in PowerShell 7 and shipped first in 5.1. What makes the report the same in both?',
+      o: ['Add Sort-Object Count, Name -Descending after Group-Object',
+          'Add -CaseSensitive to Group-Object',
+          'Nothing: the counts differ between the two versions as well',
+          'Use Export-Csv, which always writes groups in the order of the file, not the order of the screen'],
+      c: 0,
+      e: 'PowerShell 7 hands groups on sorted by Name, and 5.1 in the order it first met each value. The groups and counts are the same; only the order differs, and sorting on Count, with Name to break a tie, gives one order in both. -CaseSensitive is about capitals, not order, and Export-Csv writes rows in whatever order they arrive.',
+      part: { id: 'concept-d', label: 'D. Counting by group' } },
+
+    { q: 'Spaced review, from Session 3. You want to see which files Remove-Item out/*.csv would delete, without deleting any. Which command?',
+      o: ['Remove-Item out/*.csv -WhatIf',
+          'Remove-Item out/*.csv -Recurse',
+          'Test-Path out/*.csv',
+          'Select-String csv out -SimpleMatch, which lists the files instead of deleting them'],
+      c: 0,
+      e: '-WhatIf prints a "What if:" line for each file the command would delete, and deletes nothing. -Recurse deletes folders and everything inside them as well; Test-Path only answers True or False; and Select-String searches inside files, it does not show what a delete would touch.',
+      part: { ext: S03_URL + '#concept-g', label: 'Session 3, G. Copy, rename, move and delete' } },
+
+    { q: 'Spaced review, from Session 2. Which filter keeps the orders whose Customer contains Ruiz anywhere in it?',
+      o: ["Where-Object { $_.Customer -like '*Ruiz*' }",
+          "Where-Object { Customer -like '*Ruiz*' }",
+          "Where-Object Customer -eq 'Ruiz'",
+          "Where-Object { $_.Customer -like 'Ruiz' } | Sort-Object Customer"],
+      c: 0,
+      e: 'Inside a script block, $_ is each object and the dot reads its property, so $_.Customer is the name, and -like with a star on each side finds Ruiz anywhere in it. Without $_. PowerShell reads Customer as the name of a command, which is an error; -eq needs the whole value to match; and -like with no stars means exactly Ruiz.',
+      part: { ext: S02_URL + '#concept-f', label: 'Session 2, F. When the object itself is the test: { $_ }' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S04 on your Hub and move on to Session 5.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
