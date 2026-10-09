@@ -1,0 +1,2198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 6: Functions and parameters</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 54 characters, inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is ValueFromPipeline (17 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 06 // Level 3 &middot; Scripting</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Functions and parameters</h1>
+    <p class="goal">Today you make your own commands. You give a block of code a name, then teach it to take values, called parameters, with types, defaults and required ones. You give it the common parameters such as <code>-Verbose</code>, let it take objects from the pipeline, and write help for it, so <code>Get-Help</code> explains your command the way it explains PowerShell&rsquo;s own. Then Session 5&rsquo;s report script grows parameters and help of its own.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Write a reusable script that takes parameters and documents itself.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep one PowerShell 7 window open beside this page, in your lab, for the whole of Part 1.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. Each section makes the functions it uses, so if you close the window, open a new one in <code>ps-lab</code> and carry on from the section you were in: a function is gone with its window, but the files you save in <code>ps-scripts</code> stay.</p>
+        <p><b>Two places to write today</b>, as in Session 5: reports go in <code>ps-lab/out</code>, and scripts in <code>ps-scripts</code> in your home folder, outside the lab, so rebuilding the lab never deletes them. If you did not do Session 5, the first box below makes that folder for you.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">17</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Sections F and G use files saved in section F, so work them in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. A line in olive starting <code>&gt;&gt;</code> is the rest of a command typed over several lines (section A explains it). Every transcript was captured on Windows 11 in PowerShell 7.6, in a window 120 characters wide, from a fresh lab. Where a path shows <code>you</code>, your own user name appears instead, and <code>Get-Help</code>, which fits its text to the window, may break a long line in a different place. Listings were captured on Windows: on macOS and Linux, expect paths with <code>/</code>. The Bash box was captured in Git Bash on the same Windows machine, with its prompt shortened to <code>$</code>. A command too long for this page is wrapped after a <code>|</code> and marked <i>one line, wrapped here</i>: type it as one line. A printed line too long for this page is marked the same way. A box headed with a file name, such as <code>~/ps-scripts/OrderTools.ps1</code>, is a file you type into an editor and save.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including your <code>out</code> folder, builds it fresh, exactly as Session 1 did, and moves you into it. It never touches anything outside <code>ps-lab</code>, so your scripts in <code>ps-scripts</code> are safe from it.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 to 5)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. It ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+      <p>Then make the folder for today&rsquo;s reports, and the scripts folder. <code>| Out-Null</code> throws away what <code>New-Item</code> would print, as in Session 4. <b><code>-Force</code></b> on <code>New-Item</code> makes a folder that is already there quietly count as done, so the second line works whether or not you made <code>ps-scripts</code> in Session 5, and it leaves any scripts in it alone:</p>
+      <div class="filebox">
+        <div class="fbh">a place for reports and scripts &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory ~/ps-scripts -Force | Out-Null</span></code></pre>
+      </div>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. A function: a command of your own</h3>
+      <p>A <b>function</b> is a block of code with a name. You make it once, then run it whenever you like by typing its name, exactly like a cmdlet. The form is <b><code>function NAME { CODE }</code></b>: the word <code>function</code>, the name you choose, then the code in braces, a script block as in Session 2. NAME and CODE in capitals are placeholders for your own. Making a function prints nothing; it only remembers the code under that name.</p>
+      <p>A function is usually several lines long. Type its first line, ending in <code>{</code>, and press Enter: PowerShell sees the command is not finished and shows <b><code>&gt;&gt;</code></b>, as it did in Session 2 after a <code>|</code>, waiting for the rest. Type each line and press Enter after it. When you type the closing <code>}</code> and press Enter, the function is made. Indenting the lines inside the braces by two spaces is not needed, but it shows at a glance where the function ends. Here is a function that outputs the open tickets, and three ways to use it:</p>
+      <div class="filebox">
+        <div class="fbh">make a function, then run it &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-OpenTicket {</span>
+<span class="cmd">&gt;&gt;   Import-Csv "$HOME/ps-lab/data/tickets.csv" | Where-Object State -eq 'open'</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-OpenTicket | Select-Object TicketId, Customer, Priority</span>
+
+TicketId Customer Priority
+-------- -------- --------
+T-103    Gus Lind high
+T-104    Ana Ruiz medium
+T-105    Eli Moss low
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $open = Get-OpenTicket</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $open.Count</span>
+3
+<span class="cmd">PS C:\Users\you\ps-lab&gt; get-openticket | Select-Object -ExpandProperty Customer</span>
+Gus Lind
+Ana Ruiz
+Eli Moss</code></pre>
+      </div>
+      <p>Whatever a function outputs goes down the pipe like any command&rsquo;s output, or into a variable, as in Session 5. Its name, like a cmdlet&rsquo;s, can be typed in any case. Inside it, the path is built from <code>$HOME</code>, for Session 5&rsquo;s reason: a relative path is found from the folder you are in, so a full path works from anywhere.</p>
+      <p><b>Name it Verb-Noun, like every cmdlet</b> (Session 1). PowerShell keeps a list of <b>approved verbs</b>, the ones its own commands use, and <b><code>Get-Verb</code></b> shows it; give it verbs to check them. Choosing from the list makes your command read like the rest: <code>Get</code> fetches, <code>Show</code> displays. A noun is usually singular, such as <code>Ticket</code>. <code>Shout</code> is not on the list:</p>
+      <div class="filebox">
+        <div class="fbh">is a verb approved? &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Verb Get, Show, Shout | Select-Object Verb, Group</span>
+
+Verb Group
+---- -----
+Get  Common
+Show Common</code></pre>
+      </div>
+      <p>A function with an unapproved verb still works, and typed at the prompt it gets no warning. The warning comes when a command with one arrives as part of a <b>module</b>, a package of commands, which is Session 9. A function lives in this window only, like a variable: close the window and it is gone. Typing <code>function</code> again with the same name replaces it, without asking.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Everything in this section prints the same in 5.1, with its extra blank lines and padding. Typed over several lines, a function shows the same <code>&gt;&gt;</code> prompts in 5.1.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Your first function</div>
+        <ol>
+          <li>Make <code>Get-PendingOrder</code>, which outputs the orders whose Status is <code>pending</code>, and show their OrderId and Customer.</li>
+          <li>Run it again typed in lower case, and print just its Total values.</li>
+          <li>Is <code>Find</code> an approved verb? Check with <code>Get-Verb</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Copy the shape of <code>Get-OpenTicket</code>: <code>orders.csv</code> in place of <code>tickets.csv</code>, and the Status column in place of the State column. Step 2 sends it to <code>Select-Object -ExpandProperty</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-PendingOrder {</span>
+<span class="cmd">&gt;&gt;   Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Status -eq 'pending'</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-PendingOrder | Select-Object OrderId, Customer</span>
+
+OrderId Customer
+------- --------
+5006    Ana Ruiz
+5008    Gus Lind
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; get-pendingorder | Select-Object -ExpandProperty Total</span>
+29.00
+82.00
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Verb Find | Select-Object Verb, Group</span>
+
+Verb Group
+---- -----
+Find Common</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I made a function and ran it by its name</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Parameters: param() and types</h3>
+      <p><code>Get-OpenTicket</code> always does the same thing. A <b>parameter</b> lets whoever runs the function hand it a value, just as <code>-Path</code> and <code>-Filter</code> hand values to <code>Get-ChildItem</code>. You list a function&rsquo;s parameters in a <b><code>param()</code> block</b>, which must be the first thing inside the braces (only help and <code>[CmdletBinding()]</code>, both later today, may come before it). Each parameter is a variable, such as <code>$Status</code>, and the type in square brackets in front of it, <code>[string]</code> here, is the same type name Session 5 used with <code>-is</code>. Inside the function, use the parameter like any variable. The value someone gives it when they run the function is called an <b>argument</b>.</p>
+      <div class="filebox">
+        <div class="fbh">a function with a parameter &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Order {</span>
+<span class="cmd">&gt;&gt;   param([string]$Status)</span>
+<span class="cmd">&gt;&gt;   Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Status -eq $Status</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Order -Status pending | Select-Object OrderId, Customer, Total</span>
+
+OrderId Customer Total
+------- -------- -----
+5006    Ana Ruiz 29.00
+5008    Gus Lind 82.00
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Order refunded | Select-Object OrderId, Customer, Total</span>
+
+OrderId Customer   Total
+------- --------   -----
+5004    Dara Singh 34.00
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Order</span></code></pre>
+      </div>
+      <p>The parameter&rsquo;s name becomes the function&rsquo;s <code>-Status</code>. The second run leaves the name out: an argument with no name is <b>positional</b>, and fills the parameters in the order <code>param()</code> lists them, first to first, second to second. The third run gives no argument at all. <code>$Status</code> then holds nothing, no order&rsquo;s Status equals nothing, and nothing prints, with no error. Section C fixes that.</p>
+      <p><b>Read your own SYNTAX.</b> <code>Get-Command NAME -Syntax</code> prints just the SYNTAX line of any command, yours included, and Session 1&rsquo;s table reads it. Whole thing in brackets: you can leave it out. Name in brackets: you can leave the name out, so it is positional.</p>
+      <div class="filebox">
+        <div class="fbh">your function&rsquo;s SYNTAX &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-Order -Syntax</span>
+
+Get-Order [[-Status] &lt;string&gt;]</code></pre>
+      </div>
+      <p><b>Why a type.</b> When the function runs, PowerShell converts each argument to its parameter&rsquo;s type before any of your code runs, the way Session 4&rsquo;s <code>[int]</code> converted text, and it rounds the same way. A value it cannot convert stops the function with an error that names the parameter, so a mistake is caught at the door instead of quietly giving a wrong answer. Here <code>[int]$Over</code> is a whole number, and the filter is Session 2&rsquo;s script block, comparing each Total, converted as in Session 4:</p>
+      <div class="filebox">
+        <div class="fbh">a whole-number parameter &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-BigOrder {</span>
+<span class="cmd">&gt;&gt;   param([int]$Over)</span>
+<span class="cmd">&gt;&gt;   Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object { [double]$_.Total -gt $Over }</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-BigOrder -Over 50 | Select-Object OrderId, Customer, Total</span>
+
+OrderId Customer   Total
+------- --------   -----
+5002    Ben Okafor 58.00
+5008    Gus Lind   82.00
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-BigOrder -Over fifty</span>
+Get-BigOrder: Cannot process argument transformation on parameter 'Over'.    <span class="cm">one line, wrapped here</span>
+Cannot convert value "fifty" to type "System.Int32". Error: "The input       <span class="cm">one line, wrapped here</span>
+string 'fifty' was not in a correct format."
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-BigOrder -Syntax</span>
+
+Get-BigOrder [[-Over] &lt;int&gt;]</code></pre>
+      </div>
+      <p>Read the error from the start: <b>argument transformation</b> is the conversion, and <code>System.Int32</code> is Session 5&rsquo;s Int32, the type <code>[int]</code> makes. The SYNTAX now says <code>&lt;int&gt;</code>, one of Session 1&rsquo;s kinds of whole number, so anyone reading it knows to give a number.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1. Its conversion error comes in the long form, and words the last part <code>Input string was not in a correct format.</code></div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Give it parameters</div>
+        <ol>
+          <li>Make <code>Get-Ticket</code>, with a <code>[string]</code> parameter <code>$Priority</code>, that outputs the tickets with that Priority. Run it for <code>high</code> by name and for <code>low</code> by position, showing TicketId and Customer.</li>
+          <li>Read its SYNTAX. Can you leave the parameter out?</li>
+          <li>Make <code>Get-Top</code>, with an <code>[int]</code> parameter <code>$Count</code>, that outputs the first <code>$Count</code> orders. Run it with <code>2</code>, then with <code>two</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 3: Session 2&rsquo;s <code>Select-Object -First</code> takes a number, and the number can be a variable: <code>Select-Object -First $Count</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Ticket {</span>
+<span class="cmd">&gt;&gt;   param([string]$Priority)</span>
+<span class="cmd">&gt;&gt;   Import-Csv "$HOME/ps-lab/data/tickets.csv" | Where-Object Priority -eq $Priority</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Ticket -Priority high | Select-Object TicketId, Customer</span>
+
+TicketId Customer
+-------- --------
+T-101    Dara Singh
+T-103    Gus Lind
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Ticket low | Select-Object TicketId, Customer</span>
+
+TicketId Customer
+-------- --------
+T-102    Chen Wei
+T-105    Eli Moss
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-Ticket -Syntax</span>
+
+Get-Ticket [[-Priority] &lt;string&gt;]
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Top {</span>
+<span class="cmd">&gt;&gt;   param([int]$Count)</span>
+<span class="cmd">&gt;&gt;   Import-Csv "$HOME/ps-lab/data/orders.csv" | Select-Object -First $Count</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Top 2 | Select-Object OrderId, Customer</span>
+
+OrderId Customer
+------- --------
+5001    Ana Ruiz
+5002    Ben Okafor
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Top two</span>
+Get-Top: Cannot process argument transformation on parameter 'Count'.        <span class="cm">one line, wrapped here</span>
+Cannot convert value "two" to type "System.Int32". Error: "The input         <span class="cm">one line, wrapped here</span>
+string 'two' was not in a correct format."</code></pre>
+<p>The whole of <code>[[-Priority] &lt;string&gt;]</code> is in brackets, so yes, you can leave it out, though then nothing matches, as with <code>Get-Order</code> above.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I gave a function typed parameters and read its SYNTAX</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Defaults, switches, and parameters you must give</h3>
+      <p>A <b>default</b> is the value a parameter takes when nobody gives one: write <code>= VALUE</code> after it in <code>param()</code>. Now <code>Get-Order</code> on its own means the pending orders. A default that is a path is built from <code>$HOME</code>, so it works from any folder. SYNTAX does not show defaults; section G shows where they appear.</p>
+      <div class="filebox">
+        <div class="fbh">a default value &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Order {</span>
+<span class="cmd">&gt;&gt;   param([string]$Status = 'pending')</span>
+<span class="cmd">&gt;&gt;   Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Status -eq $Status</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Order | Select-Object OrderId, Customer</span>
+
+OrderId Customer
+------- --------
+5006    Ana Ruiz
+5008    Gus Lind
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Order -Status refunded | Select-Object OrderId, Customer</span>
+
+OrderId Customer
+------- --------
+5004    Dara Singh
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-Order -Syntax</span>
+
+Get-Order [[-Status] &lt;string&gt;]</code></pre>
+      </div>
+      <p><b>A switch.</b> Session 1&rsquo;s table said a parameter in SYNTAX with no angle brackets after it, such as <code>[-Recurse]</code>, is a <b>switch</b>: it takes no value, it is either there or not. Make one with the type <b><code>[switch]</code></b>. Inside the function, the switch is True when the caller added it, so an <code>if</code> from Session 5 can test it:</p>
+      <div class="filebox">
+        <div class="fbh">a switch &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-ShopName {</span>
+<span class="cmd">&gt;&gt;   param([switch]$Full)</span>
+<span class="cmd">&gt;&gt;   if ($Full) { 'Fernhill Goods Ltd' } else { 'Fernhill' }</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ShopName</span>
+Fernhill
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ShopName -Full</span>
+Fernhill Goods Ltd
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-ShopName -Syntax</span>
+
+Get-ShopName [-Full]</code></pre>
+      </div>
+      <p><b>A value that must be given.</b> Some values have no sensible default, such as a person&rsquo;s name. Write <b><code>[Parameter(Mandatory)]</code></b> just before the parameter&rsquo;s type, and the function cannot run without it. Run at the prompt without one, PowerShell asks for it: type the value after <code>Name:</code> and press Enter. Press Enter with nothing typed, and it stops with an error instead. In the transcript, the value typed at the question is in olive:</p>
+      <div class="filebox">
+        <div class="fbh">a parameter you must give &middot; captured live, in a console window</div>
+<pre data-shell="console"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Greeting {</span>
+<span class="cmd">&gt;&gt;   param([Parameter(Mandatory)][string]$Name)</span>
+<span class="cmd">&gt;&gt;   "Hello, $Name"</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Greeting</span>
+
+cmdlet Get-Greeting at command pipeline position 1
+Supply values for the following parameters:
+Name: <span class="cmd">Ana</span>
+Hello, Ana
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Greeting</span>
+
+cmdlet Get-Greeting at command pipeline position 1
+Supply values for the following parameters:
+Name:
+Get-Greeting: Cannot bind argument to parameter 'Name' because it is an empty string.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-Greeting -Syntax</span>
+
+Get-Greeting [-Name] &lt;string&gt; [&lt;CommonParameters&gt;]</code></pre>
+      </div>
+      <p>Read the SYNTAX with Session 1&rsquo;s table: only the name is in brackets, <code>[-Name] &lt;string&gt;</code>, so the value is required and the name is optional. (The <code>[&lt;CommonParameters&gt;]</code> on the end is section D.) A program that runs PowerShell with nobody there to answer, such as <code>pwsh -NonInteractive</code>, cannot ask: on this workbook&rsquo;s computer that run stopped with <code>Cannot process command because of one or more missing mandatory parameters: Name.</code> and carried on to its next line. So which to use? <b>A default whenever there is a sensible one</b>, so the command runs with nothing typed; <code>Mandatory</code> only when no one but the caller can know the value.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, the question included. Enter on nothing gives the same error in the long form.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Defaults and required values</div>
+        <ol>
+          <li>Make <code>Get-Ticket</code> again, with a Priority that defaults to <code>high</code>, and run it with nothing after its name, showing TicketId and Customer.</li>
+          <li>Make <code>Get-Welcome</code>, whose <code>[string]$Name</code> must be given, and which outputs <code>Welcome back, NAME</code>. Run it without <code>-Name</code>, and answer the question with <code>Ben</code>.</li>
+          <li>Compare the two functions&rsquo; SYNTAX lines. Which parameter can you leave out?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 puts <code>= 'high'</code> after <code>$Priority</code>. Step 2 puts <code>[Parameter(Mandatory)]</code> just before <code>[string]</code>. The message goes in double quotes, as in Session 5.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Ticket {</span>
+<span class="cmd">&gt;&gt;   param([string]$Priority = 'high')</span>
+<span class="cmd">&gt;&gt;   Import-Csv "$HOME/ps-lab/data/tickets.csv" | Where-Object Priority -eq $Priority</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Ticket | Select-Object TicketId, Customer</span>
+
+TicketId Customer
+-------- --------
+T-101    Dara Singh
+T-103    Gus Lind
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-Ticket -Syntax</span>
+
+Get-Ticket [[-Priority] &lt;string&gt;]</code></pre>
+<pre data-shell="console"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Welcome {</span>
+<span class="cmd">&gt;&gt;   param([Parameter(Mandatory)][string]$Name)</span>
+<span class="cmd">&gt;&gt;   "Welcome back, $Name"</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Welcome</span>
+
+cmdlet Get-Welcome at command pipeline position 1
+Supply values for the following parameters:
+Name: <span class="cmd">Ben</span>
+Welcome back, Ben
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-Welcome -Syntax</span>
+
+Get-Welcome [-Name] &lt;string&gt; [&lt;CommonParameters&gt;]</code></pre>
+<p><code>Get-Ticket</code>&rsquo;s Priority is all in brackets, so you can leave it out. <code>Get-Welcome</code>&rsquo;s Name is not, so you must give it.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I gave parameters a default, a switch and a required value</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Messages and output: [CmdletBinding()], -Verbose, Write-Host and return</h3>
+      <p>Every cmdlet takes a set of extra parameters that SYNTAX does not list one by one; it shows them as <b><code>[&lt;CommonParameters&gt;]</code></b>. They are the <b>common parameters</b>: <code>-Verbose</code> is one, and <code>-ErrorAction</code>, which Session 7 uses, is another. Your function gets them when you write <b><code>[CmdletBinding()]</code></b> on the line just before <code>param()</code>. That makes it an <b>advanced function</b>, one that behaves like a cmdlet. A <code>[Parameter()]</code> line does the same, which is why <code>Get-Greeting</code>&rsquo;s SYNTAX already showed them.</p>
+      <p>With the common parameters comes <b><code>Write-Verbose "TEXT"</code></b>, which prints TEXT with <code>VERBOSE:</code> in front, but only when the caller adds <b><code>-Verbose</code></b>. Use it for messages about what the function is doing: they stay out of the way until someone asks to see them.</p>
+      <div class="filebox">
+        <div class="fbh">an advanced function, quiet, then with -Verbose &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-OrderCount {</span>
+<span class="cmd">&gt;&gt;   [CmdletBinding()]</span>
+<span class="cmd">&gt;&gt;   param([string]$Status = 'pending')</span>
+<span class="cmd">&gt;&gt;   Write-Verbose "Counting $Status orders"</span>
+<span class="cmd">&gt;&gt;   $rows = Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Status -eq $Status</span>
+<span class="cmd">&gt;&gt;   $rows.Count</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-OrderCount</span>
+2
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-OrderCount -Verbose</span>
+VERBOSE: Counting pending orders
+2
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-OrderCount -Status shipped -Verbose</span>
+VERBOSE: Counting shipped orders
+5
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-OrderCount -Syntax</span>
+
+Get-OrderCount [[-Status] &lt;string&gt;] [&lt;CommonParameters&gt;]</code></pre>
+      </div>
+      <p><b>The trap: no <code>[CmdletBinding()]</code>, no message, and no error.</b> Here is the same function without that line. <code>-Verbose</code> is accepted and quietly does nothing, because a plain function takes extra arguments without complaint. Its SYNTAX, from <code>Get-Command -Syntax</code>, has no <code>[&lt;CommonParameters&gt;]</code>: that is how to tell.</p>
+      <div class="filebox">
+        <div class="fbh">the same function without [CmdletBinding()] &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-QuietCount {</span>
+<span class="cmd">&gt;&gt;   param([string]$Status = 'pending')</span>
+<span class="cmd">&gt;&gt;   Write-Verbose "Counting $Status orders"</span>
+<span class="cmd">&gt;&gt;   $rows = Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Status -eq $Status</span>
+<span class="cmd">&gt;&gt;   $rows.Count</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-QuietCount -Verbose</span>
+2
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command Get-QuietCount -Syntax</span>
+
+Get-QuietCount [[-Status] &lt;string&gt;]</code></pre>
+      </div>
+      <p><b>What counts as output.</b> Everything a function produces and does not store in a variable is its <b>output</b>: the <code>$rows.Count</code> line on its own is output, and so is a message in quotes on its own line, as in Session 5&rsquo;s scripts. You will also see <code>Write-Output VALUE</code>, the long way to write the same thing. Output goes down the pipe, or into a variable. <b><code>Write-Host</code></b> is different: it prints straight to the screen and is not output, so a variable or a pipe does not get it, unless you redirect it on purpose (you will see <code>6&gt;&amp;1</code> in other people&rsquo;s scripts; this workbook does not need it). Keep results as output and use <code>Write-Host</code>, if at all, for a line meant only for the person watching:</p>
+      <div class="filebox">
+        <div class="fbh">Write-Host is not output &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Total {</span>
+<span class="cmd">&gt;&gt;   Write-Host 'Adding up the orders'</span>
+<span class="cmd">&gt;&gt;   $orders = Import-Csv "$HOME/ps-lab/data/orders.csv"</span>
+<span class="cmd">&gt;&gt;   $sum = 0</span>
+<span class="cmd">&gt;&gt;   foreach ($o in $orders) { $sum = $sum + [double]$o.Total }</span>
+<span class="cmd">&gt;&gt;   $sum</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Total</span>
+Adding up the orders
+345.5
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $t = Get-Total</span>
+Adding up the orders
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $t</span>
+345.5</code></pre>
+      </div>
+      <p><b><code>return</code></b> leaves the function at once, and outputs the value after it, if there is one. Code below it does not run. The catch: <code>return</code> is not the only output. Anything the function output before it reached <code>return</code> has already gone:</p>
+      <div class="filebox">
+        <div class="fbh">return leaves early; earlier output has already gone &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-Size {</span>
+<span class="cmd">&gt;&gt;   param([int]$Qty)</span>
+<span class="cmd">&gt;&gt;   "Checking $Qty"</span>
+<span class="cmd">&gt;&gt;   if ($Qty -gt 2) { return 'bulk' }</span>
+<span class="cmd">&gt;&gt;   'single'</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Size 3</span>
+Checking 3
+bulk
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Size 1</span>
+Checking 1
+single</code></pre>
+      </div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, the silent <code>-Verbose</code> included.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> An advanced function</div>
+        <ol>
+          <li>Make <code>Get-TicketCount</code>, an advanced function with a State that defaults to <code>open</code>. It says <code>Counting open tickets</code> as a Verbose message, then outputs how many tickets have that State.</li>
+          <li>Run it with <code>-Verbose</code>, then for <code>closed</code> without it.</li>
+          <li>Take out the <code>[CmdletBinding()]</code> line, make it again, and run it with <code>-Verbose</code>. What changed in its SYNTAX?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Copy <code>Get-OrderCount</code>&rsquo;s shape: <code>[CmdletBinding()]</code>, then <code>param()</code>, then <code>Write-Verbose</code> with the State in double quotes.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-TicketCount {</span>
+<span class="cmd">&gt;&gt;   [CmdletBinding()]</span>
+<span class="cmd">&gt;&gt;   param([string]$State = 'open')</span>
+<span class="cmd">&gt;&gt;   Write-Verbose "Counting $State tickets"</span>
+<span class="cmd">&gt;&gt;   $rows = Import-Csv "$HOME/ps-lab/data/tickets.csv" | Where-Object State -eq $State</span>
+<span class="cmd">&gt;&gt;   $rows.Count</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-TicketCount -Verbose</span>
+VERBOSE: Counting open tickets
+3
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-TicketCount -State closed</span>
+2</code></pre>
+<p>Step 3: without <code>[CmdletBinding()]</code>, <code>-Verbose</code> prints no message, and the SYNTAX loses <code>[&lt;CommonParameters&gt;]</code>, exactly as <code>Get-QuietCount</code> did.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I wrote an advanced function with a Verbose message</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Taking input from the pipeline: process</h3>
+      <p>Cmdlets take objects from the pipe, one at a time. Your function can too. Mark a parameter <b><code>[Parameter(ValueFromPipeline)]</code></b>, and each object piped in fills that parameter. But try it with code like the functions so far, and only one of three arrives:</p>
+      <div class="filebox">
+        <div class="fbh">piped in, without a process block &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Show-Order {</span>
+<span class="cmd">&gt;&gt;   param([Parameter(ValueFromPipeline)][string]$Id)</span>
+<span class="cmd">&gt;&gt;   "Order $Id"</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; '5001', '5002', '5003' | Show-Order</span>
+Order 5003</code></pre>
+      </div>
+      <p>No error, and two orders gone. Code written straight into a function runs <b>once</b>, after everything has been piped in, by which time the parameter holds only the <b>last</b> object. The fix is a <b><code>process { }</code></b> block: the code inside it runs once for each object that comes down the pipe, with the parameter holding that object. Called with <code>-Id</code> instead, it runs once, for that value:</p>
+      <div class="filebox">
+        <div class="fbh">the same function, with process &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Show-Order {</span>
+<span class="cmd">&gt;&gt;   param([Parameter(ValueFromPipeline)][string]$Id)</span>
+<span class="cmd">&gt;&gt;   process { "Order $Id" }</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; '5001', '5002', '5003' | Show-Order</span>
+Order 5001
+Order 5002
+Order 5003
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Where-Object Status -eq 'pending' |</span>
+<span class="cmd">  Select-Object -ExpandProperty OrderId | Show-Order</span>                         <span class="cm">one line, wrapped here</span>
+Order 5006
+Order 5008
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Show-Order -Id 5004</span>
+Order 5004</code></pre>
+      </div>
+      <p><b>Before and after: begin and end.</b> Two more blocks go with <code>process</code>. <b><code>begin { }</code></b> runs once, before the first object arrives, and <b><code>end { }</code></b> runs once, after the last. Together they make Session 5&rsquo;s running total into a function: <code>begin</code> starts the total at 0, <code>process</code> adds each object, and <code>end</code> outputs the total. The <code>[int]</code> converts each Qty from CSV text as it arrives:</p>
+      <div class="filebox">
+        <div class="fbh">begin, process and end &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-ItemTotal {</span>
+<span class="cmd">&gt;&gt;   param([Parameter(ValueFromPipeline)][int]$Qty)</span>
+<span class="cmd">&gt;&gt;   begin { $total = 0 }</span>
+<span class="cmd">&gt;&gt;   process { $total = $total + $Qty }</span>
+<span class="cmd">&gt;&gt;   end { "Items: $total" }</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Select-Object -ExpandProperty Qty |</span>
+<span class="cmd">  Get-ItemTotal</span>                                                              <span class="cm">one line, wrapped here</span>
+Items: 12</code></pre>
+      </div>
+      <p>The rule: <b>a function that takes pipeline input puts its work in <code>process</code></b>.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, the lost orders included.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Take objects from the pipe</div>
+        <ol>
+          <li>Make <code>Show-Ticket</code>, which takes a TicketId from the pipeline and outputs <code>Ticket T-101</code> for each one, and pipe every ticket&rsquo;s TicketId into it.</li>
+          <li>Make it again without its <code>process</code> block, and run the same pipeline. What do you get?</li>
+          <li>Make <code>Get-OrderTotal</code>, which adds up the Totals piped into it, as numbers that can have a decimal point, and ends by outputting <code>Total: </code> and the sum.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 3 has the shape of <code>Get-ItemTotal</code>, with <code>[double]</code> in place of <code>[int]</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Show-Ticket {</span>
+<span class="cmd">&gt;&gt;   param([Parameter(ValueFromPipeline)][string]$Id)</span>
+<span class="cmd">&gt;&gt;   process { "Ticket $Id" }</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Select-Object -ExpandProperty TicketId |</span>
+<span class="cmd">  Show-Ticket</span>                                                                <span class="cm">one line, wrapped here</span>
+Ticket T-101
+Ticket T-102
+Ticket T-103
+Ticket T-104
+Ticket T-105
+<span class="cmd">PS C:\Users\you\ps-lab&gt; function Show-Ticket {</span>
+<span class="cmd">&gt;&gt;   param([Parameter(ValueFromPipeline)][string]$Id)</span>
+<span class="cmd">&gt;&gt;   "Ticket $Id"</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Select-Object -ExpandProperty TicketId |</span>
+<span class="cmd">  Show-Ticket</span>                                                                <span class="cm">one line, wrapped here</span>
+Ticket T-105
+<span class="cmd">PS C:\Users\you\ps-lab&gt; function Get-OrderTotal {</span>
+<span class="cmd">&gt;&gt;   param([Parameter(ValueFromPipeline)][double]$Total)</span>
+<span class="cmd">&gt;&gt;   begin { $sum = 0 }</span>
+<span class="cmd">&gt;&gt;   process { $sum = $sum + $Total }</span>
+<span class="cmd">&gt;&gt;   end { "Total: $sum" }</span>
+<span class="cmd">&gt;&gt; }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Select-Object -ExpandProperty Total |</span>
+<span class="cmd">  Get-OrderTotal</span>                                                             <span class="cm">one line, wrapped here</span>
+Total: 345.5</code></pre>
+<p>Without <code>process</code>, only the last TicketId arrives.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I wrote a function that takes objects from the pipeline</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. From the prompt to a file</h3>
+      <p>A function typed at the prompt is gone when you close the window. To keep one, save it in a <code>.ps1</code> file. Make this file in VS Code, in <code>ps-scripts</code>, as in Session 5:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/OrderTools.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/OrderTools.ps1"><code># OrderTools.ps1: functions for the Fernhill Goods orders.
+function Get-CustomerOrder {
+  param([string]$Customer)
+  Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Customer -eq $Customer
+}</code></pre>
+      </div>
+      <p>Now Session 5&rsquo;s scope rule bites again. Run the file the usual way and it makes the function, inside the script, and the function is cleared away with the script&rsquo;s variables when it ends. <b>Dot-source</b> it instead, a dot and a space before its path, and it runs as if typed at your prompt, so the function stays in your window:</p>
+      <div class="filebox">
+        <div class="fbh">run it, then dot-source it &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/OrderTools.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-CustomerOrder -Customer 'Ana Ruiz'</span>
+Get-CustomerOrder: The term 'Get-CustomerOrder' is not recognized as a       <span class="cm">one line, wrapped here</span>
+name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the   <span class="cm">one line, wrapped here</span>
+path is correct and try again.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; . ~/ps-scripts/OrderTools.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-CustomerOrder -Customer 'Ana Ruiz' |</span>
+<span class="cmd">  Select-Object OrderId, Product, Total</span>                                      <span class="cm">one line, wrapped here</span>
+
+OrderId Product       Total
+------- -------       -----
+5001    Cast iron pan 34.00
+5006    Chef knife    29.00</code></pre>
+      </div>
+      <p>Dot-source a file of functions once in each new window, and they are yours until you close it. Session 9 packs functions into a module, which loads them for you.</p>
+      <p><b>A script with parameters.</b> A script can take parameters too, with no function at all: put the <code>param()</code> block at the very top of the file, before any other code (only comments, help and <code>[CmdletBinding()]</code> may come before it). Everything from sections B and C works the same: types, defaults, positions. Then you run the script by its path, with its parameters after it, like a cmdlet. A script becomes advanced the same way a function does: <code>[CmdletBinding()]</code> on the line just above its <code>param()</code> makes <code>-Verbose</code> work on it too, and section G says where that line goes once a script has help. A <code>param()</code> block may spread over several lines, with a comma after each parameter but the last:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/order-report.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/order-report.ps1"><code># order-report.ps1: the orders with one Status, saved as a CSV.
+param(
+  [string]$Status = 'pending',
+  [string]$OutFile = "$HOME/ps-lab/out/orders.csv"
+)
+$rows = Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Status -eq $Status
+$rows | Export-Csv $OutFile -Encoding utf8BOM
+$rows | Select-Object OrderId, Customer, Total</code></pre>
+      </div>
+      <p>It saves the orders with one Status for Excel, as Session 4 did, and outputs three of their columns. Run bare, it uses both defaults; the third run gives both values by position, Status first:</p>
+      <div class="filebox">
+        <div class="fbh">a script with parameters &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/order-report.ps1</span>
+
+OrderId Customer Total
+------- -------- -----
+5006    Ana Ruiz 29.00
+5008    Gus Lind 82.00
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/order-report.ps1 -Status refunded</span>
+
+OrderId Customer   Total
+------- --------   -----
+5004    Dara Singh 34.00
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/order-report.ps1 shipped ~/ps-lab/out/shipped.csv</span>
+
+OrderId Customer     Total
+------- --------     -----
+5001    Ana Ruiz     34.00
+5002    Ben Okafor   58.00
+5003    Chen Wei     22.50
+5005    Eli Moss     41.00
+5007    Femi Adeyemi 45.00
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/shipped.csv | Select-Object OrderId, Customer</span>
+
+OrderId Customer
+------- --------
+5001    Ana Ruiz
+5002    Ben Okafor
+5003    Chen Wei
+5005    Eli Moss
+5007    Femi Adeyemi
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help ~/ps-scripts/order-report.ps1</span>
+order-report.ps1 [[-Status] &lt;string&gt;] [[-OutFile] &lt;string&gt;]</code></pre>
+      </div>
+      <p>The last command asks the script for help. All it can say is its SYNTAX, because nobody has written any help for it yet. Section G does.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Dot-sourcing works the same in 5.1. This workbook&rsquo;s computer cannot run any 5.1 script (Session 5, section G), so this section&rsquo;s scripts were run there as script text. As in Session 5, 5.1&rsquo;s <code>Export-Csv</code> refuses <code>utf8BOM</code>, and the script carries on and still outputs its rows; use <code>-NoTypeInformation -Encoding utf8</code> in 5.1.</div>
+      <div class="note"><span class="nk">In Bash</span>Bash has functions and dot-sourcing too, with the same dot: <code>. FILE</code> (or <code>source FILE</code>) runs a file in your shell, so its functions stay. A Bash function&rsquo;s values arrive by position only, as <code>$1</code>, <code>$2</code> and so on, with no names and no types. Here a one-line file is written with <code>printf</code>, from <code>~/ps-lab</code>. Captured in Git Bash on Windows:
+<pre><code><span class="cmd">$ printf 'greet() { echo "Hello, $1"; }\n' &gt; out/tools.sh</span>
+<span class="cmd">$ . out/tools.sh</span>
+<span class="cmd">$ greet Ana</span>
+Hello, Ana</code></pre>
+</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Save it in files</div>
+        <ol>
+          <li>Save <code>~/ps-scripts/TicketTools.ps1</code> with a function <code>Get-CustomerTicket</code> that takes a Customer and outputs that customer&rsquo;s tickets. Dot-source it, and show Ana Ruiz&rsquo;s TicketId and Topic.</li>
+          <li>Save <code>~/ps-scripts/ticket-list.ps1</code>, a script whose State defaults to <code>open</code>, that outputs TicketId, Customer and Priority for the tickets in that State.</li>
+          <li>From your home folder, run it bare, then for <code>closed</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 has the shape of <code>OrderTools.ps1</code>. Step 2&rsquo;s <code>param()</code> goes at the top, after the comment; its pipeline can carry on to a second line after a <code>|</code>, as in Session 5&rsquo;s milestone.</p></details>
+        <details><summary>Show the commands</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/TicketTools.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/TicketTools.ps1"><code># TicketTools.ps1: functions for the Fernhill Goods tickets.
+function Get-CustomerTicket {
+  param([string]$Customer)
+  Import-Csv "$HOME/ps-lab/data/tickets.csv" | Where-Object Customer -eq $Customer
+}</code></pre>
+</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; . ~/ps-scripts/TicketTools.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-CustomerTicket -Customer 'Ana Ruiz' | Select-Object TicketId, Topic</span>
+
+TicketId Topic
+-------- -----
+T-104    payment</code></pre>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/ticket-list.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/ticket-list.ps1"><code># ticket-list.ps1: the tickets in one State.
+param([string]$State = 'open')
+Import-Csv "$HOME/ps-lab/data/tickets.csv" | Where-Object State -eq $State |
+  Select-Object TicketId, Customer, Priority</code></pre>
+</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~</span>
+<span class="cmd">PS C:\Users\you&gt; ~/ps-scripts/ticket-list.ps1</span>
+
+TicketId Customer Priority
+-------- -------- --------
+T-103    Gus Lind high
+T-104    Ana Ruiz medium
+T-105    Eli Moss low
+
+<span class="cmd">PS C:\Users\you&gt; ~/ps-scripts/ticket-list.ps1 -State closed</span>
+
+TicketId Customer   Priority
+-------- --------   --------
+T-101    Dara Singh high
+T-102    Chen Wei   low
+
+<span class="cmd">PS C:\Users\you&gt; Set-Location ~/ps-lab</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I loaded functions from a file and ran a script with parameters</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Help for your own command: comment-based help</h3>
+      <p>The cmdlets&rsquo; help comes from files Microsoft writes. Yours comes from a <b>comment-based help</b> block: a comment that spans several lines, opened with <b><code>&lt;#</code></b> and closed with <b><code>#&gt;</code></b>, holding <b>keywords</b>, each a word in capitals after a dot, on a line of its own, with its text on the lines below. Four keywords cover what a stranger needs:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Keyword</div><div class="fn">What its text says</div><div class="fd">Shown by</div></div>
+        <div class="frow"><div class="fc">.SYNOPSIS</div><div class="fn">one line: what the command does</div><div class="fd"><code>Get-Help</code></div></div>
+        <div class="frow"><div class="fc">.DESCRIPTION</div><div class="fn">a few lines: how it does it, and what comes out</div><div class="fd"><code>Get-Help</code></div></div>
+        <div class="frow"><div class="fc">.PARAMETER NAME</div><div class="fn">what one parameter means, and its default; one for each parameter</div><div class="fd"><code>-Parameter NAME</code>, <code>-Full</code></div></div>
+        <div class="frow"><div class="fc">.EXAMPLE</div><div class="fn">a command someone can copy and run</div><div class="fd"><code>-Examples</code>, <code>-Full</code></div></div>
+      </div>
+      <p>In a script, the help block goes at the <b>very top of the file, before <code>param()</code></b>. Here is <code>order-report.ps1</code> again, with help in place of its first comment; the code under it is unchanged. Save it over the old one:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/order-report.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/order-report.ps1"><code>&lt;#
+.SYNOPSIS
+Lists the orders with one Status and saves them as a CSV.
+.DESCRIPTION
+Reads the Fernhill Goods orders, keeps those whose Status matches, saves
+them to a CSV file ready for Excel, and outputs OrderId, Customer and Total.
+.PARAMETER Status
+The Status to keep: pending, shipped or refunded. The default is pending.
+.PARAMETER OutFile
+The CSV file to write. The default is orders.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/order-report.ps1 -Status shipped
+#&gt;
+param(
+  [string]$Status = 'pending',
+  [string]$OutFile = "$HOME/ps-lab/out/orders.csv"
+)
+$rows = Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Status -eq $Status
+$rows | Export-Csv $OutFile -Encoding utf8BOM
+$rows | Select-Object OrderId, Customer, Total</code></pre>
+      </div>
+      <p>Now <code>Get-Help</code> reads it like any cmdlet&rsquo;s help, with the NAME, SYNTAX and REMARKS filled in for you. <code>-Parameter Status</code> shows one parameter: its text, whether it is <code>Required?</code>, its <code>Position?</code> (1 is first), and its <code>Default value</code>. <code>-Examples</code> shows the examples, each after a <code>PS &gt;</code> prompt:</p>
+      <div class="filebox">
+        <div class="fbh">your script&rsquo;s own help &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help ~/ps-scripts/order-report.ps1</span>
+
+NAME
+    C:\Users\you\ps-scripts\order-report.ps1
+    
+SYNOPSIS
+    Lists the orders with one Status and saves them as a CSV.
+    
+    
+SYNTAX
+    C:\Users\you\ps-scripts\order-report.ps1 [[-Status] &lt;String&gt;]            <span class="cm">one line, wrapped here</span>
+[[-OutFile] &lt;String&gt;] [&lt;CommonParameters&gt;]
+    
+    
+DESCRIPTION
+    Reads the Fernhill Goods orders, keeps those whose Status matches, saves
+    them to a CSV file ready for Excel, and outputs OrderId, Customer and Total.
+    
+
+RELATED LINKS
+
+REMARKS
+    To see the examples, type: "Get-Help C:\Users\you\ps-scripts\order-report.ps1 -Examples"
+    For more information, type: "Get-Help C:\Users\you\ps-scripts\order-report.ps1 -Detailed"
+    For technical information, type: "Get-Help C:\Users\you\ps-scripts\order-report.ps1 -Full"
+
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help ~/ps-scripts/order-report.ps1 -Parameter Status</span>
+
+-Status &lt;String&gt;
+    The Status to keep: pending, shipped or refunded. The default is pending.
+    
+    Required?                    false
+    Position?                    1
+    Default value                pending
+    Accept pipeline input?       false
+    Aliases                      
+    Accept wildcard characters?  false
+    
+
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help ~/ps-scripts/order-report.ps1 -Examples</span>
+
+NAME
+    C:\Users\you\ps-scripts\order-report.ps1
+    
+SYNOPSIS
+    Lists the orders with one Status and saves them as a CSV.
+    
+    
+    -------------------------- EXAMPLE 1 --------------------------
+    
+    PS &gt; ~/ps-scripts/order-report.ps1 -Status shipped</code></pre>
+      </div>
+      <p>The SYNTAX now ends <code>[&lt;CommonParameters&gt;]</code> though the script has no <code>[CmdletBinding()]</code>: <code>Get-Help</code> adds them to the SYNTAX of anything that has help, even where they do nothing, as here. To tell whether a command really takes them, use <code>Get-Command NAME -Syntax</code>, as in section D. <code>-Full</code> shows everything at once.</p>
+      <p><b>The trap: help that silently vanishes.</b> Help must come before everything in the file but comments. If a keyword is misspelt, if the block sits between <code>param()</code> and the code below it, or if <code>[CmdletBinding()]</code> sits above the block instead of below it, PowerShell does not complain. It ignores the whole block, and <code>Get-Help</code> prints a single bare SYNTAX line, as in section F. (Microsoft&rsquo;s page names one other place help may go, the very end of the file; but a script with a digital signature keeps the signature there, so this workbook always puts help at the top.) Here <code>.SYNOPSIS</code> is misspelt:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/typo.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/typo.ps1"><code>&lt;#
+.SYNOPIS
+Says hello.
+#&gt;
+param([string]$Name = 'friend')
+"Hello, $Name"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">one misspelt keyword, no help at all &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help ~/ps-scripts/typo.ps1</span>
+typo.ps1 [[-Name] &lt;string&gt;]</code></pre>
+      </div>
+      <p>So after writing help, always run <code>Get-Help</code> on it and check that the SYNOPSIS appears.</p>
+      <p><b>Help in a function</b> goes just inside the braces, before <code>[CmdletBinding()]</code> or <code>param()</code>; <code>Get-Help</code> then reads it by the function&rsquo;s name, once you have loaded the function. Here is <code>OrderTools.ps1</code> again, with help that leaves out <code>.DESCRIPTION</code>:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/OrderTools.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/OrderTools.ps1"><code># OrderTools.ps1: functions for the Fernhill Goods orders.
+function Get-CustomerOrder {
+  &lt;#
+  .SYNOPSIS
+  Lists one customer's orders.
+  .PARAMETER Customer
+  The customer's name, as it appears in orders.csv.
+  .EXAMPLE
+  Get-CustomerOrder -Customer 'Ana Ruiz'
+  #&gt;
+  param([string]$Customer)
+  Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Customer -eq $Customer
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">a function&rsquo;s help, after dot-sourcing &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; . ~/ps-scripts/OrderTools.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help Get-CustomerOrder</span>
+
+NAME
+    Get-CustomerOrder
+    
+SYNOPSIS
+    Lists one customer's orders.
+    
+    
+SYNTAX
+    Get-CustomerOrder [[-Customer] &lt;String&gt;] [&lt;CommonParameters&gt;]
+    
+    
+DESCRIPTION
+    
+
+RELATED LINKS
+
+REMARKS
+    To see the examples, type: "Get-Help Get-CustomerOrder -Examples"
+    For more information, type: "Get-Help Get-CustomerOrder -Detailed"
+    For technical information, type: "Get-Help Get-CustomerOrder -Full"</code></pre>
+      </div>
+      <p>Read it as a stranger would: the DESCRIPTION heading is there, with nothing under it. That is the habit for any help you write: read what <code>Get-Help</code> prints, and add whatever it fails to say.</p>
+      <div class="note"><span class="nk">You will also see</span>More keywords, such as <code>.NOTES</code> for extra remarks, <code>.LINK</code> for related pages, and <code>.INPUTS</code> and <code>.OUTPUTS</code> for the kinds of objects that go in and come out. Microsoft&rsquo;s <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_comment_based_help?view=powershell-7.6" target="_blank" rel="noopener">about_Comment_Based_Help</a> lists them all, and says keyword names may be written in any case; capitals are the custom.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span><code>Get-Help</code> reads your script&rsquo;s help in 5.1 too, even on this workbook&rsquo;s computer, which cannot run 5.1 scripts: reading help does not run the script. The text is the same, with three differences seen here: REMARKS writes its <code>get-help</code> commands in lower case, each ending in a full stop; <code>-Examples</code> puts <code>PS C:\&gt;</code> before an example; and <code>-Full</code> and <code>-Parameter</code> leave out the <code>Aliases</code> row. On this computer, 5.1&rsquo;s <code>-Parameter</code> printed a bare list of properties, not the layout above, for a script with only one parameter.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write help, then read it as a stranger</div>
+        <ol>
+          <li>Add a help block to <code>~/ps-scripts/ticket-list.ps1</code> from section F, with all four keywords, and save it.</li>
+          <li>Run <code>Get-Help</code> on it, then with <code>-Examples</code>. Is anything missing or wrong?</li>
+          <li>Misspell one keyword, run <code>Get-Help</code> again, then put it right.</li>
+        </ol>
+        <details><summary>Hint</summary><p>The block goes above <code>param()</code>. It replaces the first comment line, or goes below it after one blank line: Microsoft&rsquo;s page asks for a blank line between an ordinary comment and the help that follows it.</p></details>
+        <details><summary>Show the commands</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/ticket-list.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/ticket-list.ps1"><code>&lt;#
+.SYNOPSIS
+Lists the tickets in one State.
+.DESCRIPTION
+Reads the Fernhill Goods tickets and outputs TicketId, Customer and
+Priority for each ticket whose State matches.
+.PARAMETER State
+The State to list: open or closed. The default is open.
+.EXAMPLE
+~/ps-scripts/ticket-list.ps1 -State closed
+#&gt;
+param([string]$State = 'open')
+Import-Csv "$HOME/ps-lab/data/tickets.csv" | Where-Object State -eq $State |
+  Select-Object TicketId, Customer, Priority</code></pre>
+</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help ~/ps-scripts/ticket-list.ps1</span>
+
+NAME
+    C:\Users\you\ps-scripts\ticket-list.ps1
+    
+SYNOPSIS
+    Lists the tickets in one State.
+    
+    
+SYNTAX
+    C:\Users\you\ps-scripts\ticket-list.ps1 [[-State] &lt;String&gt;] [&lt;CommonParameters&gt;]
+    
+    
+DESCRIPTION
+    Reads the Fernhill Goods tickets and outputs TicketId, Customer and
+    Priority for each ticket whose State matches.
+    
+
+RELATED LINKS
+
+REMARKS
+    To see the examples, type: "Get-Help C:\Users\you\ps-scripts\ticket-list.ps1 -Examples"
+    For more information, type: "Get-Help C:\Users\you\ps-scripts\ticket-list.ps1 -Detailed"
+    For technical information, type: "Get-Help C:\Users\you\ps-scripts\ticket-list.ps1 -Full"
+
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Help ~/ps-scripts/ticket-list.ps1 -Examples</span>
+
+NAME
+    C:\Users\you\ps-scripts\ticket-list.ps1
+    
+SYNOPSIS
+    Lists the tickets in one State.
+    
+    
+    -------------------------- EXAMPLE 1 --------------------------
+    
+    PS &gt; ~/ps-scripts/ticket-list.ps1 -State closed</code></pre>
+<p>Step 3 prints one bare line, <code>ticket-list.ps1 [[-State] &lt;string&gt;]</code>, until the keyword is put right.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I wrote help for a script and read it as a stranger</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a script that takes parameters and documents itself</h3>
+      <p>Do this in VS Code and your terminal, without scrolling back up. It grows Session 5&rsquo;s <code>lab-report.ps1</code> into a reusable tool: it searches any folder you name, saves to any file you name, explains itself with <code>-Verbose</code>, and answers <code>Get-Help</code>.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: the error report script</div>
+        <p>Write <code>~/ps-scripts/error-report.ps1</code>. It should:</p>
+        <ol>
+          <li>Start with help: a SYNOPSIS, a DESCRIPTION, a PARAMETER for each parameter, and an EXAMPLE.</li>
+          <li>Be an advanced script, with two parameters: <code>-Path</code>, the folder to search, defaulting to <code>ps-lab/logs</code>, and <code>-OutFile</code>, the CSV to write, defaulting to <code>ps-lab/out/error-summary.csv</code>, both built from <code>$HOME</code>.</li>
+          <li>Count the ERROR lines in every file under <code>-Path</code>, its subfolders included, one row per log, <code>Log</code> and <code>Count</code>, sorted biggest first, ties broken by name, Z to A, as in Session 4.</li>
+          <li>Save the rows to <code>-OutFile</code>, ready for Excel; say what it searched and what it saved as Verbose messages; and output the rows last.</li>
+          <li>From your home folder: run it bare; run it on <code>ps-lab/logs/archive</code>, saving to <code>ps-lab/out/archive.csv</code>; run it with <code>-Verbose</code>; pipe its rows to <code>Measure-Object Count -Sum</code> for the total; and read its help as a stranger would.</li>
+        </ol>
+        <p>You have hit the milestone when your script did all of that and you wrote it without copying from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/error-report.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/error-report.ps1"><code>&lt;#
+.SYNOPSIS
+Counts the ERROR lines in each log and saves the counts as a CSV.
+.DESCRIPTION
+Searches every file under a folder, its subfolders included, for lines that
+contain ERROR. Outputs one row per log, Log and Count, biggest first, and
+saves the same rows to a CSV file ready for Excel.
+.PARAMETER Path
+The folder to search. The default is the practice lab's logs folder.
+.PARAMETER OutFile
+The CSV file to write. The default is error-summary.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/error-report.ps1 -Path ~/ps-lab/logs/archive
+#&gt;
+[CmdletBinding()]
+param(
+  [string]$Path = "$HOME/ps-lab/logs",
+  [string]$OutFile = "$HOME/ps-lab/out/error-summary.csv"
+)
+Write-Verbose "Searching $Path"
+$summary = Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+  Group-Object Filename | Sort-Object Count, Name -Descending |
+  Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+$summary | Export-Csv $OutFile -Encoding utf8BOM
+Write-Verbose "Saved $($summary.Count) rows to $OutFile"
+$summary</code></pre>
+</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~</span>
+<span class="cmd">PS C:\Users\you&gt; ~/ps-scripts/error-report.ps1</span>
+
+Log                Count
+---                -----
+web-2026-03-03.log     2
+web-2026-03-02.log     1
+web-2026-03-01.log     1
+web-2026-02-28.log     1
+
+<span class="cmd">PS C:\Users\you&gt; ~/ps-scripts/error-report.ps1 ~/ps-lab/logs/archive ~/ps-lab/out/archive.csv</span>
+
+Log                Count
+---                -----
+web-2026-02-28.log     1
+
+<span class="cmd">PS C:\Users\you&gt; ~/ps-scripts/error-report.ps1 -Verbose</span>
+VERBOSE: Searching C:\Users\you/ps-lab/logs
+VERBOSE: Saved 4 rows to C:\Users\you/ps-lab/out/error-summary.csv
+
+Log                Count
+---                -----
+web-2026-03-03.log     2
+web-2026-03-02.log     1
+web-2026-03-01.log     1
+web-2026-02-28.log     1
+
+<span class="cmd">PS C:\Users\you&gt; ~/ps-scripts/error-report.ps1 | Measure-Object Count -Sum</span>
+
+Count             : 4
+Average           : 
+Sum               : 5
+Maximum           : 
+Minimum           : 
+StandardDeviation : 
+Property          : Count
+
+<span class="cmd">PS C:\Users\you&gt; Get-Help ~/ps-scripts/error-report.ps1 -Parameter OutFile</span>
+
+-OutFile &lt;String&gt;
+    The CSV file to write. The default is error-summary.csv in the lab's out folder.
+    
+    Required?                    false
+    Position?                    2
+    Default value                "$HOME/ps-lab/out/error-summary.csv"
+    Accept pipeline input?       false
+    Aliases                      
+    Accept wildcard characters?  false</code></pre>
+<p>In a script, <code>[CmdletBinding()]</code> goes just above <code>param()</code>, after the help, exactly as in a function. The second run gives both values by position. The Verbose messages show <code>$HOME</code> joined to the rest of the path exactly as written, with both kinds of slash; Windows accepts either. The rows come out last, after the CSV is saved and the second Verbose message, so the messages print above the table. Because the rows are objects, not printed text, <code>Measure-Object</code> can add up their Count column: <code>Sum : 5</code> is Session 5&rsquo;s &ldquo;5 ERROR lines in all&rdquo;, with no loop to write. And the help shows a default as you typed it, <code>$HOME</code> and all.</p>
+<p><b>In Windows PowerShell 5.1</b>, use <code>-NoTypeInformation -Encoding utf8</code> in place of <code>-Encoding utf8BOM</code>, as in Sessions 4 and 5; 5.1&rsquo;s <code>Measure-Object</code> also prints no StandardDeviation line.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> I wrote and ran the error report script from memory</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from parameters and types, through output and messages, to the pipeline and help.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh PowerShell 7 window with a fresh lab</b>, and its commands run in the order shown, in that one window. Each was run on 2026-10-09 in PowerShell 7.6 and Windows PowerShell 5.1 and printed the same answer in both. Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it. First put a function back into order, then fill the blanks in three pieces of code.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your function on the right, and tap it again to send it back. The lines are a function&rsquo;s lines, top to bottom, as you would save them in a file; the spaces at the start of a line are indentation.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the code in the box, run it in your terminal (the last one as a script), then reveal the reference to compare. More than one answer can be right, so judge yours by what it did. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your code did what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">17</span></span>
+        <span>In pile <b id="fc-pile">17</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the six questions below come from earlier sessions, one from <b>Session 5</b> and one from <b>Session 1</b>, because recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 06 of 10 &middot; Hit the milestone unassisted, then tick <b>S06</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>. That completes <b>Level 3, Scripting</b>: you can now write a script that takes parameters and documents itself.
+    <br><br>
+    <b>Your 15-minute review, tomorrow if you can:</b> run <code>Get-Help</code> on your own script as a stranger would, and fix whatever it fails to say. Open a new window, run <code>Get-Help ~/ps-scripts/error-report.ps1 -Full</code>, and read it as if you had never seen the script: does every parameter have a description, does the DESCRIPTION say what comes out, does the example run if you paste it? Fix each gap in the file and read it again. Then, with this page closed, give <code>ticket-list.ps1</code> a second parameter, <code>-OutFile</code>, that saves the tickets it lists, with a default and a PARAMETER line of its own. Anything you had to look up goes on a sticky note for next time. The free <a href="https://poshcode.gitbook.io/powershell-practice-and-style/" target="_blank" rel="noopener">PowerShell Practice and Style Guide</a>, written by the PowerShell community, has chapters on function structure, help and output worth reading now. &middot; Next: <b>Session 7, when things go wrong</b>, where your scripts learn to notice their own errors and stop on the ones that matter.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s06-workbook-v1";
+  /* Spaced review: Part 6's Q5 comes from Session 5 and Q6 from Session 1, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S01_URL = "ps-session-01.html";
+  var S05_URL = "ps-session-05.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare values one per line (a number, a message such as Ruiz, Ana), as VERBOSE: lines,
+     as table cells and as a parameter name read from a SYNTAX line. Parentheses and
+     brackets are syntax here: param(), [Parameter(Mandatory)], [CmdletBinding()], $( ) and
+     [[-Path] <string>], so () in the split class would accept wrong answers. No answer is
+     wrapped in parentheses.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 6 is: its
+     answers are numbers, messages, customer names, a list of words and a parameter name
+     (Text, which PowerShell matches in any case), none of which a learner could get wrong
+     by case alone (build contract section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in Session 6 is: its blanks are the keywords
+     function, param and process, the attribute setting ValueFromPipeline and the help
+     keywords SYNOPSIS and PARAMETER, all of which PowerShell matches in any case.
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 4 value, 1 set, 2 seq, 3 count. S6's grader flags are in the
+     build contract, section 4: caseFold ON, parenLabels OFF, no drill cs: true. Every drill
+     was run on 2026-10-09 from a fresh lab, its commands typed into ONE PowerShell window in
+     order, in PowerShell 7.6.5 and Windows PowerShell 5.1.26100, and printed the same answer
+     in both (_build/verify_s06.py; D9's Get-Help reads a script file, which 5.1 does here
+     without running it). D10's scenario is the SYNTAX line captured for that function. No
+     answer is printed by a Part 1 transcript. */
+  var DRILLS = [
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What does the last one print?',
+      code: 'PS C:\\Users\\you\\ps-lab> function Add-One {\n>>   param([int]$N)\n>>   $N + 1\n>> }\nPS C:\\Users\\you\\ps-lab> Add-One 2.5', ans: '3', alt: ['three'],
+      why: '3. The [int] converts the argument before any of the function runs, and, as Session 4 showed, [int] rounds an exact .5 to the even neighbour: 2.5 becomes 2, and 2 + 1 is 3. Add-One 3.5 would print 5.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What does the last one print? Give it exactly as printed.',
+      code: 'PS C:\\Users\\you\\ps-lab> function Join-Name {\n>>   param([string]$First, [string]$Last)\n>>   "$Last, $First"\n>> }\nPS C:\\Users\\you\\ps-lab> Join-Name Ana Ruiz', ans: 'Ruiz, Ana',
+      why: 'Ruiz, Ana. Values with no names are positional: they fill the parameters in the order param() lists them, so Ana goes to $First and Ruiz to $Last. The message then puts $Last first.' },
+
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. Which names does the last one print? Give them as printed, separated by commas. Order does not matter.',
+      code: "PS C:\\Users\\you\\ps-lab> function Get-Buyer {\n>>   param([string]$Product = 'Chef knife')\n>>   Import-Csv data/orders.csv | Where-Object Product -eq $Product |\n>>     Select-Object -ExpandProperty Customer\n>> }\nPS C:\\Users\\you\\ps-lab> Get-Buyer 'Tea kettle'", ans: 'Eli Moss, Gus Lind',
+      why: 'Eli Moss and Gus Lind. The default, Chef knife, is used only when no value is given; here Tea kettle fills $Product by position, and the two Tea kettle orders are 5005 and 5008.' },
+
+    { type: 'seq', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. List the lines the last one prints, in order, separated by commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> function Test-Loud {\n>>   param([Parameter(Mandatory)][string]$Name)\n>>   Write-Verbose "Hi $Name"\n>>   "Bye $Name"\n>> }\nPS C:\\Users\\you\\ps-lab> Test-Loud -Name Ana -Verbose', ans: 'VERBOSE: Hi Ana, Bye Ana',
+      why: 'VERBOSE: Hi Ana, then Bye Ana. Test-Loud has no [CmdletBinding()], but its [Parameter(Mandatory)] line also makes it an advanced function (section D), so it has the common parameters: -Verbose works, and the Write-Verbose message shows.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> function Get-Label {\n>>   param([int]$Qty)\n>>   'Checking'\n>>   if ($Qty -gt 1) { return 'several' }\n>>   'one'\n>> }\nPS C:\\Users\\you\\ps-lab> $r = Get-Label 3\nPS C:\\Users\\you\\ps-lab> $r.Count", ans: '2', alt: ['two'],
+      why: '2. $r gets everything the function output: Checking, which was output before return was reached, and several, which return output on its way out. The last line, one, never runs.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What does the last one print? Give every line it prints.',
+      code: 'PS C:\\Users\\you\\ps-lab> function Show-Item {\n>>   param([Parameter(ValueFromPipeline)][string]$Name)\n>>   "Item: $Name"\n>> }\nPS C:\\Users\\you\\ps-lab> $p = Import-Csv data/orders.csv | Select-Object -ExpandProperty Product\nPS C:\\Users\\you\\ps-lab> $p | Show-Item', ans: 'Item: Tea kettle',
+      why: 'Item: Tea kettle, one line. With no process block, the code runs once, after every Product has been piped in, so $Name holds only the last one: order 5008, a Tea kettle. Wrapped in process { }, it would print all eight.' },
+
+    { type: 'seq', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. List what the last one prints, in order, separated by commas.',
+      code: "PS C:\\Users\\you\\ps-lab> function Show-Step {\n>>   param([Parameter(ValueFromPipeline)][string]$Name)\n>>   begin { 'start' }\n>>   process { $Name }\n>>   end { 'done' }\n>> }\nPS C:\\Users\\you\\ps-lab> 'pan', 'kettle' | Show-Step", ans: 'start, pan, kettle, done',
+      why: 'start, pan, kettle, done. begin runs once, before the first object arrives; process runs once for each object, pan then kettle; end runs once, after the last.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. The last one prints two lines. What number is on the second?',
+      code: "PS C:\\Users\\you\\ps-lab> function Get-Note {\n>>   Write-Host 'Working'\n>>   'Done'\n>> }\nPS C:\\Users\\you\\ps-lab> Get-Note | Measure-Object | Select-Object -ExpandProperty Count", ans: '1', alt: ['one'],
+      why: '1. Write-Host prints Working straight to the screen, which is the first line, but it is not output, so it never goes down the pipe. Only Done is output, and Measure-Object counts one object.' },
+
+    { type: 'count', lbl: 'a script: ~/ps-scripts/greet.ps1 holds these lines',
+      scen: "param([string]$Name = 'friend')\n<#\n.SYNOPSIS\nSays hello.\n#>\n\"Hello, $Name\"",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/greet.ps1, then run Get-Help on it. How many lines of text does it print? Blank lines do not count.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-Help ~/ps-scripts/greet.ps1', ans: '1', alt: ['one'],
+      why: '1. The help block sits between param() and the code, where Get-Help does not look for it, so the whole block is ignored, with no error. All Get-Help can print is the bare SYNTAX line, greet.ps1 [[-Name] <string>]. Moved above param(), it would show NAME, SYNOPSIS and the rest.' },
+
+    { type: 'value', lbl: 'trace it: one function\u2019s SYNTAX line',
+      scen: 'New-Note [-Text] <string> [[-Folder] <string>] [<CommonParameters>]',
+      ask: 'Which parameter must every run of New-Note give a value for? Give its name.',
+      code: 'PS C:\\Users\\you\\ps-lab> Get-Command New-Note -Syntax', ans: 'Text', alt: ['-Text', '$Text'],
+      why: 'Text. In SYNTAX, a parameter wrapped whole in brackets, such as [[-Folder] <string>], can be left out; [-Text] <string> has only its name in brackets, so its value is required (Session 1). That is how a [Parameter(Mandatory)] parameter shows: New-Note was made with one on $Text.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item (build contract section 4): its order is forced. The function line opens it;
+     [CmdletBinding()] must come just before param(), which must be first in the body; $hit
+     needs $all; the Verbose message reads both counts, so it follows $hit; the prompt says the
+     count is output last (with -Verbose, swapping those two lines changes what prints); only }
+     can close the function. verify_s06.py runs every swap of neighbours with -Verbose. */
+  var PARSONS = [
+    { prompt: 'Write an advanced function, Get-PriorityCount, whose Priority defaults to high. It reads all the tickets, keeps the ones with that Priority, reports how many matched out of how many as a Verbose message, and then outputs the number that matched.',
+      lines: ['function Get-PriorityCount {',
+              '  [CmdletBinding()]',
+              "  param([string]$Priority = 'high')",
+              '  $all = Import-Csv "$HOME/ps-lab/data/tickets.csv"',
+              '  $hit = $all | Where-Object Priority -eq $Priority',
+              '  Write-Verbose "$($hit.Count) of $($all.Count) match"',
+              '  $hit.Count',
+              '}'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: keywords, attribute and help
+     keyword names are case-insensitive in PowerShell (help keywords captured in both shells,
+     and Microsoft's about_Comment_Based_Help says so). F1 names both keywords' jobs, in order.
+     F2 names the attribute's job and the block's job, in order (begin or end would not run per
+     object). F3's dots sit outside the boxes and the prompt names both keywords' jobs. */
+  var FADED = [
+    { prompt: 'Make a function that greets the name it is given. Fill in the keyword that starts a function, then the keyword that lists its parameters.',
+      code: '%% Get-Greeting {\n  %%([string]$Name)\n  "Hello, $Name"\n}', ans: ['function', 'param'] },
+    { prompt: 'Make Show-Order take each OrderId from the pipeline and print it. Fill in the setting, by its name alone as this workbook writes it, that lets the parameter take objects from the pipe, then the block that runs once for each object.',
+      code: 'function Show-Order {\n  param([Parameter(%%)][string]$Id)\n  %% { "Order $Id" }\n}', ans: ['ValueFromPipeline', 'process'] },
+    { prompt: 'Give a script help that Get-Help can read. The dots are already there: fill in the keyword for the one-line summary, then the keyword that describes one parameter.',
+      code: "<#\n.%%\nLists the orders with one Status.\n.%% Status\nThe Status to keep. The default is pending.\n#>\nparam([string]$Status = 'pending', [string]$OutFile)", ans: ['SYNOPSIS', 'PARAMETER'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'From the lab: write Get-CustomerTotal, with a [string] parameter $Customer, that outputs the sum of that customer\u2019s order Totals as a number. Run it for Ana Ruiz by name, then for Gus Lind by position.',
+      sol: "function Get-CustomerTotal {\n  param([string]$Customer)\n  $orders = Import-Csv \"$HOME/ps-lab/data/orders.csv\" | Where-Object Customer -eq $Customer\n  $sum = 0\n  foreach ($o in $orders) { $sum = $sum + [double]$o.Total }\n  $sum\n}\nGet-CustomerTotal -Customer 'Ana Ruiz'\nGet-CustomerTotal 'Gus Lind'\n\nIt prints:\n63\n82\n\nAna Ruiz has two orders, 34.00 and 29.00. At the prompt, type\nthe function a line at a time, after the >> prompts." },
+    { task: 'Write Get-LogErrorCount, an advanced function with a parameter $Name, a log file\u2019s name that defaults to web-2026-03-03.log. It says Searching and the name as a Verbose message, then outputs how many ERROR lines that log in ps-lab/logs holds. Run it with -Verbose, then for web-2026-03-01.log.',
+      sol: "function Get-LogErrorCount {\n  [CmdletBinding()]\n  param([string]$Name = 'web-2026-03-03.log')\n  Write-Verbose \"Searching $Name\"\n  $hits = Select-String ERROR \"$HOME/ps-lab/logs/$Name\"\n  $hits.Count\n}\nGet-LogErrorCount -Verbose\nGet-LogErrorCount web-2026-03-01.log\n\nIt prints:\nVERBOSE: Searching web-2026-03-03.log\n2\n1\n\nSelect-String outputs one match per ERROR line (Session 3),\nso the Count of $hits is the number of ERROR lines." },
+    { task: 'From the lab: write Test-Big, which takes order Totals from the pipeline as numbers that can have a decimal point, and for each one outputs big if it is over 50, or small. Pipe every order\u2019s Total into it.',
+      sol: "function Test-Big {\n  param([Parameter(ValueFromPipeline)][double]$Total)\n  process { if ($Total -gt 50) { 'big' } else { 'small' } }\n}\nImport-Csv data/orders.csv | Select-Object -ExpandProperty Total | Test-Big\n\nIt prints:\nsmall\nbig\nsmall\nsmall\nsmall\nsmall\nsmall\nbig\n\nWithout process { }, it would print one line, for the last\nTotal only: big." },
+    { task: 'Write ~/ps-scripts/ticket-report.ps1, an advanced script with help (all four keywords) and two parameters: -State, defaulting to open, and -OutFile, defaulting to tickets.csv in ps-lab/out. It saves TicketId, Customer and Priority for the tickets in that State to the CSV, for Excel, says what it read and what it saved as Verbose messages, and outputs the rows last. Run it from your home folder for closed, with -Verbose.',
+      sol: "<#\n.SYNOPSIS\nLists the tickets in one State and saves them as a CSV.\n.DESCRIPTION\nReads the Fernhill Goods tickets, keeps those whose State matches,\nsaves TicketId, Customer and Priority to a CSV file ready for Excel,\nand outputs the same rows.\n.PARAMETER State\nThe State to keep: open or closed. The default is open.\n.PARAMETER OutFile\nThe CSV file to write. The default is tickets.csv in the lab's out folder.\n.EXAMPLE\n~/ps-scripts/ticket-report.ps1 -State closed\n#>\n[CmdletBinding()]\nparam(\n  [string]$State = 'open',\n  [string]$OutFile = \"$HOME/ps-lab/out/tickets.csv\"\n)\nWrite-Verbose \"Reading the $State tickets\"\n$rows = Import-Csv \"$HOME/ps-lab/data/tickets.csv\" | Where-Object State -eq $State |\n  Select-Object TicketId, Customer, Priority\n$rows | Export-Csv $OutFile -Encoding utf8BOM\nWrite-Verbose \"Saved $($rows.Count) rows to $OutFile\"\n$rows\n\nRun from your home folder, ~/ps-scripts/ticket-report.ps1 -State closed -Verbose prints:\nVERBOSE: Reading the closed tickets\nVERBOSE: Saved 2 rows to C:\\Users\\you/ps-lab/out/tickets.csv\n\nTicketId Customer   Priority\n-------- --------   --------\nT-101    Dara Singh high\nT-102    Chen Wei   low\n\nThen Get-Help ~/ps-scripts/ticket-report.ps1 -Full should show\nall four keywords. In Windows PowerShell 5.1, use\n-NoTypeInformation -Encoding utf8 instead of -Encoding utf8BOM." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Seventeen cards, sized to the atoms THIS session has (band 12-16, cap 18: one over the
+     band because help adds two atoms, its keywords and its silent failure). The deck stays
+     session-local: re-testing Sessions 1 to 5 is Part 6's job. */
+  var CARDS = [
+    { f: 'function Get-OpenTicket { CODE }', b: 'makes a command named Get-OpenTicket in this window; type its name to run CODE' },
+    { f: '>> at the prompt', b: 'PowerShell is waiting for the rest of the command; a function is made when you enter its closing }' },
+    { f: 'Get-Verb', b: 'lists the approved verbs; name a function Verb-Noun with one of them' },
+    { f: 'param([string]$Status)', b: 'the function\u2019s parameters, first thing inside its braces; each one is a variable' },
+    { f: 'Get-Order refunded, with no -Status', b: 'positional: values with no name fill the parameters in param()\u2019s order' },
+    { f: '[int]$Over, given fifty', b: 'an error before the function runs: the argument cannot be converted to the type' },
+    { f: "[string]$Status = 'pending'", b: 'a default: the value the parameter takes when none is given' },
+    { f: '[switch]$Full', b: 'a parameter with no value: $Full is True when the caller adds -Full' },
+    { f: '[Parameter(Mandatory)]', b: 'the value must be given: at the prompt PowerShell asks for it; with nobody to answer, it is an error' },
+    { f: '[CmdletBinding()]', b: 'makes an advanced function: -Verbose and the other common parameters work' },
+    { f: 'Write-Verbose "TEXT"', b: 'prints VERBOSE: TEXT, but only when the caller adds -Verbose' },
+    { f: 'Write-Host', b: 'prints to the screen only: not output, so a variable or a pipe does not get it unless redirected' },
+    { f: "return 'bulk'", b: 'outputs bulk and leaves the function; anything output before it has already gone' },
+    { f: '[Parameter(ValueFromPipeline)] with process { }', b: 'process runs once for each object piped in; without process, only the last object is seen' },
+    { f: '. ~/ps-scripts/OrderTools.ps1', b: 'dot-sources the file: its functions stay in this window' },
+    { f: '.SYNOPSIS .DESCRIPTION .PARAMETER .EXAMPLE', b: 'help keywords, in a <# #> block at the very top of a script, above param()' },
+    { f: 'Get-Help prints one bare SYNTAX line', b: 'no help was read: a keyword is misspelt, the block sits between param() and the code, or there is none' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four questions on Session 6 and two spaced-review questions, Q5 from Session 5 and
+     Q6 from Session 1, whose review links open those sessions. Correct-option length ranks
+     (longest = 1), computed by hand: 3, 2, 3, 2, 3, 2, with no tie for the correct option's
+     length. Never strictly the longest or shortest (check-quiz.py 0/6 on both), and no single
+     rank reaching the pass mark of 5. Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: "'5001', '5002', '5003' | Show-Order prints only Order 5003. Show-Order has a ValueFromPipeline parameter. What is it missing?",
+      o: ['A process { } block around the code that uses the parameter',
+          '[CmdletBinding()] above its param(), which lets a function take pipeline input',
+          'The -Verbose switch',
+          'A [string[]] type, so that the one parameter can hold all three values at the same time'],
+      c: 0,
+      e: 'Code written straight into a function runs once, after everything has been piped in, when the parameter holds only the last object. process { } runs once for each object. [CmdletBinding()] and -Verbose only add the common parameters and their messages.',
+      part: { id: 'concept-e', label: 'E. Taking input from the pipeline: process' } },
+
+    { q: 'Get-QuietCount -Verbose printed its count, but no VERBOSE line and no error. Its code does call Write-Verbose. Why?',
+      o: ['It has no [CmdletBinding()], so -Verbose is quietly ignored',
+          'Write-Verbose works only inside a .ps1 file',
+          'Verbose messages print only in Windows PowerShell 5.1',
+          '-Verbose must come before the function name, so PowerShell treated it as the Status value and counted nothing'],
+      c: 0,
+      e: 'Without [CmdletBinding()] (or a [Parameter()] line), a function is not advanced and has no common parameters; a plain function takes extra arguments without complaint, so -Verbose does nothing. Its SYNTAX shows no [<CommonParameters>]. Write-Verbose works at the prompt and in both versions, and the count was right.',
+      part: { id: 'concept-d', label: 'D. Messages and output: [CmdletBinding()], -Verbose, Write-Host and return' } },
+
+    { q: 'You ran ~/ps-scripts/OrderTools.ps1, which holds a function, and then Get-CustomerOrder is "not recognized". What loads the function into your window?',
+      o: ['Dot-sourcing it: . ~/ps-scripts/OrderTools.ps1',
+          'Get-Help ~/ps-scripts/OrderTools.ps1',
+          'Set-ExecutionPolicy -Scope CurrentUser RemoteSigned',
+          'Running it again with .\\OrderTools.ps1 from inside the ps-scripts folder'],
+      c: 0,
+      e: 'Run the usual way, the script made the function and it was cleared away when the script ended, like a script\u2019s variables. A dot and a space before the path run the file as if typed at your prompt, so the function stays. Running it again from another folder clears it away the same way, and the policy was not the problem: the script ran.',
+      part: { id: 'concept-f', label: 'F. From the prompt to a file' } },
+
+    { q: 'Get-Help ~/ps-scripts/report.ps1 prints one line: report.ps1 [[-Path] <string>]. The file does have a <# #> help block. What is the likely cause?',
+      o: ['A keyword in the block is misspelt, or the block sits just below param()',
+          'Get-Help reads help from cmdlets only, never from scripts',
+          'Help appears only after Update-Help',
+          'The script has no [CmdletBinding()], and without it Get-Help can show only the syntax, never the help'],
+      c: 0,
+      e: 'A misspelt keyword, or a block between param() and the code, makes Get-Help ignore the whole block, with no error, leaving only the SYNTAX line. Get-Help reads a script\u2019s own help (no Update-Help needed), and order-report.ps1 showed its help with no [CmdletBinding()].',
+      part: { id: 'concept-g', label: 'G. Help for your own command: comment-based help' } },
+
+    { q: 'Spaced review, from Session 5. You run ~/ps-scripts/hello.ps1, which stores a list in $all. Back at the prompt, $all.Count prints 0. Why?',
+      o: ['A script\u2019s variables are cleared away when it ends',
+          'hello.ps1 failed to run',
+          '$all is a name PowerShell keeps for itself, so a script cannot store a list in it',
+          'Count works only on a variable you typed at the prompt yourself, never on one a script stored'],
+      c: 0,
+      e: 'A script keeps its variables to itself, and they are gone when it ends, so $all holds nothing at the prompt, and nothing has a Count of 0. The script ran fine; dot-sourcing it (. ~/ps-scripts/hello.ps1) would have kept $all.',
+      part: { ext: S05_URL + '#concept-f', label: 'Session 5, F. Your first script: a .ps1 file' } },
+
+    { q: 'Spaced review, from Session 1. In SYNTAX, what does [[-Path] <string[]>] tell you?',
+      o: ['You can leave it out, or give paths with or without -Path',
+          'A path is required, and so is the word -Path',
+          'It is a switch',
+          'It takes one whole number, and it must come last on the line, after every other parameter'],
+      c: 0,
+      e: 'The outer brackets mean the whole parameter can be left out; the inner brackets around -Path mean the name is optional, so a value alone fills it by position. <string[]> means one or more pieces of text, separated by commas. A switch has no angle brackets after it.',
+      part: { ext: S01_URL + '#concept-f', label: 'Session 1, F. Finding commands you have never seen' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S06 on your Hub: Level 3 is complete. Move on to Session 7.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
