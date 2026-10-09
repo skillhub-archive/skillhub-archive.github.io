@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 5: Your first script</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 53 characters, inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is CurrentUser (11 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 05 // Level 3 &middot; Scripting</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Your first script</h1>
+    <p class="goal">Today your commands stop disappearing when you close the window. You keep results in variables, learn what type a value is, put values inside your messages, make decisions with <code>if</code> and repeat work with <code>foreach</code>. Then you save it all in a <code>.ps1</code> file you can run again tomorrow, and learn why Windows may refuse to run it.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Write and run a script that reports on the practice lab.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep one PowerShell 7 window open beside this page, in your lab, for the whole of Part 1.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. From today, commands remember things from one line to the next, so work through the sections in order in the same window. If you close it, each later section opens with a short <b>New window?</b> box: type its lines first, and carry on.</p>
+        <p><b>Two places to write today.</b> Reports go in <code>ps-lab/out</code>, as in Sessions 3 and 4. Your scripts go in a new folder, <code>ps-scripts</code> in your home folder, which you make in section F: it sits outside the lab, so rebuilding the lab never deletes your work. Section F also installs one program, the free code editor VS Code.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Later sections use what earlier ones set up, so work them in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. Every transcript was captured on Windows 11 in PowerShell 7.6, in a window 120 characters wide, typing the sections in order into one window, from a fresh lab. Where a path shows <code>you</code>, your own user name appears instead. Listings were captured on Windows: on macOS and Linux, expect paths with <code>/</code>. The Bash boxes were captured in Git Bash on the same Windows machine, with its prompt shortened to <code>$</code>. A command too long for this page is wrapped after a <code>|</code> or a <code>{</code> and marked <i>one line, wrapped here</i>: type it as one line. A printed line too long for this page is marked the same way. A box headed with a file name, such as <code>~/ps-scripts/hello.ps1</code>, is not a transcript: it is a file you type into an editor and save.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including your <code>out</code> folder from Session 4, builds it fresh, exactly as Session 1 did, and moves you into it. Pasting it again is your undo button for the lab. It never touches anything outside <code>ps-lab</code>, so the scripts you write today are safe from it.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 to 4)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. It ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+      <p>Then make the folder for today&rsquo;s reports. <code>| Out-Null</code> throws away what <code>New-Item</code> would print, as in Session 4.</p>
+      <div class="filebox">
+        <div class="fbh">a place for reports &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span></code></pre>
+      </div>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. Variables: keeping a result to use again</h3>
+      <p>In Session 1 you typed <code>$PSVersionTable</code>, and Session 2 said the <code>$</code> marks a <b>variable</b>: a name that holds a value. PowerShell made that one. Now make your own. <code>$shop = 'Fernhill Goods'</code> means &ldquo;store the text <code>'Fernhill Goods'</code> in a variable named <code>shop</code>&rdquo;: the <code>=</code> stores whatever is on its right in the variable on its left, and prints nothing. To see what a variable holds, type its name on its own. A name can use letters, digits and <code>_</code>, and, like a command&rsquo;s name, its case does not matter:</p>
+      <div class="filebox">
+        <div class="fbh">store a value, then read it back &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $shop = 'Fernhill Goods'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $shop</span>
+Fernhill Goods
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $Shop</span>
+Fernhill Goods</code></pre>
+      </div>
+      <p>A variable can hold the result of a whole command. <code>$orders = Import-Csv data/orders.csv</code> reads the file once and keeps its eight rows. A variable that holds several objects is a <b>list</b>, and its <b><code>.Count</code></b> property says how many it holds. You can send a variable down a pipe exactly as you would a command&rsquo;s output:</p>
+      <div class="filebox">
+        <div class="fbh">a command&rsquo;s result in a variable &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $orders = Import-Csv data/orders.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $orders.Count</span>
+8
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $orders | Where-Object Status -eq 'pending' |</span>
+<span class="cmd">  Select-Object OrderId, Customer, Total</span>                                     <span class="cm">one line, wrapped here</span>
+
+OrderId Customer Total
+------- -------- -----
+5006    Ana Ruiz 29.00
+5008    Gus Lind 82.00</code></pre>
+      </div>
+      <p>The file was read once; every later use of <code>$orders</code> reads the variable, not the file. Storing a new value in a variable replaces the old one, without asking. And a name you never stored anything in is <b>not an error</b>: it simply holds nothing, so typing it prints nothing at all, and its Count is 0. A misspelt variable name therefore fails quietly, the same way Session 2&rsquo;s misspelt property did:</p>
+      <div class="filebox">
+        <div class="fbh">a filtered list, a misspelling, a replaced value &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $open = Import-Csv data/tickets.csv | Where-Object State -eq 'open'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $open.Count</span>
+3
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $opne.Count</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $shop = 'Fernhill Goods Ltd'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $shop</span>
+Fernhill Goods Ltd</code></pre>
+      </div>
+      <p>So when a variable comes back empty, or with a Count of 0, check its spelling first. A variable lives until you close the window; a new window starts with none of yours.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Everything in this section prints the same in 5.1, with its extra blank lines and padding.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Keep some results</div>
+        <ol>
+          <li>Store every ticket from <code>data/tickets.csv</code> in a variable named <code>$tickets</code>, and print how many it holds.</li>
+          <li>Store just the high-priority tickets in <code>$high</code>, then print their Customer names.</li>
+          <li>Print the count again as <code>$Tickets.Count</code>, with a capital T, and then with the name misspelt. What does each print?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 2 sends <code>$tickets</code> down a pipe to <code>Where-Object</code>, and stores what comes out. To print the names, send <code>$high</code> to <code>Select-Object -ExpandProperty</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $tickets = Import-Csv data/tickets.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tickets.Count</span>
+5
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $high = $tickets | Where-Object Priority -eq 'high'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $high | Select-Object -ExpandProperty Customer</span>
+Dara Singh
+Gus Lind
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $Tickets.Count</span>
+5
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tikets.Count</span>
+0</code></pre>
+<p>Case does not matter, so <code>$Tickets</code> is the same variable. The misspelt one was never stored, so it holds nothing, and nothing has a Count of 0.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I stored results in variables and used them again</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. What type is a value?</h3>
+      <div class="note"><span class="nk">New window?</span>If you closed PowerShell since the last section, type these first, in <code>ps-lab</code>: they store the variables this section uses. In the same window as before, you can skip them; typing them again does no harm.
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $orders = Import-Csv data/orders.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tickets = Import-Csv data/tickets.csv</span></code></pre>
+</div>
+      <p>Session 4 showed that a CSV column is text even when it looks like a number, and that when PowerShell combines two values, the value on the left decides how. Every value has a <b>type</b>, the kind of value it is. Type a number without quotes and it is stored as a number; put it in quotes and it is text:</p>
+      <div class="filebox">
+        <div class="fbh">a number and some text &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $n = 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $t = '5'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $n + 1</span>
+6
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $t + 1</span>
+51</code></pre>
+      </div>
+      <p>To find out a value&rsquo;s type, ask it. Session 2&rsquo;s <code>Get-Member</code> listed <b>methods</b> as well as properties: a method is an action an object can carry out, and you call it by its name followed by <code>( )</code>, even when there is nothing to put inside. Every value has the method <b><code>GetType()</code></b>, which hands back a description of its type; that description&rsquo;s <code>.Name</code> is the type&rsquo;s name. A number typed straight in, such as <code>34.5</code>, goes in parentheses before the dot, so PowerShell reads the dot as the start of <code>.GetType()</code>:</p>
+      <div class="filebox">
+        <div class="fbh">ask a value its type &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $n.GetType().Name</span>
+Int32
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $t.GetType().Name</span>
+String
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (34.5).GetType().Name</span>
+Double</code></pre>
+      </div>
+      <p>A variable that holds nothing has no type, so asking it is an error: a misspelt <code>$tikets.GetType()</code> prints <code>You cannot call a method on a null-valued expression.</code> When you see that, check the spelling.</p>
+      <p>The names are .NET&rsquo;s, the system PowerShell is built on. <b>String</b> is text. <b>Int32</b> is a whole number: it is the very type that Session 4&rsquo;s <code>[int]</code> makes, and <code>int</code> is just PowerShell&rsquo;s short name for it. <b>Double</b> is a number that can have a decimal point, the type <code>[double]</code> makes. To ask a yes-or-no question instead, the <b><code>-is</code></b> operator tests whether a value is of a type, written in square brackets as in a conversion; <code>[string]</code> is the name for text:</p>
+      <div class="filebox">
+        <div class="fbh">yes or no: is it this type? &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $n -is [int]</span>
+True
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $t -is [int]</span>
+False
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $t -is [string]</span>
+True</code></pre>
+      </div>
+      <p>Now a value from a CSV file. <code>Select-Object -First 1</code> keeps the first row, and its Total is text, as Session 4 said. Convert it once, store the number in a variable, and every later use of that variable is a number:</p>
+      <div class="filebox">
+        <div class="fbh">convert once, keep the number &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $first = $orders | Select-Object -First 1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $first.Total</span>
+34.00
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $first.Total.GetType().Name</span>
+String
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $price = [double]$first.Total</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $price.GetType().Name</span>
+Double
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $price + 1</span>
+35</code></pre>
+      </div>
+      <p>One more shape you will use in every loop: a variable can be worked out from <b>its own old value</b>. In <code>$count = $count + 1</code>, PowerShell first works out the right-hand side, using the value <code>$count</code> holds now, then stores the result back in <code>$count</code>:</p>
+      <div class="filebox">
+        <div class="fbh">counting up &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $count = 0</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $count = $count + 1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $count</span>
+1</code></pre>
+      </div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, type names included.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Ask the types</div>
+        <ol>
+          <li>What type is <code>$tickets.Count</code>? And the TicketId of the first ticket?</li>
+          <li>Store the first order&rsquo;s Qty as a whole number in <code>$qty</code>, check its type, and add 1 to it.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Keep the first ticket in a variable with <code>Select-Object -First 1</code>, then ask its TicketId with <code>.GetType().Name</code>. A whole number is <code>[int]</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $tickets.Count.GetType().Name</span>
+Int32
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tk = $tickets | Select-Object -First 1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tk.TicketId.GetType().Name</span>
+String
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $qty = [int]$first.Qty</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $qty.GetType().Name</span>
+Int32
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $qty + 1</span>
+2</code></pre>
+<p>A Count is a real number, because PowerShell counted it. Every CSV value is a String until you convert it.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I checked what type my values were, and converted one</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Messages with values in them: single and double quotes</h3>
+      <div class="note"><span class="nk">New window?</span>If you closed PowerShell since the last section, type these first, in <code>ps-lab</code>: they store the variables this section uses. In the same window as before, you can skip them; typing them again does no harm.
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $orders = Import-Csv data/orders.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tickets = Import-Csv data/tickets.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tk = $tickets | Select-Object -First 1</span></code></pre>
+</div>
+      <p>Scripts print messages, and a message usually has a value in it. The way you already know is Session 4&rsquo;s: with text on the left, <code>+</code> joins, so <code>'Open tickets: ' + $open.Count</code> works. It gets clumsy fast with two or three values. The better way is <b>double quotes</b>. Text in single quotes is printed <b>exactly as typed</b>. Text in double quotes has every <code>$variable</code> in it swapped for the value it holds:</p>
+      <div class="filebox">
+        <div class="fbh">joining with +, then single and double quotes &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $open = Import-Csv data/tickets.csv | Where-Object State -eq 'open'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; 'Open tickets: ' + $open.Count</span>
+Open tickets: 3
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $shop = 'Fernhill Goods'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; 'Welcome to $shop'</span>
+Welcome to $shop
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "Welcome to $shop"</span>
+Welcome to Fernhill Goods</code></pre>
+      </div>
+      <p>That is why Sessions 1 to 4 always used single quotes: <code>'pending'</code> and <code>'*ERROR*'</code> are meant exactly as typed. Use double quotes for a message with values in it.</p>
+      <p><b>The trap: a property inside double quotes.</b> In double quotes, PowerShell swaps in only the <b>variable</b>; a <code>.Customer</code> after it stays plain text. So you get the whole row, written the way Session 4&rsquo;s JSON depth trap wrote it, followed by <code>.Customer</code>. The fix is a <b>subexpression</b>, <code>$( )</code>: PowerShell works out whatever is inside the parentheses and puts the result in the text:</p>
+      <div class="filebox">
+        <div class="fbh">a property in a message, wrong then right &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $first = $orders | Select-Object -First 1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "First order: $first.Customer"</span>
+First order: @{OrderId=5001; Date=2026-03-01; Customer=Ana Ruiz;             <span class="cm">one line, wrapped here</span>
+Product=Cast iron pan; Qty=1; Total=34.00; Status=shipped}.Customer
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "First order: $($first.Customer)"</span>
+First order: Ana Ruiz
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "$($first.Customer) paid $($first.Total)"</span>
+Ana Ruiz paid 34.00
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "Open tickets: $($open.Count)"</span>
+Open tickets: 3
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "Two plus two is $(2 + 2)"</span>
+Two plus two is 4</code></pre>
+      </div>
+      <p>The rule for messages: <b>a plain variable goes in as <code>$name</code>; anything with a dot or a sum goes in as <code>$( )</code></b>.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, the wrong one included.</div>
+      <div class="note"><span class="nk">In Bash</span>Bash stores a variable the same way, with no spaces around the <code>=</code> and no <code>$</code> on the left, and it has the same quote rule: double quotes swap in the value, single quotes print exactly what you typed. <code>echo</code> prints what it is given.
+<pre><code><span class="cmd">$ shop='Fernhill Goods'</span>
+<span class="cmd">$ echo "Welcome to $shop"</span>
+Welcome to Fernhill Goods
+<span class="cmd">$ echo 'Welcome to $shop'</span>
+Welcome to $shop</code></pre>
+</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Write some messages</div>
+        <ol>
+          <li>Print <code>Fernhill Goods has 5 tickets.</code>, with the 5 worked out from <code>$tickets</code>.</li>
+          <li>Print the first ticket as <code>T-101 is closed</code>, both values read from <code>$tk</code>.</li>
+          <li>Run step 1 again in single quotes. What happens?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Both values have a dot in them, so each goes in its own <code>$( )</code>, inside double quotes.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; "Fernhill Goods has $($tickets.Count) tickets."</span>
+Fernhill Goods has 5 tickets.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "$($tk.TicketId) is $($tk.State)"</span>
+T-101 is closed
+<span class="cmd">PS C:\Users\you\ps-lab&gt; 'Fernhill Goods has $($tickets.Count) tickets.'</span>
+Fernhill Goods has $($tickets.Count) tickets.</code></pre>
+<p>In single quotes nothing is swapped in, not even <code>$( )</code>.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I put values into messages with double quotes and $( )</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Making a decision: if, elseif, else</h3>
+      <div class="note"><span class="nk">New window?</span>If you closed PowerShell since the last section, type these first, in <code>ps-lab</code>: they store the variables this section uses. In the same window as before, you can skip them; typing them again does no harm.
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $orders = Import-Csv data/orders.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tickets = Import-Csv data/tickets.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $open = $tickets | Where-Object State -eq 'open'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $high = $tickets | Where-Object Priority -eq 'high'</span></code></pre>
+</div>
+      <p>A script often has to choose. <b><code>if (TEST) { CODE }</code></b> runs CODE only when TEST is True; TEST and CODE in capitals are placeholders for your own. TEST, in parentheses, is any comparison from Session 2, such as <code>$open.Count -gt 2</code>, and CODE goes in braces, a script block as in Session 2. When TEST is False, the block is skipped and nothing prints:</p>
+      <div class="filebox">
+        <div class="fbh">a test that passes, and one that does not &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; if ($open.Count -gt 2) { 'Busy day' }</span>
+Busy day
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if ($open.Count -gt 5) { 'Busy day' }</span></code></pre>
+      </div>
+      <p>Add <b><code>else { CODE }</code></b> for what to do when the test is False, and <b><code>elseif (TEST) { CODE }</code></b>, as many times as you need, for more choices in between. PowerShell checks the tests from the top and runs only the <b>first</b> block whose test is True; <code>else</code> runs only when none was:</p>
+      <div class="filebox">
+        <div class="fbh">two ways, then three &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; if ($open.Count -gt 5) { 'Busy day' } else { 'Quiet day' }</span>
+Quiet day
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if ($open.Count -gt 5) { 'Busy day' } elseif ($open.Count -gt 2) {</span>
+<span class="cmd">  'Steady day' } else { 'Quiet day' }</span>                                        <span class="cm">one line, wrapped here</span>
+Steady day</code></pre>
+      </div>
+      <p><b>Session 4&rsquo;s trap, again.</b> A test on a CSV column compares text unless you convert it. Order 5008 cost 82.00, yet as text it is &ldquo;over 100&rdquo;, because the character 8 comes after 1. Converted, the answer is right:</p>
+      <div class="filebox">
+        <div class="fbh">an if on a CSV value &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $big = $orders | Where-Object OrderId -eq '5008'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $big.Total</span>
+82.00
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if ($big.Total -gt 100) { 'Over 100' } else { 'Not over 100' }</span>
+Over 100
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if ([double]$big.Total -gt 100) { 'Over 100' } else { 'Not over 100' }</span>
+Not over 100
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if ($big.Status -eq 'pending') { "$($big.OrderId) is still pending" }</span>
+5008 is still pending</code></pre>
+      </div>
+      <p>The rule: <b>an <code>if</code> on a CSV column converts first</b>, with <code>[int]</code> or <code>[double]</code>, exactly as a filter or a sort did in Session 4. A block can hold any code, such as a message built with <code>$( )</code>, as the last command shows.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, the text comparison included.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Decide</div>
+        <ol>
+          <li>Print <code>Escalate</code> if <code>$high</code> holds more than 1 ticket, otherwise <code>All calm</code>.</li>
+          <li>Store order 5007 in <code>$o</code>, and print <code>Bulk order</code> if its Qty is more than 2, comparing as a number.</li>
+          <li>For the same order, print <code>Big</code> if its Total is over 50, <code>Medium</code> if it is over 30, and <code>Small</code> otherwise.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 2 finds the order with <code>Where-Object OrderId -eq '5007'</code>. Qty is a whole number and Total can have a decimal point: convert each before comparing it. Step 3 needs <code>if</code>, <code>elseif</code> and <code>else</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; if ($high.Count -gt 1) { 'Escalate' } else { 'All calm' }</span>
+Escalate
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $o = $orders | Where-Object OrderId -eq '5007'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if ([int]$o.Qty -gt 2) { 'Bulk order' }</span>
+Bulk order
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if ([double]$o.Total -gt 50) { 'Big' } elseif ([double]$o.Total -gt 30) {</span>
+<span class="cmd">  'Medium' } else { 'Small' }</span>                                                <span class="cm">one line, wrapped here</span>
+Medium</code></pre>
+<p>Order 5007 is three spice racks for 45.00: not over 50, but over 30.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I made decisions with if, elseif and else</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Doing it for each one: foreach</h3>
+      <div class="note"><span class="nk">New window?</span>If you closed PowerShell since the last section, type these first, in <code>ps-lab</code>: they store the variables this section uses. In the same window as before, you can skip them; typing them again does no harm.
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $tickets = Import-Csv data/tickets.csv</span></code></pre>
+</div>
+      <p><b><code>foreach ($o in $orders) { CODE }</code></b> runs CODE once for each object in <code>$orders</code>, and each time round, <code>$o</code> holds the object it is on: the first order, then the second, and so on. Running the same code again and again like this is a <b>loop</b>, and <code>$o</code> is the <b>loop variable</b>. You choose its name; <code>$o</code> for an order reads well. Inside the braces, use it like any variable:</p>
+      <div class="filebox">
+        <div class="fbh">once for each order &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $orders = Import-Csv data/orders.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; foreach ($o in $orders) { $o.Customer }</span>
+Ana Ruiz
+Ben Okafor
+Chen Wei
+Dara Singh
+Eli Moss
+Ana Ruiz
+Femi Adeyemi
+Gus Lind</code></pre>
+      </div>
+      <p>Put an <code>if</code> inside a <code>foreach</code> and you have the shape most scripts are built from: for each one, decide, then act. And with section B&rsquo;s counting up, a loop can keep a <b>running total</b>: start a variable at 0 before the loop, add to it each time round, and read it after:</p>
+      <div class="filebox">
+        <div class="fbh">decide inside a loop; keep a total &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; foreach ($o in $orders) { if ($o.Status -eq 'shipped') {</span>
+<span class="cmd">  "$($o.OrderId) went to $($o.Customer)" } }</span>                                 <span class="cm">one line, wrapped here</span>
+5001 went to Ana Ruiz
+5002 went to Ben Okafor
+5003 went to Chen Wei
+5005 went to Eli Moss
+5007 went to Femi Adeyemi
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sum = 0</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; foreach ($o in $orders) { $sum = $sum + [double]$o.Total }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sum</span>
+345.5
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "All orders come to $sum"</span>
+All orders come to 345.5</code></pre>
+      </div>
+      <p><b>The same job in a pipeline: <code>ForEach-Object</code>.</b> You will see a second way to loop, the cmdlet <b><code>ForEach-Object</code></b>, which runs its script block once for each object that comes down the pipe, with Session 2&rsquo;s <code>$_</code> as that object. It prints the same customers. The difference is where each one fits:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">&nbsp;</div><div class="fn"><code>foreach ($o in $orders) { }</code></div><div class="fd"><code>$orders | ForEach-Object { }</code></div></div>
+        <div class="frow"><div class="fc">The objects</div><div class="fn">a list you already have, named after <code>in</code></div><div class="fd">whatever comes down the pipe</div></div>
+        <div class="frow"><div class="fc">This one</div><div class="fn">the loop variable you named, such as <code>$o</code></div><div class="fd">always <code>$_</code></div></div>
+        <div class="frow"><div class="fc">Afterwards</div><div class="fn">cannot be piped on to another command</div><div class="fd">pipes on like any cmdlet</div></div>
+      </div>
+      <p>Try to pipe a <code>foreach</code> on, and PowerShell refuses before running anything. The error comes in a new, longer form: <code>Line |</code> shows the line it was reading, a <code>~</code> marks the spot, and the message comes last. <code>ForEach-Object</code> does the same job and pipes on to the sort:</p>
+      <div class="filebox">
+        <div class="fbh">a foreach cannot be piped on; ForEach-Object can &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $orders | ForEach-Object { $_.Customer }</span>
+Ana Ruiz
+Ben Okafor
+Chen Wei
+Dara Singh
+Eli Moss
+Ana Ruiz
+Femi Adeyemi
+Gus Lind
+<span class="cmd">PS C:\Users\you\ps-lab&gt; foreach ($o in $orders) { $o.Product } | Sort-Object</span>
+ParserError: 
+Line |
+   1 |  foreach ($o in $orders) { $o.Product } | Sort-Object
+     |                                         ~
+     | An empty pipe element is not allowed.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $orders | ForEach-Object { $_.Product } | Sort-Object</span>
+Cast iron pan
+Cast iron pan
+Chef knife
+Chef knife
+Mixing bowls
+Spice rack
+Tea kettle
+Tea kettle</code></pre>
+      </div>
+      <p>Which to use: in a script, <code>foreach</code>, whose loop variable has a name you chose and whose block can run over many lines; in the middle of a pipeline, <code>ForEach-Object</code>.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1. Its error for the piped <code>foreach</code> comes in the long form from Session 1, ending <code>+ FullyQualifiedErrorId : EmptyPipeElement</code>.</div>
+      <div class="note"><span class="nk">In Bash</span>Bash&rsquo;s loop is <code>for NAME in LIST; do CODE; done</code>, where NAME is the loop variable, used as <code>$NAME</code> inside. Here the list is the logs that <code>logs/*.log</code> matches:
+<pre><code><span class="cmd">$ for f in logs/*.log; do echo "found $f"; done</span>
+found logs/app-2026-03-03.log
+found logs/web-2026-03-01.log
+found logs/web-2026-03-02.log
+found logs/web-2026-03-03.log</code></pre>
+</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Loop</div>
+        <ol>
+          <li>For each ticket in <code>$tickets</code>, print its TicketId and Topic as <code>T-101: refund</code>.</li>
+          <li>Count the open tickets with a <code>foreach</code>, an <code>if</code> and a variable <code>$openCount</code> that starts at 0, then print it.</li>
+          <li>Print every ticket&rsquo;s Customer with <code>ForEach-Object</code>, sorted.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1: <code>"$($t.TicketId): $($t.Topic)"</code> inside the loop. Step 2: set the counter before the loop, and add 1 inside the <code>if</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; foreach ($t in $tickets) { "$($t.TicketId): $($t.Topic)" }</span>
+T-101: refund
+T-102: delivery
+T-103: payment
+T-104: payment
+T-105: delivery
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $openCount = 0</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; foreach ($t in $tickets) { if ($t.State -eq 'open') {</span>
+<span class="cmd">  $openCount = $openCount + 1 } }</span>                                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $openCount</span>
+3
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $tickets | ForEach-Object { $_.Customer } | Sort-Object</span>
+Ana Ruiz
+Chen Wei
+Dara Singh
+Eli Moss
+Gus Lind</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I looped with foreach and with ForEach-Object</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Your first script: a .ps1 file</h3>
+      <p>Everything so far disappears when you close the window. A <b>script</b> is a plain-text file of PowerShell lines whose name ends in <b><code>.ps1</code></b>. Running it runs every line in it, top to bottom, as if you had typed them, and you can run it again tomorrow, or next month. Any plain-text editor can write one. Microsoft&rsquo;s <a href="https://learn.microsoft.com/en-us/powershell/scripting/dev-cross-plat/vscode/using-vscode" target="_blank" rel="noopener">recommended editor</a> for PowerShell scripts is <b>VS Code</b> (Visual Studio Code, a free code editor from Microsoft) with its <b>PowerShell extension</b>, an add-on that colours your code as you type and knows PowerShell&rsquo;s commands.</p>
+      <p><b>Install it.</b></p>
+      <ol>
+        <li><b>VS Code.</b> On Windows, in PowerShell: <code>winget install --id Microsoft.VisualStudioCode --source winget</code> (winget is the installer Session 1 used for PowerShell 7). On macOS and Linux, follow VS Code&rsquo;s own pages: <a href="https://code.visualstudio.com/docs/setup/mac" target="_blank" rel="noopener">VS Code on macOS</a>, <a href="https://code.visualstudio.com/docs/setup/linux" target="_blank" rel="noopener">VS Code on Linux</a>. This workbook was checked on a Windows computer that already had VS Code, so the install steps are Microsoft&rsquo;s, not run here.</li>
+        <li><b>The PowerShell extension.</b> In VS Code, open the Extensions view (Ctrl+Shift+X, or Cmd+Shift+X on a Mac), search for <code>PowerShell</code>, and install the one published by Microsoft. If VS Code&rsquo;s <code>code</code> command works in your terminal, <code>code --install-extension ms-vscode.powershell</code> does the same.</li>
+      </ol>
+      <p><b>Make a home for your scripts</b>, outside the lab, so rebuilding the lab never deletes them. <code>~</code> is your home folder, as in Session 1. Then step into it:</p>
+      <div class="filebox">
+        <div class="fbh">a folder for scripts &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory ~/ps-scripts | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~/ps-scripts</span></code></pre>
+      </div>
+      <p>If <code>New-Item</code> says an item with that name already exists, the folder is there from an earlier day: carry on.</p>
+      <p><b>Write it.</b> In VS Code, choose File, then Open Folder, and pick <code>ps-scripts</code> in your home folder. The first time you open a folder, VS Code may open it in <b>Restricted Mode</b>, with a bar at the top (or ask whether you trust the authors of the files): the files are yours, so choose to trust the folder, or the PowerShell extension stays switched off. In the Explorer pane on the left, hover over the folder&rsquo;s name and click the New File icon, name the file <code>hello.ps1</code>, type the three lines below, and save with Ctrl+S (Cmd+S on a Mac).</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/hello.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/hello.ps1"><code># hello.ps1: my first script. PowerShell skips any line that starts with #.
+$all = Import-Csv "$HOME/ps-lab/data/orders.csv"
+"Fernhill Goods has $($all.Count) orders."</code></pre>
+      </div>
+      <p>Line by line. A line starting with <b><code>#</code></b> is a <b>comment</b>, a note for people that PowerShell skips; start every script with one saying what it does. <b><code>$HOME</code></b> is a variable PowerShell sets for you, holding your home folder, the folder <code>~</code> stands for, so <code>"$HOME/ps-lab/data/orders.csv"</code>, in double quotes, is the full path to the orders wherever you run the script from. Why that matters comes at the end of this section. The last line is a message, as in section C.</p>
+      <p><b>Run it from your terminal</b> by typing its path. In the folder it is in, that is <code>.\hello.ps1</code>: <code>.</code> means the folder you are in, as in Session 1, and <code>\</code> separates it from the file name. Typed on its own, without the <code>.\</code>, the name is refused: PowerShell never runs a script from the folder you are standing in by its bare name, so a file can never pose as a command you meant. PowerShell 7 tells you what to type instead:</p>
+      <div class="filebox">
+        <div class="fbh">your first run &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-scripts&gt; .\hello.ps1</span>
+Fernhill Goods has 8 orders.
+<span class="cmd">PS C:\Users\you\ps-scripts&gt; hello.ps1</span>
+hello.ps1: The term 'hello.ps1' is not recognized as a name of a cmdlet,     <span class="cm">one line, wrapped here</span>
+function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the   <span class="cm">one line, wrapped here</span>
+path is correct and try again.
+
+[General Feedback]
+  The command "hello.ps1" was not found, but does exist in the current location.
+  PowerShell does not load commands from the current location by default     <span class="cm">one line, wrapped here</span>
+(see 'Get-Help about_Command_Precedence').
+  
+  If you trust this command, run the following command instead:
+    &#10148; .\hello.ps1</code></pre>
+      </div>
+      <p>If PowerShell refuses instead with a message that <b>running scripts is disabled on this system</b>, your computer&rsquo;s execution policy is stopping it: do section G now, then come back here.</p>
+      <p><b>Run it from anywhere</b> with its full path: <code>~/ps-scripts/hello.ps1</code> works from any folder. Use <code>~</code> to run a script; <code>$HOME</code> belongs inside quotes, as in the script. And notice what is left behind: <b>nothing</b>. A script keeps its variables to itself, and they are cleared away when it ends, so <code>$all</code> holds nothing afterwards, and a variable a script stores does not replace one of yours with the same name. (Running it with a dot and a space in front, <code>. .\hello.ps1</code>, called <b>dot-sourcing</b>, is the exception: it runs the script as if typed at your prompt, so its variables stay. You will not need it today.)</p>
+      <div class="filebox">
+        <div class="fbh">run from another folder; what a script leaves behind &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-scripts&gt; Set-Location ~/ps-lab</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/hello.ps1</span>
+Fernhill Goods has 8 orders.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $all.Count</span>
+0</code></pre>
+      </div>
+      <p><b>Why full paths: a relative path is relative to where YOU are.</b> Inside a script, a path such as <code>data/orders.csv</code> is found from the folder you are standing in when you run it, <b>not</b> the folder the script is in. Here is a second script, <code>paths.ps1</code>, that uses one:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/paths.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/paths.ps1"><code># paths.ps1: reads the orders by a relative path
+$all = Import-Csv data/orders.csv
+"Read $($all.Count) orders."</code></pre>
+      </div>
+      <p>Run from the lab, it works. Run from your home folder, it looks for <code>data/orders.csv</code> in your home folder, which has none. Read the error: its first line names the cmdlet that failed and where, the script and its line number, <code>paths.ps1:2</code>; the <code>Line |</code> block shows that line, with <code>~</code> under the part that failed; the message comes last. And look at the line after it: <b>the script carried on</b> to its next line and reported 0 orders. PowerShell carries on after most errors; Session 7 is about catching them.</p>
+      <div class="filebox">
+        <div class="fbh">the same script, from two folders &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/paths.ps1</span>
+Read 8 orders.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~</span>
+<span class="cmd">PS C:\Users\you&gt; ~/ps-scripts/paths.ps1</span>
+Import-Csv: C:\Users\you\ps-scripts\paths.ps1:2
+Line |
+   2 |  $all = Import-Csv data/orders.csv
+     |         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Could not find a part of the path 'C:\Users\you\data\orders.csv'.
+Read 0 orders.</code></pre>
+      </div>
+      <p>So every script in this workbook builds its paths from <code>$HOME</code>, and runs the same from any folder.</p>
+      <div class="note"><span class="nk">You will also see</span>Inside a script, <code>$PSScriptRoot</code> holds the folder the script itself is in, wherever you run it from; scripts that keep their own files beside them build paths from it. This workbook uses <code>$HOME</code>, because the lab is always in your home folder.</div>
+      <div class="note"><span class="nk">Running from VS Code</span>VS Code has a terminal of its own (View, then Terminal); if you use it, check <code>$PSVersionTable.PSVersion</code> says 7, as in Session 1, and run scripts there by typing their path, exactly as above. VS Code also runs the open file when you press F5. That is the debugger&rsquo;s button, for stepping through a script a line at a time, and it works differently: by the extension&rsquo;s own default setting it dot-sources the script, so its variables stay behind afterwards. Type the path, as above, and you will run scripts the way a scheduled task or a colleague&rsquo;s computer will.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1 runs a script the same way, with <code>.\</code> or a full path, once its execution policy allows it (section G). A bare <code>hello.ps1</code> gets its long error, then a one-paragraph hint starting <code>Suggestion [3,General]: The command hello.ps1 was not found, but does exist in the current location.</code> An error inside a script comes in the long form too; this workbook&rsquo;s computer has security software that blocks every 5.1 script (section G), so that form could not be captured here.</div>
+      <div class="note"><span class="nk">In Bash</span>Bash has the same rule, for the same reason: a script in the folder you are in runs only with <code>./</code> in front. Here a one-line Bash script is written with <code>printf</code>, from <code>~/ps-lab</code>. On Linux and macOS a script must also be marked as runnable before it will run, which <code>chmod +x</code> does (the Linux &amp; the Shell track covers it); Git Bash on Windows skips that check, so the step does no harm there. Captured in Git Bash on Windows:
+<pre><code><span class="cmd">$ printf 'echo "hello from a Bash script"\n' &gt; out/hello.sh</span>
+<span class="cmd">$ chmod +x out/hello.sh</span>
+<span class="cmd">$ cd out</span>
+<span class="cmd">$ hello.sh</span>
+bash: hello.sh: command not found
+<span class="cmd">$ ./hello.sh</span>
+hello from a Bash script</code></pre>
+</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Save and run a script</div>
+        <ol>
+          <li>Install VS Code and its PowerShell extension, and make <code>~/ps-scripts</code>.</li>
+          <li>Write and save <code>hello.ps1</code>, and run it from <code>ps-scripts</code> with <code>.\</code>, then by its bare name, and read the hint.</li>
+          <li>Run it from the lab with its full path, then check what <code>$all</code> holds.</li>
+          <li>Write <code>paths.ps1</code>, and run it from the lab and from your home folder.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Any plain-text editor works if VS Code will not install. Save the files in <code>ps-scripts</code>, with names ending <code>.ps1</code>. To move between folders, <code>Set-Location ~/ps-scripts</code> and <code>Set-Location ~/ps-lab</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<p>Steps 2 to 4 are the transcripts above. Back in the lab for the next section:</p>
+<pre><code><span class="cmd">PS C:\Users\you&gt; Set-Location ~/ps-lab</span></code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I saved a script and ran it from two folders</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. When Windows refuses: execution policy</h3>
+      <p>On Windows, before it runs any script, PowerShell checks its <b>execution policy</b>, a setting that says which scripts may run. Four values matter today (Microsoft&rsquo;s <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies?view=powershell-7.6" target="_blank" rel="noopener">about_Execution_Policies</a> page lists them all):</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Policy</div><div class="fn">What runs</div><div class="fd">Where you meet it</div></div>
+        <div class="frow"><div class="fc">Restricted</div><div class="fn">commands you type, but no scripts at all</div><div class="fd">Microsoft&rsquo;s default for Windows PowerShell 5.1 on a Windows PC</div></div>
+        <div class="frow"><div class="fc">RemoteSigned</div><div class="fn">scripts you wrote; a script downloaded from the internet only if it is <b>signed</b>, meaning it carries a digital signature proving who published it and that nobody changed it since</div><div class="fd">what PowerShell 7&rsquo;s installer set on this workbook&rsquo;s computer</div></div>
+        <div class="frow"><div class="fc">Bypass</div><div class="fn">everything; nothing is checked</div><div class="fd">for one run at a time, below</div></div>
+        <div class="frow"><div class="fc">Undefined</div><div class="fn">nothing is set at this level, so a level below decides</div><div class="fd">most rows of the list below</div></div>
+      </div>
+      <p><b>Check before you change anything.</b> <code>Get-ExecutionPolicy</code> prints the policy in force. With <code>-List</code>, it shows the policy set at each <b>scope</b>, from the most powerful at the top. MachinePolicy and UserPolicy are set by an organisation for its computers, through Windows&rsquo; <b>Group Policy</b>, and beat everything. Process is this window only, CurrentUser is your account, and LocalMachine is everyone on the computer. The first row, from the top, that is not Undefined is the one in force. If every row is Undefined, Microsoft&rsquo;s page says a Windows PC uses Restricted.</p>
+      <div class="filebox">
+        <div class="fbh">which policy is in force, and why &middot; captured live, on this workbook&rsquo;s computer</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ExecutionPolicy</span>
+RemoteSigned
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ExecutionPolicy -List</span>
+
+        Scope ExecutionPolicy
+        ----- ---------------
+MachinePolicy       Undefined
+   UserPolicy       Undefined
+      Process       Undefined
+  CurrentUser       Undefined
+ LocalMachine    RemoteSigned</code></pre>
+      </div>
+      <p>Here only LocalMachine is set, to RemoteSigned, which is why <code>hello.ps1</code> simply ran. Yours may differ. <b>See a refusal safely:</b> <code>Set-ExecutionPolicy -Scope Process</code> changes the policy for this window only, and closing the window, or setting it back to Undefined, undoes it:</p>
+      <div class="filebox">
+        <div class="fbh">Restricted, for this window only, then undone &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~/ps-scripts</span>
+<span class="cmd">PS C:\Users\you\ps-scripts&gt; Set-ExecutionPolicy -Scope Process Restricted</span>
+<span class="cmd">PS C:\Users\you\ps-scripts&gt; .\hello.ps1</span>
+.\hello.ps1: File C:\Users\you\ps-scripts\hello.ps1 cannot be loaded         <span class="cm">one line, wrapped here</span>
+because running scripts is disabled on this system. For more information,    <span class="cm">one line, wrapped here</span>
+see about_Execution_Policies at                                              <span class="cm">one line, wrapped here</span>
+https://go.microsoft.com/fwlink/?LinkID=135170.
+<span class="cmd">PS C:\Users\you\ps-scripts&gt; Set-ExecutionPolicy -Scope Process Undefined</span>
+<span class="cmd">PS C:\Users\you\ps-scripts&gt; .\hello.ps1</span>
+Fernhill Goods has 8 orders.</code></pre>
+      </div>
+      <p><b>The fix, when yours says Restricted</b> (or every row says Undefined): set RemoteSigned for your own account.</p>
+      <div class="filebox">
+        <div class="fbh">the fix: RemoteSigned for your account</div>
+<pre data-shell="once"><code><span class="cmd">PS C:\Users\you&gt; Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</span>
+<span class="cmd">PS C:\Users\you&gt; Get-ExecutionPolicy -List</span>
+
+        Scope ExecutionPolicy
+        ----- ---------------
+MachinePolicy       Undefined
+   UserPolicy       Undefined
+      Process       Undefined
+  CurrentUser    RemoteSigned
+ LocalMachine    RemoteSigned</code></pre>
+      </div>
+      <p>That box was captured once, on 2026-10-09, and the setting was then put back, because this computer did not need it. It is the safe fix for four reasons: it needs no administrator rights; it lasts, so you set it once; it changes only your own account; and scripts downloaded from the internet are still checked. To undo it later, set CurrentUser back to <code>Undefined</code>. If your <code>-List</code> already shows RemoteSigned in force, leave it alone.</p>
+      <p><b>A downloaded script.</b> Web browsers put a hidden mark on files they download, saying they came from the internet, and RemoteSigned refuses such a script unless it is signed. If you have read a downloaded script and trust it, <b><code>Unblock-File</code></b> removes the mark. Captured with a script marked as downloaded:</p>
+      <div class="filebox">
+        <div class="fbh">a downloaded script, refused then unblocked &middot; captured live</div>
+<pre data-shell="7" data-mark="~/ps-scripts/downloaded.ps1"><code><span class="cmd">PS C:\Users\you\ps-scripts&gt; .\downloaded.ps1</span>
+.\downloaded.ps1: File C:\Users\you\ps-scripts\downloaded.ps1 cannot be      <span class="cm">one line, wrapped here</span>
+loaded. The file C:\Users\you\ps-scripts\downloaded.ps1 is not digitally     <span class="cm">one line, wrapped here</span>
+signed. You cannot run this script on the current system. For more           <span class="cm">one line, wrapped here</span>
+information about running scripts and setting execution policy, see          <span class="cm">one line, wrapped here</span>
+about_Execution_Policies at                                                  <span class="cm">one line, wrapped here</span>
+https://go.microsoft.com/fwlink/?LinkID=135170.
+<span class="cmd">PS C:\Users\you\ps-scripts&gt; Unblock-File .\downloaded.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-scripts&gt; .\downloaded.ps1</span>
+A script from the internet ran.
+<span class="cmd">PS C:\Users\you\ps-scripts&gt; Set-Location ~/ps-lab</span></code></pre>
+      </div>
+      <div class="note"><span class="nk">You will also see</span>Advice online often says to run <code>pwsh -ExecutionPolicy Bypass -File SCRIPT.ps1</code>, which starts a PowerShell with no checks at all for that one run. It works, but it switches off the one check that stops a downloaded script running by accident, so do not make it your habit. Microsoft&rsquo;s page is clear that the execution policy is not a security wall, since anyone can type a script&rsquo;s lines by hand; it is a seatbelt against running something by mistake. Keep it fastened.</div>
+      <div class="note"><span class="nk">On a work computer</span>An organisation can set the policy for you (the MachinePolicy and UserPolicy rows), and security software can block scripts whatever the policy says. On this workbook&rsquo;s own computer, security software blocked every Windows PowerShell 5.1 script, even with Bypass, printing <code>Cylance Script Control has blocked PowerShell from running.</code> If something like that happens to you, it is your IT team&rsquo;s decision: ask them, rather than trying to get round it. Practise on a computer of your own.</div>
+      <div class="note"><span class="nk">On macOS and Linux</span>Microsoft&rsquo;s page says the execution policy is not enforced there: <code>Get-ExecutionPolicy</code> says Unrestricted, and it cannot be changed. There is nothing to set; your scripts run.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Microsoft&rsquo;s page gives Restricted as 5.1&rsquo;s default on a Windows PC, so expect 5.1 to refuse your first script until you run the same <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code> in 5.1 as well. The two versions keep separate settings: Microsoft&rsquo;s Set-ExecutionPolicy page says the settings for <code>powershell.exe</code> do not affect <code>pwsh.exe</code>. 5.1&rsquo;s refusal uses the same words in its long form; on this computer it printed the link with one slash, <code>https:/go.microsoft.com</code>. (This computer&rsquo;s 5.1 is set to Bypass by its IT team, the Cylance case above.)</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Check, then see a refusal safely</div>
+        <ol>
+          <li>Run <code>Get-ExecutionPolicy -List</code>, and find the row that decides the policy in force.</li>
+          <li>From <code>ps-scripts</code>, set Restricted for this window only, run <code>hello.ps1</code>, and read the refusal.</li>
+          <li>Undo it with Undefined, and run <code>hello.ps1</code> again.</li>
+          <li>Only if step 1 showed Restricted in force, or every row Undefined: set RemoteSigned for your account.</li>
+        </ol>
+        <details><summary>Hint</summary><p>The deciding row is the first one, from the top, that is not Undefined. Steps 2 and 3 use <code>-Scope Process</code>; step 4 uses <code>-Scope CurrentUser</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<p>Steps 1 to 3 are the first two transcripts in this section; step 4 is the fix box. On a computer like this one, step 1&rsquo;s deciding row is LocalMachine, RemoteSigned, and step 4 is not needed.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I checked my execution policy and saw a refusal for myself</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a script that reports on the lab</h3>
+      <p>Do this in VS Code and your terminal, without scrolling back up. It turns Session 4&rsquo;s milestone pipeline into a script you can run again tomorrow, and adds today&rsquo;s variables, loop, decision and messages.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: the lab report script</div>
+        <p>Write <code>~/ps-scripts/lab-report.ps1</code>, starting with a comment that says what it does. It should:</p>
+        <ol>
+          <li>Count the ERROR lines in every log anywhere under <code>ps-lab/logs</code>, the archive included, for each log file, sorted biggest first (ties broken by name, Z to A, as in Session 4), as two columns, <code>Log</code> (the file&rsquo;s name) and <code>Count</code>, and store the result in <code>$summary</code>.</li>
+          <li>Save <code>$summary</code> to <code>ps-lab/out/error-summary.csv</code>, ready for Excel.</li>
+          <li>Print one line per log, such as <code>web-2026-03-03.log: 2</code>, adding up the counts as it goes.</li>
+          <li>End with <code>5 ERROR lines in all. Saved to out/error-summary.csv</code> if it found any, or <code>No ERROR lines today.</code> if it found none, with the number worked out.</li>
+          <li>Run it from the lab and from your home folder, and read the CSV back with <code>Import-Csv</code>.</li>
+        </ol>
+        <p>You have hit the milestone when your script did all of that and you wrote it without copying from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/lab-report.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/lab-report.ps1"><code># lab-report.ps1: ERROR lines per log, saved as a CSV, with a summary on screen.
+$lab = "$HOME/ps-lab"
+$summary = Get-ChildItem "$lab/logs" -Recurse -File | Select-String ERROR |
+  Group-Object Filename | Sort-Object Count, Name -Descending |
+  Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+$summary | Export-Csv "$lab/out/error-summary.csv" -Encoding utf8BOM
+
+$total = 0
+foreach ($row in $summary) {
+  "$($row.Log): $($row.Count)"
+  $total = $total + $row.Count
+}
+if ($total -gt 0) {
+  "$total ERROR lines in all. Saved to out/error-summary.csv"
+} else {
+  'No ERROR lines today.'
+}</code></pre>
+</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/lab-report.ps1</span>
+web-2026-03-03.log: 2
+web-2026-03-02.log: 1
+web-2026-03-01.log: 1
+web-2026-02-28.log: 1
+5 ERROR lines in all. Saved to out/error-summary.csv
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/error-summary.csv</span>
+
+Log                Count
+---                -----
+web-2026-03-03.log 2
+web-2026-03-02.log 1
+web-2026-03-01.log 1
+web-2026-02-28.log 1
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~</span>
+<span class="cmd">PS C:\Users\you&gt; ~/ps-scripts/lab-report.ps1</span>
+web-2026-03-03.log: 2
+web-2026-03-02.log: 1
+web-2026-03-01.log: 1
+web-2026-02-28.log: 1
+5 ERROR lines in all. Saved to out/error-summary.csv</code></pre>
+<p>In a script, a pipeline can run over several lines, each ending in <code>|</code>, and so can a block, from its <code>{</code> to its <code>}</code>; indenting what is inside a block makes it easy to see where it ends. <code>$row.Count</code> needs no conversion, because <code>Group-Object</code> counted it: it is a number already. The script builds every path from <code>$lab</code>, so it runs the same from any folder. Run it again after rebuilding the lab and making <code>out</code>: it is still there, because <code>ps-scripts</code> is outside the lab.</p>
+<p><b>In Windows PowerShell 5.1</b>, use <code>-NoTypeInformation -Encoding utf8</code> instead, as Session 4 showed: 5.1 has no <code>utf8BOM</code>, and without <code>-NoTypeInformation</code> it adds a <code>#TYPE</code> line to the top of the file. Run as written in 5.1 (as script text, since this computer cannot run 5.1 scripts), the <code>Export-Csv</code> line stops with an error that the argument &ldquo;does not belong to the set&rdquo;, and then the script carries on and still prints <code>Saved to out/error-summary.csv</code>, though nothing was saved. A script&rsquo;s message is only as true as its code makes it; Session 7 teaches a script to notice its own errors.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> I wrote and ran the lab report script from memory</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from variables and types, through quotes and decisions, to loops, a script and an execution policy.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh PowerShell 7 window with a fresh lab</b>, and its commands run in the order shown, in that one window. Each was run on 2026-10-09 in PowerShell 7.6 and Windows PowerShell 5.1 and printed the same answer in both (in 5.1, D9&rsquo;s script was run as script text, for the reason in section G). Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it. First put a short script back into order, then fill the blanks in three pieces of code.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your script on the right, and tap it again to send it back. The lines are a script&rsquo;s lines, top to bottom; the spaces at the start of a line are indentation, as in the milestone.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the code in the box, run it in your terminal (the last one as a script), then reveal the reference to compare. More than one answer can be right, so judge yours by what it did. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your code did what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the six questions below come from earlier sessions, one from <b>Session 4</b> and one from <b>Session 3</b>, because recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 05 of 10 &middot; Hit the milestone unassisted, then tick <b>S05</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>. Level 3, Scripting, is complete after Session 6.
+    <br><br>
+    <b>Your 15-minute review, tomorrow if you can:</b> rewrite Session 4&rsquo;s summary as a script you can run again tomorrow. Paste the setup block to rebuild the lab and make <code>out</code>, then run <code>~/ps-scripts/lab-report.ps1</code> from your home folder: it is still there, and it still works. Then, with this page closed, write <code>~/ps-scripts/ticket-summary.ps1</code>: tickets counted by State and Priority together, sorted, saved to <code>ps-lab/out/ticket-summary.csv</code>, with one printed line per combination and a final line that says how many tickets are still open. Run it from two different folders. Anything you had to look up goes on a sticky note for next time. Microsoft&rsquo;s free <a href="https://learn.microsoft.com/en-us/powershell/scripting/learn/ps101/00-introduction" target="_blank" rel="noopener">PowerShell 101</a> is a good companion read for this ground (it is written for Windows PowerShell 5.1, so some of its output differs from 7). &middot; Next: <b>Session 6, functions and parameters</b>, where your script grows its own parameters and its own help, so you can run it on any folder you name.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s05-workbook-v1";
+  /* Spaced review: Part 6's Q5 comes from Session 4 and Q6 from Session 3, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S03_URL = "ps-session-03.html";
+  var S04_URL = "ps-session-04.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare values one per line (73, Int32, Bypass, a Customer name), as whole messages
+     (Eli Moss has ticket T-105) and as -List table cells. Parentheses carry meaning here:
+     $( ) is a subexpression, .GetType() a method call and (TEST) an if's test, so () in
+     the split class would accept wrong answers. No answer is wrapped in parentheses.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 5 is: its
+     answers are numbers, a type name (Int32, which PowerShell matches in any case, as in
+     [int32]), messages, customer names, priorities and a policy name, none of which a
+     learner could get wrong by case alone (build contract section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in Session 5 is: its blanks are the keywords
+     foreach, in and else, the conversion [double], the scope name CurrentUser and the
+     character . before a backslash, all of which PowerShell matches in any case.
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 1 set, 1 seq, 2 count. S5's grader flags are in the
+     build contract, section 4: caseFold ON, parenLabels OFF, no drill cs: true. Every drill
+     was run on 2026-10-09 from a fresh lab, its commands typed into ONE PowerShell window in
+     order, in PowerShell 7.6.5 and Windows PowerShell 5.1.26100, and printed the same answer
+     in both (_build/verify_s05.py; D9's script ran as script text in 5.1, which this
+     machine's security software lets through). D10's scenario is the -List table captured
+     with Process set to Bypass. No answer is printed by a Part 1 transcript. */
+  var DRILLS = [
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The two commands run in order. What does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> $n = '7'\nPS C:\\Users\\you\\ps-lab> 3 + $n", ans: '10', alt: ['ten'],
+      why: '10. $n holds text, but the value on the LEFT decides how + works, and here that is the number 3, so PowerShell converts "7" to a number and adds. Written $n + 3, with the text on the left, it would join them: 73.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The two commands run in order. What does the last one print? Give it as printed.',
+      code: 'PS C:\\Users\\you\\ps-lab> $n = 7\nPS C:\\Users\\you\\ps-lab> $n.GetType().Name', ans: 'Int32',
+      why: 'Int32. A number typed without quotes is stored as a whole number, and GetType() describes its type; .Name is the type’s .NET name, Int32, the type [int] makes. With quotes, $n = \'7\', it would be String.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The two commands run in order. What does the last one print? Give it exactly as printed.',
+      code: "PS C:\\Users\\you\\ps-lab> $shop = 'Fernhill'\nPS C:\\Users\\you\\ps-lab> 'Hello from $shop'", ans: 'Hello from $shop',
+      why: 'Hello from $shop. Text in single quotes is printed exactly as typed, $ and all. Only double quotes swap in a variable’s value: "Hello from $shop" would print Hello from Fernhill.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The two commands run in order. What does the last one print? Give it exactly as printed.',
+      code: 'PS C:\\Users\\you\\ps-lab> $t = Import-Csv data/tickets.csv | Select-Object -Last 1\nPS C:\\Users\\you\\ps-lab> "$($t.Customer) has ticket $($t.TicketId)"', ans: 'Eli Moss has ticket T-105',
+      why: 'Eli Moss has ticket T-105. -Last 1 keeps the last row, T-105, and each $( ) works out the property inside it and puts the value in the double-quoted text.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The two commands run in order. What does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> $o = Import-Csv data/orders.csv | Where-Object OrderId -eq '5008'\nPS C:\\Users\\you\\ps-lab> if ([double]$o.Total -gt 20) {\n  'over 20' } elseif ([double]$o.Total -gt 50) { 'over 50' } else { 'small' }", ans: 'over 20',
+      why: 'over 20. Order 5008 cost 82.00, which is over 50 as well, but PowerShell checks the tests from the top and runs only the FIRST block whose test is True: 82 is over 20, so it prints over 20 and never looks at the elseif. To catch the bigger case, test it first.' },
+
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The two commands run in order. Which names does the last one print? Give them as printed, separated by commas. Order does not matter.',
+      code: 'PS C:\\Users\\you\\ps-lab> $orders = Import-Csv data/orders.csv\nPS C:\\Users\\you\\ps-lab> foreach ($o in $orders) { if ([int]$o.Qty -gt 1) { $o.Customer } }', ans: 'Ben Okafor, Femi Adeyemi, Gus Lind',
+      why: 'Ben Okafor, Femi Adeyemi and Gus Lind. The loop visits every order with $o holding it, and the if prints the Customer only when the Qty, converted to a whole number, is more than 1: 2 knives, 3 spice racks and 2 kettles.' },
+
+    { type: 'count', lbl: 'trace it: the tickets, as Select-Object TicketId, Topic shows them',
+      scen: 'TicketId Topic\n-------- -----\nT-101    refund\nT-102    delivery\nT-103    payment\nT-104    payment\nT-105    delivery',
+      ask: 'Work through the loop one ticket at a time. The four commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> $tickets = Import-Csv data/tickets.csv\nPS C:\\Users\\you\\ps-lab> $n = 0\nPS C:\\Users\\you\\ps-lab> foreach ($t in $tickets) { if ($t.Topic -ne 'payment') { $n = $n + 1 } }\nPS C:\\Users\\you\\ps-lab> $n", ans: '3', alt: ['three'],
+      why: '3. $n starts at 0. -ne means not equal, so the loop adds 1 for every ticket whose Topic is not payment: T-101 refund (1), T-102 delivery (2), T-105 delivery (3). T-103 and T-104 are payment and add nothing.' },
+
+    { type: 'seq', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'List what it prints, in order, separated by commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> Import-Csv data/tickets.csv | ForEach-Object { $_.Priority } | Sort-Object', ans: 'high, high, low, low, medium',
+      why: 'high, high, low, low, medium. ForEach-Object runs its block for each ticket, with $_ as that ticket, and hands on its Priority; because it is a cmdlet, its output can be piped on, so Sort-Object puts the five values in order, repeats and all.' },
+
+    { type: 'count', lbl: 'a script: ~/ps-scripts/greet.ps1 holds this one line',
+      scen: "$greeting = 'Hello from the script'",
+      ask: 'Save the line in the grey box as ~/ps-scripts/greet.ps1, then run the two commands in order. How many lines does the last one print?',
+      code: 'PS C:\\Users\\you\\ps-lab> ~/ps-scripts/greet.ps1\nPS C:\\Users\\you\\ps-lab> $greeting', ans: '0', alt: ['zero', 'none', 'nothing', 'no lines'],
+      why: '0. A script keeps its variables to itself, and they are cleared away when it ends, so $greeting holds nothing at the prompt afterwards and typing it prints nothing. Dot-sourcing, . ~/ps-scripts/greet.ps1, would have kept it.' },
+
+    { type: 'value', lbl: 'trace it: Get-ExecutionPolicy -List on one computer',
+      scen: '        Scope ExecutionPolicy\n        ----- ---------------\nMachinePolicy       Undefined\n   UserPolicy       Undefined\n      Process          Bypass\n  CurrentUser       Undefined\n LocalMachine    RemoteSigned',
+      ask: 'On the computer whose list is in the grey box, what does Get-ExecutionPolicy print?',
+      code: 'Get-ExecutionPolicy', ans: 'Bypass',
+      why: 'Bypass. The scopes are listed from the most powerful down, and the first row that is not Undefined is the one in force: Process, this window only, beats LocalMachine. Close the window and RemoteSigned is in force again.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item (build contract section 4): its order is forced. $tickets must be read before
+     $open can filter it; the loop needs $open; the if sits inside the loop, so it comes
+     after the foreach line and before the closing brace, which is the only line that can
+     end the script. The prompt narrates that order. */
+  var PARSONS = [
+    { prompt: 'Write a script that reads the tickets into a variable, keeps the open ones in a second variable, then loops over the open tickets and prints the TicketId of each one whose Priority is high.',
+      lines: ['$tickets = Import-Csv "$HOME/ps-lab/data/tickets.csv"',
+              "$open = $tickets | Where-Object State -eq 'open'",
+              'foreach ($t in $open) {',
+              "  if ($t.Priority -eq 'high') { $t.TicketId }",
+              '}'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: keywords, type and scope
+     names are case-insensitive in PowerShell. F1 asks for the loop STATEMENT, which rules out
+     ForEach-Object. F2 asks for a number that can have a decimal point, which rules out
+     [int], and for the brackets with it. F3 names CurrentUser's job (your account only, so
+     not Process or LocalMachine) and asks for the one character before the backslash. */
+  var FADED = [
+    { prompt: 'Print every order’s Customer with a loop statement, not a cmdlet; $orders already holds the orders. Fill in the keyword that starts the loop, then the word between the loop variable and the list.',
+      code: '%% ($o %% $orders) { $o.Customer }', ans: ['foreach', 'in'] },
+    { prompt: 'Compare order 5008’s Total, held in $big, as a number that can have a decimal point. Fill in the conversion this workbook uses for prices, square brackets included, then the keyword for what to do when the test is False.',
+      code: "if (%%$big.Total -gt 100) { 'Over 100' } %% { 'Not over 100' }", ans: ['[double]', 'else'] },
+    { prompt: 'Let the scripts you write run, for your own account only and lasting, then run hello.ps1 from the folder it is in. Fill in the scope, then the one character that goes before the backslash.',
+      code: 'Set-ExecutionPolicy -Scope %% RemoteSigned\nSet-Location ~/ps-scripts\n%%\\hello.ps1', ans: ['CurrentUser', '.'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'From the lab, in one window: store the orders in a variable, then print the line Fernhill Goods has 8 orders, 2 still pending. with both numbers worked out, not typed.',
+      sol: "$orders = Import-Csv data/orders.csv\n$pending = $orders | Where-Object Status -eq 'pending'\n\"Fernhill Goods has $($orders.Count) orders, $($pending.Count) still pending.\"\n\nIt prints:\nFernhill Goods has 8 orders, 2 still pending.\n\nBoth counts have a dot in them, so each goes in its own $( ),\ninside double quotes." },
+    { task: 'From the lab: for each ticket whose Priority is high, print a line such as T-101 is high priority (Dara Singh).',
+      sol: "$tickets = Import-Csv data/tickets.csv\nforeach ($t in $tickets) {\n  if ($t.Priority -eq 'high') { \"$($t.TicketId) is high priority ($($t.Customer))\" }\n}\n\nIt prints:\nT-101 is high priority (Dara Singh)\nT-103 is high priority (Gus Lind)\n\nThe parentheses around the name are plain text; only $( ) is\nworked out. At the prompt, type the loop as one line." },
+    { task: 'From the lab: how many items did Fernhill Goods sell in all? Add up every order’s Qty with foreach, converting each to a whole number, then print Items sold: and the total.',
+      sol: "$orders = Import-Csv data/orders.csv\n$items = 0\nforeach ($o in $orders) { $items = $items + [int]$o.Qty }\n\"Items sold: $items\"\n\nIt prints:\nItems sold: 12\n\nThis one would print 12 even without [int]: $items, on the\nleft, is a number, and the left value decides. Written the\nother way round, $o.Qty + $items, it would join text.\nConverting makes it right whichever way you write it." },
+    { task: 'Write ~/ps-scripts/ticket-report.ps1: it counts the tickets in each State, biggest first, saves Name and Count to ps-lab/out/tickets-by-state.csv for Excel, and prints one line per State, such as open: 3. Run it from your home folder.',
+      sol: "# ticket-report.ps1: tickets per state, saved as a CSV and printed\n$lab = \"$HOME/ps-lab\"\n$byState = Import-Csv \"$lab/data/tickets.csv\" | Group-Object State |\n  Sort-Object Count, Name -Descending | Select-Object Name, Count\n$byState | Export-Csv \"$lab/out/tickets-by-state.csv\" -Encoding utf8BOM\nforeach ($s in $byState) {\n  \"$($s.Name): $($s.Count)\"\n}\n\nRun from your home folder, ~/ps-scripts/ticket-report.ps1 prints:\nopen: 3\nclosed: 2\n\nEvery path is built from $HOME, so it runs from any folder.\nIn Windows PowerShell 5.1, use -NoTypeInformation\n-Encoding utf8 instead, as Session 4 showed: without\n-NoTypeInformation, 5.1 adds a #TYPE line to the file." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Sixteen cards, sized to the atoms THIS session has (band 12-16, cap 18). The deck stays
+     session-local: re-testing Sessions 1 to 4 is Part 6's job. */
+  var CARDS = [
+    { f: "$shop = 'Fernhill Goods'", b: 'stores the text in a variable named shop, and prints nothing; type $shop to see it' },
+    { f: 'A misspelt variable name', b: 'holds nothing: it prints nothing, its Count is 0, and there is no error' },
+    { f: '$orders.Count', b: 'how many objects the variable holds' },
+    { f: '$n.GetType().Name', b: 'the name of the value’s type, such as Int32, String or Double' },
+    { f: 'Int32 and [int]', b: 'the same type: Int32 is .NET’s name for a whole number, int is PowerShell’s short name' },
+    { f: "'single quotes' and \"double quotes\"", b: 'single quotes print exactly what you typed; double quotes swap in each $variable' },
+    { f: '"First order: $first.Customer"', b: 'swaps in only $first, the whole row, then .Customer as plain text; write $($first.Customer)' },
+    { f: 'if (TEST) { A } elseif (TEST) { B } else { C }', b: 'runs the first block whose test is True; else runs only when none was' },
+    { f: 'An if on a CSV column', b: 'convert first: if ([double]$o.Total -gt 100)' },
+    { f: 'foreach ($o in $orders) { CODE }', b: 'runs CODE once for each object, with $o holding the one it is on' },
+    { f: 'foreach or ForEach-Object?', b: 'foreach loops over a list you have and cannot be piped on; ForEach-Object loops inside a pipeline, with $_' },
+    { f: '.\\hello.ps1', b: 'runs the script hello.ps1 in the folder you are in; its bare name alone is refused' },
+    { f: 'A script’s variables, after it ends', b: 'gone, and they do not replace yours (unless dot-sourced: . .\\hello.ps1)' },
+    { f: 'data/orders.csv inside a script', b: 'found from the folder YOU are in, not the script’s: build it from $HOME, as "$HOME/ps-lab/data/orders.csv"' },
+    { f: 'Get-ExecutionPolicy -List', b: 'the policy at each scope; the first row from the top that is not Undefined is in force' },
+    { f: 'Set-ExecutionPolicy -Scope CurrentUser RemoteSigned', b: 'lets scripts you wrote run, for your account only, with no admin rights; downloads are still checked' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four questions on Session 5 and two spaced-review questions, Q5 from Session 4 and
+     Q6 from Session 3, whose review links open those sessions. Correct-option length
+     ranks (longest = 1), computed by hand: 2, 3, 2, 3, 3, 2, with no tie for the correct
+     option's length. Never strictly the longest or shortest (check-quiz.py 0/6 on both),
+     and no single rank reaches the pass mark of 5. Recheck by hand after any edit. */
+  var QUIZ = [
+    { q: '"First order: $first.Customer" printed the whole row and then .Customer. Why?',
+      o: ['Double quotes swap in only the variable $first; write $($first.Customer)',
+          'Double quotes print exactly what you typed, so use single quotes',
+          '$first holds no Customer column',
+          'Import-Csv stores each row as text, so convert it with [string] before reading a property'],
+      c: 0,
+      e: 'Inside double quotes PowerShell swaps in a $variable, and stops there: .Customer is left as plain text after the whole row. $( ) works out everything inside it, property and all. Single quotes swap in nothing at all, $first does have a Customer, and [string] would not help.',
+      part: { id: 'concept-c', label: 'C. Messages with values in them' } },
+
+    { q: 'Your first script is refused: "running scripts is disabled on this system". Get-ExecutionPolicy -List shows Undefined on every row. What is the safe, lasting fix?',
+      o: ['Set-ExecutionPolicy -Scope CurrentUser RemoteSigned',
+          'Unblock-File on the script',
+          'Run every script from now on with pwsh -ExecutionPolicy Bypass -File',
+          'Set-ExecutionPolicy Bypass, as an administrator, for everyone on the computer'],
+      c: 0,
+      e: 'Undefined everywhere means Restricted on a Windows PC. RemoteSigned for CurrentUser needs no administrator, lasts, touches only your account, and still checks downloaded scripts. Unblock-File only removes a download mark, which your own script does not have; Bypass, for one run or for everyone, switches every check off.',
+      part: { id: 'concept-g', label: 'G. When Windows refuses: execution policy' } },
+
+    { q: 'foreach ($o in $orders) { $o.Product } | Sort-Object stops with "An empty pipe element is not allowed." What prints the products sorted?',
+      o: ['$orders | ForEach-Object { $_.Product } | Sort-Object',
+          'foreach ($o in $orders) { $o.Product | Sort-Object }',
+          'Put Sort-Object before the foreach',
+          'Run it in Windows PowerShell 5.1, which allows a foreach in the middle of a pipeline'],
+      c: 0,
+      e: 'A foreach statement cannot be piped on to another command; ForEach-Object is the same loop as a cmdlet, so its output can go on to Sort-Object. Sorting inside the loop sorts one product at a time, a sort cannot come before what it sorts, and 5.1 gives the same error.',
+      part: { id: 'concept-e', label: 'E. Doing it for each one: foreach' } },
+
+    { q: 'A script reads Import-Csv data/orders.csv. Run from ps-lab it works; run from your home folder it says "Could not find a part of the path". Why?',
+      o: ['A relative path is found from the folder you are in, not the script’s',
+          'Scripts can run only from the folder they are saved in, so the run from home was refused',
+          'The execution policy blocks the file',
+          'Import-Csv inside a script always looks in the ps-scripts folder, then gives up'],
+      c: 0,
+      e: 'data/orders.csv is looked for from the folder you are standing in, so from home it means C:\\Users\\you\\data\\orders.csv, which does not exist. Build the path from $HOME instead. The script did run, and a refusal by the execution policy says so in different words.',
+      part: { id: 'concept-f', label: 'F. Your first script: a .ps1 file' } },
+
+    { q: 'Spaced review, from Session 4. A colleague opens your Export-Csv file in Excel and sees café as cafÃ©. What do you add in PowerShell 7?',
+      o: ['-Encoding utf8BOM',
+          '-NoTypeInformation',
+          '-Encoding ascii',
+          'Nothing: Excel cannot read a CSV that PowerShell wrote, so save it as JSON'],
+      c: 0,
+      e: 'PowerShell 7 writes UTF-8 with no BOM, and without one Excel guesses the older Windows encoding. -Encoding utf8BOM puts the three-byte BOM at the start, and Excel reads café. -NoTypeInformation only leaves out 5.1’s #TYPE line, ascii would turn é into ?, and Excel opens the file fine.',
+      part: { ext: S04_URL + '#concept-f', label: 'Session 4, F. Writing a CSV: Export-Csv' } },
+
+    { q: 'Spaced review, from Session 3. Which adds the line done to the end of out/log.txt, keeping what is already in it?',
+      o: ["Add-Content out/log.txt 'done'",
+          "'done' > out/log.txt",
+          "Copy-Item out/log.txt 'done'",
+          "Set-Content out/log.txt 'done', which adds to the end of a file that already exists"],
+      c: 0,
+      e: 'Add-Content appends; Set-Content and > both replace what is in the file, without asking. Copy-Item copies the file to a new file named done.',
+      part: { ext: S03_URL + '#concept-e', label: 'Session 3, E. Writing files: >, >>, Out-File, Set-Content and Add-Content' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S05 on your Hub and move on to Session 6.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
