@@ -1464,10 +1464,10 @@ without it, and the README must say which you chose.</code></pre>
      reaches the pass mark of 5. Recheck by hand after any edit. */
   var QUIZ = [
     { q: 'Your mock answered 200 saved to a save whose description came from the wrong Wikipedia page. What does that 200 tell you?',
-      o: ['That the description is right, because the mock compares it with the book first',
+      o: ['That the description is right',
           'Nothing about the data: a mock replays an example for any valid body',
           'That a real server would accept it too',
-          'That Wikipedia has checked the description belongs to the book, since a mock only saves what Wikipedia has already confirmed'],
+          'That Wikipedia has checked the description belongs to the book'],
       c: 1,
       e: 'Session 6 showed a mock matches your request against its examples and replays the best fit; it checks no rules and stores nothing. On the mock built for this session, a description of the emotion Pride, an empty description and the right one all got 200 saved. Only your own scripts can check that the right page came back. A real server would check its own rules, but it cannot know the description belongs to the book either.',
       part: { id: 'concept-e', label: 'E. When it breaks' } },
@@ -1492,9 +1492,9 @@ without it, and the README must say which you chose.</code></pre>
 
     { q: 'Spaced review, from Session 8. The desk app sends POST /v1/loans with an Idempotency-Key, gets no answer, and sends it again. Which key does the retry carry?',
       o: ['The same key: it is the same operation',
-          'A new one, every time',
+          'A new one, every time, so each attempt is unique',
           'A new one from {{$guid}}, so the server can tell the retry from the first attempt and make the loan again if it has to',
-          'No key at all'],
+          'No key at all, since a retry is not a new operation'],
       c: 0,
       e: 'One key per operation, not per attempt. The same key lets the server recognise the retry: if the loan was made, it answers from memory; if not, it makes it once. A new key, by hand or from {{$guid}}, which makes a new value on every send, turns the retry into a second operation and a second loan.',
       part: { ext: S08_URL + '#concept-b', label: 'Session 8, B. The idempotency key' } },

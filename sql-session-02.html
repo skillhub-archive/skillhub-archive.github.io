@@ -918,7 +918,7 @@ Diego  2021</span></code></pre>
       e: 'LIKE does pattern matching, and % stands for any run of characters, so A% means A followed by anything. Plain = looks for the literal text A%, and A_ needs exactly one character after the A.',
       part: { id: 'concept-c', label: 'C. BETWEEN, IN and LIKE' } },
     { q: 'With no parentheses, how does SQL read WHERE a OR b AND c?',
-      o: ['As a OR (b AND c), because AND binds tighter than OR', 'As (a OR b) AND c, reading strictly from left to right', 'It is an error; parentheses are required', 'All three conditions must be true'], c: 0,
+      o: ['As a OR (b AND c), because AND binds tighter than OR', 'As (a OR b) AND c', 'It is an error; parentheses are required', 'All three conditions must be true'], c: 0,
       e: 'AND has higher precedence than OR, so the AND pair groups first. Add parentheses when you want the OR to group first.',
       part: { id: 'concept-b', label: 'B. AND, OR, NOT and precedence' } },
     { q: 'Some customers have a NULL referrer, yet WHERE referrer = NULL returns zero rows. Why?',
@@ -930,11 +930,11 @@ Diego  2021</span></code></pre>
       e: 'ORDER BY sorts highest fee first, the name tiebreaker settles the rows that share a fee, then LIMIT 2 keeps the first 2 of that sorted result. Because ORDER BY fully fixes the order, this is deterministic.',
       part: { id: 'concept-e', label: 'E. ORDER BY, LIMIT and OFFSET' } },
     { q: 'Recall from Session 1: what does SELECT DISTINCT city FROM customers; return?',
-      o: ['Each city once, duplicates removed', 'Every row, including repeated cities', 'The cities sorted alphabetically', 'Only the city in the first row'], c: 0,
+      o: ['Each city once, duplicates removed', 'Every row, including repeated cities', 'The cities sorted alphabetically, A to Z', 'Only the city in the first row'], c: 0,
       e: 'DISTINCT collapses duplicate result rows so each value appears once. With Austin and Denver repeating, three distinct cities come back.',
       part: { url: S1_URL, label: 'Session 1 · DISTINCT' } },
     { q: 'Recall from Session 1: in SQLite, what does SELECT 7 / 2; return?',
-      o: ['3, with the remainder dropped', '3.5, the exact quotient', '4, rounded up', 'An error, since 7 is not divisible by 2'], c: 0,
+      o: ['3, with the remainder dropped', '3.5, the exact quotient of the two', '4, rounded up to the next whole number', 'An error, since 7 is not divisible by 2'], c: 0,
       e: 'When both sides of / are integers, SQLite does integer division and discards the remainder. Write 7.0 / 2 to get 3.5.',
       part: { url: S1_URL, label: 'Session 1 · computed columns' } }
   ];

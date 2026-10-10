@@ -1361,8 +1361,8 @@ different wording, as long as every row has all five columns.</code></pre>
   var QUIZ = [
     { q: 'The desk app sends POST /v1/loans with an Idempotency-Key and gets no answer within 10 seconds. What should it do next?',
       o: ['Send the same request again, with the same key',
-          'Send it again with a new key, since the attempt that carried the old key has failed and is finished',
-          'Give up for good: a POST can never be retried safely, whatever header it carries',
+          'Send it again with a new key',
+          'Give up for good: a POST can never be retried',
           'Wait 24 hours, until the key expires'],
       c: 0,
       e: 'Silence means the loan may or may not exist, and the key is what makes resending safe either way: if it was made, the retry gets it back from memory; if not, the retry makes it. A new key would make the server see a new operation and start a second loan. Waiting out the expiry gives up the protection the key exists for, and “never retry a POST” was the rule for a POST with NO key.',
@@ -1407,8 +1407,8 @@ different wording, as long as every row has all five columns.</code></pre>
     { q: 'Spaced review, from Session 4. A GET answers 503 Service Unavailable with Retry-After: 30. What does a well-behaved client do?',
       o: ['Resends at once, then backs off exponentially from 1 second, ignoring the header',
           'Waits 30 seconds, then sends the same request again',
-          'Never retries: a 503 means the request is wrong',
-          'Waits 30 minutes'],
+          'Never retries: a 503 means the request itself is wrong',
+          'Waits 30 minutes, since Retry-After is counted in minutes'],
       c: 1,
       e: 'Session 4 put 503 among the failures worth retrying after a wait, because the server is overloaded or down for a moment, and a Retry-After present overrides your own schedule: in the seconds form, wait that many seconds. A 503 says nothing is wrong with the request, unlike a 400. And 30 means seconds, not minutes. A GET is safe to resend; a write would need a key.',
       part: { ext: S04_URL + '#concept-e', label: 'Session 4, E. After a 429' } }

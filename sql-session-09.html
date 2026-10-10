@@ -1002,7 +1002,7 @@ conn.close()</code></pre>
   var S6_URL = 'sql-session-06.html';
   var QUIZ = [
     { q: "Why should you pass a value with a ? placeholder and a params tuple instead of building the SQL with an f-string?",
-      o: ["The ? sends the value to SQLite as data, so it can never run as SQL", "The ? makes the query run faster", "An f-string cannot hold a number", "There is no difference between them; both approaches are equally safe"], c: 0,
+      o: ["The ? sends the value to SQLite as data, so it can never run as SQL", "The ? makes the query run faster", "An f-string cannot hold a number", "There is no difference; both are equally safe"], c: 0,
       e: "With a ? placeholder the value travels separately from the SQL text and is treated purely as data, so even a string full of SQL punctuation is just a value to compare. Glue the value into the string with an f-string and a crafted input can change what the query does. That attack is called SQL injection.",
       part: { id: 'concept-c', label: 'C. SQL injection' } },
     { q: "What is the difference between cur.fetchone() and cur.fetchall()?",
@@ -1010,7 +1010,7 @@ conn.close()</code></pre>
       e: "fetchone() hands back one row as a tuple, or None when there is nothing left to read. fetchall() hands back every matching row as a list of tuples. Each row is a tuple whose values are in the SELECT order.",
       part: { id: 'concept-a', label: 'A. connect, cursor, execute, fetch' } },
     { q: "You run an UPDATE from Python, then your script ends without calling conn.commit(). What happens to the change?",
-      o: ["It is lost; the uncommitted write rolls back", "It is saved anyway; commit is optional", "SQLite raises an error at the end of the script", "Only half the matching rows are changed"], c: 0,
+      o: ["It is lost; the uncommitted write rolls back", "It is saved anyway; commit is optional in Python", "SQLite raises an error at the end of the script", "Only half the matching rows are changed and saved"], c: 0,
       e: "The sqlite3 module wraps your write in a transaction, just like BEGIN in Session 8. conn.commit() is the COMMIT that makes it permanent; conn.rollback() (or simply never committing) throws it away. No commit, no saved change.",
       part: { id: 'concept-d', label: 'D. writing data and commit' } },
     { q: "What does pd.read_sql_query(sql, conn) give you back?",
@@ -1022,7 +1022,7 @@ conn.close()</code></pre>
       e: "UNION stacks the rows of two SELECTs and removes duplicates; UNION ALL keeps every row, duplicates included. A JOIN combines columns side by side, not rows, so it is a different tool. A UNION is the kind of query you might pass as the string to cur.execute.",
       part: { url: S6_URL, label: 'Session 6 · set operations' } },
     { q: "Recall from Session 3: SELECT city, COUNT(*) FROM customers GROUP BY city returns how many rows?",
-      o: ["One row per distinct city", "One row for the whole table", "One row per customer", "Ten rows, one per customer"], c: 0,
+      o: ["One row per distinct city", "One row in total", "One row per customer", "Ten rows, one per customer"], c: 0,
       e: "GROUP BY collapses the rows into one row per group, so a per-city grouping returns one row for each distinct city. That is exactly the shape read_sql_query loads into a DataFrame when you wrap an aggregate, which is why the per-city count came back with four rows.",
       part: { url: S3_URL, label: 'Session 3 · GROUP BY and aggregation' } }
   ];

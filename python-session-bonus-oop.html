@@ -969,7 +969,7 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
       part: { id: 'concept-a', label: 'A. From dict + function to a class' } },
     { q: 'j.total() returns 110.00000000000001 rather than 110.0. What does this tell you about methods and about the number?',
       o: ['total() is a function bound to the object, and the extra digits are ordinary float imprecision',
-          'The method is broken and must be rewritten without self',
+          'The method is broken and must be rewritten without self, since self is what adds the extra digits',
           'Python stores every price as text rather than as a number, so the total that comes back is wrong',
           'A method can never return a number, only a string'], c: 0,
       e: 'A method is just a function that lives on the class and runs on the instance data (here self.price). The messy digits are ordinary float imprecision (1.1 has no exact binary form, so 100 * 1.1 lands a hair off; the :.2f formatting from Session 1 hides it at print time), so wrap money in round(..., 2) or format it with :.2f in an f-string.',
@@ -983,7 +983,7 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
       part: { id: 'concept-d', label: 'D. Inheritance and super' } },
     { q: 'What is __repr__ for?',
       o: ['It sets the readable text shown for the object, printed or in a list',
-          'It runs automatically when the object is created, like a second __init__',
+          'It runs when the object is created',
           'It converts the object into a dictionary',
           'It is required or the class will not run at all'], c: 0,
       e: 'Without __repr__, printing an object shows something like <__main__.Job object at 0x...>. Defining __repr__ to return a string such as Job(...) gives a useful printout, and lists of objects use it for each item too.',
@@ -998,8 +998,8 @@ print(round(sum(x.total() for x in jobs), 2))   <span class="cm"># -&gt; 710.0</
     { q: 'Recall (Session 3): before classes you might store one job as {"customer": "Amy", "price": 100}. How does a class improve on that dict?',
       o: ['A class bundles the data AND the methods that act on it',
           'A class is just a dict with a different name and no real difference',
-          'A dict cannot hold a name and a price at the same time',
-          'A class can only store one value, unlike a dict'], c: 0,
+          'A dict cannot hold a name and a price at the same time, so you would need two dicts',
+          'A class can only store one value at a time, unlike a dict, which holds many'], c: 0,
       e: 'A dict (Session 3) is a bag of data keyed by name. A class adds the behavior: total() and __repr__ live with the data they use, so the object knows how to act on itself, not just hold values.',
       part: { url: S3_URL, label: 'Session 3 - dicts and records' } }
   ];

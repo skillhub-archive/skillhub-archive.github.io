@@ -969,7 +969,7 @@ Boston  2          30.0</span></code></pre>
   var S2_URL = 'sql-session-02.html';
   var QUIZ = [
     { q: 'Some customers have a NULL referrer. How do COUNT(*) and COUNT(referrer) differ on this table?',
-      o: ['COUNT(*) counts all rows; COUNT(referrer) skips NULLs, so it can be smaller', 'They are always equal', 'COUNT(referrer) treats every NULL as a zero and adds them into the running total', 'COUNT(*) errors unless every column is filled'], c: 0,
+      o: ['COUNT(*) counts all rows; COUNT(referrer) skips NULLs, so it can be smaller', 'They are always equal', 'COUNT(referrer) still counts the NULL rows, just like COUNT(*)', 'COUNT(*) errors unless every column is filled'], c: 0,
       e: 'COUNT(*) counts rows regardless of content. COUNT(column) counts only rows where that column is not NULL, so with four missing referrers it returns 6 while COUNT(*) returns 10.',
       part: { id: 'concept-b', label: 'B. COUNT and NULLs' } },
     { q: 'You group by plan. Under the standard SELECT-list rule, which columns may appear un-aggregated in the SELECT list?',
@@ -977,7 +977,7 @@ Boston  2          30.0</span></code></pre>
       e: 'A grouped row stands for a whole group, so a plain column that varies within the group has no single value. Standard SQL requires each SELECT column to be a grouping column or wrapped in an aggregate. SQLite is lax here, but PostgreSQL, SQL Server and modern MySQL enforce it.',
       part: { id: 'concept-c', label: 'C. GROUP BY and the SELECT-list rule' } },
     { q: 'You want only the groups whose COUNT(*) is 3 or more. Which clause filters on that?',
-      o: ['HAVING, because it filters groups by an aggregate after grouping', 'WHERE, because it can test COUNT(*) directly before the grouping happens', 'ORDER BY, by sorting out the small groups', 'DISTINCT, to drop the extra groups'], c: 0,
+      o: ['HAVING, because it filters groups by an aggregate after grouping', 'WHERE, because it can test COUNT(*) directly before the grouping happens', 'ORDER BY, by sorting the small groups to the end and dropping them', 'DISTINCT, to drop the extra groups'], c: 0,
       e: 'WHERE runs before groups exist, so it cannot see COUNT(*) (SQLite reports misuse of aggregate). HAVING runs after grouping and is the clause for filtering groups by an aggregate.',
       part: { id: 'concept-d', label: 'D. HAVING vs WHERE' } },
     { q: 'In what order does SQL evaluate these clauses?',
@@ -985,11 +985,11 @@ Boston  2          30.0</span></code></pre>
       e: 'The fixed order is FROM, WHERE (filter rows), GROUP BY (form groups), HAVING (filter groups), ORDER BY (sort). That is why WHERE cannot use an aggregate but HAVING and ORDER BY can.',
       part: { id: 'concept-d', label: 'D. The clause order' } },
     { q: 'Recall from Session 2: what does ORDER BY monthly_fee DESC, name do?',
-      o: ['Sorts by fee high to low, ties by name A to Z', 'Sorts by name first, then by fee within each name', 'Sorts by fee lowest to highest', 'Returns only the single highest-fee row'], c: 0,
+      o: ['Sorts by fee high to low, ties by name A to Z', 'Sorts by name first, then by fee within each name', 'Sorts by fee lowest to highest', 'Returns only the single highest-fee row, then stops'], c: 0,
       e: 'The first key sorts by monthly_fee descending; the second key, name, only decides rows that tie on fee, and with no direction word it defaults to ascending (A to Z).',
       part: { url: S2_URL, label: 'Session 2 · ORDER BY' } },
     { q: 'Recall from Session 1: what does the AS in SELECT COUNT(*) AS total do?',
-      o: ['Labels the output column total', 'Converts the count to text', 'Filters rows down to a total', 'Sorts the result by the total, largest first'], c: 0,
+      o: ['Labels the output column total', 'Converts the count to text before it is shown', 'Filters the rows down to just a total', 'Sorts the result by the total, largest first'], c: 0,
       e: 'AS gives a result column a readable alias; here the COUNT(*) column is labelled total. It changes only the column name in the output, not the value.',
       part: { url: S1_URL, label: 'Session 1 · aliases with AS' } }
   ];

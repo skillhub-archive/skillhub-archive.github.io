@@ -1068,11 +1068,11 @@ Chen   300</span></code></pre>
   var S4_URL = 'sql-session-04.html';
   var QUIZ = [
     { q: 'In WHERE amount > (SELECT AVG(amount) FROM orders), what is the role of the parenthesized subquery?',
-      o: ['It runs first and produces a single value (the average), which each row’s amount is then compared against', 'It sorts the orders by amount before filtering', 'It runs once for every row, comparing each order to itself', 'It returns the full list of every order amount, and WHERE then keeps any row that matches one of those values'], c: 0,
+      o: ['It runs first and produces a single value (the average), which each row’s amount is then compared against', 'It sorts the orders by amount before filtering', 'It runs once for every row, comparing each order to itself', 'It returns the full list of every order amount'], c: 0,
       e: 'It is a scalar subquery: it returns one value, the average of all amounts. The outer query computes it once, then compares each order’s amount to that single number.',
       part: { id: 'concept-a', label: 'A. Scalar subqueries' } },
     { q: 'SELECT name FROM customers WHERE name NOT IN (SELECT referrer FROM customers) returns zero rows. Why?',
-      o: ['The subquery includes NULLs, and NOT IN with a NULL in the list is never true', 'NOT IN is not valid SQLite syntax', 'Every customer is someone’s referrer', 'NOT IN always returns zero rows whenever the subquery reads from the same table'], c: 0,
+      o: ['The subquery includes NULLs, and NOT IN with a NULL in the list is never true', 'NOT IN is not valid SQLite syntax', 'Every customer is someone’s referrer, so every name already appears in the subquery list', 'NOT IN always returns zero rows whenever the subquery reads from the same table'], c: 0,
       e: 'The subquery returns some NULLs (customers with no referrer). x NOT IN (..., NULL) includes x <> NULL, which is NULL (never true), so the whole condition is never true. Guarding with WHERE referrer IS NOT NULL fixes it. This is Session 2 three-valued logic.',
       part: { id: 'concept-c', label: 'C. The NOT IN NULL trap' } },
     { q: 'You want the customers with no orders, and orders.customer_id could in principle contain a NULL. Which approach is safe and clear?',
@@ -1088,7 +1088,7 @@ Chen   300</span></code></pre>
       e: 'A LEFT JOIN keeps every customer, padding non-matches with NULL on the orders side. Testing o.id IS NULL keeps exactly the customers with no order. This is the same set NOT EXISTS returns, reached a different way.',
       part: { url: S4_URL, label: 'Session 4 · LEFT JOIN ... IS NULL' } },
     { q: 'Recall from Session 2: why does WHERE referrer = NULL return no rows, even for customers who have no referrer?',
-      o: ['NULL is unknown, so = NULL is never true; use IS NULL', '= NULL works, but only inside subqueries', 'referrer is never actually NULL; those cells hold empty text', '= NULL returns every row instead'], c: 0,
+      o: ['NULL is unknown, so = NULL is never true; use IS NULL', '= NULL works, but only inside subqueries, not in the outer query', 'referrer is never actually NULL; those cells hold empty text', '= NULL returns every row instead of none, like a missing WHERE'], c: 0,
       e: 'A comparison with NULL yields NULL (unknown), never true, so = NULL matches nothing. You test for a missing value with IS NULL / IS NOT NULL. This is exactly why the NOT IN subquery trap happens.',
       part: { url: S2_URL, label: 'Session 2 · = NULL vs IS NULL' } }
   ];

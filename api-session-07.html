@@ -1365,7 +1365,7 @@ a look-up left in your last stranger pass</code></pre>
   var QUIZ = [
     { q: 'A receiver does all its work before it answers, which takes 12 seconds, and then answers 200. The library’s contract says any 2xx within 10 seconds. What happens?',
       o: ['The library counts a failed attempt and sends the event again, so the receiver gets it twice',
-          'It counts as delivered, because a 200 is a 200 however late it comes, and the library waits as long as it takes',
+          'It counts as delivered, because a 200 is a 200',
           'The event is lost for good',
           'The library disables the endpoint after one late answer'],
       c: 0,
@@ -1400,7 +1400,7 @@ a look-up left in your last stranger pass</code></pre>
       part: { ext: S06_URL + '#concept-d', label: 'Session 6, D. When several examples fit' } },
 
     { q: 'Spaced review, from Session 3. A teammate says Basic auth is safe to send over plain HTTP, because the password is encoded. What is wrong with that?',
-      o: ['Nothing: base64 can only be decoded by the server that issued the password, so the header is safe on any connection',
+      o: ['Nothing: base64 can only be decoded by the server that issued the password',
           'Only the username is encoded, and the password travels in a separate header that HTTP keeps secret',
           'Base64 is an encoding anyone can reverse, not encryption, so the password is readable',
           'It is only safe if the password is long'],
@@ -1411,8 +1411,8 @@ a look-up left in your last stranger pass</code></pre>
     { q: 'Spaced review, from Session 2. You send GET /posts/1 again, with If-None-Match set to the ETag from the last response, and nothing has changed. What comes back?',
       o: ['200 OK with the same body again, because If-None-Match only changes the caching headers that come back with it',
           '304 Not Modified, with no body: your saved copy is still good',
-          '412 Precondition Failed',
-          '204 No Content'],
+          '412 Precondition Failed, because the ETag you sent still matches',
+          '204 No Content, a success whose response deliberately carries no body'],
       c: 1,
       e: 'A request carrying If-None-Match asks for the body only if it no longer matches that fingerprint. Nothing changed, so the server answers 304 Not Modified with no body at all, and you use the copy you already have. 204 means a success with nothing to send, which is a different situation. RFC 9110 keeps 412 for the same header on other methods: a GET or HEAD gets 304, anything else gets 412.',
       part: { ext: S02_URL + '#concept-c', label: 'Session 2, C. Caching hints' } }

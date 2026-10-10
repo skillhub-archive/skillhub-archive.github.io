@@ -1261,7 +1261,7 @@ Deleted branch drafts (was 312f23c).
   var QUIZ = [
     { q: 'You are on main in a repository with thirty thousand files. You run git switch -c feature. What has Git physically done?',
       o: ['Written one small file under .git holding the hash of the commit you were on',
-          'Copied all thirty thousand files into a second folder dedicated to the new branch',
+          'Copied all thirty thousand files into a second folder',
           'Created an empty branch with no history, which you now have to populate',
           'Uploaded a copy of the project so the branch can be shared'],
       c: 0,
@@ -1280,7 +1280,7 @@ Deleted branch drafts (was 312f23c).
     { q: 'You commit report.py on a branch called analysis, then run git switch main. report.py disappears from your folder. What happened?',
       o: ['Your folder now matches main, which never had report.py; the commit on analysis still has it',
           'Git deleted report.py when you left the branch, and it is gone for good unless you undo the switch',
-          'The file was moved into the .git folder and has to be extracted manually',
+          'The file was moved into the .git folder and has to be extracted by hand from there before you can use it',
           'The commit failed, so report.py was never recorded anywhere'],
       c: 0,
       e: 'Switching makes the working tree match the snapshot the branch points at. main points at a commit whose snapshot never contained report.py, so a folder matching it does not contain the file either. Nothing was deleted: analysis still points straight at the commit holding it, and git switch analysis brings it straight back. The one exception is a file you never committed, which belongs to no snapshot and so simply stays put.',
@@ -1306,8 +1306,8 @@ Deleted branch drafts (was 312f23c).
 
     { q: 'Recall from Session 1: what does a single commit actually store?',
       o: ['A full snapshot of all tracked files, with author, date, message and parent',
-          'Only the lines that changed since the previous commit (a diff)',
-          'A copy of the whole .git folder',
+          'Only the lines that changed since the previous commit, stored as a compact diff',
+          'A complete copy of the whole .git folder, taken at the moment you ran git commit',
           'Just the commit message, author and date; file contents live in the working folder'],
       c: 0,
       e: 'A commit stores a whole snapshot plus a parent pointer, not a diff. That is what makes this session work: a branch is a pointer into a chain of snapshots, so switching branches can swap your whole folder to a different snapshot instantly, and a fast-forward merge can be nothing more than pointing a name at a snapshot further along the chain.',
