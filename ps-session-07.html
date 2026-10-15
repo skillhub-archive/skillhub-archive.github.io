@@ -1,0 +1,1972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 7: When things go wrong</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 54 characters, inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is ErrorActionPreference (21 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 07 // Level 4 &middot; Robust Automation</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>When things go wrong</h1>
+    <p class="goal">Today your scripts learn to notice their own errors. You meet the errors that let PowerShell carry on and the ones that stop it, catch them with <code>try</code> and <code>catch</code>, tidy up with <code>finally</code>, make a whole script stop with one line, raise errors of your own, and leave behind an exit code that another program can read. Then you break Session 6&rsquo;s error report three ways and make it report each failure clearly.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Make a script stop on the errors that matter and report each one clearly.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep one PowerShell 7 window open beside this page, in your lab, for the whole of Part 1.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. Today you will make a lot of errors on purpose, so red text is not a sign that you went wrong. Each section starts from the lab and the files you saved in <code>ps-scripts</code>, so if you close the window, open a new one in <code>ps-lab</code> and carry on from the section you were in.</p>
+        <p><b>Two places to write today</b>, as in Sessions 5 and 6: reports go in <code>ps-lab/out</code>, and scripts in <code>ps-scripts</code> in your home folder, outside the lab, so rebuilding the lab never deletes them. If you did not do Session 5 or 6, the first box below makes that folder for you, and section H gives you Session 6&rsquo;s script.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">17</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Sections G and H use scripts saved in sections D and F, so work them in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. A line in olive starting <code>&gt;&gt;</code> is the rest of a command typed over several lines, as in Session 6. Every transcript was captured on Windows 11 in PowerShell 7.6, in a window 120 characters wide, from a fresh lab. Where a path shows <code>you</code>, your own user name appears instead. Listings and messages were captured on Windows: on macOS and Linux, expect paths with <code>/</code>. The Bash box was captured in Git Bash on the same Windows machine, from <code>~/ps-lab</code>, with its prompt shortened to <code>$</code>. A command too long for this page is wrapped after a <code>|</code> and marked <i>one line, wrapped here</i>: type it as one line. A printed line too long for this page is marked the same way. A box headed with a file name, such as <code>~/ps-scripts/stop-demo.ps1</code>, is a file you type into an editor and save.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including your <code>out</code> folder, builds it fresh, exactly as Session 1 did, and moves you into it. It never touches anything outside <code>ps-lab</code>, so your scripts in <code>ps-scripts</code> are safe from it.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 to 6)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. It ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+      <p>Then make the folder for today&rsquo;s reports, and the scripts folder, as in Session 6. <code>-Force</code> lets the second line work whether or not <code>ps-scripts</code> is already there, and leaves any scripts in it alone:</p>
+      <div class="filebox">
+        <div class="fbh">a place for reports and scripts &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory ~/ps-scripts -Force | Out-Null</span></code></pre>
+      </div>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. Errors that carry on: -ErrorAction</h3>
+      <p>When a command fails, PowerShell prints a message, usually in red. That does not mean it stopped. To see what happens next, put a second command on the same line after a <b>semicolon</b>, <code>;</code>: PowerShell runs the first command, then the second, exactly as if you had pressed Enter between them. The file <code>data/nope.txt</code> does not exist; today it stands for any file that is missing.</p>
+      <div class="filebox">
+        <div class="fbh">an error, and then the next command anyway &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/nope.txt; 'next line ran'</span>
+Get-Content: Cannot find path 'C:\Users\you\ps-lab\data\nope.txt' because it does not exist.
+next line ran
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/nope.txt, data/orders.csv | Measure-Object |</span>
+<span class="cmd">  Select-Object -ExpandProperty Count</span>                                        <span class="cm">one line, wrapped here</span>
+Get-Content: Cannot find path 'C:\Users\you\ps-lab\data\nope.txt' because it does not exist.
+9</code></pre>
+      </div>
+      <p>This is a <b>non-terminating error</b>: the command reports the problem and carries on with the rest of its work. In the second command, <code>Get-Content</code> could not read the first file, said so, and still read all 9 lines of <code>orders.csv</code>, and the next command on the line ran too. (<code>Get-Content</code> takes a wildcard in its path as well, as Session 3&rsquo;s <code>Select-String</code> did: <code>data/*.csv</code> reads every CSV file in <code>data</code>.) Many errors from cmdlets are this kind.</p>
+      <p><b>Choosing what happens: -ErrorAction.</b> Session 6 named <code>-ErrorAction</code> as one of the common parameters that every cmdlet takes. It tells one command what to do when it meets a non-terminating error. It takes four values you will use:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">-ErrorAction</div><div class="fn">What the command does with the error</div><div class="fd">Then</div></div>
+        <div class="frow"><div class="fc">Continue</div><div class="fn">shows it (the default, when you give no -ErrorAction)</div><div class="fd">carries on</div></div>
+        <div class="frow"><div class="fc">Stop</div><div class="fn">shows it, and makes it a <b>terminating error</b></div><div class="fd">stops</div></div>
+        <div class="frow"><div class="fc">SilentlyContinue</div><div class="fn">hides it</div><div class="fd">carries on</div></div>
+        <div class="frow"><div class="fc">Ignore</div><div class="fn">hides it, and leaves it out of <code>$Error</code> (below)</div><div class="fd">carries on</div></div>
+      </div>
+      <p>A <b>terminating error</b> is one that stops instead of carrying on. This one stops everything after it: neither the rest of the line at the prompt nor the rest of a script runs. With <code>Stop</code>, <code>next line ran</code> never prints; with <code>SilentlyContinue</code>, there is no message at all:</p>
+      <div class="filebox">
+        <div class="fbh">Stop, then SilentlyContinue &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/nope.txt -ErrorAction Stop; 'next line ran'</span>
+Get-Content: Cannot find path 'C:\Users\you\ps-lab\data\nope.txt' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/nope.txt -ErrorAction SilentlyContinue; 'next line ran'</span>
+next line ran</code></pre>
+      </div>
+      <p>PowerShell also keeps a list of recent errors in the variable <b><code>$Error</code></b>, newest first. <code>SilentlyContinue</code> hides the message but still adds the error to that list; <code>Ignore</code> leaves it out of the list as well.</p>
+      <p>Hiding an error is rarely what you want in a script: an error nobody sees is exactly how a report goes quietly wrong. Keep <code>SilentlyContinue</code> for a command whose failure genuinely does not matter.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, with each error in the long form.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Watch an error carry on</div>
+        <ol>
+          <li>Read <code>data/old.csv</code> (it does not exist) and <code>data/tickets.csv</code> in one <code>Get-Content</code>, and count the lines it read. Did the missing file stop it?</li>
+          <li>Run the same read with <code>-ErrorAction Stop</code>, followed by <code>; 'done'</code>. Does <code>done</code> print?</li>
+          <li>Run the count from step 1 again with the error hidden.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 has the shape of the second command in the first box. Step 3 adds <code>-ErrorAction SilentlyContinue</code> to <code>Get-Content</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/old.csv, data/tickets.csv | Measure-Object |</span>
+<span class="cmd">  Select-Object -ExpandProperty Count</span>                                        <span class="cm">one line, wrapped here</span>
+Get-Content: Cannot find path 'C:\Users\you\ps-lab\data\old.csv' because it does not exist.
+6
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/old.csv, data/tickets.csv -ErrorAction Stop; 'done'</span>
+Get-Content: Cannot find path 'C:\Users\you\ps-lab\data\old.csv' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/old.csv, data/tickets.csv -ErrorAction SilentlyContinue |</span>
+<span class="cmd">  Measure-Object | Select-Object -ExpandProperty Count</span>                       <span class="cm">one line, wrapped here</span>
+6</code></pre>
+<p>The missing file did not stop step 1: it read all 6 lines of <code>tickets.csv</code>. With <code>Stop</code>, the first error ends everything, so neither <code>tickets.csv</code> nor <code>done</code> is printed.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I watched a non-terminating error carry on, then stop</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Catching an error: try and catch</h3>
+      <p><b><code>try { CODE } catch { CODE }</code></b> runs the code in the <code>try</code> block. If a terminating error happens there, PowerShell stops the <code>try</code> block at that point and runs the <code>catch</code> block instead; with no error, it skips <code>catch</code>. The word <code>catch</code> comes straight after the <code>try</code> block&rsquo;s closing brace. One thing to watch: <b><code>try</code> sees only terminating errors</b>.</p>
+      <div class="filebox">
+        <div class="fbh">try misses a non-terminating error &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try { Get-Content data/nope.txt } catch { 'caught' }</span>
+Get-Content: Cannot find path 'C:\Users\you\ps-lab\data\nope.txt' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try { Get-Content data/nope.txt -ErrorAction Stop } catch { 'caught' }</span>
+caught</code></pre>
+      </div>
+      <p>The first error was non-terminating: <code>Get-Content</code> reported it and finished normally, so as far as <code>try</code> could tell, nothing went wrong, and <code>catch</code> never ran. The rule to remember: <b>inside <code>try</code>, add <code>-ErrorAction Stop</code> to a command whose error you want to catch</b>.</p>
+      <p><b>What went wrong: <code>$_</code> in catch.</b> Inside <code>catch</code>, <code>$_</code> holds the error itself, the way it held each object in Session 2&rsquo;s <code>Where-Object</code>. The error is an object of the type <b>ErrorRecord</b>. Its <code>Exception</code> property holds the details, and <b><code>$_.Exception.Message</code></b> is just the message text, ready to put into a message of your own with Session 5&rsquo;s <code>$( )</code>. A <code>try</code> can be typed over several lines, as functions were in Session 6:</p>
+      <div class="filebox">
+        <div class="fbh">your own words around the message &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try {</span>
+<span class="cmd">&gt;&gt;   Get-Content data/nope.txt -ErrorAction Stop</span>
+<span class="cmd">&gt;&gt;   'Read it'</span>
+<span class="cmd">&gt;&gt; } catch {</span>
+<span class="cmd">&gt;&gt;   "Could not read it: $($_.Exception.Message)"</span>
+<span class="cmd">&gt;&gt; }</span>
+Could not read it: Cannot find path 'C:\Users\you\ps-lab\data\nope.txt' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try { Get-Content nope.txt -ErrorAction Stop } catch { $_.GetType().Name }</span>
+ErrorRecord</code></pre>
+      </div>
+      <p><code>Read it</code> never printed: the error stopped the <code>try</code> block on the line before. A terminating error also stops the <b>whole pipeline</b> it is in, not just the command that failed. Here the missing file comes first, and <code>Stop</code> ends everything, so <code>orders.csv</code> is never counted:</p>
+      <div class="filebox">
+        <div class="fbh">a terminating error stops the whole pipeline &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try { Get-Content data/nope.txt, data/orders.csv -ErrorAction Stop |</span>
+<span class="cmd">  Measure-Object } catch { 'caught' }</span>                                        <span class="cm">one line, wrapped here</span>
+caught</code></pre>
+      </div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Catch it</div>
+        <ol>
+          <li>Try to read <code>data/old-orders.csv</code> with <code>Get-Content</code> so that a missing file is caught, and print <code>No old orders: </code> followed by the message.</li>
+          <li>Take <code>-ErrorAction Stop</code> out and run it again. What prints now?</li>
+          <li>Put it back, and add a line after the read, inside <code>try</code>, that prints <code>Read the old orders</code>. When would that line print?</li>
+        </ol>
+        <details><summary>Hint</summary><p>The message goes in double quotes, with <code>$($_.Exception.Message)</code> inside them.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try {</span>
+<span class="cmd">&gt;&gt;   Get-Content data/old-orders.csv -ErrorAction Stop</span>
+<span class="cmd">&gt;&gt; } catch {</span>
+<span class="cmd">&gt;&gt;   "No old orders: $($_.Exception.Message)"</span>
+<span class="cmd">&gt;&gt; }</span>
+No old orders: Cannot find path 'C:\Users\you\ps-lab\data\old-orders.csv'    <span class="cm">one line, wrapped here</span>
+because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try {</span>
+<span class="cmd">&gt;&gt;   Get-Content data/old-orders.csv</span>
+<span class="cmd">&gt;&gt; } catch {</span>
+<span class="cmd">&gt;&gt;   "No old orders: $($_.Exception.Message)"</span>
+<span class="cmd">&gt;&gt; }</span>
+Get-Content: 
+Line |
+   2 |    Get-Content data/old-orders.csv
+     |    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Cannot find path 'C:\Users\you\ps-lab\data\old-orders.csv' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try {</span>
+<span class="cmd">&gt;&gt;   Get-Content data/old-orders.csv -ErrorAction Stop</span>
+<span class="cmd">&gt;&gt;   'Read the old orders'</span>
+<span class="cmd">&gt;&gt; } catch {</span>
+<span class="cmd">&gt;&gt;   "No old orders: $($_.Exception.Message)"</span>
+<span class="cmd">&gt;&gt; }</span>
+No old orders: Cannot find path 'C:\Users\you\ps-lab\data\old-orders.csv'    <span class="cm">one line, wrapped here</span>
+because it does not exist.</code></pre>
+<p>Without <code>Stop</code>, the error is non-terminating, so <code>catch</code> never runs and you see PowerShell&rsquo;s own message. <code>Read the old orders</code> prints only when the file can be read: an error stops the <code>try</code> block before it.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I caught an error and printed its message</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Errors that stop only their own line</h3>
+      <p>Terminating errors come in two sizes, which Microsoft names by how far they reach. A <b>script-terminating error</b> stops everything after it: the rest of the line at the prompt, the rest of a script. The <code>Stop</code> error in section A was this kind. A <b>statement-terminating error</b> stops only the <b>statement</b> it happened in, one command line, pipe and all, and then PowerShell goes on to the next statement. Some cmdlets report their failures this way, and <code>Import-Csv</code> on a missing file is one:</p>
+      <div class="filebox">
+        <div class="fbh">a statement-terminating error &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/nope.csv; 'next line ran'</span>
+Import-Csv: Could not find file 'C:\Users\you\ps-lab\data\nope.csv'.
+next line ran
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try { Import-Csv data/nope.csv } catch { 'caught' }</span>
+caught
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/nope.csv -ErrorAction SilentlyContinue; 'next line ran'</span>
+Import-Csv: Could not find file 'C:\Users\you\ps-lab\data\nope.csv'.
+next line ran</code></pre>
+      </div>
+      <p>Three things to see. It stops its own statement, then the next one runs: that is why Session 5&rsquo;s script, whose <code>Import-Csv</code> could not find its file, carried on to its last line. <code>try</code> catches it as it is, with no <code>-ErrorAction Stop</code>. And <code>-ErrorAction</code> does not change it at all: <code>SilentlyContinue</code> did not hide it, and <code>Stop</code> would not stop a script after it either. Writing into a folder that does not exist is the same kind of error for <code>Export-Csv</code>:</p>
+      <div class="filebox">
+        <div class="fbh">Export-Csv into a missing folder &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | Export-Csv out/missing/x.csv; 'next line ran'</span>
+Export-Csv: Could not find a part of the path 'C:\Users\you\ps-lab\out\missing\x.csv'.
+next line ran</code></pre>
+      </div>
+      <p>Notice the wording, too. Each cmdlet words its own messages: <code>Get-Content</code> says <code>Cannot find path</code>, <code>Import-Csv</code> says <code>Could not find file</code>, and a missing folder is <code>Could not find a part of the path</code>. So which kind of error does a command give? The message will not tell you. Try it, as here, or stop guessing: section D makes a script stop on every kind.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, with each error in the long form.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The other kind</div>
+        <ol>
+          <li>Try to read <code>data/old-orders.csv</code> with <code>Import-Csv</code>, with no <code>-ErrorAction</code>, and print <code>No old orders</code> if it fails.</li>
+          <li>Save the tickets to <code>out/archive/tickets.csv</code> with <code>Export-Csv</code>, inside a <code>try</code>, and print <code>Not saved: </code> and the message if it fails. (There is no <code>archive</code> folder in <code>out</code>.)</li>
+          <li>Does <code>-ErrorAction SilentlyContinue</code> hide <code>Import-Csv</code>&rsquo;s error? Try it.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Steps 1 and 2 have the shape of section B&rsquo;s first <code>try</code>, with no <code>-ErrorAction</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try { Import-Csv data/old-orders.csv } catch { 'No old orders' }</span>
+No old orders
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try {</span>
+<span class="cmd">&gt;&gt;   Import-Csv data/tickets.csv | Export-Csv out/archive/tickets.csv</span>
+<span class="cmd">&gt;&gt; } catch {</span>
+<span class="cmd">&gt;&gt;   "Not saved: $($_.Exception.Message)"</span>
+<span class="cmd">&gt;&gt; }</span>
+Not saved: Could not find a part of the path 'C:\Users\you\ps-lab\out\archive\tickets.csv'.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/old-orders.csv -ErrorAction SilentlyContinue</span>
+Import-Csv: Could not find file 'C:\Users\you\ps-lab\data\old-orders.csv'.</code></pre>
+<p>No: <code>-ErrorAction</code> does not reach a statement-terminating error.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I caught a statement-terminating error without -ErrorAction</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Make a script stop: $ErrorActionPreference</h3>
+      <p>A script that runs on its own, as Session 8&rsquo;s will, should stop when something goes wrong, not carry on and report a half-done job. Adding <code>-ErrorAction Stop</code> to every command is easy to forget, and it does nothing for section C&rsquo;s kind anyway. <b><code>$ErrorActionPreference</code></b> is a <b>preference variable</b>: it holds the <code>-ErrorAction</code> that every command uses when it is not given one, and it starts as <code>Continue</code>. Set it to <code>Stop</code> as the first line of a script&rsquo;s code, and an error of any of the three kinds stops the script. First, a script without it:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/stop-demo.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/stop-demo.ps1"><code># stop-demo.ps1: reads a file that is not there.
+Import-Csv "$HOME/ps-lab/data/nope.csv"
+'Still going'</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">it carries on &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/stop-demo.ps1</span>
+Import-Csv: C:\Users\you\ps-scripts\stop-demo.ps1:2
+Line |
+   2 |  Import-Csv "$HOME/ps-lab/data/nope.csv"
+     |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Could not find file 'C:\Users\you\ps-lab\data\nope.csv'.
+Still going</code></pre>
+      </div>
+      <p>Now add the preference as the first line of code, after the comment, and save it over the old one:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/stop-demo.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/stop-demo.ps1"><code># stop-demo.ps1: reads a file that is not there, and stops.
+$ErrorActionPreference = 'Stop'
+Import-Csv "$HOME/ps-lab/data/nope.csv"
+'Still going'</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">it stops, and the prompt is untouched &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/stop-demo.ps1</span>
+Import-Csv: C:\Users\you\ps-scripts\stop-demo.ps1:3
+Line |
+   3 |  Import-Csv "$HOME/ps-lab/data/nope.csv"
+     |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Could not find file 'C:\Users\you\ps-lab\data\nope.csv'.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $ErrorActionPreference</span>
+Continue</code></pre>
+      </div>
+      <p><code>Still going</code> is gone: the script stopped at the error. And back at the prompt, <code>$ErrorActionPreference</code> is still <code>Continue</code>. That is Session 5&rsquo;s rule about a script&rsquo;s variables: what a script sets is cleared away when it ends, so the setting reaches only that script, and set inside a function, only that function. Typed at the prompt, though, it would hold for everything you type in that window afterwards, which is rarely what you want. In a script with a <code>param()</code> block, the line goes just below it, since <code>param()</code> comes first in the code (Session 6).</p>
+      <p><b>An error that does not matter.</b> A single command can still choose for itself: <code>-ErrorAction</code> on a command beats the preference for that command alone. With <code>$ErrorActionPreference = 'Stop'</code> at the top, a line ending <code>-ErrorAction SilentlyContinue</code> carries on quietly past its own non-terminating error, and every other line still stops. That does not work for section C&rsquo;s kind, which <code>-ErrorAction</code> does not reach: the preference stops the script on it all the same, so put that one command in a <code>try</code> instead. So the habit is: <b>Stop at the top, and choose otherwise only line by line, on purpose.</b></p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>This workbook&rsquo;s computer cannot run 5.1 scripts (Session 5, section G), so this section&rsquo;s scripts were run there as script text. The results are the same: the first version prints <code>Still going</code> after the error, the second stops, and the prompt keeps <code>Continue</code>.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Stop at the top</div>
+        <ol>
+          <li>Save <code>~/ps-scripts/ticket-check.ps1</code>: it reads <code>data/old.csv</code> with <code>Get-Content</code>, built from <code>$HOME</code>, then prints <code>Checked</code>. Run it. Does <code>Checked</code> print?</li>
+          <li>Make it stop on any error, save it, and run it again.</li>
+          <li>Print <code>$ErrorActionPreference</code> at the prompt. Why has it not changed?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 2 is one line, at the top of the code: <code>$ErrorActionPreference = 'Stop'</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/ticket-check.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/ticket-check.ps1"><code># ticket-check.ps1: reads the old tickets, then reports.
+Get-Content "$HOME/ps-lab/data/old.csv"
+'Checked'</code></pre>
+</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/ticket-check.ps1</span>
+Get-Content: C:\Users\you\ps-scripts\ticket-check.ps1:2
+Line |
+   2 |  Get-Content "$HOME/ps-lab/data/old.csv"
+     |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Cannot find path 'C:\Users\you\ps-lab\data\old.csv' because it does not exist.
+Checked</code></pre>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/ticket-check.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/ticket-check.ps1"><code># ticket-check.ps1: reads the old tickets, then reports.
+$ErrorActionPreference = 'Stop'
+Get-Content "$HOME/ps-lab/data/old.csv"
+'Checked'</code></pre>
+</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/ticket-check.ps1</span>
+Get-Content: C:\Users\you\ps-scripts\ticket-check.ps1:3
+Line |
+   3 |  Get-Content "$HOME/ps-lab/data/old.csv"
+     |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Cannot find path 'C:\Users\you\ps-lab\data\old.csv' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $ErrorActionPreference</span>
+Continue</code></pre>
+<p>The script set its own <code>$ErrorActionPreference</code>, which was cleared away when it ended.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I made a script stop on its first error</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Your own errors: throw, and warnings</h3>
+      <p>Some failures raise no error at all. When only the last folder in a path is missing, <code>Get-ChildItem</code> with <code>-Recurse</code> does not complain, not even with <code>Stop</code>, so neither <code>try</code> nor the preference sees it. Instead it takes that last part as a name to look for in every folder further down from the one that does exist, and lists whatever it finds. There is no <code>nofolder</code> anywhere in the lab, so here it finds nothing:</p>
+      <div class="filebox">
+        <div class="fbh">no error at all &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem nofolder -Recurse -File -ErrorAction Stop; 'next line ran'</span>
+next line ran</code></pre>
+      </div>
+      <p>There is no <code>archive</code> folder at the top of the lab either, but there is one inside <code>logs</code>, so the same command lists that one instead, again with no error. A mistyped path can hand a script the wrong files without a word:</p>
+      <div class="filebox">
+        <div class="fbh">a different folder, and no error &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem archive -Recurse</span>
+
+    Directory: C:\Users\you\ps-lab\logs
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----            3/4/2026  8:00 AM                archive</code></pre>
+      </div>
+      <p>Only when a folder further up is missing as well is there nowhere to look. Then it is an ordinary error, which <code>Stop</code> and <code>try</code> do see:</p>
+      <div class="filebox">
+        <div class="fbh">a missing folder further up &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem nofolder/archive -Recurse -ErrorAction Stop; 'next line ran'</span>
+Get-ChildItem: Cannot find path 'C:\Users\you\ps-lab\nofolder\' because it does not exist.</code></pre>
+      </div>
+      <p>One path gives an error and the next gives none, so rely on neither: check first. Session 3&rsquo;s <code>Test-Path</code> says <code>True</code> or <code>False</code>. <b><code>-not</code></b> turns <code>True</code> into <code>False</code> and <code>False</code> into <code>True</code>, so <code>if (-not (Test-Path $Path))</code> reads &ldquo;if the path does not exist&rdquo;. Then <b><code>throw "MESSAGE"</code></b> makes an error of your own, script-terminating, with MESSAGE as its text. Like any terminating error, <code>catch</code> can catch it:</p>
+      <div class="filebox">
+        <div class="fbh">check, then throw &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $Path = "$HOME/ps-lab/nofolder"</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }</span>
+Exception: No folder to search: C:\Users\you/ps-lab/nofolder
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try { throw 'Out of labels' } catch { "Caught: $($_.Exception.Message)" }</span>
+Caught: Out of labels</code></pre>
+      </div>
+      <p>A <code>throw</code> in the middle of a pipeline stops the whole pipeline, like section B&rsquo;s error. What it had already output has gone to the screen, and the rest never comes. Here <code>ForEach-Object</code> (Session 5) passes on each OrderId until it reaches the refunded order:</p>
+      <div class="filebox">
+        <div class="fbh">throw stops the pipeline part way &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/orders.csv | ForEach-Object {</span>
+<span class="cmd">&gt;&gt;   if ($_.Status -eq 'refunded') { throw "Refund found: $($_.OrderId)" }</span>
+<span class="cmd">&gt;&gt;   $_.OrderId</span>
+<span class="cmd">&gt;&gt; }</span>
+5001
+5002
+5003
+Exception: 
+Line |
+   2 |  … if ($_.Status -eq 'refunded') { throw "Refund found: $($_.OrderId)" }
+     |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Refund found: 5004</code></pre>
+      </div>
+      <p>Typed over several lines, a command that fails prints its error in the <code>Line |</code> form that Session 5&rsquo;s scripts showed, pointing at the <code>throw</code>.</p>
+      <p><b>Report the errors that matter with throw.</b> In a <code>catch</code>, <code>throw</code> a message in your own words with the original message after it. The script stops, and whoever reads it learns what failed and why: <code>throw "Could not save the report: $($_.Exception.Message)"</code>. <b>Warn about the ones that do not.</b> <b><code>Write-Warning "TEXT"</code></b> prints <code>WARNING: TEXT</code> and the script carries on, even with <code>$ErrorActionPreference = 'Stop'</code>. Like <code>Write-Verbose</code> in Session 6, it is a message, not output:</p>
+      <div class="filebox">
+        <div class="fbh">warn, and carry on &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try {</span>
+<span class="cmd">&gt;&gt;   Get-Content data/old.csv -ErrorAction Stop</span>
+<span class="cmd">&gt;&gt; } catch {</span>
+<span class="cmd">&gt;&gt;   Write-Warning "Skipped: $($_.Exception.Message)"</span>
+<span class="cmd">&gt;&gt; }</span>
+WARNING: Skipped: Cannot find path 'C:\Users\you\ps-lab\data\old.csv' because it does not exist.</code></pre>
+      </div>
+      <div class="note"><span class="nk">You will also see</span><code>Write-Error "TEXT"</code>, which writes an error of your own that is non-terminating. Careful with it in a script that has <code>$ErrorActionPreference = 'Stop'</code>: it then stops the script on that very line, so in a <code>catch</code>, a line after it, such as Section G&rsquo;s <code>exit</code>, never runs. This workbook reports with <code>throw</code> and <code>Write-Warning</code>.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1. Each error prints in the long form; its <code>throw</code> at the prompt puts the message on the first line. Its folder listing is laid out a little differently: the Mode column reads <code>d-----</code>, and the spacing and blank lines differ.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Raise your own</div>
+        <ol>
+          <li>Put <code>"$HOME/ps-lab/archive"</code> in <code>$Path</code>, and <code>throw</code> <code>No archive folder: </code> and the path if it does not exist.</li>
+          <li>Change the <code>throw</code> to a warning. What prints now, and does the next command still run?</li>
+          <li>Pipe the tickets through <code>ForEach-Object</code>, outputting each TicketId, and throw <code>Low priority: </code> and the TicketId at the first ticket whose Priority is <code>low</code>. Which TicketIds print?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Steps 1 and 2 have the shape of the &ldquo;check, then throw&rdquo; box. Step 3 has the shape of the refunds box, testing Priority.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $Path = "$HOME/ps-lab/archive"</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if (-not (Test-Path $Path)) { throw "No archive folder: $Path" }</span>
+Exception: No archive folder: C:\Users\you/ps-lab/archive
+<span class="cmd">PS C:\Users\you\ps-lab&gt; if (-not (Test-Path $Path)) { Write-Warning "No archive folder: $Path" }</span>
+WARNING: No archive folder: C:\Users\you/ps-lab/archive
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | ForEach-Object {</span>
+<span class="cmd">&gt;&gt;   if ($_.Priority -eq 'low') { throw "Low priority: $($_.TicketId)" }</span>
+<span class="cmd">&gt;&gt;   $_.TicketId</span>
+<span class="cmd">&gt;&gt; }</span>
+T-101
+Exception: 
+Line |
+   2 |    if ($_.Priority -eq 'low') { throw "Low priority: $($_.TicketId)" }
+     |                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Low priority: T-102</code></pre>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I threw an error of my own and wrote a warning</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Always tidy up: finally</h3>
+      <p>A <b><code>finally { CODE }</code></b> block goes after <code>catch</code>, and its code runs <b>every time</b>: after <code>try</code> succeeds, after <code>catch</code> has run, and even when <code>catch</code> stops the script with <code>throw</code>. Use it to undo something the <code>try</code> started, such as a working file. This script copies a file into a working file in <code>out</code>, and removes the working file however the copy went. It uses Session 3&rsquo;s <code>Set-Content</code>, <code>Add-Content</code> and <code>Remove-Item</code>:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/tidy.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/tidy.ps1"><code># tidy.ps1: copies a file through a working file, and always removes the working file.
+param([string]$Source = "$HOME/ps-lab/data/orders.csv")
+$ErrorActionPreference = 'Stop'
+$work = "$HOME/ps-lab/out/working.tmp"
+try {
+  'Copy of the file' | Set-Content $work
+  Get-Content $Source | Add-Content $work
+  'Copied it'
+} catch {
+  throw "Stopped: $($_.Exception.Message)"
+} finally {
+  Remove-Item $work
+  'Removed the working file'
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">it tidies up whether or not it worked &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/tidy.ps1</span>
+Copied it
+Removed the working file
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/tidy.ps1 -Source ~/ps-lab/data/nope.csv</span>
+Removed the working file
+Exception: C:\Users\you\ps-scripts\tidy.ps1:10
+Line |
+  10 |    throw "Stopped: $($_.Exception.Message)"
+     |    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Stopped: Cannot find path 'C:\Users\you\ps-lab\data\nope.csv' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path out/working.tmp</span>
+False</code></pre>
+      </div>
+      <p>Read the second run in order. <code>Get-Content</code> failed, so <code>catch</code> ran and threw; before the script stopped, <code>finally</code> ran and removed the working file; then the error was shown. <code>Copied it</code> never printed. Without <code>finally</code>, a <code>Remove-Item</code> at the end of the <code>try</code> block would have been skipped by the error, leaving <code>working.tmp</code> behind for the next run to trip over.</p>
+      <p><b>Check before you remove.</b> In <code>tidy.ps1</code> the working file is made <i>before</i> the read that can fail, so it is always there for <code>finally</code> to remove. When the read and the working file share one pipe, a failed read means the file is never made: nothing reaches <code>Set-Content</code>, so it creates nothing:</p>
+      <div class="filebox">
+        <div class="fbh">a working file that was never made &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try {</span>
+<span class="cmd">&gt;&gt;   Get-Content data/old.csv -ErrorAction Stop | Set-Content out/never.tmp</span>
+<span class="cmd">&gt;&gt; } catch {</span>
+<span class="cmd">&gt;&gt;   'Could not read it'</span>
+<span class="cmd">&gt;&gt; }</span>
+Could not read it
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path out/never.tmp</span>
+False</code></pre>
+      </div>
+      <p>A plain <code>Remove-Item $work</code> in <code>finally</code> would then fail too, and in a script with the Stop preference, that error takes the place of the one <code>catch</code> threw: your own message never shows. So when the working file might not be there, check first: <code>if (Test-Path $work) { Remove-Item $work }</code>.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Run as script text in 5.1, both runs print the same lines, the error in the long form, and the working file is gone afterwards.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Tidy up</div>
+        <ol>
+          <li>Run <code>tidy.ps1</code> with <code>-Source</code> set to the tickets file, then to <code>~/ps-lab/data/old.csv</code>. Is <code>out/working.tmp</code> there after either run?</li>
+          <li>Save a copy as <code>~/ps-scripts/untidy.ps1</code> in which the <code>Remove-Item</code> line moves to the end of the <code>try</code> block and the <code>finally</code> block is gone. Run it on the missing file. Is <code>out/working.tmp</code> there now?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Check with <code>Test-Path out/working.tmp</code> after each run. In step 2, the <code>try</code> block ends with <code>Remove-Item $work</code>, then the closing brace, then <code>catch</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/tidy.ps1 -Source ~/ps-lab/data/tickets.csv</span>
+Copied it
+Removed the working file
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/tidy.ps1 -Source ~/ps-lab/data/old.csv</span>
+Removed the working file
+Exception: C:\Users\you\ps-scripts\tidy.ps1:10
+Line |
+  10 |    throw "Stopped: $($_.Exception.Message)"
+     |    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Stopped: Cannot find path 'C:\Users\you\ps-lab\data\old.csv' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path out/working.tmp</span>
+False</code></pre>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/untidy.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/untidy.ps1"><code># untidy.ps1: tidy.ps1 without its finally block.
+param([string]$Source = "$HOME/ps-lab/data/orders.csv")
+$ErrorActionPreference = 'Stop'
+$work = "$HOME/ps-lab/out/working.tmp"
+try {
+  'Copy of the file' | Set-Content $work
+  Get-Content $Source | Add-Content $work
+  'Copied it'
+  Remove-Item $work
+} catch {
+  throw "Stopped: $($_.Exception.Message)"
+}</code></pre>
+</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/untidy.ps1 -Source ~/ps-lab/data/old.csv</span>
+Exception: C:\Users\you\ps-scripts\untidy.ps1:11
+Line |
+  11 |    throw "Stopped: $($_.Exception.Message)"
+     |    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Stopped: Cannot find path 'C:\Users\you\ps-lab\data\old.csv' because it does not exist.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path out/working.tmp</span>
+True
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item out/working.tmp</span></code></pre>
+<p>Without <code>finally</code>, the error skipped the <code>Remove-Item</code>, and the working file was left behind. The last command tidies it away by hand.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I used finally to tidy up after a failure</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Exit codes: exit, $LASTEXITCODE and $?</h3>
+      <p>Every program ends with a number, its <b>exit code</b>: <code>0</code> means it went fine, and anything else means it did not. You do not see it on screen, but a program that runs another one reads it to decide whether the run failed, and in Session 8, Windows&rsquo; Task Scheduler will read your scripts&rsquo; codes this way. <b><code>exit N</code></b> ends a script at once, with exit code N.</p>
+      <p>To see a script&rsquo;s exit code, run it the way another program would: <b><code>pwsh -NoProfile -File SCRIPT</code></b> starts a new PowerShell 7, runs that one script, and closes again (<code>-NoProfile</code> skips any start-up settings of your own, so the run is the same everywhere). Then the automatic variable <b><code>$LASTEXITCODE</code></b> holds the code it ended with. A script that stops on an error it did not catch ends with exit code <code>1</code>; one that reaches its end ends with <code>0</code>. This script exits with <code>1</code> when any order is pending:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/check-orders.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/check-orders.ps1"><code># check-orders.ps1: exit code 1 if any order is pending, 0 if none is.
+$pending = Import-Csv "$HOME/ps-lab/data/orders.csv" | Where-Object Status -eq 'pending'
+if ($pending.Count -gt 0) {
+  "$($pending.Count) orders pending"
+  exit 1
+}
+'No orders pending'</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">three scripts, three exit codes &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -File ~/ps-scripts/check-orders.ps1</span>
+2 orders pending
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -File ~/ps-scripts/stop-demo.ps1</span>
+Import-Csv: C:\Users\you\ps-scripts\stop-demo.ps1:3
+Line |
+   3 |  Import-Csv "$HOME/ps-lab/data/nope.csv"
+     |  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Could not find file 'C:\Users\you\ps-lab\data\nope.csv'.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -File ~/ps-scripts/tidy.ps1</span>
+Copied it
+Removed the working file
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+0</code></pre>
+      </div>
+      <p><code>stop-demo.ps1</code> is the second version from section D, and <code>tidy.ps1</code> is from section F. <b>The trap: run by its path, a script that never reaches an <code>exit</code>, and runs no program, leaves <code>$LASTEXITCODE</code> as it was.</b> Here <code>tidy.ps1</code> goes fine, yet the code still says <code>1</code>, left over from <code>check-orders.ps1</code>:</p>
+      <div class="filebox">
+        <div class="fbh">a code left over from the run before &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/check-orders.ps1</span>
+2 orders pending
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/tidy.ps1</span>
+Copied it
+Removed the working file
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+1</code></pre>
+      </div>
+      <p>So check a script&rsquo;s exit code with <code>pwsh -NoProfile -File</code>, which sets it every time. A <code>finally</code> block, by the way, runs even when its <code>catch</code> ends with <code>exit</code>.</p>
+      <p><b><code>$?</code></b> is a shorter check: <code>True</code> if the last command ran without an error, <code>False</code> if it had one, even a hidden one. Put it on the same line, after a semicolon, because the next command you type changes it:</p>
+      <div class="filebox">
+        <div class="fbh">did the last command go well? &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/nope.txt -ErrorAction SilentlyContinue; $?</span>
+False
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/orders.csv | Out-Null; $?</span>
+True</code></pre>
+      </div>
+      <div class="note"><span class="nk">In Bash</span>Bash has <code>$?</code> too, but there it is the exit code itself, a number, where PowerShell keeps the number in <code>$LASTEXITCODE</code> and makes <code>$?</code> a True or False. In Git Bash, <code>ls</code> on a missing file ends with 2 (other systems&rsquo; <code>ls</code> may use another non-zero number), and a script&rsquo;s <code>exit 3</code> gives 3. On Linux and macOS a script must be marked as runnable before you run it by its path, which <code>chmod +x</code> does; Git Bash on Windows skips that check. Captured in Git Bash on Windows:
+<pre><code><span class="cmd">$ ls data/nope.csv; echo $?</span>
+ls: cannot access 'data/nope.csv': No such file or directory
+2
+<span class="cmd">$ printf '#!/bin/bash\necho working\nexit 3\n' &gt; out/exit3.sh</span>
+<span class="cmd">$ chmod +x out/exit3.sh</span>
+<span class="cmd">$ ./out/exit3.sh; echo $?</span>
+working
+3</code></pre>
+</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Run a script as a program with <code>powershell -NoProfile -File "$HOME/ps-scripts/check-orders.ps1"</code>: 5.1 does not turn <code>~</code> into your home folder in a program&rsquo;s arguments, so give the full path. This workbook&rsquo;s computer cannot run 5.1 scripts, so the three exit codes above were checked in 5.1 as script text: 1, 1 and 0, the same. The <code>$?</code> results are the same in 5.1. One difference with other programs: when a program writes to its error output and you send that output on with <code>2&gt;&amp;1</code>, 5.1 sets <code>$?</code> to False even when the program&rsquo;s exit code was 0; 7 says True.</div>
+      <div class="note"><span class="nk">You will also see</span>Any program sets <code>$LASTEXITCODE</code>, not just PowerShell. If you have Git, <code>git status</code> run outside a repository prints <code>fatal: not a git repository</code> and leaves <code>$LASTEXITCODE</code> at 128.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Leave an exit code</div>
+        <ol>
+          <li>Save <code>~/ps-scripts/check-tickets.ps1</code>: if any ticket is both <code>open</code> and <code>high</code> priority, it prints <code>Urgent tickets: </code> and how many, and exits with code 2; otherwise it prints <code>No urgent tickets</code>.</li>
+          <li>Run it with <code>pwsh -NoProfile -File</code>, then print <code>$LASTEXITCODE</code>.</li>
+          <li>Run <code>tidy.ps1</code> by its path, then print <code>$LASTEXITCODE</code> again. Why does it still say 2?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 has the shape of <code>check-orders.ps1</code>, with two <code>Where-Object</code> filters in one pipe, and <code>exit 2</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/check-tickets.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/check-tickets.ps1"><code># check-tickets.ps1: exit code 2 if any open ticket is high priority.
+$urgent = Import-Csv "$HOME/ps-lab/data/tickets.csv" | Where-Object State -eq 'open' |
+  Where-Object Priority -eq 'high'
+if ($urgent.Count -gt 0) {
+  "Urgent tickets: $($urgent.Count)"
+  exit 2
+}
+'No urgent tickets'</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -File ~/ps-scripts/check-tickets.ps1</span>
+Urgent tickets: 1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+2
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/tidy.ps1</span>
+Copied it
+Removed the working file
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+2</code></pre>
+<p><code>tidy.ps1</code>, run by its path, has no <code>exit</code>, so it leaves <code>$LASTEXITCODE</code> as <code>check-tickets.ps1</code> set it.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I set an exit code and read it with $LASTEXITCODE</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: break the error report, then make it fail loudly</h3>
+      <p>Session 6&rsquo;s <code>error-report.ps1</code> counts the ERROR lines in a folder of logs. First break it three ways, as Session 8 will meet it, run as a program, and for each run ask three questions: did it say what went wrong, did it carry on, and what exit code did it leave? If you do not have it, save Session 6&rsquo;s reference first:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/error-report.ps1 &middot; Session 6&rsquo;s script, typed in VS Code</div>
+<pre data-file="~/ps-scripts/error-report.ps1"><code>&lt;#
+.SYNOPSIS
+Counts the ERROR lines in each log and saves the counts as a CSV.
+.DESCRIPTION
+Searches every file under a folder, its subfolders included, for lines that
+contain ERROR. Outputs one row per log, Log and Count, biggest first, and
+saves the same rows to a CSV file ready for Excel.
+.PARAMETER Path
+The folder to search. The default is the practice lab's logs folder.
+.PARAMETER OutFile
+The CSV file to write. The default is error-summary.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/error-report.ps1 -Path ~/ps-lab/logs/archive
+#&gt;
+[CmdletBinding()]
+param(
+  [string]$Path = "$HOME/ps-lab/logs",
+  [string]$OutFile = "$HOME/ps-lab/out/error-summary.csv"
+)
+Write-Verbose "Searching $Path"
+$summary = Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+  Group-Object Filename | Sort-Object Count, Name -Descending |
+  Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+$summary | Export-Csv $OutFile -Encoding utf8BOM
+Write-Verbose "Saved $($summary.Count) rows to $OutFile"
+$summary</code></pre>
+      </div>
+      <p>The three breaks: a folder that does not exist, a folder with no ERROR lines in it (<code>ps-lab/data</code> holds only the two CSV files), and an <code>-OutFile</code> in a folder that does not exist. From your home folder:</p>
+      <div class="filebox">
+        <div class="fbh">three ways to break it &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~</span>
+<span class="cmd">PS C:\Users\you&gt; pwsh -NoProfile -File ~/ps-scripts/error-report.ps1 -Path ~/ps-lab/nologs</span>
+<span class="cmd">PS C:\Users\you&gt; $LASTEXITCODE</span>
+0
+<span class="cmd">PS C:\Users\you&gt; pwsh -NoProfile -File ~/ps-scripts/error-report.ps1 -Path ~/ps-lab/data</span>
+<span class="cmd">PS C:\Users\you&gt; $LASTEXITCODE</span>
+0
+<span class="cmd">PS C:\Users\you&gt; pwsh -NoProfile -File ~/ps-scripts/error-report.ps1 -OutFile ~/ps-lab/nope/x.csv</span>
+Export-Csv: C:\Users\you\ps-scripts\error-report.ps1:24
+Line |
+  24 |  $summary | Export-Csv $OutFile -Encoding utf8BOM
+     |             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Could not find a part of the path 'C:\Users\you\ps-lab\nope\x.csv'.
+
+Log                Count
+---                -----
+web-2026-03-03.log     2
+web-2026-03-02.log     1
+web-2026-03-01.log     1
+web-2026-02-28.log     1
+
+<span class="cmd">PS C:\Users\you&gt; $LASTEXITCODE</span>
+0
+<span class="cmd">PS C:\Users\you&gt; Set-Location ~/ps-lab</span></code></pre>
+      </div>
+      <p>Not one of the three failed loudly. The missing folder raised no error and found nothing, section E&rsquo;s silent failure, and the folder with no ERROR lines printed nothing either. Both also saved a CSV with nothing in it, not even its Log and Count header: <code>Export-Csv</code>, given no rows, still writes the file. The bad <code>-OutFile</code> printed a statement-terminating error and then its rows, as if all was well. And every run ended with exit code 0, so a scheduler would record three successes.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: make the error report fail loudly</div>
+        <p>Change <code>~/ps-scripts/error-report.ps1</code> so that:</p>
+        <ol>
+          <li>Any error stops it.</li>
+          <li>A <code>-Path</code> that does not exist stops it with a message that names the folder.</li>
+          <li>A folder with no ERROR lines gives a warning that names the folder, and the script carries on: an empty report is not a failure.</li>
+          <li>A CSV that cannot be saved stops it with a message that names the file and gives the reason, before any rows are output.</li>
+          <li>Its DESCRIPTION says when it stops. Everything it did before still works the same.</li>
+          <li>From your home folder, run each of the three breaks with <code>pwsh -NoProfile -File</code> and print <code>$LASTEXITCODE</code> after each, then run it bare the same way.</li>
+        </ol>
+        <p>You have hit the milestone when each break was reported in words that say what went wrong, the two stops left exit code 1, the warning and the bare run left 0, and you wrote it without copying from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/error-report.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/error-report.ps1"><code>&lt;#
+.SYNOPSIS
+Counts the ERROR lines in each log and saves the counts as a CSV.
+.DESCRIPTION
+Searches every file under a folder, its subfolders included, for lines that
+contain ERROR. Outputs one row per log, Log and Count, biggest first, and
+saves the same rows to a CSV file ready for Excel. Stops with an error if the
+folder does not exist or the CSV cannot be saved; warns if it finds no ERROR
+lines.
+.PARAMETER Path
+The folder to search. The default is the practice lab's logs folder.
+.PARAMETER OutFile
+The CSV file to write. The default is error-summary.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/error-report.ps1 -Path ~/ps-lab/logs/archive
+#&gt;
+[CmdletBinding()]
+param(
+  [string]$Path = "$HOME/ps-lab/logs",
+  [string]$OutFile = "$HOME/ps-lab/out/error-summary.csv"
+)
+$ErrorActionPreference = 'Stop'
+if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+Write-Verbose "Searching $Path"
+$summary = Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+  Group-Object Filename | Sort-Object Count, Name -Descending |
+  Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+if ($summary.Count -eq 0) { Write-Warning "No ERROR lines found in $Path" }
+try {
+  $summary | Export-Csv $OutFile -Encoding utf8BOM
+} catch {
+  throw "Could not save $OutFile. $($_.Exception.Message)"
+}
+Write-Verbose "Saved $($summary.Count) rows to $OutFile"
+$summary</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location ~</span>
+<span class="cmd">PS C:\Users\you&gt; pwsh -NoProfile -File ~/ps-scripts/error-report.ps1 -Path ~/ps-lab/nologs</span>
+Exception: C:\Users\you\ps-scripts\error-report.ps1:23
+Line |
+  23 |  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+     |                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | No folder to search: C:\Users\you/ps-lab/nologs
+<span class="cmd">PS C:\Users\you&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you&gt; pwsh -NoProfile -File ~/ps-scripts/error-report.ps1 -Path ~/ps-lab/data</span>
+WARNING: No ERROR lines found in C:\Users\you/ps-lab/data
+<span class="cmd">PS C:\Users\you&gt; $LASTEXITCODE</span>
+0
+<span class="cmd">PS C:\Users\you&gt; pwsh -NoProfile -File ~/ps-scripts/error-report.ps1 -OutFile ~/ps-lab/nope/x.csv</span>
+Exception: C:\Users\you\ps-scripts\error-report.ps1:32
+Line |
+  32 |    throw "Could not save $OutFile. $($_.Exception.Message)"
+     |    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Could not save C:\Users\you/ps-lab/nope/x.csv. Could not find a part of the path
+     | 'C:\Users\you\ps-lab\nope\x.csv'.
+<span class="cmd">PS C:\Users\you&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you&gt; pwsh -NoProfile -File ~/ps-scripts/error-report.ps1</span>
+
+Log                Count
+---                -----
+web-2026-03-03.log     2
+web-2026-03-02.log     1
+web-2026-03-01.log     1
+web-2026-02-28.log     1
+
+<span class="cmd">PS C:\Users\you&gt; $LASTEXITCODE</span>
+0</code></pre>
+<p><code>$ErrorActionPreference = 'Stop'</code> goes just below <code>param()</code>. The folder is checked before anything else, because <code>Get-ChildItem</code> would not say. <code>$summary.Count</code> is 0 when there are no rows, as a variable holding nothing had in Session 5. The <code>throw</code> in <code>catch</code> stops the script before <code>$summary</code> is output, so no rows follow a failure. And <code>"Could not save $OutFile. $($_.Exception.Message)"</code> has a full stop after the name on purpose: a colon straight after a variable&rsquo;s name in double quotes, as in <code>$OutFile:</code>, makes PowerShell read the colon as part of the name, and the script does not run at all: it stops before its first line with a <code>ParserError</code>, <code>Variable reference is not valid</code>.</p>
+<p><b>In Windows PowerShell 5.1</b>, use <code>-NoTypeInformation -Encoding utf8</code> in place of <code>-Encoding utf8BOM</code>, as in Sessions 4 to 6. Left as written, the script now fails loudly in 5.1 too: run as script text here, it stopped with <code>Could not save</code> and the reason, that <code>utf8BOM</code> does not belong to the set, where Session 5&rsquo;s script carried on and claimed it had saved.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> I made the error report fail loudly, from memory</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from errors that carry on, through catching and stopping, to exit codes.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh PowerShell 7 window with a fresh lab</b>, and its commands run in the order shown, in that one window. A file such as <code>data/old.csv</code> in a drill does not exist. Each was run on 2026-10-10 in PowerShell 7.6 and Windows PowerShell 5.1 and gave the same answer in both (the two that run <code>pwsh</code> were run in 5.1 as script text). Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it. First put a script back into order, then fill the blanks in three pieces of code.</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Reassemble the sequence (Parsons)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 14px">Tap a scrambled line to move it into your script on the right, and tap it again to send it back. The lines are a script&rsquo;s lines, top to bottom, as you would save them in a file; the spaces at the start of a line are indentation.</p>
+    <div id="parsons"></div>
+
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the code in the box, run it in your terminal (the last two as scripts), then reveal the reference to compare. More than one answer can be right, so judge yours by what it did. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your code did what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">17</span></span>
+        <span>In pile <b id="fc-pile">17</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the six questions below come from earlier sessions, one from <b>Session 6</b> and one from <b>Session 3</b>, because recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 07 of 10 &middot; Hit the milestone unassisted, then tick <b>S07</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>. This opens <b>Level 4, Robust automation</b>, whose goal is a scheduled script that records what it did and fails loudly: today&rsquo;s script now fails loudly.
+    <br><br>
+    <b>Your 15-minute review, tomorrow if you can:</b> break your Session 6 script three different ways and check each failure is reported. With this page closed, think of three new ways <code>error-report.ps1</code> could go wrong, such as a <code>-Path</code> that is a file rather than a folder, an <code>-OutFile</code> that is open in Excel, or a typing slip in one of its lines, and before running each, write down what you expect: a message, a warning or nothing, and exit code 0 or 1. Then run each with <code>pwsh -NoProfile -File</code> and check. Anything that surprised you goes on a sticky note. Microsoft&rsquo;s free reference pages, the <b>about topics</b>, cover today in depth: <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_error_handling?view=powershell-7.6" target="_blank" rel="noopener">about_Error_Handling</a> names the three kinds of error, and <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_try_catch_finally?view=powershell-7.6" target="_blank" rel="noopener">about_Try_Catch_Finally</a> covers <code>try</code>, <code>catch</code> and <code>finally</code>. &middot; Next: <b>Session 8, scheduling and logging</b>, where these scripts run on their own, on a schedule, and keep a record of what they did.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s07-workbook-v1";
+  /* Spaced review: Part 6's Q5 comes from Session 6 and Q6 from Session 3, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S03_URL = "ps-session-03.html";
+  var S06_URL = "ps-session-06.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare values one per line (a number, a word such as read or failed, an item name, True
+     or False) and inside error messages. Parentheses are syntax here: $( ),
+     (Test-Path $Path), .GetType() and catch { } around $_.Exception.Message, so () in the
+     split class would accept wrong answers. No answer is wrapped in parentheses.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 7 is: its
+     answers are numbers, words a script prints, item names and False (which PowerShell
+     matches in any case, as $false), none of which a learner could get wrong by case alone
+     (build contract section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in Session 7 is: its blanks are the common
+     parameter ErrorAction, the keywords catch, throw and finally, the variable name
+     ErrorActionPreference, the operator not, the cmdlet ending Warning and the property
+     Message, all of which PowerShell matches in any case.
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 5 value, 1 set, 1 seq, 3 count. D5, D6 and D10 were reworked on
+     2026-10-14 from the adversarial review (D5/D10 no longer replay a Part 1 move; D6 now
+     tests that -ErrorAction cannot opt Import-Csv’s kind out of the Stop preference). S7's grader flags are in the build
+     contract, section 4: caseFold ON, parenLabels OFF, no drill cs: true. Every drill was run on
+     2026-10-10 from a fresh lab, its commands typed into ONE PowerShell window in order, in
+     PowerShell 7.6.5 and Windows PowerShell 5.1.26100, and printed the same answer in both
+     (_build/verify_s07.py; D9 and D10 run pwsh, so their 5.1 exit codes were taken from the
+     script text run through powershell.exe -Command). The file data/old.csv does not exist.
+     No answer is printed by a Part 1 transcript. */
+  var DRILLS = [
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What number does the last one print?',
+      code: 'PS C:\\Users\\you\\ps-lab> $lines = Get-Content data/old.csv, data/*.csv -ErrorAction Ignore\nPS C:\\Users\\you\\ps-lab> $lines.Count', ans: '15', alt: ['fifteen'],
+      why: '15. The missing file gives a non-terminating error, and Ignore hides it, so Get-Content carries on and reads every file data/*.csv matches: orders.csv (9 lines) and tickets.csv (6).' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'It prints PowerShell\u2019s own error message, then one more line. What is on that line?',
+      code: "PS C:\\Users\\you\\ps-lab> try { Get-Content data/old.csv; 'read' } catch { 'failed' }", ans: 'read',
+      why: 'read. Get-Content\u2019s missing-file error is non-terminating: it shows the message and carries on, so the try block goes on to read, and catch never runs. With -ErrorAction Stop it would print failed instead.' },
+
+    { type: 'seq', lbl: 'trace it',
+      scen: '',
+      ask: 'List the lines it prints, in order, separated by commas.',
+      code: "PS C:\\Users\\you\\ps-lab> try { 'one'; throw 'two'; 'three' } catch { 'four' } finally { 'five' }", ans: 'one, four, five',
+      why: 'one, four, five. The try block prints one, then throw stops it, so three never runs and two is only the error\u2019s message; catch prints four, and finally runs every time, so five comes last.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What does it print?',
+      code: "PS C:\\Users\\you\\ps-lab> try { Import-Csv data/old.csv; 'read' } catch { 'failed' }", ans: 'failed',
+      why: 'failed. Import-Csv on a missing file gives a statement-terminating error, which try catches as it is, with no -ErrorAction Stop. The rest of the try block, read, is skipped.' },
+
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'Besides the line that catch prints, which item names does it print? Give them as printed, separated by commas.',
+      code: "PS C:\\Users\\you\\ps-lab> foreach ($item in 'pan', 'kettle', 'lid') {\n>>   try {\n>>     if ($item -eq 'kettle') { throw 'Out of stock' }\n>>     $item\n>>   } catch {\n>>     \"Skipped: $($_.Exception.Message)\"\n>>   }\n>> }", ans: 'pan, lid',
+      why: 'pan and lid. The try sits inside the loop, so each item gets a try of its own. At kettle, throw stops only that item\u2019s try block and catch prints Skipped: Out of stock; then the loop goes on to lid. In section E\u2019s refunds box the throw was in the pipe itself, with no catch, so it stopped everything after it.' },
+
+    { type: 'value', lbl: 'a script: ~/ps-scripts/skip.ps1 holds these lines',
+      scen: "$ErrorActionPreference = 'Stop'\nGet-Content \"$HOME/ps-lab/data/old.csv\" -ErrorAction SilentlyContinue\n'first'\nImport-Csv \"$HOME/ps-lab/data/old.csv\" -ErrorAction SilentlyContinue\n'second'",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/skip.ps1 and run it. Besides the error it shows, what does it print?',
+      code: 'PS C:\\Users\\you\\ps-lab> ~/ps-scripts/skip.ps1', ans: 'first',
+      why: 'first. Get-Content\u2019s error is non-terminating, and its own -ErrorAction SilentlyContinue beats the preference for that one command, so it carries on quietly and first prints. Import-Csv\u2019s error is statement-terminating, which -ErrorAction does not reach, so the Stop preference stops the script there all the same: second never prints.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What does it print?',
+      code: "PS C:\\Users\\you\\ps-lab> try { Get-ChildItem old-logs -Recurse -File -ErrorAction Stop; 'listed' } catch { 'caught' }", ans: 'listed',
+      why: 'listed. There is no old-logs folder anywhere in the lab, but ps-lab, the folder above it, exists, so Get-ChildItem with -Recurse raises no error, even with Stop: it looks for that name further down, finds nothing, and carries on, so there is nothing for catch to catch. That is why a script checks a folder with Test-Path first.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'It prints an error message, then one word. Which word?',
+      code: 'PS C:\\Users\\you\\ps-lab> Import-Csv data/old.csv -ErrorAction SilentlyContinue; $?', ans: 'False', alt: ['$false'],
+      why: 'False. SilentlyContinue does not reach Import-Csv\u2019s statement-terminating error, which is why the message still shows, and $? is False because the last command had an error.' },
+
+    { type: 'count', lbl: 'a script: ~/ps-scripts/code.ps1 holds these lines',
+      scen: "try {\n  Import-Csv \"$HOME/ps-lab/data/old.csv\"\n  exit 0\n} catch {\n  exit 4\n} finally {\n  'tidy'\n}",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/code.ps1, then run the commands. What number does the last one print?',
+      code: 'PS C:\\Users\\you\\ps-lab> pwsh -NoProfile -File ~/ps-scripts/code.ps1\nPS C:\\Users\\you\\ps-lab> $LASTEXITCODE', ans: '4', alt: ['four'],
+      why: '4. try catches Import-Csv\u2019s error with no -ErrorAction Stop, so exit 0 is skipped and catch runs exit 4. finally still runs first, so the first command prints tidy, and the script ends with exit code 4.' },
+
+    { type: 'count', lbl: 'trace it: two scripts in ~/ps-scripts',
+      scen: "a.ps1 holds:  'a'\n              throw 'Out of labels'\n              exit 5\nb.ps1 holds:  'b'",
+      ask: 'The commands run in order. What number does the last one print?',
+      code: 'PS C:\\Users\\you\\ps-lab> pwsh -NoProfile -File ~/ps-scripts/a.ps1\nPS C:\\Users\\you\\ps-lab> ~/ps-scripts/b.ps1\nPS C:\\Users\\you\\ps-lab> $LASTEXITCODE', ans: '1', alt: ['one'],
+      why: '1. throw ends a.ps1 before exit 5 can run, and a script that stops on an error it did not catch ends with exit code 1, so pwsh -File sets $LASTEXITCODE to 1. b.ps1, run by its path, reaches no exit and runs no program, so it leaves the 1 as it was.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     ONE item (build contract section 4): its order is forced. param() must be the first line
+     of a script; the read sits inside try, or a missing file is not caught; only } catch { can
+     follow the try block and the throw sits inside catch; only } finally { can follow that,
+     with the Checked line inside it (it prints $rows.Count, so above the read it would say 0 rows:
+     the 2026-10-14 fix for the review's minor 6); the count comes last, after the closing }, so it prints
+     after Checked and only when nothing failed (inside try it would print before Checked).
+     An earlier draft put $ErrorActionPreference = 'Stop' second, and verify_s07.py found it
+     works inside try { too: a second valid order (rule 7), so it was replaced. verify_s07.py
+     runs parsons_brute_s07.py, which tries every one of the 9! orders whose braces nest, with the
+     default file and with a missing one. */
+  var PARSONS = [
+    { prompt: 'Write a script whose File parameter defaults to the tickets file. It tries to read the file; if that fails, it stops with a message that starts No tickets: and gives the reason. Whatever happens, it then says Checked: and how many rows it has. Last of all, if it got that far, it reports how many tickets it read.',
+      lines: ['param([string]$File = "$HOME/ps-lab/data/tickets.csv")',
+              'try {',
+              '  $rows = Import-Csv $File',
+              '} catch {',
+              '  throw "No tickets: $($_.Exception.Message)"',
+              '} finally {',
+              '  "Checked: $($rows.Count) rows"',
+              '}',
+              '"Read $($rows.Count) tickets"'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: the parameter, variable,
+     keyword and property names here are matched in any case by PowerShell (captured). F1 names
+     both jobs in order; F2 names its three in order, with the hyphen of -not outside the box;
+     F3 names its three in order. */
+  var FADED = [
+    { prompt: 'Make a missing file\u2019s error catchable. Fill in the common parameter that makes it a terminating error (its hyphen is already there), then the keyword whose block runs when it fails.',
+      code: "try { Get-Content data/old.csv -%% Stop } %% { 'caught' }", ans: ['ErrorAction', 'catch'] },
+    { prompt: 'Make a script stop on any error, and stop with a message if its folder is missing. Fill in the preference variable\u2019s name (its $ is already there), then the operator that turns True into False (its hyphen is already there), then the keyword that raises your own error.',
+      code: "$%% = 'Stop'\nif (-%% (Test-Path $Path)) { %% \"No folder to search: $Path\" }", ans: ['ErrorActionPreference', 'not', 'throw'] },
+    { prompt: 'Warn about a file that cannot be read, and always remove the working file, if it was made. Fill in the rest of the cmdlet that warns and carries on, then the property of the error\u2019s Exception that holds its text, then the block that runs every time.',
+      code: "try {\n  Get-Content $File -ErrorAction Stop | Add-Content $work\n} catch {\n  Write-%% \"Skipped: $($_.Exception.%%)\"\n} %% {\n  if (Test-Path $work) { Remove-Item $work }\n}", ans: ['Warning', 'Message', 'finally'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'From the lab: try to read data/old-orders.csv with Get-Content so that the missing file is caught, and print Could not read it: and the message. Then do the same with Import-Csv, without -ErrorAction.',
+      sol: "try {\n  Get-Content data/old-orders.csv -ErrorAction Stop\n} catch {\n  \"Could not read it: $($_.Exception.Message)\"\n}\ntry {\n  Import-Csv data/old-orders.csv\n} catch {\n  \"Could not read it: $($_.Exception.Message)\"\n}\n\nIt prints:\nCould not read it: Cannot find path 'C:\\Users\\you\\ps-lab\\data\\old-orders.csv' because it does not exist.\nCould not read it: Could not find file 'C:\\Users\\you\\ps-lab\\data\\old-orders.csv'.\n\nGet-Content needs -ErrorAction Stop (non-terminating);\nImport-Csv does not (statement-terminating)." },
+    { task: 'From the lab: for each of data/tickets.csv, data/old.csv and data/orders.csv in turn, read it with Get-Content. If it can be read, print the name, has, and how many lines; if not, warn Skipped: and the name, and carry on to the next.',
+      sol: "foreach ($f in 'data/tickets.csv', 'data/old.csv', 'data/orders.csv') {\n  try {\n    $lines = Get-Content $f -ErrorAction Stop\n    \"$f has $($lines.Count) lines\"\n  } catch {\n    Write-Warning \"Skipped: $f\"\n  }\n}\n\nIt prints:\ndata/tickets.csv has 6 lines\nWARNING: Skipped: data/old.csv\ndata/orders.csv has 9 lines\n\nIn \"$f has $($lines.Count) lines\", a space follows $f: a colon straight after it\nwould be read as part of the variable's name." },
+    { task: 'Write ~/ps-scripts/check-pending.ps1: if any order is pending, print Pending: and how many, and exit with code 3; otherwise print Nothing pending. Run it with pwsh -NoProfile -File, then print $LASTEXITCODE.',
+      sol: "# check-pending.ps1: exit code 3 if any order is pending.\n$pending = Import-Csv \"$HOME/ps-lab/data/orders.csv\" | Where-Object Status -eq 'pending'\nif ($pending.Count -gt 0) {\n  \"Pending: $($pending.Count)\"\n  exit 3\n}\n'Nothing pending'\n\nThen pwsh -NoProfile -File ~/ps-scripts/check-pending.ps1 prints:\nPending: 2\nand $LASTEXITCODE prints:\n3" },
+    { task: 'Write ~/ps-scripts/ticket-backup.ps1, with a -Source parameter defaulting to the tickets file. It stops on any error. It writes the file\u2019s lines into out/backup.tmp, copies that to out/tickets-backup.csv and prints Backup saved; if anything fails it stops with Backup failed: and the reason; and whatever happens it removes out/backup.tmp. Run it bare, then with -Source ~/ps-lab/data/old.csv.',
+      sol: "# ticket-backup.ps1: backs up a file through a working file.\nparam([string]$Source = \"$HOME/ps-lab/data/tickets.csv\")\n$ErrorActionPreference = 'Stop'\n$work = \"$HOME/ps-lab/out/backup.tmp\"\ntry {\n  Get-Content $Source | Set-Content $work\n  Copy-Item $work \"$HOME/ps-lab/out/tickets-backup.csv\"\n  'Backup saved'\n} catch {\n  throw \"Backup failed: $($_.Exception.Message)\"\n} finally {\n  if (Test-Path $work) { Remove-Item $work }\n}\n\nRun bare, it prints Backup saved. With -Source ~/ps-lab/data/old.csv,\nit stops with Backup failed: and the message that the path does\nnot exist. Either way, Test-Path ~/ps-lab/out/backup.tmp prints False.\nfinally checks with Test-Path because on that failure nothing\nreached Set-Content, so it made no working file to remove." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Seventeen cards, sized to the atoms THIS session has (band 12-16, cap 18; the 17th, for
+     Import-Csv under the Stop preference, was added from the 2026-10-14 review). The deck stays
+     session-local: re-testing Sessions 1 to 6 is Part 6's job. */
+  var CARDS = [
+    { f: 'a non-terminating error', b: 'the command shows the error and carries on; the next command runs too' },
+    { f: 'COMMAND1; COMMAND2', b: 'a semicolon: two commands on one line, run one after the other' },
+    { f: '-ErrorAction Stop', b: 'makes a command\u2019s non-terminating error a terminating one: it stops, and try can catch it' },
+    { f: '-ErrorAction SilentlyContinue, and Ignore', b: 'both hide the error and carry on; Ignore also leaves it out of $Error' },
+    { f: 'try { CODE } catch { CODE }', b: 'runs try; on a terminating error, stops it there and runs catch' },
+    { f: 'try { Get-Content nope.txt } catch { }', b: 'catch never runs: the error is non-terminating; add -ErrorAction Stop' },
+    { f: '$_.Exception.Message, inside catch', b: 'the error\u2019s message text; $_ is the error, an ErrorRecord' },
+    { f: 'a statement-terminating error (Import-Csv, missing file)', b: 'stops its own statement only, then the next runs; try catches it as it is; -ErrorAction does not change it' },
+    { f: 'a script-terminating error', b: 'stops everything after it: the rest of the line, or the rest of the script' },
+    { f: "$ErrorActionPreference = 'Stop'", b: 'first line of a script\u2019s code (below param()): any error stops the script; the prompt keeps Continue' },
+    { f: "Import-Csv FILE -ErrorAction SilentlyContinue, under $ErrorActionPreference = 'Stop'", b: 'still stops the script: -ErrorAction does not reach a statement-terminating error; put that command in its own try instead' },
+    { f: 'throw "MESSAGE"', b: 'raises your own script-terminating error, with MESSAGE as its text' },
+    { f: 'if (-not (Test-Path $Path)) { CODE }', b: 'if the path does not exist; check first, since Get-ChildItem -Recurse raises no error when only the last folder is missing' },
+    { f: 'Write-Warning "TEXT"', b: 'prints WARNING: TEXT and carries on, even with the Stop preference' },
+    { f: 'finally { CODE }', b: 'runs every time: after try, after catch, even after throw or exit in catch' },
+    { f: 'exit N', b: 'ends the script with exit code N; 0 means it went fine' },
+    { f: '$LASTEXITCODE after pwsh -NoProfile -File SCRIPT', b: 'the script\u2019s exit code; run by its path, a script with no exit that runs no program leaves the old value' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four questions on Session 7 and two spaced-review questions, Q5 from Session 6 and Q6 from
+     Session 3, whose review links open those sessions. Correct-option length ranks (longest = 1)
+     are in the build contract's section 9g, computed by check_s07_quiz.py: the correct option is
+     the longest on exactly one question, the shortest on exactly one, and at rank 2 or 3 at most
+     twice each, with no tie against a distractor (rule 9). Recheck after any edit. */
+  var QUIZ = [
+    { q: "try { Get-Content data/old.csv } catch { 'missing' } prints PowerShell's own error, and never prints missing. Why?",
+      o: ['Get-Content\u2019s error is non-terminating, and try only sees terminating ones',
+          'catch runs only when it uses $_',
+          'try works in a script file, not at the prompt',
+          'The path inside try has to be in quotes'],
+      c: 0,
+      e: 'A non-terminating error is shown and the command carries on, so the try block finishes normally and catch never runs. Add -ErrorAction Stop to make it terminating. catch runs with or without $_, try works at the prompt, as section B showed, and the path needs no quotes.',
+      part: { id: 'concept-b', label: 'B. Catching an error: try and catch' } },
+
+    { q: 'Import-Csv data/old.csv -ErrorAction SilentlyContinue still prints its error. Why?',
+      o: ['Its error is statement-terminating; -ErrorAction does not touch it',
+          'SilentlyContinue hides a warning or a Verbose message, never an error',
+          '-ErrorAction works only after $ErrorActionPreference = \'Stop\' is set',
+          'Import-Csv takes no common parameters'],
+      c: 0,
+      e: 'A statement-terminating error stops its own statement, and -ErrorAction (any value) only changes non-terminating errors. SilentlyContinue does hide Get-Content\u2019s errors, -ErrorAction needs no preference set, and Import-Csv, like every cmdlet, takes the common parameters.',
+      part: { id: 'concept-c', label: 'C. Errors that stop only their own line' } },
+
+    { q: 'A script run by Task Scheduler printed an error mid-way, carried on, and the run was recorded as a success. Which change makes the run count as a failure?',
+      o: ["$ErrorActionPreference = 'Stop' at the top of its code",
+          'Writing the error again with Write-Host',
+          'Adding -Verbose to the command that runs it',
+          'Wrapping the whole script in a finally block, so that it always runs to its end'],
+      c: 0,
+      e: 'With the Stop preference, the error stops the script, and a script that stops on an error it did not catch ends with exit code 1, which the scheduler reads as a failure. Write-Host and -Verbose only print more, and a finally block runs its code however things went: none changes the exit code.',
+      part: { id: 'concept-g', label: 'G. Exit codes: exit, $LASTEXITCODE and $?' } },
+
+    { q: 'Get-ChildItem $Path -Recurse -File raises no error, and prints nothing, when the last folder in $Path does not exist. How should a script catch that?',
+      o: ['Check first: if (-not (Test-Path $Path)) { throw "Missing" }',
+          'Wrap it in a try block, and add -ErrorAction Stop to Get-ChildItem',
+          'Read $LASTEXITCODE straight after it',
+          "Set $ErrorActionPreference = 'Stop' at the top of the script's code"],
+      c: 0,
+      e: 'With -Recurse, a missing last folder raises no error at all, so neither try, -ErrorAction Stop nor the Stop preference has anything to act on (they would see a folder missing further up, but not this), and $LASTEXITCODE is set by programs and exit, not by a cmdlet. Checking with Test-Path and throwing your own error is the only one of these that notices.',
+      part: { id: 'concept-e', label: 'E. Your own errors: throw, and warnings' } },
+
+    { q: 'Spaced review, from Session 6. Which line gives a function -Verbose, -ErrorAction and the other common parameters?',
+      o: ['[CmdletBinding()], just before its param()',
+          'Write-Verbose, as its first line',
+          'param([switch]$Verbose)',
+          'A comment-based help block with .PARAMETER Verbose in it'],
+      c: 0,
+      e: '[CmdletBinding()] makes it an advanced function, which takes the common parameters (a [Parameter()] line does the same). Write-Verbose prints only when -Verbose already works; a [switch]$Verbose parameter is just a switch of your own, with no -ErrorAction; and help describes parameters, it does not add them.',
+      part: { ext: S06_URL + '#concept-d', label: 'Session 6, D. Messages and output: [CmdletBinding()], -Verbose, Write-Host and return' } },
+
+    { q: 'Spaced review, from Session 3. Copy-Item copies a file onto a name that another file already has. What happens?',
+      o: ['It replaces that file, without asking',
+          'It refuses: a file with that name already exists',
+          'It asks you first, before it replaces the file',
+          'It adds a number to the end of the copy\u2019s name'],
+      c: 0,
+      e: 'Copy-Item replaces a file that has the name silently. Rename-Item and Move-Item are the ones that refuse ("Cannot create a file when that file already exists"); none asks, and none renames the copy for you. -WhatIf shows what would happen first.',
+      part: { ext: S03_URL + '#concept-g', label: 'Session 3, G. Copy, rename, move and delete' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S07 on your Hub and move on to Session 8.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    document.getElementById('parsons').innerHTML = ''; document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
