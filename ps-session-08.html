@@ -1,0 +1,2050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 8: Scheduling and logging</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. Session 8 has no Parsons item (see Part 3a's data comment), so these
+     rules style nothing here and are kept so every ps session carries one CSS. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is Directory (9 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 08 // Level 4 &middot; Robust Automation</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Scheduling and logging</h1>
+    <p class="goal">Today your script runs without you. You stamp the time on things with <code>Get-Date</code>, give a script a log of its own and a flight recorder for bad days, make it safe to run twice, and find out where a scheduled script really starts. Then you schedule it, with Task Scheduler on Windows or cron on macOS and Linux, and prove it works before you trust it.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Schedule a script that records what it did and fails loudly.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep one PowerShell 7 window open beside this page, in your lab, for the whole of Part 1.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. Each section starts from the lab and the files you saved in <code>ps-scripts</code>, so if you close the window, open a new one in <code>ps-lab</code> and carry on from the section you were in.</p>
+        <p><b>Two places to write today</b>, as in Sessions 5 to 7: reports go in <code>ps-lab/out</code>, and scripts, and now their logs, in <code>ps-scripts</code> in your home folder, outside the lab, so rebuilding the lab never deletes them. If you did not do Session 7, section H gives you its script.</p>
+        <p><b>Windows, macOS or Linux.</b> Sections A to E are the same everywhere. Sections F to H schedule a script: on Windows with Task Scheduler, and on macOS and Linux with cron. Each of those sections has a box for each, so follow the one for your computer.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">17</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Later sections use scripts saved in earlier ones, so work them in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. A line in olive starting <code>&gt;&gt;</code> is the rest of a command typed over several lines. Every transcript was captured on Windows 11 in PowerShell 7.6, in a window 120 characters wide, from a fresh lab, except the boxes marked <i>macOS and Linux</i>, which were captured in PowerShell 7.6 on Ubuntu Linux 26.04. Where a path shows <code>you</code>, your own user name appears instead, and where a transcript shows <code>COMPUTER</code>, your computer&rsquo;s name. <b>Times change:</b> a line marked <i>your time</i> holds the moment it ran, so your date and time will differ; the rest of the line should match. A line marked <i>yours differs</i> holds a detail of your own computer, such as its user, its time zone or a process number. A command too long for this page is wrapped after a <code>|</code> and marked <i>one line, wrapped here</i>: type it as one line. A printed line too long for this page is marked the same way. A box headed with a file name, such as <code>~/ps-scripts/log-demo.ps1</code>, is a file you type into an editor and save.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including your <code>out</code> folder, builds it fresh, exactly as Session 1 did, and moves you into it. It never touches anything outside <code>ps-lab</code>, so your scripts in <code>ps-scripts</code> are safe from it.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 to 7)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. On Windows it ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. On Linux the listing has more columns (who owns each file, and its permissions), and the long user name on this page&rsquo;s Linux computer wrapped onto a second line; the same four names are there. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+      <p>Then make the folder for today&rsquo;s reports, and the scripts folder, as in Session 7:</p>
+      <div class="filebox">
+        <div class="fbh">a place for reports and scripts &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory ~/ps-scripts -Force | Out-Null</span></code></pre>
+      </div>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. Timestamps: Get-Date and -Format</h3>
+      <p>A script that runs while you are away has to say <i>when</i> it did each thing, so every line it records starts with the time. <b><code>Get-Date</code></b> gives the date and time now. Its <b><code>-Date</code></b> parameter gives it a date and time to use instead of now: this section&rsquo;s examples use one, so they print the same for you as for this page.</p>
+      <div class="filebox">
+        <div class="fbh">a date, printed the computer&rsquo;s way &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Date '2026-03-04 08:05:09'</span>
+
+Wednesday, March 4, 2026 8:05:09 AM</code></pre>
+      </div>
+      <p>That layout is the computer&rsquo;s own: it follows the language settings, so another computer prints the same moment differently. This page&rsquo;s Linux computer, which has no language set, printed <code>Wednesday, 04 March 2026 08:05:09</code>. A log needs one layout, the same every day, and <b><code>-Format</code></b> gives you one you choose. It takes a pattern of letters, each standing for one part of the date:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Letters</div><div class="fn">Stand for</div><div class="fd">In 2026-03-04 08:05:09</div></div>
+        <div class="frow"><div class="fc">yyyy</div><div class="fn">the year</div><div class="fd">2026</div></div>
+        <div class="frow"><div class="fc">MM</div><div class="fn">the month, as two digits (capital M)</div><div class="fd">03</div></div>
+        <div class="frow"><div class="fc">dd</div><div class="fn">the day of the month</div><div class="fd">04</div></div>
+        <div class="frow"><div class="fc">HH</div><div class="fn">the hour, 00 to 23 (capital H)</div><div class="fd">08</div></div>
+        <div class="frow"><div class="fc">mm</div><div class="fn">the minutes (small m)</div><div class="fd">05</div></div>
+        <div class="frow"><div class="fc">ss</div><div class="fn">the seconds</div><div class="fd">09</div></div>
+      </div>
+      <p>Any other character in the pattern, such as <code>-</code> or a space, is printed as it is, and <code>:</code> prints the computer&rsquo;s time separator, a colon with English settings. Put the pattern in quotes:</p>
+      <div class="filebox">
+        <div class="fbh">a layout you choose &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Date '2026-03-04 08:05:09' -Format 'yyyy-MM-dd HH:mm:ss'</span>
+2026-03-04 08:05:09
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Format 'yyyy-MM-dd HH:mm:ss'</span>
+2026-10-15 10:05:38  <span class="cm">your time</span></code></pre>
+      </div>
+      <p>The second one has no <code>-Date</code>, so it prints the moment you ran it. The year comes first on purpose: then the dates also sort in time order as plain text, character by character (Session 2), so a sorted list of log lines or dated file names is in time order too. With <code>-Format</code>, <code>Get-Date</code> gives text, a <code>String</code>, ready to put into a message.</p>
+      <p><b>Not quite every computer.</b> With English language settings, and most others, that pattern prints exactly as above. A few language settings still change it: switching PowerShell&rsquo;s language for one window on this page&rsquo;s computer, Finnish and Danish printed the time as <code>08.05.09</code>, Thai and Arabic printed their own calendars&rsquo; years, and the text given to <code>-Date</code> is read in the computer&rsquo;s own calendar too, so with Thai or Persian settings even <code>'2026-03-04 08:05:09'</code> meant a different year, and with Arabic settings it was not understood at all. A log line is for people, so that is fine. When a <i>program</i> will read the time, use <b><code>-Format s</code></b> instead: a fixed layout, with a <code>T</code> between the date and the time. For the time <code>Get-Date</code> reads from the computer&rsquo;s clock, it came out the same under every language setting tried. Section F uses it.</p>
+      <div class="filebox">
+        <div class="fbh">the time now, in the sortable layout &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Format s</span>
+2026-10-15T13:22:20  <span class="cm">your time</span></code></pre>
+      </div>
+      <p><b>The trap: case matters in the pattern.</b> <code>MM</code> is the month and <code>mm</code> the minutes. <code>HH</code> is the hour from 00 to 23, and <code>hh</code> the hour on a 12-hour clock, from 01 to 12, so eight in the morning and eight in the evening both print <code>08</code>. Swap the case and nothing complains; you just get the wrong date:</p>
+      <div class="filebox">
+        <div class="fbh">the wrong case, and no error &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Date '2026-03-04 08:05:09' -Format 'yyyy-mm-dd hh:MM:ss'</span>
+2026-05-04 08:03:09
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Date '2026-03-04 20:05:09' -Format 'yyyy-MM-dd hh:mm:ss'</span>
+2026-03-04 08:05:09</code></pre>
+      </div>
+      <p>In the first, the month became the minutes (05) and the minutes became the month (03). In the second, five past eight in the evening reads as the morning.</p>
+      <div class="note"><span class="nk">You will also see</span><code>"$(Get-Date)"</code>: <code>Get-Date</code> with no <code>-Format</code>, inside double quotes. That prints the month first, as <code>03/04/2026 08:05:09</code>, on every computer this page was checked on, whatever its language settings. Give <code>-Format</code> a pattern instead, and you choose the layout.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Stamp the time</div>
+        <ol>
+          <li>Print today&rsquo;s date alone, year first, as in <code>2026-03-04</code>.</li>
+          <li>Print the time now, to the second, with the hour from 00 to 23.</li>
+          <li>Print <code>2026-03-04 20:05:09</code> with <code>HH</code>, then with <code>hh</code>. Which belongs in a log, and why?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 is the first three parts of the pattern above, with their hyphens. Step 2 is the last three, with their colons.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Format 'yyyy-MM-dd'</span>
+2026-10-15  <span class="cm">your time</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Format 'HH:mm:ss'</span>
+10:05:38  <span class="cm">your time</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Date '2026-03-04 20:05:09' -Format 'yyyy-MM-dd HH:mm:ss'</span>
+2026-03-04 20:05:09
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Date -Date '2026-03-04 20:05:09' -Format 'yyyy-MM-dd hh:mm:ss'</span>
+2026-03-04 08:05:09</code></pre>
+<p><code>HH</code> belongs in a log: <code>hh</code> prints <code>08</code> for both eight in the morning and eight in the evening.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I printed the time in a layout I chose</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. A log of your own: Write-Log</h3>
+      <p>A scheduled script runs with nobody watching. What it prints goes nowhere you will see: on macOS and Linux, cron throws it away (section G shows where it says so), and on Windows, Task Scheduler&rsquo;s window closes when the script ends. So the script keeps a <b>log</b>: a text file it adds one line to for each thing it does, each line starting with the time. Session 3&rsquo;s <code>Add-Content</code> adds a line to the end of a file, and makes the file the first time.</p>
+      <p>To give every line the same shape, wrap that in a small function (Session 6), <code>Write-Log</code>. The function uses <code>$log</code>, a variable the script sets before it calls the function: <b>a function can read a variable that was set before it ran</b>. This script reads the orders and logs what it did:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/log-demo.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/log-demo.ps1"><code># log-demo.ps1: reads the orders, and logs what it did.
+$ErrorActionPreference = 'Stop'
+$log = "$HOME/ps-lab/out/log-demo.log"
+function Write-Log {
+  param([string]$Message)
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message" | Add-Content $log
+}
+Write-Log 'Started'
+$orders = Import-Csv "$HOME/ps-lab/data/orders.csv"
+Write-Log "Read $($orders.Count) orders"</code></pre>
+      </div>
+      <p>It prints nothing: everything it has to say goes into the log. Run it twice, then read the log. Each run added its two lines below the ones before:</p>
+      <div class="filebox">
+        <div class="fbh">two runs, four lines &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/log-demo.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/log-demo.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/log-demo.log</span>
+2026-10-15 10:05:38 Started  <span class="cm">your time</span>
+2026-10-15 10:05:38 Read 8 orders  <span class="cm">your time</span>
+2026-10-15 10:05:38 Started  <span class="cm">your time</span>
+2026-10-15 10:05:38 Read 8 orders  <span class="cm">your time</span></code></pre>
+      </div>
+      <p><b>Logging a failure: throw on its own.</b> A log that stops when the script stops never says why. So catch the error, log it, and let the script still fail loudly, as in Session 7. Inside <code>catch</code>, <b><code>throw</code> on its own, with no message, throws the same error on</b>: the script stops, PowerShell shows the original error, and <code>pwsh -File</code> still ends with exit code 1. Here the file to read becomes a parameter, so a run can be pointed at a file that is not there:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/log-demo.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/log-demo.ps1"><code># log-demo.ps1: reads the orders, and logs what it did, or why it failed.
+param([string]$File = "$HOME/ps-lab/data/orders.csv")
+$ErrorActionPreference = 'Stop'
+$log = "$HOME/ps-lab/out/log-demo.log"
+function Write-Log {
+  param([string]$Message)
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message" | Add-Content $log
+}
+Write-Log "Started: $File"
+try {
+  $orders = Import-Csv $File
+} catch {
+  Write-Log "FAILED: $($_.Exception.Message)"
+  throw
+}
+Write-Log "Read $($orders.Count) orders"</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">the error on screen, and the reason in the log &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -File ~/ps-scripts/log-demo.ps1 -File ~/ps-lab/data/old.csv</span>
+Import-Csv: C:\Users\you\ps-scripts\log-demo.ps1:11
+Line |
+  11 |    $orders = Import-Csv $File
+     |              ~~~~~~~~~~~~~~~~
+     | Could not find file 'C:\Users\you\ps-lab\data\old.csv'.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/log-demo.log -Tail 2</span>
+2026-10-15 10:05:38 Started: C:\Users\you/ps-lab/data/old.csv  <span class="cm">your time</span>
+2026-10-15 10:05:38 FAILED: Could not find file 'C:\Users\you\ps-lab\data\old.csv'.  <span class="cm">your time</span></code></pre>
+      </div>
+      <p>The first <code>-File</code> belongs to <code>pwsh</code> (which script to run); the second is the script&rsquo;s own parameter. The screen says what went wrong for whoever is watching; the log says it for whoever reads it tomorrow. Without the bare <code>throw</code>, the script would log the failure and then carry on, and end with exit code 0, as if all were well.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Run as script text in 5.1, the log gets a <code>Started:</code> line and a <code>FAILED:</code> line with the same reason (its <code>Started:</code> line shows the path as it was typed, <code>~</code> and all), and the error is shown in the long form.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> A log of your own</div>
+        <ol>
+          <li>Save <code>~/ps-scripts/ticket-log.ps1</code>: it logs <code>Started</code> to <code>out/ticket-log.log</code> in the lab, reads the tickets, and logs <code>Read</code>, how many, and <code>tickets</code>. Run it twice and read the log.</li>
+          <li>Give it a <code>-File</code> parameter, and make it log <code>FAILED:</code> and the reason, then throw the error on, when the file cannot be read. Run it with <code>-File ~/ps-lab/data/old.csv</code> using <code>pwsh -NoProfile -File</code>, and print <code>$LASTEXITCODE</code> and the last two lines of the log.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 is <code>log-demo.ps1</code>&rsquo;s first version with the tickets file. Step 2 is its second version.</p></details>
+        <details><summary>Show the commands</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/ticket-log.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/ticket-log.ps1"><code># ticket-log.ps1: reads the tickets, and logs what it did, or why it failed.
+param([string]$File = "$HOME/ps-lab/data/tickets.csv")
+$ErrorActionPreference = 'Stop'
+$log = "$HOME/ps-lab/out/ticket-log.log"
+function Write-Log {
+  param([string]$Message)
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message" | Add-Content $log
+}
+Write-Log 'Started'
+try {
+  $tickets = Import-Csv $File
+} catch {
+  Write-Log "FAILED: $($_.Exception.Message)"
+  throw
+}
+Write-Log "Read $($tickets.Count) tickets"</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/ticket-log.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/ticket-log.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/ticket-log.log</span>
+2026-10-15 10:05:39 Started  <span class="cm">your time</span>
+2026-10-15 10:05:39 Read 5 tickets  <span class="cm">your time</span>
+2026-10-15 10:05:39 Started  <span class="cm">your time</span>
+2026-10-15 10:05:39 Read 5 tickets  <span class="cm">your time</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -File ~/ps-scripts/ticket-log.ps1 -File ~/ps-lab/data/old.csv</span>
+Import-Csv: C:\Users\you\ps-scripts\ticket-log.ps1:11
+Line |
+  11 |    $tickets = Import-Csv $File
+     |               ~~~~~~~~~~~~~~~~
+     | Could not find file 'C:\Users\you\ps-lab\data\old.csv'.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/ticket-log.log -Tail 2</span>
+2026-10-15 10:05:39 Started  <span class="cm">your time</span>
+2026-10-15 10:05:39 FAILED: Could not find file 'C:\Users\you\ps-lab\data\old.csv'.  <span class="cm">your time</span></code></pre>
+<p>This is the finished script, so the two plain runs above it already have the parameter; they log the same two lines as step 1&rsquo;s version would.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I gave a script a log, and it logged its own failure</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. The flight recorder: Start-Transcript</h3>
+      <p>Your log says only what you told it to say. When something goes wrong that you did not expect, you want everything the script showed. <b><code>Start-Transcript -Path FILE</code></b> starts recording everything that appears in the window, output, warnings, errors and <code>Write-Host</code> text alike, into FILE, until <b><code>Stop-Transcript</code></b>. Like an aeroplane&rsquo;s flight recorder, you seldom read it, and you are very glad of it the day something goes wrong.</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/transcript-demo.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/transcript-demo.ps1"><code># transcript-demo.ps1: records everything this run shows.
+Start-Transcript -Path "$HOME/ps-lab/out/transcript.txt"
+'Reading the tickets'
+$tickets = Import-Csv "$HOME/ps-lab/data/tickets.csv"
+Write-Warning "$($tickets.Count) tickets to check"
+Write-Host 'Written by Write-Host'
+'Saved a copy' | Set-Content "$HOME/ps-lab/out/copy.txt"
+Stop-Transcript</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">a run, then its recording &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/transcript-demo.ps1</span>
+Transcript started, output file is C:\Users\you/ps-lab/out/transcript.txt
+Reading the tickets
+WARNING: 5 tickets to check
+Written by Write-Host
+Transcript stopped, output file is C:\Users\you\ps-lab\out\transcript.txt
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/transcript.txt</span>
+**********************
+PowerShell transcript start
+Start time: 20261015100540  <span class="cm">your time</span>
+Username: AzureAD\you  <span class="cm">yours differs</span>
+RunAs User: AzureAD\you  <span class="cm">yours differs</span>
+Configuration Name: 
+Machine: COMPUTER (Microsoft Windows NT 10.0.26200.0)  <span class="cm">yours differs</span>
+Host Application: C:\Program Files\PowerShell\7\pwsh.dll -NoProfile -NoLogo  <span class="cm">yours differs</span>
+Process ID: 30208  <span class="cm">yours differs</span>
+PSVersion: 7.6.7  <span class="cm">yours differs</span>
+PSEdition: Core
+GitCommitId: 7.6.7  <span class="cm">yours differs</span>
+OS: Microsoft Windows 10.0.26200  <span class="cm">yours differs</span>
+Platform: Win32NT
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1, 6.0, 7.0
+PSRemotingProtocolVersion: 2.4
+SerializationVersion: 1.1.0.1
+WSManStackVersion: 3.0
+**********************
+Transcript started, output file is C:\Users\you/ps-lab/out/transcript.txt
+Reading the tickets
+WARNING: 5 tickets to check
+Written by Write-Host
+**********************
+PowerShell transcript end
+End time: 20261015100540  <span class="cm">your time</span>
+**********************</code></pre>
+      </div>
+      <p>Read the recording from the top. A block of lines between the rows of stars describes the run: when it started, who ran it, on which computer, the whole command line that started PowerShell, its process number and its version. Every value in that block is your own, so it will differ from this page. Below it is everything the run showed, the warning and the <code>Write-Host</code> line included, and then a closing block with the end time. <code>Saved a copy</code> is missing: it went into <code>copy.txt</code>, not to the screen, and a transcript records only the screen.</p>
+      <p>Three more things to know. A transcript <b>replaces</b> its file each time, unless you add <b><code>-Append</code></b>, which adds the new run to the end; that is why a transcript is for one run you want to look at, and your own log is for every run. If the script stops on an error, the transcript still gets the error and its closing block, with a line holding <code>TerminatingError</code> where it stopped. And because it names your user name, your computer&rsquo;s name and the command line, read a transcript before you share it.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The transcript works the same way. Its opening block is a little different (it starts <code>Windows PowerShell transcript start</code>, and lists a few other details), and its file starts with a byte-order mark.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Record a failure</div>
+        <ol>
+          <li>At the prompt, start a transcript into <code>out/failed-run.txt</code>, run <code>ticket-log.ps1</code> by its path with <code>-File ~/ps-lab/data/old.csv</code>, then stop the transcript.</li>
+          <li>Find, in <code>out/failed-run.txt</code>, the line that says what went wrong. Does <code>out/ticket-log.log</code> say the same?</li>
+        </ol>
+        <details><summary>Hint</summary><p>A transcript started at the prompt records everything in the window until you stop it, scripts you run included. Session 3&rsquo;s <code>Select-String</code> finds a line in a file; the error box&rsquo;s message line starts <code>| Could not find</code>, and <code>|</code> is punctuation, so add <code>-SimpleMatch</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Transcript -Path out/failed-run.txt</span>
+Transcript started, output file is out/failed-run.txt
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/ticket-log.ps1 -File ~/ps-lab/data/old.csv</span>
+Import-Csv: C:\Users\you\ps-scripts\ticket-log.ps1:11
+Line |
+  11 |    $tickets = Import-Csv $File
+     |               ~~~~~~~~~~~~~~~~
+     | Could not find file 'C:\Users\you\ps-lab\data\old.csv'.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Stop-Transcript</span>
+Transcript stopped, output file is C:\Users\you\ps-lab\out\failed-run.txt
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Select-String '| Could not find' out/failed-run.txt -SimpleMatch |</span>
+<span class="cmd">  Select-Object -ExpandProperty Line</span>                                         <span class="cm">one line, wrapped here</span>
+     | Could not find file 'C:\Users\you\ps-lab\data\old.csv'.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/ticket-log.log -Tail 1</span>
+2026-10-15 10:05:41 FAILED: Could not find file 'C:\Users\you\ps-lab\data\old.csv'.  <span class="cm">your time</span></code></pre>
+<p>The transcript has PowerShell&rsquo;s own error, with the line it came from; the log has your <code>FAILED:</code> line with the same reason, and the time.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I recorded a run with a transcript and found its error</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. Safe to run twice</h3>
+      <p>A scheduled script runs every day, and some days it runs again because you started it by hand to test it. So it must do the right thing however many times it has run before. Three habits make a script safe to run twice. First, the problem, in miniature. <code>New-Item</code> makes a folder the first time; the second time, the folder is already there:</p>
+      <div class="filebox">
+        <div class="fbh">the second run fails &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/archive | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/archive | Out-Null</span>
+New-Item: An item with the specified name C:\Users\you\ps-lab\out\archive already exists.</code></pre>
+      </div>
+      <p>In a script with <code>$ErrorActionPreference = 'Stop'</code>, that error stops every run after the first. <b>Habit 1: make sure a folder is there with <code>-Force</code>.</b> On a folder, <code>New-Item -Force</code> makes it if it is missing, and if it is already there, keeps it, files and all, without an error. (It also prints the folder, which is why <code>| Out-Null</code>, from Session 4, follows it.)</p>
+      <div class="filebox">
+        <div class="fbh">-Force on a folder keeps what is in it &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; 'keep me' | Set-Content out/archive/note.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/archive -Force | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/archive/note.txt</span>
+keep me</code></pre>
+      </div>
+      <p><b>The trap: on a file, <code>-Force</code> means &ldquo;start it over&rdquo;.</b> <code>New-Item</code> on a file that is already there, with <code>-Force</code>, replaces it with an empty one, and says nothing. To count the file&rsquo;s lines before and after, put the command in <b>parentheses</b>: PowerShell runs what is inside them first, and <b><code>.Count</code></b> after the closing parenthesis then reads the <code>Count</code> property of what came back, just as <code>$tickets.Count</code> read a variable&rsquo;s in Session 5. So <code>(Get-Content FILE).Count</code> is how many lines FILE has, and any other property can be read the same way:</p>
+      <div class="filebox">
+        <div class="fbh">-Force on a file empties it &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-Content out/archive/note.txt).Count</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item out/archive/note.txt -Force | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-Content out/archive/note.txt).Count</span>
+0</code></pre>
+      </div>
+      <p><b>Habit 2: replace results, append only to the log, on purpose.</b> A report should be the same after one run or ten, so write it with a command that replaces the file: <code>Export-Csv</code> and <code>Set-Content</code> do, as Sessions 3 and 4 showed. A log should grow by one run each time, so it uses <code>Add-Content</code>. Mix them up and the report doubles with every run:</p>
+      <div class="filebox">
+        <div class="fbh">replace, or add to the end &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Export-Csv out/tickets.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv data/tickets.csv | Export-Csv out/tickets.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Import-Csv out/tickets.csv).Count</span>
+5
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/tickets.csv | Add-Content out/tickets-added.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content data/tickets.csv | Add-Content out/tickets-added.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-Content out/tickets-added.csv).Count</span>
+12</code></pre>
+      </div>
+      <p><b>Habit 3: check before you create or remove.</b> Session 3&rsquo;s <code>Test-Path</code> and Session 7&rsquo;s <code>if (-not (Test-Path PATH))</code> let a script ask first, then act only when it needs to. <code>if (-not (Test-Path out/archive)) { New-Item -ItemType Directory out/archive | Out-Null }</code> does the same job as <code>-Force</code> on a folder, and the same check before <code>Remove-Item</code> keeps a second run from failing on a file the first run already removed.</p>
+      <div class="note"><span class="nk">You will also see</span>Dated file names, such as <code>error-summary-2026-03-04.csv</code>, made with <code>Get-Date -Format 'yyyy-MM-dd'</code>: each day keeps its own report instead of replacing yesterday&rsquo;s. They are safe to run twice on the same day, but they pile up, so a script that makes them needs a second job to remove old ones. This workbook keeps one report that each run replaces.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Every result in this section is the same in 5.1, with the error in the long form.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Run it twice</div>
+        <ol>
+          <li>Make the folder <code>out/reports</code> twice in a row, so that the second time gives no error.</li>
+          <li>Save a line in <code>out/reports/keep.txt</code>, run step 1 again, and check the file still holds it.</li>
+          <li>Run <code>log-demo.ps1</code> again, then count the lines in <code>out/log-demo.log</code>. Which of its writes replaces, and which adds?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 is <code>New-Item -ItemType Directory</code> with <code>-Force</code>, piped to <code>Out-Null</code>, typed twice.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/reports -Force | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/reports -Force | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; 'still here' | Set-Content out/reports/keep.txt</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/reports -Force | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/reports/keep.txt</span>
+still here
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/log-demo.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-Content out/log-demo.log).Count</span>
+8</code></pre>
+<p>Every <code>Write-Log</code> adds a line with <code>Add-Content</code>, so the log grows by two with each run; nothing in <code>log-demo.ps1</code> replaces a file.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I made a step safe to run twice</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Where a scheduled script starts: $PSScriptRoot</h3>
+      <p>When you run a script, it starts in the folder your prompt is in. A scheduled script starts somewhere else, and the place depends on the scheduler. On this page&rsquo;s Windows computer, Task Scheduler started PowerShell in <code>C:\Windows\System32</code>, a folder of Windows&rsquo; own; on its Linux computer, cron started it in the home folder. Either way, a relative path such as <code>data/orders.csv</code> is looked up from there, as Session 5 showed, and fails. You can try that now, without scheduling anything: <b><code>Set-Location /</code></b> moves to the very top folder of the drive, and from there the relative path finds nothing:</p>
+      <div class="filebox">
+        <div class="fbh">a relative path, from the top folder &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location /</span>
+<span class="cmd">PS C:\&gt; Import-Csv data/orders.csv</span>
+Import-Csv: Could not find a part of the path 'C:\data\orders.csv'.
+<span class="cmd">PS C:\&gt; Set-Location ~/ps-lab</span></code></pre>
+      </div>
+      <p>So every path in a scheduled script is built from a place that does not move. <code>$HOME</code> is one, as since Session 5. The other is <b><code>$PSScriptRoot</code></b>, an automatic variable that holds <b>the folder the script itself is saved in</b>, wherever it was started from. It is the natural place for a script&rsquo;s own log, next to the script, outside the lab, so a lab rebuild never deletes it. At the prompt, outside any script, it is empty.</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/heartbeat.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/heartbeat.ps1"><code># heartbeat.ps1: adds one line to a log beside the script, to prove it ran, and where.
+$ErrorActionPreference = 'Stop'
+$here = (Get-Location).Path
+"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ran in $here" | Add-Content "$PSScriptRoot/heartbeat.log"</code></pre>
+      </div>
+      <p><code>(Get-Location).Path</code> is the folder it started in, as text: <code>Get-Location</code> from Session 1, and its <code>Path</code> property, read the way section D read <code>(Get-Content FILE).Count</code>. Test it the way a scheduler will run it, from somewhere else: <code>-NonInteractive</code>, which section F explains, makes the run like a scheduled one.</p>
+      <div class="filebox">
+        <div class="fbh">run from the top folder, logged next to the script &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location /</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/heartbeat.ps1</span>
+<span class="cmd">PS C:\&gt; Get-Content ~/ps-scripts/heartbeat.log</span>
+2026-10-15 10:05:42 ran in C:\  <span class="cm">your time</span>
+<span class="cmd">PS C:\&gt; $PSScriptRoot</span>
+
+<span class="cmd">PS C:\&gt; Set-Location ~/ps-lab</span></code></pre>
+      </div>
+      <p>It started in <code>C:\</code>, and the log still went next to the script, because its path came from <code>$PSScriptRoot</code>, not from where it started. <b>The test to remember: before you schedule a script, run it from a different folder.</b> If it works from there, the scheduler&rsquo;s starting folder cannot break it.</p>
+      <div class="note"><span class="nk">macOS and Linux</span>The same box on this page&rsquo;s Linux computer: <code>Set-Location /</code> moves to <code>/</code>, the top of the whole file system, the relative path fails with <code>Could not find a part of the path '/data/orders.csv'</code>, and the heartbeat line ends <code>ran in /</code>, logged in <code>/home/you/ps-scripts</code>.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Its scripts cannot run on this workbook&rsquo;s computer (Session 5, section G), so this section was checked in 5.1 only at the prompt: <code>Set-Location /</code> and the failing relative path behave the same.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Run it from somewhere else</div>
+        <ol>
+          <li>Save <code>~/ps-scripts/where.ps1</code>, which prints <code>Started in</code> and the folder it started in, then <code>Saved in</code> and <code>$PSScriptRoot</code>.</li>
+          <li>Run it with <code>pwsh -NoProfile -NonInteractive -File</code> from the lab, then from the top folder <code>/</code>. Which line changes, and which stays the same?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Each line is a double-quoted message with a <code>$( )</code> or a variable in it, as in <code>heartbeat.ps1</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/where.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/where.ps1"><code># where.ps1: where did I start, and where am I saved?
+"Started in $((Get-Location).Path)"
+"Saved in $PSScriptRoot"</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/where.ps1</span>
+Started in C:\Users\you\ps-lab
+Saved in C:\Users\you\ps-scripts
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location /</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/where.ps1</span>
+Started in C:\
+Saved in C:\Users\you\ps-scripts
+<span class="cmd">PS C:\&gt; Set-Location ~/ps-lab</span></code></pre>
+<p>The first line follows wherever you started it; the second is always the folder the script is saved in.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I ran a script from another folder, and it still found its files</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Schedule it: Task Scheduler, or cron</h3>
+      <p>Now the heartbeat runs on its own. A scheduler needs to know three things: <b>what to run</b> (a program, and the words to hand it), <b>when</b>, and <b>how</b> (what to do on battery power, after a missed run, and so on). Windows keeps these in a scheduled task; macOS and Linux keep them in one line of a file called a crontab. Both run the same command you just tested: <code>pwsh -NoProfile -NonInteractive -File SCRIPT</code>.</p>
+      <p><b>Why <code>-NonInteractive</code>.</b> Session 6 showed that a script missing a <code>[Parameter(Mandatory)]</code> value asks for it, and that <code>-NonInteractive</code> turns the question into an error instead. A scheduled script has nobody to answer. On this page&rsquo;s Windows computer, a task that ran such a script without <code>-NonInteractive</code> was still waiting 47 seconds later, with no file written, and Task Scheduler&rsquo;s own limit for a run is 72 hours by default; with <code>-NonInteractive</code>, the same task failed at once with exit code 1. A failure you can see beats a run that waits for days.</p>
+      <p><b>The full path to pwsh.</b> A scheduler may not search the folders your prompt does for programs, so give it the program&rsquo;s full path. <b><code>(Get-Command pwsh).Source</code></b> prints it: <code>Get-Command</code> from Session 1 finds the command, and its <code>Source</code> property is the file it runs.</p>
+
+      <h4>On Windows: Register-ScheduledTask</h4>
+      <p>The <b>ScheduledTasks</b> module comes with Windows. Its <code>New-</code> cmdlets build the three parts, each into a variable, and <b><code>Register-ScheduledTask</code></b> hands them to Task Scheduler under a name you choose:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Cmdlet</div><div class="fn">Builds</div><div class="fd">Here</div></div>
+        <div class="frow"><div class="fc">New-ScheduledTaskAction</div><div class="fn">what to run: <code>-Execute</code> the program, <code>-Argument</code> the words after it</div><div class="fd">pwsh, and the script</div></div>
+        <div class="frow"><div class="fc">New-ScheduledTaskTrigger</div><div class="fn">when: <code>-Daily -At '7:00 AM'</code></div><div class="fd">every day at 7</div></div>
+        <div class="frow"><div class="fc">New-ScheduledTaskSettingsSet</div><div class="fn">how: switches that change the defaults</div><div class="fd">below</div></div>
+      </div>
+      <p>The words for <code>-Argument</code> are one piece of text, with the script&rsquo;s path in <b>double quotes inside it</b>, so a space in a folder name, such as a user name with a space, cannot split the path in two. The script&rsquo;s path goes into <code>$script</code> first; then Session 5&rsquo;s single quotes print exactly what you type, double quotes included, and <code>+</code> joins the pieces, as in Session 4. The settings: <b>by default, a task does not start while a laptop runs on battery, stops if the laptop is unplugged, and does not make up a run it missed while the computer was off or asleep</b> (all three read from a new task on this page&rsquo;s computer). <code>-AllowStartIfOnBatteries</code>, <code>-DontStopIfGoingOnBatteries</code> and <code>-StartWhenAvailable</code> turn those around.</p>
+      <p><b>The trap: a time that moves when the clocks change.</b> The trigger keeps its start in its <code>StartBoundary</code> property, and <code>New-ScheduledTaskTrigger</code> stores it as a fixed moment in UTC, the world&rsquo;s reference clock, with a <code>Z</code> at the end. Task Scheduler then holds that UTC moment all year, so when your clocks go forward or back, the task runs an hour off: on this page&rsquo;s computer, in the US Central time zone, a 7:00 trigger made in October would run at 6:00 once the clocks changed on 1 November, as its next-run time showed. Give it a start with no time zone, and it means 7:00 by your own clock, whatever the season. <b>An object&rsquo;s property can be changed like a variable</b>: <code>$trigger.StartBoundary = VALUE</code> puts a new value in, the way <code>$n = 5</code> did in Session 5. The value is today at 7:00 in section A&rsquo;s <code>-Format s</code> layout, which has no time zone. Both lines marked <i>yours differs</i> depend on today&rsquo;s date and your time zone:</p>
+      <div class="filebox">
+        <div class="fbh">schedule the heartbeat, every day at 7 &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $pwsh = (Get-Command pwsh).Source</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $pwsh</span>
+C:\Program Files\PowerShell\7\pwsh.exe
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $script = "$HOME/ps-scripts/heartbeat.ps1"</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $arguments = '-NoProfile -NonInteractive -File "' + $script + '"'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $arguments</span>
+-NoProfile -NonInteractive -File "C:\Users\you/ps-scripts/heartbeat.ps1"
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $action = New-ScheduledTaskAction -Execute $pwsh -Argument $arguments</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger = New-ScheduledTaskTrigger -Daily -At '7:00 AM'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger.StartBoundary</span>
+2026-10-15T12:00:00Z  <span class="cm">yours differs</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger.StartBoundary = Get-Date '7:00 AM' -Format s</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger.StartBoundary</span>
+2026-10-15T07:00:00  <span class="cm">yours differs</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries</span>
+<span class="cmd">  -DontStopIfGoingOnBatteries -StartWhenAvailable</span>                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Register-ScheduledTask -TaskName 'Fernhill heartbeat' -Action $action</span>
+<span class="cmd">  -Trigger $trigger -Settings $settings</span>                                      <span class="cm">one line, wrapped here</span>
+
+TaskPath                                       TaskName                          State
+--------                                       --------                          -----
+\                                              Fernhill heartbeat                Ready</code></pre>
+      </div>
+      <p>The task is registered, under your own user account, with no administrator rights needed, and <code>Ready</code> means it is waiting for its time. <b><code>Get-ScheduledTask -TaskName NAME</code></b> shows it again whenever you want. It runs as you, and only while you are logged in. When it runs, a PowerShell window may flash up and close: that was seen on this page&rsquo;s computer, and it is the task working.</p>
+      <p><b>Registering is not safe to run twice.</b> Run the same <code>Register-ScheduledTask</code> again and it fails, <code>Cannot create a file when that file already exists.</code>; add <b><code>-Force</code></b> to replace the task that has that name, for example after you change its time.</p>
+
+      <h4>On macOS and Linux: a line in your crontab</h4>
+      <p><b>cron</b> is the scheduler that comes with Linux and macOS. Each user has a <b>crontab</b>, a list of lines, each a schedule and then a command. The schedule is five fields, separated by spaces, in this order:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Field</div><div class="fn">Means</div><div class="fd">In 0 7 * * *</div></div>
+        <div class="frow"><div class="fc">1</div><div class="fn">the minute, 0 to 59</div><div class="fd">0</div></div>
+        <div class="frow"><div class="fc">2</div><div class="fn">the hour, 0 to 23</div><div class="fd">7</div></div>
+        <div class="frow"><div class="fc">3</div><div class="fn">the day of the month</div><div class="fd">* (any)</div></div>
+        <div class="frow"><div class="fc">4</div><div class="fn">the month</div><div class="fd">* (any)</div></div>
+        <div class="frow"><div class="fc">5</div><div class="fn">the day of the week, 0 to 7 (0 and 7 are both Sunday)</div><div class="fd">* (any)</div></div>
+      </div>
+      <p>A <code>*</code> means &ldquo;every&rdquo;, so <code>0 7 * * *</code> is minute 0 of hour 7, every day: seven o&rsquo;clock each morning. The minute comes <i>first</i>, which is the easy thing to get backwards. Three commands manage the crontab, and they are programs, so you type them at the PowerShell prompt, as in Session 7&rsquo;s <code>git</code> note: <b><code>crontab -l</code></b> lists your lines, <b><code>crontab FILE</code></b> replaces your whole crontab with the lines in FILE, and <code>crontab -r</code> removes every line at once, so do not type it by mistake. Rather than edit the crontab in place, keep your lines in a file in <code>ps-scripts</code> and install that: then a copy always survives.</p>
+      <div class="filebox">
+        <div class="fbh">macOS and Linux &middot; schedule the heartbeat, every day at 7 &middot; captured live on Ubuntu</div>
+<pre data-shell="linux"><code><span class="cmd">PS /home/you/ps-lab&gt; $pwsh = (Get-Command pwsh).Source</span>
+<span class="cmd">PS /home/you/ps-lab&gt; $pwsh</span>
+/opt/microsoft/powershell/7/pwsh
+<span class="cmd">PS /home/you/ps-lab&gt; crontab -l</span>
+no crontab for you
+<span class="cmd">PS /home/you/ps-lab&gt; $script = "$HOME/ps-scripts/heartbeat.ps1"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; $line = "0 7 * * * $pwsh -NoProfile -NonInteractive -File $script"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Set-Content ~/ps-scripts/crontab.txt $line</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab ~/ps-scripts/crontab.txt</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab -l</span>
+0 7 * * * /opt/microsoft/powershell/7/pwsh -NoProfile -NonInteractive        <span class="cm">one line, wrapped here</span>
+-File /home/you/ps-scripts/heartbeat.ps1</code></pre>
+      </div>
+      <p>The first <code>crontab -l</code> said there was no crontab yet. <b>If yours lists lines instead, they are someone&rsquo;s jobs: keep them.</b> Copy them into the file first with <code>crontab -l | Set-Content ~/ps-scripts/crontab.txt</code>, then add your line to the end with <code>Add-Content</code> instead of <code>Set-Content</code>. The line is a double-quoted string, so <code>$pwsh</code> and <code>$script</code> are swapped in, as in Session 5. The pwsh path above is Ubuntu&rsquo;s; yours is whatever <code>(Get-Command pwsh).Source</code> prints on your computer, which is why the line is built from it.</p>
+      <div class="note"><span class="nk">macOS</span>Not run here. Apple&rsquo;s own documentation says cron is still supported but deprecated in favour of launchd, Apple&rsquo;s own scheduler. The <code>crontab</code> commands and the five fields above were checked only on Ubuntu, against its manual page (<code>man 5 crontab</code>), so read your Mac&rsquo;s own <code>man crontab</code> before you rely on them. Expect your home folder to be <code>/Users/you</code>, not <code>/home/you</code>.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The ScheduledTasks cmdlets are the same in 5.1. A task can run <code>powershell.exe</code> instead of <code>pwsh</code>, but this workbook&rsquo;s computer blocks 5.1 scripts, and a task that tried was refused, so it schedules PowerShell 7.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Schedule the heartbeat</div>
+        <ol>
+          <li>On Windows: register <code>Fernhill heartbeat</code> as above, then show it with <code>Get-ScheduledTask</code>.</li>
+          <li>On Windows: run the same <code>Register-ScheduledTask</code> again. What happens, and what does <code>-Force</code> change?</li>
+          <li>On macOS or Linux instead: check your crontab, then install the heartbeat line for 7:00 each morning, and list it.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Steps 1 and 3 are the two boxes above. In step 2, the variables from step 1 are still set, so the same line works.</p></details>
+        <details><summary>Show the commands</summary>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ScheduledTask -TaskName 'Fernhill heartbeat'</span>
+
+TaskPath                                       TaskName                          State
+--------                                       --------                          -----
+\                                              Fernhill heartbeat                Ready
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Register-ScheduledTask -TaskName 'Fernhill heartbeat' -Action $action</span>
+<span class="cmd">  -Trigger $trigger -Settings $settings</span>                                      <span class="cm">one line, wrapped here</span>
+Register-ScheduledTask: Cannot create a file when that file already exists.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Register-ScheduledTask -TaskName 'Fernhill heartbeat' -Action $action</span>
+<span class="cmd">  -Trigger $trigger -Settings $settings -Force</span>                               <span class="cm">one line, wrapped here</span>
+
+TaskPath                                       TaskName                          State
+--------                                       --------                          -----
+\                                              Fernhill heartbeat                Ready</code></pre>
+<p>Without <code>-Force</code> the name is taken and nothing changes; with it, the task is replaced by the new one. Step 3 is the macOS and Linux box above.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I scheduled a script to run every day</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Test it before you trust it</h3>
+      <p>Never wait until seven tomorrow to find out. Run the task now, the way the scheduler will, and look at two things: the code it ended with, and the log. On Windows, <b><code>Start-ScheduledTask -TaskName NAME</code></b> runs a task at once, and prints nothing. <b><code>Start-Sleep -Seconds N</code></b> just waits N seconds, here long enough for the run to finish. Then <b><code>Get-ScheduledTaskInfo -TaskName NAME</code></b> reports its last run: <b><code>LastRunTime</code></b>, when it ran, and <b><code>LastTaskResult</code></b>, the exit code it ended with (Session 7):</p>
+      <div class="filebox">
+        <div class="fbh">run it now, then check the code and the log &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill heartbeat'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ScheduledTaskInfo -TaskName 'Fernhill heartbeat' |</span>
+<span class="cmd">  Select-Object LastRunTime, LastTaskResult</span>                                  <span class="cm">one line, wrapped here</span>
+
+LastRunTime            LastTaskResult
+-----------            --------------
+10/15/2026 10:05:47 AM              0  <span class="cm">your time</span>
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/heartbeat.log -Tail 1</span>
+2026-10-15 10:05:49 ran in C:\Windows\System32  <span class="cm">your time</span></code></pre>
+      </div>
+      <p>Exit code 0, and a new line in the log. Its last words are the proof of section E: Task Scheduler started PowerShell in <code>C:\Windows\System32</code>. <code>LastTaskResult</code> holds the exit code, so 0 means the script ended well and 1 means it stopped on an error. Before a task has ever run it shows <code>267011</code>, Task Scheduler&rsquo;s own number for &ldquo;not run yet&rdquo;, with a <code>LastRunTime</code> in 1999, and while a run is still going it shows <code>267009</code>.</p>
+      <h4>On macOS and Linux: test with a line for every minute</h4>
+      <p>cron has no &ldquo;run it now&rdquo;. To test, install a line whose schedule is <code>* * * * *</code>, every minute, wait for the minute to come round, read the log, and only then change the schedule to the real one. A run starts at the turn of each minute, so wait a little over a minute:</p>
+      <div class="filebox">
+        <div class="fbh">macOS and Linux &middot; a test line, then the log &middot; captured live on Ubuntu</div>
+<pre data-shell="linux"><code><span class="cmd">PS /home/you/ps-lab&gt; $pwsh = (Get-Command pwsh).Source</span>
+<span class="cmd">PS /home/you/ps-lab&gt; $script = "$HOME/ps-scripts/heartbeat.ps1"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; $line = "* * * * * $pwsh -NoProfile -NonInteractive -File $script"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Set-Content ~/ps-scripts/crontab.txt $line</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab ~/ps-scripts/crontab.txt</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Start-Sleep -Seconds 70</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Get-Content ~/ps-scripts/heartbeat.log -Tail 1</span>
+2026-10-15 10:07:02 ran in /home/you  <span class="cm">your time</span></code></pre>
+      </div>
+      <p><code>ran in /home/you</code>: cron started it in your home folder. Read the log, not the screen, because cron keeps nothing else. On this page&rsquo;s Linux computer, when a job printed something (section H&rsquo;s error report prints its table), cron&rsquo;s own record said <code>(CRON) info (No MTA installed, discarding output)</code>: what a job prints is thrown away, and no exit code was recorded anywhere. So on macOS and Linux, a script&rsquo;s own log is the only record of what it did. The trap below lands somewhere else here: a relative log path would put the log in your home folder, with no error at all.</p>
+      <h4>The trap: exit code 0 is not proof</h4>
+      <p>Exit code 0 only says the script did not stop on an error. Here is the heartbeat as anyone might first write it, with a relative path for its log and without the Stop preference. Save it over the good one, run the task, and look:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/heartbeat.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/heartbeat.ps1"><code># heartbeat.ps1: the first try, with a relative path and no Stop preference.
+$here = (Get-Location).Path
+"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ran in $here" | Add-Content heartbeat.log</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">success, and no new line &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill heartbeat'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ScheduledTaskInfo -TaskName 'Fernhill heartbeat').LastTaskResult</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/heartbeat.log -Tail 1</span>
+2026-10-15 10:05:49 ran in C:\Windows\System32  <span class="cm">your time</span></code></pre>
+      </div>
+      <p>Exit code 0, yet the newest line is the old one. The relative path pointed into <code>C:\Windows\System32</code>, where your account may not write: <code>Add-Content</code> failed there with <code>Access to the path 'C:\Windows\System32\heartbeat.log' is denied.</code> (seen by running it from that folder by hand), and nobody saw the message. With <code>$ErrorActionPreference = 'Stop'</code> at the top, the same mistake ends with exit code 1, a failure you would spot. That is why you check the log as well as the code. Now put the good version back, from section E:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/heartbeat.ps1 &middot; section E&rsquo;s version, saved again</div>
+<pre data-file="~/ps-scripts/heartbeat.ps1"><code># heartbeat.ps1: adds one line to a log beside the script, to prove it ran, and where.
+$ErrorActionPreference = 'Stop'
+$here = (Get-Location).Path
+"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ran in $here" | Add-Content "$PSScriptRoot/heartbeat.log"</code></pre>
+      </div>
+      <p><b>Two more silent failures to rule out.</b> A script that asks for a Mandatory value waits instead of failing, unless the task passes <code>-NonInteractive</code> (section F). And a laptop on battery skips a task that has the default settings, and a computer that was asleep at seven skips that day: the settings in section F cover both.</p>
+      <p><b>Removing a task.</b> <b><code>Unregister-ScheduledTask -TaskName NAME</code></b> deletes it, after asking you to confirm. You will remove the heartbeat at the end of the task below; section H schedules the real script.</p>
+
+      <p><b>Removing the line.</b> Put back the lines you want, without this one, and install the file again. Here the heartbeat was the only line, so the file becomes empty: <code>$null</code> is PowerShell&rsquo;s word for nothing, so <code>Set-Content</code> writes a file with nothing in it, and the crontab is empty too:</p>
+      <div class="filebox">
+        <div class="fbh">macOS and Linux &middot; remove the test line &middot; captured live on Ubuntu</div>
+<pre data-shell="linux"><code><span class="cmd">PS /home/you/ps-lab&gt; Set-Content ~/ps-scripts/crontab.txt $null</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab ~/ps-scripts/crontab.txt</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab -l</span></code></pre>
+      </div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span><code>Start-ScheduledTask</code>, <code>Get-ScheduledTaskInfo</code> and <code>Unregister-ScheduledTask</code> are the same in 5.1.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Test it, break it, remove it</div>
+        <ol>
+          <li>On Windows: start the heartbeat task, wait, and check <code>LastTaskResult</code> and the last line of the log.</li>
+          <li>Save the first-try heartbeat from above, start the task again, and check both again. Then add <code>$ErrorActionPreference = 'Stop'</code> as its first line of code, run the task once more, and read <code>LastTaskResult</code>.</li>
+          <li>Put section E&rsquo;s heartbeat back, check one last run, then remove the task.</li>
+          <li>On macOS or Linux instead: install the every-minute line, wait, read the log, then remove the line.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Each check is the same three commands: <code>Start-ScheduledTask</code>, <code>Start-Sleep</code>, then <code>Get-ScheduledTaskInfo</code> and <code>Get-Content -Tail 1</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/heartbeat.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/heartbeat.ps1"><code># heartbeat.ps1: the first try, now with the Stop preference.
+$ErrorActionPreference = 'Stop'
+$here = (Get-Location).Path
+"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ran in $here" | Add-Content heartbeat.log</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill heartbeat'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ScheduledTaskInfo -TaskName 'Fernhill heartbeat').LastTaskResult</span>
+1</code></pre>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/heartbeat.ps1 &middot; section E&rsquo;s version, saved again</div>
+<pre data-file="~/ps-scripts/heartbeat.ps1"><code># heartbeat.ps1: adds one line to a log beside the script, to prove it ran, and where.
+$ErrorActionPreference = 'Stop'
+$here = (Get-Location).Path
+"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ran in $here" | Add-Content "$PSScriptRoot/heartbeat.log"</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill heartbeat'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ScheduledTaskInfo -TaskName 'Fernhill heartbeat').LastTaskResult</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/heartbeat.log -Tail 1</span>
+2026-10-15 10:06:04 ran in C:\Windows\System32  <span class="cm">your time</span></code></pre>
+<p>With the Stop preference, the denied write stops the script, and the task says 1. Step 1 is the first box above, and step 4 the macOS and Linux boxes. Last, remove the task, and answer <code>Y</code> to its question:</p>
+<div class="filebox">
+        <div class="fbh">remove it, after a question &middot; captured in a console window</div>
+<pre data-shell="console"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Unregister-ScheduledTask -TaskName 'Fernhill heartbeat'</span>
+
+Confirm
+Are you sure you want to perform this action?
+Performing operation 'Delete' on Target '\Fernhill heartbeat'.
+[Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "Y"): Y</code></pre>
+</div>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I tested a scheduled job and saw it fail on purpose</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: schedule the error report</h3>
+      <p>Session 7&rsquo;s <code>error-report.ps1</code> fails loudly. Now it runs every morning on its own, says in its log what it did, and survives a lab rebuild. If you do not have it, save Session 7&rsquo;s version first:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/error-report.ps1 &middot; Session 7&rsquo;s script, typed in VS Code</div>
+<pre data-file="~/ps-scripts/error-report.ps1"><code>&lt;#
+.SYNOPSIS
+Counts the ERROR lines in each log and saves the counts as a CSV.
+.DESCRIPTION
+Searches every file under a folder, its subfolders included, for lines that
+contain ERROR. Outputs one row per log, Log and Count, biggest first, and
+saves the same rows to a CSV file ready for Excel. Stops with an error if the
+folder does not exist or the CSV cannot be saved; warns if it finds no ERROR
+lines.
+.PARAMETER Path
+The folder to search. The default is the practice lab's logs folder.
+.PARAMETER OutFile
+The CSV file to write. The default is error-summary.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/error-report.ps1 -Path ~/ps-lab/logs/archive
+#&gt;
+[CmdletBinding()]
+param(
+  [string]$Path = "$HOME/ps-lab/logs",
+  [string]$OutFile = "$HOME/ps-lab/out/error-summary.csv"
+)
+$ErrorActionPreference = 'Stop'
+if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+Write-Verbose "Searching $Path"
+$summary = Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+  Group-Object Filename | Sort-Object Count, Name -Descending |
+  Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+if ($summary.Count -eq 0) { Write-Warning "No ERROR lines found in $Path" }
+try {
+  $summary | Export-Csv $OutFile -Encoding utf8BOM
+} catch {
+  throw "Could not save $OutFile. $($_.Exception.Message)"
+}
+Write-Verbose "Saved $($summary.Count) rows to $OutFile"
+$summary</code></pre>
+      </div>
+      <p>One thing will break it on a schedule: a lab rebuild deletes <code>out</code>, and the next run cannot save its CSV. Rebuild the lab now (paste the setup block), then run it the way a scheduler would, from another folder:</p>
+      <div class="filebox">
+        <div class="fbh">after a rebuild, from the top folder &middot; captured live</div>
+<pre data-shell="7" data-rebuild="1"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location /</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/error-report.ps1</span>
+Exception: C:\Users\you\ps-scripts\error-report.ps1:32
+Line |
+  32 |    throw "Could not save $OutFile. $($_.Exception.Message)"
+     |    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Could not save C:\Users\you/ps-lab/out/error-summary.csv. Could not find a part of the path
+     | 'C:\Users\you\ps-lab\out\error-summary.csv'.
+<span class="cmd">PS C:\&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\&gt; Set-Location ~/ps-lab</span></code></pre>
+      </div>
+      <p>It failed loudly, as Session 7 made it, but nobody was there to see the message, and nothing recorded it. That is today&rsquo;s job.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: schedule a script that records what it did and fails loudly</div>
+        <p>Change <code>~/ps-scripts/error-report.ps1</code> so that:</p>
+        <ol>
+          <li>Every run adds lines to <code>error-report.log</code>, in the folder the script is saved in, each starting with the date and time as <code>yyyy-MM-dd HH:mm:ss</code>: one when it starts, naming the folder it searches; one when it has saved, saying how many rows; and, if anything stops it, one starting <code>FAILED:</code> with the reason, after which it still fails loudly.</li>
+          <li>It makes the lab&rsquo;s <code>out</code> folder if a rebuild deleted it, and is safe to run twice. (Leave any other <code>-OutFile</code> folder alone: if that is missing, it should still fail.)</li>
+          <li>Its DESCRIPTION mentions the log. Everything it did before still works the same.</li>
+          <li>Run it twice from the top folder <code>/</code>, as a scheduler would, and read the log.</li>
+          <li>Schedule it for 7:00 every morning, as <code>Fernhill error report</code> on Windows (with the <code>StartBoundary</code> line from section F, so it stays at 7:00 when the clocks change), or with a crontab line on macOS and Linux. Test it at once: on Windows start the task and read <code>LastTaskResult</code>; with cron use an every-minute line first. Read the log after each test.</li>
+          <li>Break it on purpose: rename <code>ps-lab/logs</code> to <code>logs-away</code>, run the test again, and find the exit code and the <code>FAILED:</code> line. Rename it back and test once more.</li>
+          <li><b>Keep it scheduled.</b> Your review, a week from now, reads its log.</li>
+        </ol>
+        <p>You have hit the milestone when the scheduled run logged a start and a save and ended with 0, the broken run logged <code>FAILED:</code> and ended with 1, and you wrote the script changes without copying from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/error-report.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/error-report.ps1"><code>&lt;#
+.SYNOPSIS
+Counts the ERROR lines in each log and saves the counts as a CSV.
+.DESCRIPTION
+Searches every file under a folder, its subfolders included, for lines that
+contain ERROR. Outputs one row per log, Log and Count, biggest first, and
+saves the same rows to a CSV file ready for Excel. Stops with an error if the
+folder does not exist or the CSV cannot be saved; warns if it finds no ERROR
+lines. Adds a line to error-report.log, beside the script, when it starts,
+when it saves, and when it fails. Makes the lab's out folder if it is missing.
+.PARAMETER Path
+The folder to search. The default is the practice lab's logs folder.
+.PARAMETER OutFile
+The CSV file to write. The default is error-summary.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/error-report.ps1 -Path ~/ps-lab/logs/archive
+#&gt;
+[CmdletBinding()]
+param(
+  [string]$Path = "$HOME/ps-lab/logs",
+  [string]$OutFile = "$HOME/ps-lab/out/error-summary.csv"
+)
+$ErrorActionPreference = 'Stop'
+$log = "$PSScriptRoot/error-report.log"
+function Write-Log {
+  param([string]$Message)
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message" | Add-Content $log
+}
+Write-Log "Started: $Path"
+try {
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Write-Verbose "Searching $Path"
+  $summary = Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+  if ($summary.Count -eq 0) { Write-Warning "No ERROR lines found in $Path" }
+  New-Item -ItemType Directory "$HOME/ps-lab/out" -Force | Out-Null
+  try {
+    $summary | Export-Csv $OutFile -Encoding utf8BOM
+  } catch {
+    throw "Could not save $OutFile. $($_.Exception.Message)"
+  }
+} catch {
+  Write-Log "FAILED: $($_.Exception.Message)"
+  throw
+}
+Write-Log "Saved $($summary.Count) rows to $OutFile"
+Write-Verbose "Saved $($summary.Count) rows to $OutFile"
+$summary</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location /</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/error-report.ps1 | Out-Null</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/error-report.ps1 | Out-Null</span>
+<span class="cmd">PS C:\&gt; Get-Content ~/ps-scripts/error-report.log</span>
+2026-10-15 10:06:11 Started: C:\Users\you/ps-lab/logs  <span class="cm">your time</span>
+2026-10-15 10:06:11 Saved 4 rows to C:\Users\you/ps-lab/out/error-summary.csv  <span class="cm">your time</span>
+2026-10-15 10:06:12 Started: C:\Users\you/ps-lab/logs  <span class="cm">your time</span>
+2026-10-15 10:06:12 Saved 4 rows to C:\Users\you/ps-lab/out/error-summary.csv  <span class="cm">your time</span>
+<span class="cmd">PS C:\&gt; Set-Location ~/ps-lab</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $pwsh = (Get-Command pwsh).Source</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $script = "$HOME/ps-scripts/error-report.ps1"</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $arguments = '-NoProfile -NonInteractive -File "' + $script + '"'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $action = New-ScheduledTaskAction -Execute $pwsh -Argument $arguments</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger = New-ScheduledTaskTrigger -Daily -At '7:00 AM'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger.StartBoundary</span>
+2026-10-15T12:00:00Z  <span class="cm">yours differs</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger.StartBoundary = Get-Date '7:00 AM' -Format s</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger.StartBoundary</span>
+2026-10-15T07:00:00  <span class="cm">yours differs</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries</span>
+<span class="cmd">  -DontStopIfGoingOnBatteries -StartWhenAvailable</span>                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Register-ScheduledTask -TaskName 'Fernhill error report' -Action $action</span>
+<span class="cmd">  -Trigger $trigger -Settings $settings | Out-Null</span>                           <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill error report'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ScheduledTaskInfo -TaskName 'Fernhill error report').LastTaskResult</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Rename-Item logs logs-away</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill error report'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ScheduledTaskInfo -TaskName 'Fernhill error report').LastTaskResult</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/error-report.log -Tail 2</span>
+2026-10-15 10:06:19 Started: C:\Users\you/ps-lab/logs  <span class="cm">your time</span>
+2026-10-15 10:06:19 FAILED: No folder to search: C:\Users\you/ps-lab/logs  <span class="cm">your time</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Rename-Item logs-away logs</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill error report'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ScheduledTaskInfo -TaskName 'Fernhill error report').LastTaskResult</span>
+0</code></pre>
+<p>The first run came straight after the rebuild, so it made the <code>out</code> folder again, then saved. The log line goes first, before anything can fail, and everything that can fail sits inside one <code>try</code>, so any failure is logged and then thrown on. The out folder is made just before the save; only the lab&rsquo;s own <code>out</code>, so a mistyped <code>-OutFile</code> folder still fails. The runs above are piped to <code>Out-Null</code> only to keep this page short: the table they print does not reach the log. The scheduled runs print nothing anyone sees; their record is the log.</p>
+<p><b>On macOS and Linux</b>, the script is the same. Test and schedule it with cron:</p>
+<pre data-shell="linux"><code><span class="cmd">PS /home/you/ps-lab&gt; $pwsh = (Get-Command pwsh).Source</span>
+<span class="cmd">PS /home/you/ps-lab&gt; $script = "$HOME/ps-scripts/error-report.ps1"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; $command = "$pwsh -NoProfile -NonInteractive -File $script"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Set-Content ~/ps-scripts/crontab.txt "* * * * * $command"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab ~/ps-scripts/crontab.txt</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Start-Sleep -Seconds 70</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Get-Content ~/ps-scripts/error-report.log -Tail 2</span>
+2026-10-15 10:09:01 Started: /home/you/ps-lab/logs  <span class="cm">your time</span>
+2026-10-15 10:09:01 Saved 4 rows to /home/you/ps-lab/out/error-summary.csv  <span class="cm">your time</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Set-Content ~/ps-scripts/crontab.txt "0 7 * * * $command"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab ~/ps-scripts/crontab.txt</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab -l</span>
+0 7 * * * /opt/microsoft/powershell/7/pwsh -NoProfile -NonInteractive        <span class="cm">one line, wrapped here</span>
+-File /home/you/ps-scripts/error-report.ps1</code></pre>
+<p>Break it the same way, with the every-minute line installed: rename <code>logs</code>, wait a minute, and read the <code>FAILED:</code> line, then rename it back.</p>
+<p><b>In Windows PowerShell 5.1</b>, use <code>-NoTypeInformation -Encoding utf8</code> in place of <code>-Encoding utf8BOM</code>, as in Sessions 4 to 7. This page schedules PowerShell 7 in every case.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> I scheduled the error report, tested it, broke it and read its log</label>
+      </div>
+      <div class="note"><span class="nk">To remove it later</span>On Windows: <code>Unregister-ScheduledTask -TaskName 'Fernhill error report'</code>, and answer <code>Y</code>. On macOS and Linux: take its line out of <code>~/ps-scripts/crontab.txt</code> and install the file again with <code>crontab ~/ps-scripts/crontab.txt</code>. Its log stays in <code>ps-scripts</code> until you remove it.</div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from timestamps, through logs and second runs, to scheduled jobs.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh PowerShell 7 window with a fresh lab and an <code>out</code> folder</b>, and its commands run in the order shown, in that one window. A file such as <code>data/old.csv</code> in a drill does not exist. Each was run on 2026-10-15 in PowerShell 7.6 on Windows, with English (United States) language settings, and the ones that need no scheduler in Windows PowerShell 5.1 too, and gave the same answer. Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it: fill the blanks in four pieces of code. (Today has no put-it-in-order item. In each of the session&rsquo;s scripts, and in its step-by-step processes such as installing a crontab line or breaking and fixing the milestone, some step could move without changing the result, or the lines are too long for the tiles, so no order would be the only right one.)</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the code in the box, run it in your terminal (as a script where the task says so), then reveal the reference to compare. More than one answer can be right, so judge yours by what it did. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your code did what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">17</span></span>
+        <span>In pile <b id="fc-pile">17</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the six questions below come from earlier sessions, one from <b>Session 6</b> and one from <b>Session 4</b>, because recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 08 of 10 &middot; Hit the milestone unassisted, then tick <b>S08</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>. <b>Level 4, Robust automation, is complete:</b> you have a scheduled script that records what it did and fails loudly. It stays scheduled until you remove it (the &ldquo;To remove it later&rdquo; box in section H says how).
+    <br><br>
+    <b>Your 15-minute review, a week from now:</b> read a week of your scheduled job&rsquo;s log, <code>~/ps-scripts/error-report.log</code>, and explain every line: when it ran, what it searched, how many rows it saved, and, for any <code>FAILED:</code> line, what went wrong and whether it would have happened if you had been watching. If a morning is missing, work out why (the computer was off or asleep? on battery? the lab rebuilt?), and check it against the task&rsquo;s <code>LastRunTime</code> or your crontab. Anything that surprised you goes on a sticky note. The free <a href="https://poshcode.gitbook.io/powershell-practice-and-style/" target="_blank" rel="noopener">PowerShell Practice and Style Guide</a> collects the community&rsquo;s habits for scripts that other people run and read. &middot; Next: <b>Session 9, modules and Pester</b>, where your functions move into a module and you write tests that check your scripts for you.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s08-workbook-v1";
+  /* Spaced review: Part 6's Q5 comes from Session 6 and Q6 from Session 4, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S04_URL = "ps-session-04.html";
+  var S06_URL = "ps-session-06.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare values one per line (a date, a count, an exit code, True or False), as log words
+     after a time, and as LastTaskResult list cells. Parentheses are syntax here: $( ),
+     (Get-Date), (Get-Location).Path and a transcript's TerminatingError(), so () in the
+     split class would accept wrong answers. No answer is wrapped in parentheses.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 8 is: its
+     answers are dates and times printed as digits, counts, exit codes, False (which
+     PowerShell matches in any case, as $false), log words and fruit names, none of which a
+     learner could get wrong by case alone (build contract section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. In Session 8, F1 is, the track's first: its blanks
+     are parts of a Get-Date -Format pattern, where MM is the month and mm the minutes, HH a
+     24-hour and hh a 12-hour clock (captured). Every other blank, a cmdlet name's end, a
+     keyword or a switch, PowerShell matches in any case.
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 6 value, 1 set, 1 seq, 2 count. D2, D7 and D9 were replaced on 2026-10-15
+     from the review's minor 5 (they repeated Part 1 moves; D9's answer was in F's prose). S8's grader flags are in the build
+     contract, section 4: caseFold ON, parenLabels OFF, no drill cs: true (their answers are digits,
+     words a script logs, True/False and fruit names; the cs: true item is faded F1). Every drill
+     was run on 2026-10-15 from a fresh lab with an out folder, its commands typed into ONE
+     PowerShell window in order, in PowerShell 7.6.7, and the ones that run no pwsh and no
+     scheduler in Windows PowerShell 5.1.26100 too, with the same answer (_build/verify_s08.py;
+     D9 registers a real task, polled until it finishes). data/old.csv does not exist. No answer
+     is printed by a Part 1 transcript. */
+  var DRILLS = [
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What does it print? Type it exactly as printed.',
+      code: "PS C:\\Users\\you\\ps-lab> Get-Date -Date '2026-03-04 08:05:09' -Format 'yyyyMMdd-HHmmss'", ans: '20260304-080509',
+      why: '20260304-080509. Each letter group is replaced by its part of the date, yyyy the year, MM the month, dd the day, HH the hour, mm the minutes, ss the seconds, and the hyphen is printed as it is. With nothing between them, the parts run together: a layout often used in file names, since it sorts in time order.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What does it print? Type it exactly as printed.',
+      code: "PS C:\\Users\\you\\ps-lab> '12/01/2025', '03/10/2026' | Sort-Object | Select-Object -First 1", ans: '03/10/2026',
+      why: '03/10/2026. Sorted as text, character by character (Session 2), 0 comes before 1, so the March 2026 date comes first although it is the later one: a date written month first does not sort in time order. Written year first, 2025-12-01 would have come first.' },
+
+    { type: 'count', lbl: 'a script: ~/ps-scripts/twice.ps1 holds these lines',
+      scen: "\"$(Get-Date -Format 'HH:mm:ss') Started\" | Set-Content \"$HOME/ps-lab/out/twice.log\"\n\"$(Get-Date -Format 'HH:mm:ss') Done\" | Add-Content \"$HOME/ps-lab/out/twice.log\"",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/twice.ps1, then run the commands in order. What number does the last one print?',
+      code: 'PS C:\\Users\\you\\ps-lab> ~/ps-scripts/twice.ps1\nPS C:\\Users\\you\\ps-lab> ~/ps-scripts/twice.ps1\nPS C:\\Users\\you\\ps-lab> ~/ps-scripts/twice.ps1\nPS C:\\Users\\you\\ps-lab> (Get-Content out/twice.log).Count', ans: '2', alt: ['two'],
+      why: '2. Set-Content replaces the whole file, so each run starts the log again with its Started line, and only that run\u2019s Done line is added after it. A log written this way only ever holds the last run: write every line of a log with Add-Content.' },
+
+    { type: 'seq', lbl: 'a script: ~/ps-scripts/carry.ps1 holds these lines',
+      scen: "$log = \"$HOME/ps-lab/out/carry.log\"\nfunction Write-Log {\n  param([string]$Message)\n  \"$(Get-Date -Format 'HH:mm:ss') $Message\" | Add-Content $log\n}\nWrite-Log 'Started'\ntry {\n  Import-Csv \"$HOME/ps-lab/data/old.csv\"\n} catch {\n  Write-Log 'FAILED'\n}\nWrite-Log 'Done'",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/carry.ps1 and run the commands. Leaving out the times, which words are in the log, in order? Separate them with commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> ~/ps-scripts/carry.ps1\nPS C:\\Users\\you\\ps-lab> Get-Content out/carry.log', ans: 'Started, FAILED, Done',
+      why: 'Started, FAILED, Done. The catch logs the failure, but nothing in it throws the error on, so the script carries on past the try and logs Done, as if all were well, and would end with exit code 0. A bare throw on the line after the FAILED one would stop it there.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> 'a', 'b', 'c' | Set-Content out/n.txt\nPS C:\\Users\\you\\ps-lab> New-Item -ItemType Directory out -Force | Out-Null\nPS C:\\Users\\you\\ps-lab> New-Item out/n.txt -Force | Out-Null\nPS C:\\Users\\you\\ps-lab> Add-Content out/n.txt 'd'\nPS C:\\Users\\you\\ps-lab> (Get-Content out/n.txt).Count", ans: '1', alt: ['one'],
+      why: '1. -Force on the out folder keeps it and its files, so n.txt still has three lines after the second command. -Force on the FILE replaces it with an empty one, so the three lines are gone, and Add-Content leaves only d.' },
+
+    { type: 'value', lbl: 'a script: ~/ps-scripts/daily.ps1 holds these lines',
+      scen: "$ErrorActionPreference = 'Stop'\nNew-Item -ItemType Directory \"$HOME/ps-lab/out/daily\" | Out-Null\n'made it'",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/daily.ps1, then run the commands in order. What number does the last one print?',
+      code: 'PS C:\\Users\\you\\ps-lab> pwsh -NoProfile -File ~/ps-scripts/daily.ps1\nPS C:\\Users\\you\\ps-lab> pwsh -NoProfile -File ~/ps-scripts/daily.ps1\nPS C:\\Users\\you\\ps-lab> $LASTEXITCODE', ans: '1', alt: ['one'],
+      why: '1. The first run makes out/daily and prints made it. The second finds it already there: without -Force, New-Item errors, the Stop preference stops the script, and an error it did not catch ends it with exit code 1. That script is not safe to run twice.' },
+
+    { type: 'value', lbl: 'a script: ~/ps-scripts/note.ps1 holds this line',
+      scen: "'hi' | Set-Content note.txt",
+      ask: 'Save the line in the grey box as ~/ps-scripts/note.ps1, then run the commands in order. What does the last one print?',
+      code: 'PS C:\\Users\\you\\ps-lab> pwsh -NoProfile -File ~/ps-scripts/note.ps1\nPS C:\\Users\\you\\ps-lab> Test-Path ~/ps-scripts/note.txt', ans: 'False', alt: ['$false'],
+      why: 'False. note.txt is a relative path, so it is looked up from the folder the script started in, ps-lab, not from where the script is saved: the file is ps-lab/note.txt. Built from $PSScriptRoot, as "$PSScriptRoot/note.txt", it would have landed beside the script.' },
+
+    { type: 'set', lbl: 'a script: ~/ps-scripts/record.ps1 holds these lines',
+      scen: "Start-Transcript -Path \"$HOME/ps-lab/out/record.txt\" | Out-Null\n'apple'\nWrite-Host 'banana'\nthrow 'cherry'\n'damson'\nStop-Transcript | Out-Null",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/record.ps1 and run the command. Which of the four fruit names are in out/record.txt afterwards? List them in any order, separated by commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> pwsh -NoProfile -File ~/ps-scripts/record.ps1', ans: 'apple, banana, cherry',
+      why: 'apple, banana and cherry. A transcript records everything that appears in the window, the output and the Write-Host text included, and the error from throw too: its message, cherry, is shown, so it is recorded. throw stops the script, so damson never runs, and Stop-Transcript never runs either: the file is closed when that PowerShell ends.' },
+
+    { type: 'value', lbl: 'on Windows: a scheduled task',
+      scen: "~/ps-scripts/check-old.ps1 holds:\n  try { Get-Content \"$HOME/ps-lab/data/old.csv\" } catch { exit 4 }\n\nThe task Fernhill check runs it:\n  pwsh -NoProfile -NonInteractive -File \"C:\\Users\\you/ps-scripts/check-old.ps1\"",
+      ask: 'You start the task, wait a few seconds, and read Get-ScheduledTaskInfo. What is its LastTaskResult?',
+      code: "PS C:\\Users\\you\\ps-lab> Start-ScheduledTask -TaskName 'Fernhill check'\nPS C:\\Users\\you\\ps-lab> Start-Sleep -Seconds 5\nPS C:\\Users\\you\\ps-lab> (Get-ScheduledTaskInfo -TaskName 'Fernhill check').LastTaskResult", ans: '0', alt: ['zero'],
+      why: '0. Get-Content on a missing file gives a non-terminating error (Session 7): it reports it and carries on, so try never sees an error, catch never runs, and exit 4 is skipped. The script reaches its end, so it ends with exit code 0, which the task records. With -ErrorAction Stop it would have been 4.' },
+
+    { type: 'value', lbl: 'macOS and Linux: a crontab line',
+      scen: '',
+      ask: 'At what time of day does cron run this line? Answer as HH:mm, with the hour from 00 to 23.',
+      code: '15 7 * * * /opt/microsoft/powershell/7/pwsh -NoProfile -NonInteractive -File /home/you/ps-scripts/error-report.ps1', ans: '07:15', alt: ['7:15'],
+      why: '07:15. The first field is the minute, 15, and the second the hour, 7; the three stars mean every day of every month, any day of the week. Reading the fields the other way round, as 15:07, is the usual slip.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     NONE in Session 8 (build contract section 4: "Parsons only on a genuinely ordered process;
+     where a session has none, ship another faded item instead"). Every script and command
+     sequence the session has was tried: each has at least one line that can move without
+     changing what it does (a variable set before or after a function, $ErrorActionPreference
+     anywhere above the read, a trigger built before or after the action), so no ordering item
+     could have exactly one right answer (rule 7). Part 3 has four faded items instead. */
+  var PARSONS = [
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    if (!wrap) return;          /* Session 8 has no Parsons item, and so no container */
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). F1 is cs: true, the track's first (build contract
+     section 4): a Get-Date -Format pattern's case is its meaning (MM month, mm minutes, HH 24-hour,
+     hh 12-hour; captured). Every other blank is matched in any case, as PowerShell does. Each
+     prompt names its blanks in order; hyphens sit outside the boxes. */
+  var FADED = [
+    { prompt: 'Print the time now in the layout 2026-03-04 08:05:09 shows: the year, a hyphen, the month, a hyphen, the day, a space, then the hour from 00 to 23, the minutes and the seconds, with colons. Fill in the month, the day, the hour and the minutes, in that order. Case matters here.',
+      code: "Get-Date -Format 'yyyy-%%-%% %%:%%:ss'", ans: ['MM', 'dd', 'HH', 'mm'], cs: true },
+    { prompt: 'Log a failed read, then let the script still fail loudly. Fill in the start of the cmdlet that adds a line to the END of the log, then the keyword that, on its own, throws the same error on.',
+      code: "function Write-Log {\n  param([string]$Message)\n  \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message\" | %%-Content $log\n}\ntry {\n  $orders = Import-Csv $File\n} catch {\n  Write-Log \"FAILED: $($_.Exception.Message)\"\n  %%\n}", ans: ['Add', 'throw'] },
+    { prompt: 'Make sure the lab\u2019s out folder is there, whether or not a rebuild deleted it, so a second run gives no error, and print nothing. Fill in the item type this workbook uses for a folder, then the switch (its hyphen is already there), then the end of the cmdlet that throws away what comes down the pipe.',
+      code: "New-Item -ItemType %% \"$HOME/ps-lab/out\" -%% | Out-%%", ans: ['Directory', 'Force', 'Null'] },
+    { prompt: 'On Windows: build what to run and when, hand them to Task Scheduler under the name Fernhill heartbeat, then run it at once to test it. Fill in the end of each of the four cmdlet names, in order.',
+      code: "$action = New-ScheduledTask%% -Execute $pwsh -Argument $arguments\n$trigger = New-ScheduledTask%% -Daily -At '7:00 AM'\n$trigger.StartBoundary = Get-Date '7:00 AM' -Format s\n%%-ScheduledTask -TaskName 'Fernhill heartbeat' -Action $action -Trigger $trigger\n%%-ScheduledTask -TaskName 'Fernhill heartbeat'", ans: ['Action', 'Trigger', 'Register', 'Start'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'From the lab: add a line to out/check.log that holds the time now as yyyy-MM-dd HH:mm:ss, a space, and Checked the tickets. Do it twice, then print the log.',
+      sol: "\"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') Checked the tickets\" | Add-Content out/check.log\n\"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') Checked the tickets\" | Add-Content out/check.log\nGet-Content out/check.log\n\nIt prints, with your own date and time:\n2026-10-15 10:30:01 Checked the tickets\n2026-10-15 10:30:02 Checked the tickets\n\nAdd-Content adds to the end, so each run keeps the lines before it." },
+    { task: 'Write ~/ps-scripts/count-logs.ps1, with a -Path parameter defaulting to the lab\u2019s logs folder. It stops on any error and logs to count-logs.log beside itself: Started: and the path, then Found, how many files are in that folder, and files; if anything fails, FAILED: and the reason, and then it fails loudly. From the top folder /, run it with pwsh -NoProfile -NonInteractive -File, then again with -Path ~/ps-lab/nologs, and print the last three lines of its log.',
+      sol: "# count-logs.ps1: counts the files in a folder, and logs what it did.\nparam([string]$Path = \"$HOME/ps-lab/logs\")\n$ErrorActionPreference = 'Stop'\n$log = \"$PSScriptRoot/count-logs.log\"\nfunction Write-Log {\n  param([string]$Message)\n  \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message\" | Add-Content $log\n}\nWrite-Log \"Started: $Path\"\ntry {\n  $files = Get-ChildItem $Path -File\n} catch {\n  Write-Log \"FAILED: $($_.Exception.Message)\"\n  throw\n}\nWrite-Log \"Found $($files.Count) files\"\n\nThen Get-Content ~/ps-scripts/count-logs.log -Tail 3 prints, with your own times:\n2026-10-15 10:30:01 Found 4 files\n2026-10-15 10:30:02 Started: C:\\Users\\you/ps-lab/nologs\n2026-10-15 10:30:02 FAILED: Cannot find path 'C:\\Users\\you\\ps-lab\\nologs' because it does not exist.\n\n-File counts only files, so the archive folder inside logs is not one of the 4.\nWithout -Recurse, a missing folder is an ordinary error, which Stop makes catchable." },
+    { task: 'Write ~/ps-scripts/high-tickets.ps1: it records its run in last-run.txt beside itself, replacing it each time, prints the TicketId of every high-priority ticket, and warns how many there are. Run it, then find the warning in last-run.txt.',
+      sol: "# high-tickets.ps1: lists the high-priority tickets, and records the run.\nStart-Transcript -Path \"$PSScriptRoot/last-run.txt\"\n$high = Import-Csv \"$HOME/ps-lab/data/tickets.csv\" | Where-Object Priority -eq 'high'\n$high | ForEach-Object { $_.TicketId }\nWrite-Warning \"$($high.Count) high-priority tickets\"\nStop-Transcript\n\nThen, from your home folder, Select-String WARNING ps-scripts/last-run.txt prints:\n\nps-scripts\\last-run.txt:23:WARNING: 2 high-priority tickets\n\nStart-Transcript replaces the file each run, since there is no -Append." },
+    { task: 'On Windows: schedule Session 7\u2019s ~/ps-scripts/check-tickets.ps1 (it exits with code 2 when an open ticket is high priority) as Fernhill tickets check, every day at 8:00 AM, as section F did. Run it at once, read its LastTaskResult, then remove the task. On macOS or Linux, write the crontab line for the same schedule instead.',
+      sol: "# check-tickets.ps1 (Session 7): exit code 2 if any open ticket is high priority.\n$urgent = Import-Csv \"$HOME/ps-lab/data/tickets.csv\" | Where-Object State -eq 'open' |\n  Where-Object Priority -eq 'high'\nif ($urgent.Count -gt 0) {\n  \"Urgent tickets: $($urgent.Count)\"\n  exit 2\n}\n'No urgent tickets'\n\nThen, at the prompt:\n$pwsh = (Get-Command pwsh).Source\n$script = \"$HOME/ps-scripts/check-tickets.ps1\"\n$arguments = '-NoProfile -NonInteractive -File \"' + $script + '\"'\n$action = New-ScheduledTaskAction -Execute $pwsh -Argument $arguments\n$trigger = New-ScheduledTaskTrigger -Daily -At '8:00 AM'\n$trigger.StartBoundary = Get-Date '8:00 AM' -Format s\n$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable\nRegister-ScheduledTask -TaskName 'Fernhill tickets check' -Action $action -Trigger $trigger -Settings $settings\nStart-ScheduledTask -TaskName 'Fernhill tickets check'\nStart-Sleep -Seconds 5\n(Get-ScheduledTaskInfo -TaskName 'Fernhill tickets check').LastTaskResult\nUnregister-ScheduledTask -TaskName 'Fernhill tickets check'\n\nLastTaskResult prints:\n2\n\nThe script's exit 2 is the task's result. On macOS or Linux the line is\n0 8 * * * PWSH -NoProfile -NonInteractive -File SCRIPT, with PWSH and SCRIPT\nthe full paths (Get-Command pwsh).Source and the script give." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Seventeen cards, sized to the atoms THIS session has (band 12-16, cap 18; the 17th, for
+     -Format s, came from the 2026-10-15 review's M1). The deck stays
+     session-local: re-testing Sessions 1 to 7 is Part 6's job. */
+  var CARDS = [
+    { f: "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'", b: 'the time now as text, year first, hour 00 to 23; a few language settings change its colons or its year' },
+    { f: 'Get-Date -Format s', b: 'the sortable layout, 2026-03-04T08:05:09: the same under every language setting tried; use it where a program reads the time' },
+    { f: 'MM and mm, in a -Format pattern', b: 'MM is the month, mm the minutes: case matters, and a swap gives no error' },
+    { f: 'HH and hh, in a -Format pattern', b: 'HH is the hour from 00 to 23; hh is a 12-hour clock, so 8 AM and 8 PM both print 08' },
+    { f: 'throw, on its own, inside catch', b: 'throws the same error on: the script still stops, and pwsh -File ends with exit code 1' },
+    { f: 'Start-Transcript -Path FILE, then later Stop-Transcript', b: 'records everything shown in the window into FILE (output, warnings, errors, Write-Host); not what goes into other files' },
+    { f: 'Start-Transcript -Append', b: 'adds this run to the end of the file; without it, the file is replaced' },
+    { f: 'New-Item -ItemType Directory DIR -Force', b: 'makes the folder if it is missing; if it is there, keeps it and its files, with no error' },
+    { f: 'New-Item FILE -Force, on a file that exists', b: 'replaces it with an empty file, without a word' },
+    { f: 'a report, and a log: replace or add?', b: 'replace the report (Export-Csv, Set-Content); add to the log (Add-Content)' },
+    { f: '$PSScriptRoot', b: 'the folder the running script is saved in, wherever it started; empty at the prompt' },
+    { f: 'where a scheduled script starts', b: 'not where you are: Task Scheduler started it in C:\\Windows\\System32 here, cron in the home folder' },
+    { f: 'pwsh -NoProfile -NonInteractive -File SCRIPT', b: 'how a scheduler should run a script: no profile, and a missing Mandatory value is an error, not a wait' },
+    { f: 'Register-ScheduledTask -TaskName NAME -Action A -Trigger T -Settings S', b: 'hands the task to Task Scheduler; registering a taken name fails unless you add -Force' },
+    { f: 'Start-ScheduledTask, then Get-ScheduledTaskInfo', b: 'runs the task now; LastTaskResult is its exit code (267011: not run yet, 267009: still running)' },
+    { f: '0 7 * * * COMMAND, in a crontab', b: 'minute 0, hour 7, every day: COMMAND runs at 7:00 each morning (the minute comes first)' },
+    { f: 'crontab FILE, crontab -l, crontab -r', b: 'install FILE as your whole crontab; list it; remove every line at once' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four questions on Session 8 and two spaced-review questions, Q5 from Session 6 and Q6 from
+     Session 4, whose review links open those sessions. Correct-option length ranks (longest = 1)
+     planned before writing: 3, 1, 2, 4, 2, 3 (longest on exactly one question, shortest on exactly
+     one, ranks 2 and 3 twice each, no tie with a distractor; rule 9). check-quiz.py confirms. */
+  var QUIZ = [
+    { q: 'A run you know happened on 4 March 2026 at 08:05:09 is logged as 2026-05-04 08:03:09. What went wrong?',
+      o: ['Its -Format pattern has MM and mm swapped',
+          'The computer\u2019s clock was set to the wrong month',
+          'Add-Content changed the digits as it saved the line',
+          'Get-Date used the computer\u2019s layout'],
+      c: 0,
+      e: 'MM is the month and mm the minutes, so a swap puts the minutes (05) where the month belongs and the month (03) where the minutes belong, with no error. The clock was right (the other parts are), Add-Content writes text exactly as it is given, and -Format replaces the computer\u2019s own layout.',
+      part: { id: 'concept-a', label: 'A. Timestamps: Get-Date and -Format' } },
+
+    { q: 'A scheduled task\u2019s LastTaskResult is 0, but its log has no line for that run. Which explains it?',
+      o: ['The script logged to a relative path, and with no Stop preference the failed write did not stop it',
+          'The task has not run yet; 0 is Task Scheduler\u2019s number for that',
+          '0 means the script stopped on an error it did not catch',
+          'Add-Content never writes while a scheduled task runs'],
+      c: 0,
+      e: 'Task Scheduler started the script in C:\\Windows\\System32, so a relative log path pointed there; the write was refused, and without the Stop preference the script carried on and ended with 0. A task that never ran shows 267011, an uncaught error gives 1, and Add-Content works in a task like anywhere else.',
+      part: { id: 'concept-g', label: 'G. Test it before you trust it' } },
+
+    { q: 'Why does the command a scheduler runs include -NonInteractive?',
+      o: ['A missing Mandatory value fails at once, instead of waiting for an answer',
+          'It skips loading your profile, so every run starts the same',
+          'It lets the task start while a laptop runs on battery, and keeps it going if the laptop is unplugged',
+          'It runs the script as an administrator'],
+      c: 0,
+      e: 'With nobody to answer, a question would wait, up to Task Scheduler\u2019s 72-hour limit; -NonInteractive turns it into an error, exit code 1. -NoProfile is the one that skips your profile, the battery behaviour comes from the task\u2019s settings, and nothing here makes a task run as an administrator.',
+      part: { id: 'concept-f', label: 'F. Schedule it: Task Scheduler, or cron' } },
+
+    { q: 'A crontab line starts 7 0 * * *, written to mean seven o\u2019clock each morning. When does it run?',
+      o: ['At 00:07 each day',
+          'At 07:00 each morning, as intended',
+          'On the 7th day of every month, at midnight',
+          'Every seven minutes, all day long'],
+      c: 0,
+      e: 'The first field is the minute and the second the hour, so 7 0 means minute 7 of hour 0: seven minutes past midnight, every day. Seven each morning is 0 7 * * *. The day of the month is the third field, and nothing here repeats every few minutes.',
+      part: { id: 'concept-f', label: 'F. Schedule it: Task Scheduler, or cron' } },
+
+    { q: 'Spaced review, from Session 6. In a script, where does comment-based help go so that Get-Help reads it?',
+      o: ['At the very top, above [CmdletBinding()] and param()',
+          'Just below param(), before the first line of code',
+          'Anywhere in the file, as long as each keyword starts with a full stop',
+          'In a separate .txt file named after the script'],
+      c: 0,
+      e: 'The help block goes first, then [CmdletBinding()], then param(). Help between param() and the code is ignored without a word, so is help anywhere else in the middle, and a .txt file beside the script is not read at all.',
+      part: { ext: S06_URL + '#concept-g', label: 'Session 6, G. Help for your own command: comment-based help' } },
+
+    { q: 'Spaced review, from Session 4. Export-Csv writes to a file that already exists. What happens?',
+      o: ['It replaces the file, without asking',
+          'It adds its rows to the end of the file',
+          'It refuses, because a file with that name exists',
+          'It asks first'],
+      c: 0,
+      e: 'Export-Csv replaces the file silently, which is what makes a report safe to run twice. It adds rows only when you give it -Append; it does not refuse, and it does not ask.',
+      part: { ext: S04_URL + '#concept-f', label: 'Session 4, F. Writing a CSV: Export-Csv' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S08 on your Hub: Level 4 is complete. Move on to Session 9.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    var pz = document.getElementById('parsons'); if (pz) pz.innerHTML = '';
+    document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
