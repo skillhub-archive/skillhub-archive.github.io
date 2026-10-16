@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 9: Modules and tests</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 46 characters, inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is TestDrive (9 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 09 // Level 5 &middot; Professional Tooling</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Modules and tests</h1>
+    <p class="goal">Today your functions get a home of their own. You move Session 8&rsquo;s log tools into a module that any script can load, install a module from the PowerShell Gallery after checking it first, and write Pester tests that prove your functions work. Then you change the code the safe way: a test that fails first, a fix, and every test passing again.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Package your functions as a module with passing Pester tests.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep one PowerShell 7 window open beside this page, in your lab, for the whole of Part 1.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. Each section starts from the lab and the files you saved in <code>ps-scripts</code>, and loads the module again itself, so if you close the window, open a new one in <code>ps-lab</code> and carry on from the section you were in.</p>
+        <p><b>Two places to write today</b>, as in Sessions 5 to 8: reports go in <code>ps-lab/out</code>, and scripts, logs, and now your module and its tests, in <code>ps-scripts</code> in your home folder, outside the lab, so rebuilding the lab never deletes them.</p>
+        <p><b>One step needs the internet:</b> section D installs Pester, the testing tool, from the PowerShell Gallery. Everything else works offline. <b>Windows, macOS or Linux:</b> the sections are the same everywhere; where Linux and macOS differ, a box says so.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Later sections use files saved in earlier ones, so work them in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. Every transcript was captured on Windows 11 in PowerShell 7.6 with Pester 6.2, in a window 120 characters wide, from a fresh lab, except the boxes marked <i>macOS and Linux</i>, which were captured in PowerShell 7.6 on Ubuntu Linux 26.04. Where a path shows <code>you</code>, your own user name appears instead. <b>Some lines change on every run:</b> a line marked <i>your time</i> holds the moment it ran, or how long a test took, so your numbers will differ; the rest of the line should match. A line marked <i>yours differs</i> holds a detail of your own computer or of the day you ran it, such as a version number or a temporary folder&rsquo;s name. A command too long for this page is wrapped after a <code>|</code> and marked <i>one line, wrapped here</i>: type it as one line. A printed line too long for this page is marked the same way. A box headed with a file name, such as <code>~/ps-scripts/Fernhill/Fernhill.psm1</code>, is a file you type into an editor and save.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including your <code>out</code> folder, builds it fresh, exactly as Session 1 did, and moves you into it. It never touches anything outside <code>ps-lab</code>, so your scripts in <code>ps-scripts</code> are safe from it.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 to 8)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. On Windows it ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. On Linux the listing has more columns (who owns each file, and its permissions); the same four names are there. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+      <p>Then make the folder for today&rsquo;s reports, and a folder for the module inside <code>ps-scripts</code>:</p>
+      <div class="filebox">
+        <div class="fbh">a place for reports, and for the module &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory ~/ps-scripts/Fernhill -Force | Out-Null</span></code></pre>
+      </div>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. From a script to a module: Import-Module</h3>
+      <p>Session 8&rsquo;s <code>Write-Log</code> lives inside <code>error-report.ps1</code>. A second script that wants it has to copy it, and then the two copies drift apart. Session 6 showed one way out: keep a function in its own file and dot-source it. A <b>module</b> is the tidy version of that idea: a file of functions, saved with the extension <b><code>.psm1</code></b> (PowerShell script module), that any script or prompt loads with <b><code>Import-Module PATH</code></b>. By custom a module sits in a folder of the same name, so this one is <code>Fernhill/Fernhill.psm1</code>; section C shows why the name matters.</p>
+      <p>The module starts with one function, <code>Format-LogLine</code>. It builds the line <code>Write-Log</code> used to build: the time, a space, and the message. Its <code>-Time</code> parameter is new in two ways. Its type, <b><code>[datetime]</code></b>, is a date and a time together, the kind of value <code>Get-Date</code> gives back. And its default, <code>(Get-Date)</code>, is a command in parentheses: as in Session 8, PowerShell runs what is inside the parentheses first, so when you leave <code>-Time</code> out, the time is now. Handing <code>Get-Date</code> a <code>[datetime]</code> through <code>-Date</code> uses that exact moment, with no text to read. To try it with a fixed time, store one in a variable first, as the tests in section E will:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; a module file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}</code></pre>
+      </div>
+      <p>Saving the file does nothing on its own. Import it, then its function works like any command. <b><code>Get-Command -Module NAME</code></b> lists what a module gives you, and <b><code>Get-Module NAME</code></b> shows that it is loaded:</p>
+      <div class="filebox">
+        <div class="fbh">import it, then use it &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $time = Get-Date -Date '2026-03-04 08:05:09'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Format-LogLine -Message 'Started' -Time $time</span>
+2026-03-04 08:05:09 Started
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Format-LogLine -Message 'Started'</span>
+2026-10-16 08:36:49 Started  <span class="cm">your time</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command -Module Fernhill</span>
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Function        Format-LogLine                                     0.0        Fernhill
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Module Fernhill</span>
+
+ModuleType Version    PreRelease Name                                ExportedCommands
+---------- -------    ---------- ----                                ----------------
+Script     0.0                   Fernhill                            Format-LogLine</code></pre>
+      </div>
+      <p>A <code>Version</code> of <code>0.0</code> means the module has no version number of its own yet; that is fine for a module you keep for yourself.</p>
+      <p><b>The trap: Import-Module does not notice a changed file.</b> Add <code>Write-Log</code> to the module, from Session 8, with one change you will see the reason for in section B: it is given the log file as a parameter, <code>-Path</code>, instead of reading a variable. Save it, and try it:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; a module file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  Format-LogLine -Message $Message | Add-Content $Path
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">the old copy stays loaded until -Force &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Write-Log -Path out/demo.log -Message 'Started'</span>
+Write-Log: The term 'Write-Log' is not recognized as a name of a cmdlet,     <span class="cm">one line, wrapped here</span>
+function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the   <span class="cm">one line, wrapped here</span>
+path is correct and try again.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Write-Log -Path out/demo.log -Message 'Started'</span>
+Write-Log: The term 'Write-Log' is not recognized as a name of a cmdlet,     <span class="cm">one line, wrapped here</span>
+function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the   <span class="cm">one line, wrapped here</span>
+path is correct and try again.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Write-Log -Path out/demo.log -Message 'Started'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/demo.log</span>
+2026-10-16 08:36:51 Started  <span class="cm">your time</span></code></pre>
+      </div>
+      <p>The second <code>Import-Module</code> saw the module already loaded and did nothing, so the window still had the old copy, with no <code>Write-Log</code> in it. <b><code>-Force</code></b> loads the file again, as it is saved now. So after every change to a module, import it again with <code>-Force</code>, or open a new window. <b><code>Remove-Module NAME</code></b> unloads a module, if you ever want it gone from the window.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Modules work the same in 5.1: the same import, the same old copy until <code>-Force</code>, and the error in the long form; its <code>Get-Module</code> table has no PreRelease column. On this workbook&rsquo;s computer, which blocks 5.1 scripts (Session 5), a <code>.psm1</code> module was not blocked: 5.1 imported it and ran its functions.</div>
+      <div class="note"><span class="nk">In Bash</span>Bash has no modules. The nearest thing is Session 6&rsquo;s box: a file of functions loaded with <code>source</code>, which, like a module, has to be loaded again after you change it.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> A module of your own</div>
+        <ol>
+          <li>Save <code>Fernhill.psm1</code> with <code>Format-LogLine</code> only, import it, and print <code>Ready</code> with the time <code>2026-03-04 20:05:09</code>.</li>
+          <li>Add <code>Write-Log</code>, save, and use it before and after importing again with <code>-Force</code>. Then add a line to <code>out/demo.log</code> and read the file.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 is the first box above with another message and time. In step 2, the first <code>Write-Log</code> fails, because the loaded copy is the old one.</p></details>
+        <details><summary>Show the commands</summary>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $time = Get-Date -Date '2026-03-04 20:05:09'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Format-LogLine -Message 'Ready' -Time $time</span>
+2026-03-04 20:05:09 Ready
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Write-Log -Path out/demo.log -Message 'Ready'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/demo.log</span>
+2026-10-16 08:36:51 Started  <span class="cm">your time</span>
+2026-10-16 08:36:52 Ready  <span class="cm">your time</span></code></pre>
+<p>Here the module already holds both functions, so <code>-Force</code> loads <code>Write-Log</code> at once. In your own step 2, the <code>Write-Log</code> before the <code>-Force</code> import fails as in the box above.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="1"> I made a module, imported it, and reloaded it after a change</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. What a module shares, and what it keeps to itself</h3>
+      <p>Unless it says otherwise, a module shares every function in it. <b><code>Export-ModuleMember -Function NAME, NAME</code></b>, as the last line of the module, shares only the ones it names; the others still work inside the module, but the prompt and your scripts cannot call them by name. That is how a module keeps a helper to itself. Try it by sharing <code>Write-Log</code> alone:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; a module file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+Export-ModuleMember -Function Write-Log</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">one shared, one kept inside &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command -Module Fernhill</span>
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Function        Write-Log                                          0.0        Fernhill
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Write-Log -Path out/demo.log -Message 'Shared'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/demo.log -Tail 1</span>
+2026-10-16 08:36:52 Shared  <span class="cm">your time</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Format-LogLine -Message 'Kept inside'</span>
+Format-LogLine: The term 'Format-LogLine' is not recognized as a name of a   <span class="cm">one line, wrapped here</span>
+cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the   <span class="cm">one line, wrapped here</span>
+path is correct and try again.</code></pre>
+      </div>
+      <p><code>Write-Log</code> still called <code>Format-LogLine</code> for its line, from inside the module; only the prompt could not. Fernhill wants both shared, so its last line will name both.</p>
+      <p><b>A module has variables of its own.</b> Here is why <code>Write-Log</code> now takes <code>-Path</code>. Session 8&rsquo;s version read <code>$log</code>, a variable the script set, and that worked because the function was in the same script. Moved into a module as it was, it cannot see the script&rsquo;s variables when you run the script by its path. Here is that move, in a module called <code>OldLog</code>, in a folder of its own, and a script that uses it. Make the folder first, then save the two files:</p>
+      <div class="filebox">
+        <div class="fbh">a folder for the old module &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory ~/ps-scripts/OldLog -Force | Out-Null</span></code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/OldLog/OldLog.psm1 &middot; a module file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/OldLog/OldLog.psm1"><code># OldLog.psm1: Session 8's Write-Log, moved into a module as it was.
+function Write-Log {
+  param([string]$Message)
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message" | Add-Content $log
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/old-log.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/old-log.ps1"><code># old-log.ps1: logs through Session 8's Write-Log, now in a module.
+$ErrorActionPreference = 'Stop'
+Import-Module "$PSScriptRoot/OldLog/OldLog.psm1" -Force
+$log = "$PSScriptRoot/old-log.log"
+Write-Log 'Started'
+'Done'</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">two surprises in one run &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; ~/ps-scripts/old-log.ps1</span>
+Add-Content: Cannot bind argument to parameter 'Path' because it is null.
+Done
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Test-Path ~/ps-scripts/old-log.log</span>
+False</code></pre>
+      </div>
+      <p>First surprise: inside the module, <code>$log</code> held nothing, so <code>Add-Content</code> had no file to write to. Second: the script says <code>$ErrorActionPreference = 'Stop'</code>, yet it carried on and printed <code>Done</code>. A preference is a variable too, and the module&rsquo;s functions did not see the script&rsquo;s. Run by its path, a script that seems to fail loudly can hide an error inside a module.</p>
+      <p>The cure is two habits, and Fernhill gets both now:</p>
+      <ul>
+        <li><b>Give a module&rsquo;s functions what they need through parameters</b>, as <code>Write-Log -Path</code> does. A parameter works however the function is called.</li>
+        <li><b>Put <code>$ErrorActionPreference = 'Stop'</code> at the top of the module</b>, so its own functions stop on an error, and the error reaches the script that called them.</li>
+      </ul>
+      <div class="note"><span class="nk">Run with pwsh -File, it hides</span>Run the same script with <code>pwsh -NoProfile -File</code>, the way a scheduled task runs it (Session 8), and it works: the log gets its line. Run that way, PowerShell keeps the script&rsquo;s variables where every module can see them. So a module that reads a script&rsquo;s variables can pass every scheduled run and fail the first time you run the script by hand, or the other way round. Parameters behave the same both ways, which is the reason for the first habit.</div>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; a module file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Fernhill&rsquo;s own Stop, reaching the caller &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try {</span>
+<span class="cmd">&gt;&gt;   Write-Log -Path out/nofolder/x.log -Message 'x'</span>
+<span class="cmd">&gt;&gt;   'logged'</span>
+<span class="cmd">&gt;&gt; } catch { 'stopped' }</span>
+stopped</code></pre>
+      </div>
+      <p>That is one command over four lines, typed at the <code>&gt;&gt;</code> prompt (Session 6). The folder <code>out/nofolder</code> is not there, so <code>Add-Content</code> fails; with Stop at the top of the module, the failure stops <code>Write-Log</code>, and the <code>try</code> outside it sees the error (Session 7).</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The exports and the <code>try</code> box are the same in 5.1, with errors in the long form. The scripts in this section were checked in PowerShell 7 only, because this workbook&rsquo;s computer blocks 5.1 scripts.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Keep one inside, then share both</div>
+        <ol>
+          <li>Save Fernhill sharing <code>Write-Log</code> only. Import it again, list its commands, and call <code>Format-LogLine</code> at the prompt. What happens?</li>
+          <li>Make the <code>OldLog</code> folder, save <code>OldLog.psm1</code> and <code>old-log.ps1</code>, and run the script by its path, then with <code>pwsh -NoProfile -File</code>. Which run wrote a log line?</li>
+          <li>Give Fernhill <code>$ErrorActionPreference = 'Stop'</code> at the top and share both functions. Import it again and list its commands.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Each step reuses a box above. After every save, <code>Import-Module PATH -Force</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -File ~/ps-scripts/old-log.ps1</span>
+Done
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/old-log.log</span>
+2026-10-16 08:37:00 Started  <span class="cm">your time</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Command -Module Fernhill</span>
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Function        Format-LogLine                                     0.0        Fernhill
+Function        Write-Log                                          0.0        Fernhill</code></pre>
+<p>Steps 1 and 2 are the boxes above. Only the <code>pwsh -File</code> run wrote a line; run by its path, <code>$log</code> was empty inside the module.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I chose what my module shares, and gave it its own Stop</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. Where modules live: $env:PSModulePath</h3>
+      <p>In Session 8 you used <code>Get-ScheduledTask</code> without importing anything. That worked because PowerShell keeps a list of folders where modules live, in <b><code>$env:PSModulePath</code></b>. The <code>$env:</code> part means an <b>environment variable</b>, a setting the computer gives every program, not one PowerShell made. A module saved in one of those folders, in a folder of its own name, is found and loaded by itself the first time you use one of its commands. The list is one piece of text, the folders separated by a <code>;</code> on Windows. <b><code>-split ';'</code></b> cuts a piece of text apart at every <code>;</code>, so each folder prints on a line of its own:</p>
+      <div class="filebox">
+        <div class="fbh">where PowerShell looks for modules &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $env:PSModulePath -split ';'</span>
+C:\Users\you\Documents\PowerShell\Modules  <span class="cm">yours differs</span>
+C:\Program Files\PowerShell\Modules
+c:\program files\powershell\7\Modules
+C:\Program Files\WindowsPowerShell\Modules
+C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules</code></pre>
+      </div>
+      <p>The first folder is your own: a module saved there is yours alone (if OneDrive or your company moves your Documents folder, it names that place). The next two are PowerShell 7&rsquo;s own, for everyone on the computer. The last two are Windows PowerShell 5.1&rsquo;s, and PowerShell 7 on Windows looks there as well, which matters in a moment. Your Fernhill module lives in <code>ps-scripts</code>, outside this list, so it never loads by itself: a script imports it by its path. That keeps it beside the scripts that use it, and makes every import visible.</p>
+      <div class="filebox">
+        <div class="fbh">macOS and Linux &middot; the same list &middot; captured live on Ubuntu</div>
+<pre data-shell="linux"><code><span class="cmd">PS /home/you/ps-lab&gt; $env:PSModulePath -split ':'</span>
+/home/you/.local/share/powershell/Modules
+/usr/local/share/powershell/Modules
+/opt/microsoft/powershell/7/Modules</code></pre>
+      </div>
+      <p>On Linux the folders are separated by a <code>:</code> (Microsoft&rsquo;s about_PSModulePath page says the same of macOS). There is no Windows PowerShell there, so the list has only PowerShell 7&rsquo;s folders.</p>
+      <p><b><code>Get-Module -ListAvailable NAME</code></b> searches every folder on the list for a module. Its usual table is wide and cuts its last column short, so pick the three columns that matter: the name, the version, and <code>ModuleBase</code>, the folder the module is in. Ask it about <b>Pester</b>, the testing tool sections E to G use, before you install anything:</p>
+      <div class="filebox">
+        <div class="fbh">a Pester is already there, on Windows &middot; captured before Pester 6 was installed</div>
+<pre data-shell="7" data-pre="nouser"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Module -ListAvailable Pester | Select-Object Name, Version, ModuleBase</span>
+
+Name   Version ModuleBase
+----   ------- ----------
+Pester 3.4.0   C:\Program Files\WindowsPowerShell\Modules\Pester\3.4.0</code></pre>
+      </div>
+      <p><b>The trap: Windows comes with an old Pester.</b> Pester 3.4.0 ships with Windows PowerShell 5.1, and PowerShell 7 finds it through those last two folders. It dates from 2016, and the tests written today do not run on it: <code>Invoke-Pester</code>, the command that runs tests, would load it by itself and fail with <code>The BeforeAll command may only be used inside a Describe block.</code>, an error about your test, not about the old version. On Linux, <code>Get-Module -ListAvailable Pester</code> prints nothing until you install it. Either way, the next section installs Pester 6.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>5.1 has its own, shorter list (no PowerShell 7 folders), and the same Pester 3.4.0.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Find the folders</div>
+        <ol>
+          <li>Print your <code>$env:PSModulePath</code>, one folder per line. Which folder is yours alone?</li>
+          <li>Ask which Pester versions your computer has.</li>
+          <li>Find where the <code>ScheduledTasks</code> module from Session 8 lives (Windows only).</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 3 is <code>Get-Module -ListAvailable</code> with that name, and the same three columns.</p></details>
+        <details><summary>Show the commands</summary>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Module -ListAvailable ScheduledTasks |</span>
+<span class="cmd">  Select-Object Name, Version, ModuleBase</span>                                    <span class="cm">one line, wrapped here</span>
+
+Name           Version ModuleBase
+----           ------- ----------
+ScheduledTasks 1.0.0.0 C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules\ScheduledTasks</code></pre>
+<p>Steps 1 and 2 are the boxes above. <code>ScheduledTasks</code> lives in one of Windows PowerShell&rsquo;s folders, which is why Session 8 could use it without an import.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I found where my computer keeps its modules</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. From the Gallery, after a look: Find-Module and Install-Module</h3>
+      <p>The <b>PowerShell Gallery</b> (powershellgallery.com) is the public shop for modules: thousands of them, free, published by anyone with an account. That last part is the point: a module you install runs as you, with everything you can reach, so look before you install. Three steps, every time.</p>
+      <p><b>Step 1, look.</b> <b><code>Find-Module NAME</code></b> asks the Gallery about a module without installing anything. Its usual table is short, so pick the properties that tell you who made it and how fresh it is (a list, because there are five of them, Session 4):</p>
+      <div class="filebox">
+        <div class="fbh">who publishes Pester? &middot; captured live, online</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Find-Module Pester |</span>
+<span class="cmd">  Select-Object Name, Version, Author, PublishedDate, ProjectUri</span>             <span class="cm">one line, wrapped here</span>
+
+Name          : Pester
+Version       : 6.2.0  <span class="cm">yours differs</span>
+Author        : Pester Team
+PublishedDate : 9/9/2026 7:41:50 PM  <span class="cm">yours differs</span>
+ProjectUri    : https://github.com/Pester/Pester</code></pre>
+      </div>
+      <p>Check three things. Is it the module you meant? Names are easy to copy: <code>Find-Module *Pester*</code> lists Pester and thirteen other modules with Pester in the name, by other authors (when this page was written), and each is a different thing. Who publishes it? <code>Author</code> says the Pester Team, and <code>ProjectUri</code> points at its public home, where you can read the code. Is it alive? A recent <code>PublishedDate</code> means someone looks after it. Your version and date may be newer.</p>
+      <p><b>Step 2, peek (optional).</b> <b><code>Save-Module NAME -Path FOLDER</code></b> downloads a module into a folder <i>without</i> installing it, so you can read its files first. The folder has to be there already.</p>
+      <details class="note"><summary><b>Look under the hood</b>: download Pester without installing it</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">a download you can read &middot; captured live, online</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out/inspect | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Save-Module Pester -Path out/inspect</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem out/inspect/Pester -Name</span>
+6.2.0  <span class="cm">yours differs</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sig = Get-ChildItem out/inspect -Recurse -Filter Pester.psm1 |</span>
+<span class="cmd">  Get-AuthenticodeSignature</span>                                                  <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sig.Status</span>
+Valid
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sig.SignerCertificate.Subject</span>
+CN=Jakub Jareš, O=Jakub Jareš, L=Praha, C=CZ</code></pre>
+      </div>
+      <p>The folder is named after the version. <b><code>Get-AuthenticodeSignature</code></b> reads a file&rsquo;s <b>digital signature</b>, a mark the publisher puts on it that breaks if anyone changes the file afterwards: <code>Valid</code> means the file is exactly as its signer published it. Its <code>SignerCertificate</code> property holds the signer&rsquo;s certificate, and that has a <code>Subject</code> of its own, the signer&rsquo;s name, so two dots reach it: here Pester&rsquo;s lead developer. Open <code>Pester.psm1</code> in VS Code if you are curious. (<code>Get-AuthenticodeSignature</code> is Windows only: PowerShell on Linux does not have it, but reading the files works everywhere.) Nothing here is installed: delete the folder when you are done with <code>Remove-Item out/inspect -Recurse -Force</code> (<code>-Force</code>, because on Windows <code>Save-Module</code> leaves a hidden file in the download).</p>
+      </details>
+      <p><b>Step 3, install it for yourself.</b> <b><code>Install-Module NAME -Scope CurrentUser</code></b> installs a module into your own folder from section C: no administrator rights, and nobody else on the computer is affected. The Gallery is marked <b>untrusted</b> on a new computer, so it asks you first. Read the question, and answer <code>Y</code> only for a module you have looked at:</p>
+      <div class="filebox">
+        <div class="fbh">the question, and the answer &middot; captured in a console window, from the home folder</div>
+<pre data-shell="once" data-cap="install-q"><code><span class="cmd">PS C:\Users\you&gt; Install-Module Pester -Scope CurrentUser</span>
+
+Untrusted repository
+You are installing the modules from an untrusted repository. If you trust    <span class="cm">one line, wrapped here</span>
+this repository, change its InstallationPolicy value by running the          <span class="cm">one line, wrapped here</span>
+Set-PSRepository cmdlet. Are you sure you want to install the modules from   <span class="cm">one line, wrapped here</span>
+'PSGallery'?
+[Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "N"): Y
+WARNING: Version '3.4.0' of module 'Pester' is already installed at          <span class="cm">one line, wrapped here</span>
+'C:\Program Files\WindowsPowerShell\Modules\Pester\3.4.0'. To install        <span class="cm">one line, wrapped here</span>
+version '6.2.0', run Install-Module and add the -Force parameter, this       <span class="cm">one line, wrapped here</span>
+command will install version '6.2.0' side-by-side with version '3.4.0'.</code></pre>
+      </div>
+      <p><b>On Windows, the old Pester gets in the way once.</b> After the <code>Y</code>, nothing was installed: <code>Install-Module</code> found Pester 3.4.0 and stopped, with a warning that tells you the fix. Adding <b><code>-Force</code></b> installs Pester 6 beside the old one, and the old one stays for Windows PowerShell 5.1. <code>-Force</code> also skips the question, which is why you answer it first:</p>
+      <div class="filebox">
+        <div class="fbh">Windows: install beside the old one &middot; captured in a console window, from the home folder</div>
+<pre data-shell="once" data-cap="install-force"><code><span class="cmd">PS C:\Users\you&gt; Install-Module Pester -Scope CurrentUser -Force</span>
+WARNING: Module 'Pester' version '3.4.0' published by 'CN=Microsoft          <span class="cm">one line, wrapped here</span>
+Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US' will be     <span class="cm">one line, wrapped here</span>
+superceded by version '6.2.0' published by 'CN=Jakub Jareš, O=Jakub Jareš,   <span class="cm">one line, wrapped here</span>
+L=Praha, C=CZ'. If you do not trust the new publisher, uninstall the         <span class="cm">one line, wrapped here</span>
+module.</code></pre>
+      </div>
+      <p>The warning names both publishers: Microsoft for the old one, the Pester developer for the new one, as the signature in step 2 showed. Now the computer has both, and PowerShell 7 picks the newest when it loads Pester:</p>
+      <div class="filebox">
+        <div class="fbh">two Pesters, the newest first &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Module -ListAvailable Pester | Select-Object Name, Version, ModuleBase</span>
+
+Name   Version ModuleBase
+----   ------- ----------
+Pester 6.2.0   C:\Users\you\Documents\PowerShell\Modules\Pester\6.2.0  <span class="cm">yours differs</span>
+Pester 3.4.0   C:\Program Files\WindowsPowerShell\Modules\Pester\3.4.0</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">Linux &middot; one question, one install &middot; captured on Ubuntu</div>
+<pre data-shell="once" data-cap="install-linux"><code><span class="cmd">PS /home/you&gt; Install-Module Pester -Scope CurrentUser</span>
+
+Untrusted repository
+You are installing the modules from an untrusted repository. If you trust    <span class="cm">one line, wrapped here</span>
+this repository, change its InstallationPolicy value by running the          <span class="cm">one line, wrapped here</span>
+Set-PSRepository cmdlet. Are you sure you want to install the modules from   <span class="cm">one line, wrapped here</span>
+'PSGallery'?
+[Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "N"): Y</code></pre>
+      </div>
+      <p>On macOS, Pester&rsquo;s installation page gives <code>Install-Module -Name Pester</code>; it was not run on a Mac here.</p>
+      <div class="note"><span class="nk">You will also see</span><code>Set-PSRepository PSGallery -InstallationPolicy Trusted</code>, which marks the Gallery as trusted so the question never comes again. It saves one keypress and removes the moment that makes you look; this workbook leaves the question on.</div>
+      <div class="note"><span class="nk">On a work computer</span>Your company may block the Gallery, or keep its own approved list of modules instead. That is IT&rsquo;s call: ask before you install anything there. This workbook installs only Pester, on your own account.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>Pester 6 runs in 5.1 too, Pester&rsquo;s release notes say, and 5.1 needs its own install, since it does not look in PowerShell 7&rsquo;s folders. Pester&rsquo;s installation page gives 5.1 its own command, to which this workbook adds <code>-Scope CurrentUser</code>: <code>Install-Module -Name Pester -Scope CurrentUser -Force -SkipPublisherCheck</code>. <code>-Force</code> installs beside 3.4.0, and <code>-SkipPublisherCheck</code> is there because the Microsoft-signed 3.4.0 can make 5.1&rsquo;s <code>Install-Module</code> refuse the new publisher. 5.1&rsquo;s older <code>Install-Module</code> installs for everyone on the computer unless you say otherwise, which needs administrator rights, so <code>-Scope CurrentUser</code> matters there; PowerShell 7&rsquo;s <code>Install-Module</code> already installs for you alone unless you run it as administrator, Microsoft&rsquo;s Install-Module page says (read from 5.1&rsquo;s own PowerShellGet on this workbook&rsquo;s computer; the install itself was not run). This workbook&rsquo;s computer blocks 5.1 from running test files at all, so that path was not run here, and every test on this page was checked in PowerShell 7.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Look, then install</div>
+        <ol>
+          <li>Find Pester in the Gallery, and print its name, version, author, published date and project link.</li>
+          <li>Install it for yourself only, answering the question on purpose. On Windows, finish with <code>-Force</code> when the old version stops it.</li>
+          <li>List the Pester versions now on your computer.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 1 is <code>Find-Module</code> piped to <code>Select-Object</code> with the five property names. Step 2 is <code>Install-Module</code> with <code>-Scope CurrentUser</code>.</p></details>
+        <details><summary>Show the commands</summary>
+<p>The three boxes above, in order: <code>Find-Module Pester | Select-Object Name, Version, Author, PublishedDate, ProjectUri</code>, then <code>Install-Module Pester -Scope CurrentUser</code> (and on Windows the same with <code>-Force</code>), then <code>Get-Module -ListAvailable Pester | Select-Object Name, Version, ModuleBase</code>. If you used <code>Invoke-Pester</code> before installing, the old Pester is still loaded in this window: open a new one, or type <code>Remove-Module Pester</code>.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="4"> I checked a module in the Gallery, then installed it for myself</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Your first test: Describe, It and Should</h3>
+      <p>So far you have checked your code by running it and reading what it printed. A <b>test</b> does the reading for you: a few lines that run your code and compare what came back with what you expected, every time, in a second. <b>Pester</b> runs them. A test file is a script whose name ends <b><code>.Tests.ps1</code></b>, kept beside the code it tests, and built from three words:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Word</div><div class="fn">What it does</div><div class="fd">Here</div></div>
+        <div class="frow"><div class="fc">Describe 'NAME' { }</div><div class="fn">a group of tests, usually one per function</div><div class="fd">Format-LogLine</div></div>
+        <div class="frow"><div class="fc">It 'WHAT IT DOES' { }</div><div class="fn">one test: a sentence saying what should happen, then the code that checks it</div><div class="fd">puts the time first</div></div>
+        <div class="frow"><div class="fc">Should -Be VALUE</div><div class="fn">the check: what comes down the pipe must equal VALUE, or the test fails</div><div class="fd">the exact line</div></div>
+      </div>
+      <p>One more word sets things up: <b><code>BeforeAll { }</code></b> runs once, before the tests, so the module is loaded for them. It imports with <code>-Force</code>, so a test always runs the module as it is saved now, never an old copy (section A&rsquo;s trap). <code>$PSScriptRoot</code> (Session 8) is the test file&rsquo;s own folder, which is the module&rsquo;s folder too:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; a test file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+}</code></pre>
+      </div>
+      <p><b><code>Invoke-Pester PATH</code></b> runs the tests: give it a file, or a folder, and it runs every <code>.Tests.ps1</code> file in it. Its usual report is short; <b><code>-Output Detailed</code></b> names every test:</p>
+      <div class="filebox">
+        <div class="fbh">one test, passing &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 1.79s (1 test)  <span class="cm">your time</span>
+Tests completed in 1.82s  <span class="cm">your time</span>
+Tests Passed: 1, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill -Output Detailed</span>
+Pester v6.2.0
+
+Running tests from 1 files.
+
+Running tests from 'C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1'
+Describing Format-LogLine
+  [+] puts the time first, then the message 14ms  <span class="cm">your time</span>
+Tests completed in 96ms  <span class="cm">your time</span>
+Tests Passed: 1, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>A test file that passes shows as one line, <code>[+]</code> and the file. With <code>-Output Detailed</code>, every <code>Describe</code> and every <code>It</code> gets a line, <code>[+]</code> for a pass. The last line counts them.</p>
+      <p><b>A test you have never seen fail proves little,</b> so break this one on purpose. Change the expected text to <code>Stopped</code>, save the test file, and run it again:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; a test file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Stopped'
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">one test, failing &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[-] Format-LogLine.puts the time first, then the message 68ms  <span class="cm">your time</span>
+ Expected strings to be the same, but they were different.
+ String lengths are both 27.
+ Strings differ at index 22.
+ Expected: '2026-03-04 08:05:09 Stopped'
+ But was:  '2026-03-04 08:05:09 Started'
+            ----------------------^
+ at Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04   <span class="cm">one line, wrapped here</span>
+08:05:09 Stopped', C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:8
+Tests completed in 278ms  <span class="cm">your time</span>
+Tests Passed: 0, Failed: 1, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>Read a failure from the top. <code>[-]</code> and the test&rsquo;s name say which test failed. <code>Expected</code> is what the test wanted, and <code>But was</code> what the code gave; the line of dashes ends in a <code>^</code> under the first character that differs, and <code>Strings differ at index 22</code> counts to it from 0 (the first character is index 0): <code>Started</code> and <code>Stopped</code> part at their third letter. The last line before the totals points at the file and the line of the <code>Should</code>. Here the test was wrong, not the code: put <code>Started</code> back, save, and run it again to see it pass.</p>
+      <p><b>Should -Be ignores case on text</b>, like <code>-eq</code> (Session 2): <code>'HELLO' | Should -Be 'hello'</code> passes. For a check that minds case, Pester has <code>Should -BeExactly</code>.</p>
+      <div class="note"><span class="nk">You will also see</span><code>Should-Be</code>, with no space after <code>Should</code>: Pester 6&rsquo;s newer way of writing the same check, used in Pester&rsquo;s own quick start. Pester 6 understands both; Pester 5, which many computers at work still have, understands only <code>Should -Be</code>, so this workbook uses that one.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> A test that passes, and one that fails</div>
+        <ol>
+          <li>Save <code>Fernhill.Tests.ps1</code> with the <code>Format-LogLine</code> test, and run it, once in short and once in detail.</li>
+          <li>Break it on purpose, read the failure, and find the index where the strings differ. Then put it back and see it pass.</li>
+          <li>Add a second <code>It</code> to the same <code>Describe</code>: <code>Format-LogLine</code> with the message <code>Done</code> and the time <code>2026-03-04 20:05:09</code> gives <code>2026-03-04 20:05:09 Done</code>. Run the tests in detail.</li>
+        </ol>
+        <details><summary>Hint</summary><p>A second <code>It</code> goes after the first one&rsquo;s closing <code>}</code>, inside the <code>Describe</code>&rsquo;s braces.</p></details>
+        <details><summary>Show the commands</summary>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; a test file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill -Output Detailed</span>
+Pester v6.2.0
+
+Running tests from 1 files.
+
+Running tests from 'C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1'
+Describing Format-LogLine
+  [+] puts the time first, then the message 7ms  <span class="cm">your time</span>
+  [+] uses the hour from 00 to 23 23ms  <span class="cm">your time</span>
+Tests completed in 241ms  <span class="cm">your time</span>
+Tests Passed: 2, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+<p>Steps 1 and 2 are the boxes above; the strings differed at index 22, the third letter of the message.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="5"> I wrote a test, watched it fail, and watched it pass</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Tests for code that touches files: TestDrive</h3>
+      <p>Fernhill gets its third function now, the counting from Session 7&rsquo;s error report, as <code>Get-ErrorSummary</code>: give it a folder, and it returns the ERROR count for each log, biggest first, or stops with an error if the folder is not there:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; a module file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary</code></pre>
+      </div>
+      <p><code>Write-Log</code> and <code>Get-ErrorSummary</code> work on files. A test should not write into your lab or your scripts folder, and it should not depend on what happens to be in them today. Pester gives your tests a <b><code>TestDrive:</code></b>, a temporary folder that every <code>Describe</code> starts with empty, and that is deleted when the tests end, so each run starts clean and leaves nothing behind. A path such as <code>'TestDrive:/test.log'</code> means a file in it. A <code>BeforeAll</code> inside a <code>Describe</code> sets up for that group only, here with two small logs of known content.</p>
+      <p>Three more checks, each the end of a pipe like <code>-Be</code>:</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Check</div><div class="fn">Passes when</div><div class="fd">Here</div></div>
+        <div class="frow"><div class="fc">Should -HaveCount N</div><div class="fn">exactly N things come down the pipe</div><div class="fd">two log lines</div></div>
+        <div class="frow"><div class="fc">Should -BeTrue</div><div class="fn">the value counts as true, such as <code>$true</code> (and <code>-BeFalse</code>, false)</div><div class="fd">a Test-Path</div></div>
+        <div class="frow"><div class="fc">Should -Throw</div><div class="fn">the code in braces, a script block (Session 2), stops with an error</div><div class="fd">a missing folder</div></div>
+      </div>
+      <p><code>-Throw</code> is the one that needs braces: the code has to be handed over to Pester to run, so the error happens inside the check instead of stopping the test before it. It counts only an error that stops the code, Session 7&rsquo;s terminating kind, such as a <code>throw</code>; an error that is reported while the code carries on is not one. One more piece of notation: <b><code>$rows[0]</code></b> is the first row of a result: square brackets after a variable pick one item by its place, counting from 0, as section E&rsquo;s failure index did.</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; a test file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}</code></pre>
+      </div>
+      <p>Run them:</p>
+      <div class="filebox">
+        <div class="fbh">five tests, in three groups &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill -Output Detailed</span>
+Pester v6.2.0
+
+Running tests from 1 files.
+
+Running tests from 'C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1'
+Describing Format-LogLine
+  [+] puts the time first, then the message 9ms  <span class="cm">your time</span>
+  [+] uses the hour from 00 to 23 15ms  <span class="cm">your time</span>
+
+Describing Write-Log
+  [+] adds one line each time 64ms  <span class="cm">your time</span>
+
+Describing Get-ErrorSummary
+  [+] counts the ERROR lines in each log, biggest first 105ms  <span class="cm">your time</span>
+  [+] stops when the folder is missing 48ms  <span class="cm">your time</span>
+Tests completed in 533ms  <span class="cm">your time</span>
+Tests Passed: 5, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>All five pass, and your lab and <code>ps-scripts</code> hold no test files: every file the tests wrote was in a <code>TestDrive:</code>, now gone. The tests know the right answers because they made the logs themselves: <code>a.log</code> has two ERROR lines and <code>b.log</code> one.</p>
+      <div class="note"><span class="nk">You will also see</span><code>Mock</code>, which lets a test replace a command, such as <code>Get-Date</code>, with a stand-in that gives a fixed answer. Inside a module it needs <code>-ModuleName</code> to reach the module&rsquo;s own calls. Fernhill&rsquo;s <code>-Time</code> parameter makes it unnecessary here: a test simply hands the function a fixed time.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Test the file work</div>
+        <ol>
+          <li>Add <code>Get-ErrorSummary</code> to the module and share it. Add the <code>Write-Log</code> and <code>Get-ErrorSummary</code> tests, and run everything in detail.</li>
+          <li>Add a test to the <code>Get-ErrorSummary</code> group: the second row is <code>b.log</code>, with a count of 1.</li>
+          <li>Prove the tests clean up: after a run, look for <code>test.log</code> anywhere under <code>ps-scripts</code> and <code>ps-lab</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>The second row is <code>$rows[1]</code>. Step 3 is <code>Get-ChildItem</code> with <code>-Recurse</code> and <code>-Filter</code> on each folder.</p></details>
+        <details><summary>Show the commands</summary>
+<p>For step 2, add this <code>It</code> inside the <code>Get-ErrorSummary</code> group, after the first one:</p>
+<pre data-snippet="1"><code>  It 'puts the smaller count second' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows[1].Log | Should -Be 'b.log'
+    $rows[1].Count | Should -Be 1
+  }</code></pre>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem ~/ps-scripts, ~/ps-lab -Recurse -Filter test.log</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; </span></code></pre>
+<p>Nothing is found: <code>test.log</code> only ever existed in a <code>TestDrive:</code>.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="6"> I tested code that writes and reads files, without touching my own</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Run the tests before every change</h3>
+      <p>Tests earn their keep when you change the code. The habit is a short loop, done the same way every time:</p>
+      <ol>
+        <li><b>Name the bug</b> you want gone, or the thing the code should do but does not.</li>
+        <li><b>Write a test</b> for it, and run the tests: the new one should <b>fail</b>. If it passes, it is not testing what you think.</li>
+        <li><b>Change the code</b>, as little as it takes.</li>
+        <li><b>Run every test again</b>: the new one passes, and the old ones still do, so the change broke nothing your tests check.</li>
+      </ol>
+      <p>Here is a real bug. Session 8 found that a lab rebuild deletes <code>out</code>, so a script that logs into a folder that is gone fails. <code>Write-Log</code> has the same weakness: give it a path in a missing folder, and <code>Add-Content</code> fails. Step 2 first: a test that says it should make the folder.</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; the new test, inside the Write-Log group</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 2: the new test fails, as it should &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[-] Write-Log.makes the folder if it is missing 38ms  <span class="cm">your time</span>
+ DirectoryNotFoundException: Could not find a part of the path               <span class="cm">one line, wrapped here</span>
+'C:\Users\you\AppData\Local\Temp\Pester_5khw\new\test.log'.  <span class="cm">yours differs</span>
+ at Format-LogLine, C:\Users\you\ps-scripts\Fernhill\Fernhill.psm1:9
+ at Write-Log, C:\Users\you\ps-scripts\Fernhill\Fernhill.psm1:17
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:23
+Tests completed in 332ms  <span class="cm">your time</span>
+Tests Passed: 5, Failed: 1, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>The short report shows only what failed: the new test, with the error <code>Add-Content</code> met, and the totals. That failure is the proof the test checks something real. Step 3, the fix: before adding the line, make the folder, Session 8&rsquo;s first run-twice habit. <b><code>Split-Path PATH</code></b> gives the folder part of a path, everything before the last <code>/</code> or <code>\</code>, so <code>Split-Path 'out/logs/a.log'</code> is <code>out\logs</code> on Windows (<code>out/logs</code> on Linux):</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; the fix, in Write-Log</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  New-Item -ItemType Directory (Split-Path $Path) -Force | Out-Null
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 4: every test passes &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 217ms (6 tests)  <span class="cm">your time</span>
+Tests completed in 219ms  <span class="cm">your time</span>
+Tests Passed: 6, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>You did not import the module again by hand: the test file&rsquo;s <code>BeforeAll</code> imports it with <code>-Force</code> on every run, so the tests always see the file as saved. Your own window may still hold an older Fernhill; import it with <code>-Force</code> before you use it there.</p>
+      <p><b>Tests guard only what they test.</b> That fix passed every test, yet it broke something. Give <code>Write-Log</code> a log name with no folder in it, such as <code>demo.log</code>, and <code>Split-Path</code> gives back empty text, <code>''</code>, which <code>New-Item</code> refuses. No test tried such a name, so nothing noticed:</p>
+      <div class="filebox">
+        <div class="fbh">a name with no folder &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Write-Log -Path demo.log -Message 'x'</span>
+Write-Log: Cannot bind argument to parameter 'Path' because it is an empty string.</code></pre>
+      </div>
+      <p>So run the loop again. Step 2: a test that writes a log with no folder in its name. To make such a name land in <code>TestDrive:</code>, the test moves there with <code>Set-Location</code> (Session 1) first, and <code>finally</code> (Session 7) moves it back whatever happens. Pester puts you back only when the whole run ends, with a warning, so without <code>finally</code> every later test would run from inside <code>TestDrive:</code>.</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; one more test, in the Write-Log group</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 2 again: the new test fails &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[-] Write-Log.writes a log with no folder in its name 25ms  <span class="cm">your time</span>
+ ParameterBindingValidationException: Cannot bind argument to parameter      <span class="cm">one line, wrapped here</span>
+'Path' because it is an empty string.
+ at Write-Log, C:\Users\you\ps-scripts\Fernhill\Fernhill.psm1:17
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:30
+Tests completed in 313ms  <span class="cm">your time</span>
+Tests Passed: 6, Failed: 1, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>Step 3: make the folder only when there is one. <code>-ne ''</code> means &ldquo;is not empty text&rdquo; (<code>-ne</code> from Session 2):</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; the fix, mended</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 4 again: every test passes &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 340ms (7 tests)  <span class="cm">your time</span>
+Tests completed in 344ms  <span class="cm">your time</span>
+Tests Passed: 7, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>Every test passes, the new one included, and the next change that breaks a log name with no folder will fail it. That is the real habit: when something gets past your tests, add the test that would have caught it.</p>
+      <p><b>A test can also catch a difference between computers.</b> The <code>Format-LogLine</code> tests expect colons in the time. Session 8 found that with Finnish or Danish language settings, <code>-Format</code> prints dots instead. Run with Finnish settings, both <code>Format-LogLine</code> tests fail, the first with <code>But was:  '2026-03-04 08.05.09 Started'</code> and the <code>^</code> under the first dot (checked on this page&rsquo;s computer by switching the language for one window). The test did its job: the module&rsquo;s lines really are different there. Every test on this page was run with English (United States) settings.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The fixed <code>Write-Log</code> works the same in 5.1: run in 5.1 on this workbook&rsquo;s computer, it made a missing folder and wrote its line. The tests themselves were run in PowerShell 7 only (section D says why).</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Fail first, then fix</div>
+        <ol>
+          <li>Add the &ldquo;makes the folder&rdquo; test, run the tests, and read the failure.</li>
+          <li>Fix <code>Write-Log</code>, and run every test again.</li>
+          <li>One more loop: <code>Get-ErrorSummary</code> on a folder whose logs have no ERROR line should return nothing. Write that test (one log, one <code>INFO</code> line, <code>Should -HaveCount 0</code>), and run it before changing anything. Does the code need a change?</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 3&rsquo;s test makes its own folder and log in <code>TestDrive:</code>, as the <code>Get-ErrorSummary</code> group&rsquo;s <code>BeforeAll</code> does, but with a different folder name.</p></details>
+        <details><summary>Show the commands</summary>
+<p>Steps 1 and 2 are the boxes above. For step 3, add this <code>It</code> inside the <code>Get-ErrorSummary</code> group:</p>
+<pre data-snippet="1"><code>  It 'returns nothing when no log has an ERROR line' {
+    New-Item -ItemType Directory 'TestDrive:/quiet' | Out-Null
+    'INFO all fine' | Set-Content 'TestDrive:/quiet/c.log'
+    Get-ErrorSummary -Path 'TestDrive:/quiet' | Should -HaveCount 0
+  }</code></pre>
+<p>It passes at once: the code already does this, so no change is needed. That happens too, and the test still earns its place: it will fail if a later change breaks this case.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="7"> I fixed a bug the safe way: a failing test first, then every test passing</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: the error report, on a tested module</h3>
+      <p>Session 8&rsquo;s <code>error-report.ps1</code> carries its own <code>Write-Log</code> and its own counting. Now it uses Fernhill&rsquo;s, so the tested code is the code that runs, and your scheduled task, which runs this same file, uses the module from its next run on. If you do not have the script, save Session 8&rsquo;s version first:</p>
+      <details class="note"><summary><b>Show Session 8&rsquo;s error-report.ps1</b></summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">~/ps-scripts/error-report.ps1 &middot; Session 8&rsquo;s script, typed in VS Code</div>
+<pre data-file="~/ps-scripts/error-report.ps1"><code>&lt;#
+.SYNOPSIS
+Counts the ERROR lines in each log and saves the counts as a CSV.
+.DESCRIPTION
+Searches every file under a folder, its subfolders included, for lines that
+contain ERROR. Outputs one row per log, Log and Count, biggest first, and
+saves the same rows to a CSV file ready for Excel. Stops with an error if the
+folder does not exist or the CSV cannot be saved; warns if it finds no ERROR
+lines. Adds a line to error-report.log, beside the script, when it starts,
+when it saves, and when it fails. Makes the lab's out folder if it is missing.
+.PARAMETER Path
+The folder to search. The default is the practice lab's logs folder.
+.PARAMETER OutFile
+The CSV file to write. The default is error-summary.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/error-report.ps1 -Path ~/ps-lab/logs/archive
+#&gt;
+[CmdletBinding()]
+param(
+  [string]$Path = "$HOME/ps-lab/logs",
+  [string]$OutFile = "$HOME/ps-lab/out/error-summary.csv"
+)
+$ErrorActionPreference = 'Stop'
+$log = "$PSScriptRoot/error-report.log"
+function Write-Log {
+  param([string]$Message)
+  "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Message" | Add-Content $log
+}
+Write-Log "Started: $Path"
+try {
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Write-Verbose "Searching $Path"
+  $summary = Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+  if ($summary.Count -eq 0) { Write-Warning "No ERROR lines found in $Path" }
+  New-Item -ItemType Directory "$HOME/ps-lab/out" -Force | Out-Null
+  try {
+    $summary | Export-Csv $OutFile -Encoding utf8BOM
+  } catch {
+    throw "Could not save $OutFile. $($_.Exception.Message)"
+  }
+} catch {
+  Write-Log "FAILED: $($_.Exception.Message)"
+  throw
+}
+Write-Log "Saved $($summary.Count) rows to $OutFile"
+Write-Verbose "Saved $($summary.Count) rows to $OutFile"
+$summary</code></pre>
+      </div>
+      </details>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: package your functions as a module with passing Pester tests</div>
+        <ol>
+          <li>The <code>Fernhill</code> module, in <code>~/ps-scripts/Fernhill</code>, holds <code>Format-LogLine</code>, <code>Write-Log</code> (which makes a missing folder) and <code>Get-ErrorSummary</code>, sets its own Stop preference, and shares exactly those three.</li>
+          <li><code>Fernhill.Tests.ps1</code> beside it has at least one test for each function, including one that a missing folder makes <code>Get-ErrorSummary</code> throw, and every test passes.</li>
+          <li><code>error-report.ps1</code> keeps its help, parameters and Stop preference, imports Fernhill by a path built from <code>$PSScriptRoot</code>, and uses <code>Write-Log -Path</code> and <code>Get-ErrorSummary</code> in place of its own code. Its DESCRIPTION mentions the module. It logs the same lines, ends with the same exit codes and prints the same table as before.</li>
+          <li>Run the tests, then run the script twice from the top folder <code>/</code> with <code>pwsh -NoProfile -NonInteractive -File</code>, and read the last four lines of its log. Break it with <code>-Path ~/ps-lab/nologs</code>, and find the exit code and the <code>FAILED:</code> line.</li>
+          <li>On Windows, start your <code>Fernhill error report</code> task once and read its <code>LastTaskResult</code> and the log. With cron, the job runs this same file at seven; read the log the next morning.</li>
+        </ol>
+        <p>You have hit the milestone when every test passes, the script logged a start and a save and ended with 0, the broken run logged <code>FAILED:</code> and ended with 1, and you wrote the module, the tests and the script changes without copying from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<p>The module is section G&rsquo;s last <code>Fernhill.psm1</code>, unchanged, and the tests are section G&rsquo;s last test file, with seven tests. The script:</p>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/error-report.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/error-report.ps1"><code>&lt;#
+.SYNOPSIS
+Counts the ERROR lines in each log and saves the counts as a CSV.
+.DESCRIPTION
+Searches every file under a folder, its subfolders included, for lines that
+contain ERROR. Outputs one row per log, Log and Count, biggest first, and
+saves the same rows to a CSV file ready for Excel. Stops with an error if the
+folder does not exist or the CSV cannot be saved; warns if it finds no ERROR
+lines. Adds a line to error-report.log, beside the script, when it starts,
+when it saves, and when it fails. Makes the lab's out folder if it is missing.
+Its logging and counting come from the Fernhill module, in the Fernhill
+folder beside it, which has its own tests.
+.PARAMETER Path
+The folder to search. The default is the practice lab's logs folder.
+.PARAMETER OutFile
+The CSV file to write. The default is error-summary.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/error-report.ps1 -Path ~/ps-lab/logs/archive
+#&gt;
+[CmdletBinding()]
+param(
+  [string]$Path = "$HOME/ps-lab/logs",
+  [string]$OutFile = "$HOME/ps-lab/out/error-summary.csv"
+)
+$ErrorActionPreference = 'Stop'
+Import-Module "$PSScriptRoot/Fernhill/Fernhill.psm1" -Force
+$log = "$PSScriptRoot/error-report.log"
+Write-Log -Path $log -Message "Started: $Path"
+try {
+  Write-Verbose "Searching $Path"
+  $summary = Get-ErrorSummary -Path $Path
+  if ($summary.Count -eq 0) { Write-Warning "No ERROR lines found in $Path" }
+  New-Item -ItemType Directory "$HOME/ps-lab/out" -Force | Out-Null
+  try {
+    $summary | Export-Csv $OutFile -Encoding utf8BOM
+  } catch {
+    throw "Could not save $OutFile. $($_.Exception.Message)"
+  }
+} catch {
+  Write-Log -Path $log -Message "FAILED: $($_.Exception.Message)"
+  throw
+}
+Write-Log -Path $log -Message "Saved $($summary.Count) rows to $OutFile"
+Write-Verbose "Saved $($summary.Count) rows to $OutFile"
+$summary</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 335ms (7 tests)  <span class="cm">your time</span>
+Tests completed in 337ms  <span class="cm">your time</span>
+Tests Passed: 7, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location /</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/error-report.ps1</span>
+
+Log                Count
+---                -----
+web-2026-03-03.log     2
+web-2026-03-02.log     1
+web-2026-03-01.log     1
+web-2026-02-28.log     1
+
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/error-report.ps1 | Out-Null</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File ~/ps-scripts/error-report.ps1 -Path ~/ps-lab/nologs</span>
+Exception: No folder to search: C:\Users\you/ps-lab/nologs
+<span class="cmd">PS C:\&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\&gt; Get-Content ~/ps-scripts/error-report.log -Tail 4</span>
+2026-10-16 08:37:22 Started: C:\Users\you/ps-lab/logs  <span class="cm">your time</span>
+2026-10-16 08:37:22 Saved 4 rows to C:\Users\you/ps-lab/out/error-summary.csv  <span class="cm">your time</span>
+2026-10-16 08:37:23 Started: C:\Users\you/ps-lab/nologs  <span class="cm">your time</span>
+2026-10-16 08:37:23 FAILED: No folder to search: C:\Users\you/ps-lab/nologs  <span class="cm">your time</span>
+<span class="cmd">PS C:\&gt; Set-Location ~/ps-lab</span></code></pre>
+<p>The table and the log lines are the ones Session 8&rsquo;s version gave: the change moved code, it did not change what the script does. The <code>try</code> no longer needs its own <code>Test-Path</code>, because <code>Get-ErrorSummary</code> throws the same message, and the <code>catch</code> logs it, as before. The import builds its path from <code>$PSScriptRoot</code>, so the scheduler&rsquo;s starting folder cannot break it (Session 8), and <code>-Force</code> means every run loads the module as it is saved.</p>
+<p><b>On Windows</b>, your scheduled task needs no change: it runs this file, which now imports the module.</p>
+<pre data-shell="7" data-loud="1"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill error report'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 5</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ScheduledTaskInfo -TaskName 'Fernhill error report').LastTaskResult</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/error-report.log -Tail 2</span>
+2026-10-15 15:03:43 Started: C:\Users\you/ps-lab/logs  <span class="cm">your time</span>
+2026-10-15 15:03:43 Saved 4 rows to C:\Users\you/ps-lab/out/error-summary.csv  <span class="cm">your time</span></code></pre>
+<p><b>On macOS and Linux</b>, your crontab line runs the same file, so it needs no change either. To see it work now, rather than at seven tomorrow, install Session 8&rsquo;s every-minute test line again, wait, read the log, then put the daily line back.</p>
+<p><b>In Windows PowerShell 5.1</b>, use <code>-NoTypeInformation -Encoding utf8</code> in place of <code>-Encoding utf8BOM</code>, as in Sessions 4 to 8. The module itself imports and runs in 5.1.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> My functions live in a tested module, and my scheduled report uses it</label>
+      </div>
+      <div class="note"><span class="nk">To remove Pester later</span><code>Uninstall-Module Pester</code> removes the version you installed; Windows PowerShell&rsquo;s 3.4.0 stays. Your module and tests are plain files in <code>ps-scripts</code>.</div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from loading a module, through what it shares and sees, to reading test results.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh PowerShell 7 window with a fresh lab and an <code>out</code> folder</b>, with Pester 6 installed, and its commands run in the order shown, in that one window. Each was run on 2026-10-15 or 16 in PowerShell 7.6 on Windows with Pester 6.2, with English (United States) language settings. Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it: put the steps of a process in order, then fill the blanks in three pieces of code.</p>
+    <div id="parsons"></div>
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the code in the box, run it in your terminal, then reveal the reference to compare. More than one answer can be right, so judge yours by what it did, and by whether its tests pass. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your code did what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">A short final gate, 6 questions, with the answer options shuffled every time you load the page. If a wrong answer surprises you, use the review link that appears to jump straight back to the concept it came from.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Two of the six questions below come from earlier sessions, one from <b>Session 8</b> and one from <b>Session 7</b>, because recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 09 of 10 &middot; Hit the milestone unassisted, then tick <b>S09</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>. <b>Level 5, Professional tooling, has begun:</b> your functions live in a module, and tests prove they work.
+    <br><br>
+    <b>Your 15-minute review:</b> add a test for a bug you can imagine, watch it fail, then fix the code. Ideas: <code>Write-Log</code> given an empty message, <code>Get-ErrorSummary</code> on a folder that holds a subfolder of logs, or <code>Format-LogLine</code> at midnight. Run every test before and after, and keep each new test. The free <a href="https://pester.dev/docs/quick-start" target="_blank" rel="noopener">Pester quick start</a> walks through the same ideas, in Pester 6&rsquo;s newer <code>Should-Be</code> style. &middot; Next: <b>Session 10, the capstone and comprehensive final</b>, where a lab-maintenance module, tested like this one, runs on a schedule, and a final quiz covers all ten sessions.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s09-workbook-v1";
+  /* Spaced review: Part 6's Q5 comes from Session 8 and Q6 from Session 7, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S07_URL = "ps-session-07.html";
+  var S08_URL = "ps-session-08.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare values one per line (a word a function returns, a count), as Pester's
+     [+] NAME and [-] NAME lines (square brackets) and as its Tests Passed: 2, Failed: 1
+     totals. Parentheses are syntax here: $( ), (Get-Date), (Get-Module NAME).Count and
+     (Get-Price) * 2, so () in the split class would accept wrong answers. No answer is
+     wrapped in parentheses.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 9 is: its
+     answers are words a function returns, counts, a function's names, Shop: lines, a
+     test's name and passed or failed, none of which a learner could get wrong by case
+     alone (build contract section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in Session 9 is: its blanks are the start
+     of a cmdlet name, the .psm1 extension, a switch, Pester's Describe and It, the ends of
+     Should's checks and the TestDrive drive name, all of which PowerShell and Pester match
+     in any case (captured).
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 5 value, 1 seq, 2 set, 2 count. S9's grader flags are in the build contract,
+     section 4: caseFold ON, parenLabels OFF, no drill cs: true (answers are words a function prints,
+     numbers, test names and passed/failed). Every drill was run on 2026-10-15 or 16 from a fresh lab with an
+     out folder and Pester 6.2.0 installed, its commands typed into ONE PowerShell 7.6.7 window in order
+     (_build/verify_s09.py). Module files are written by the drill itself, so nothing is left from
+     Part 1. No answer is printed by a Part 1 transcript. */
+  var DRILLS = [
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force\nPS C:\\Users\\you\\ps-lab> Remove-Module Fernhill\nPS C:\\Users\\you\\ps-lab> (Get-Module Fernhill).Count", ans: '0', alt: ['zero'],
+      why: '0. Remove-Module unloads the module, so Get-Module finds nothing loaded with that name. The .Count of nothing is 0 (Session 5). The file is still in ps-scripts: Import-Module would load it again.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> New-Item -ItemType Directory ~/ps-scripts/Shop -Force | Out-Null\nPS C:\\Users\\you\\ps-lab> \"function Get-Shelf { 'kettle' }\" | Set-Content ~/ps-scripts/Shop/Shop.psm1\nPS C:\\Users\\you\\ps-lab> Import-Module ~/ps-scripts/Shop/Shop.psm1\nPS C:\\Users\\you\\ps-lab> \"function Get-Shelf { 'teapot' }\" | Set-Content ~/ps-scripts/Shop/Shop.psm1\nPS C:\\Users\\you\\ps-lab> Import-Module ~/ps-scripts/Shop/Shop.psm1\nPS C:\\Users\\you\\ps-lab> Get-Shelf", ans: 'kettle',
+      why: 'kettle. The second Import-Module saw Shop already loaded and did nothing, so the window still runs the first copy of Get-Shelf, although the file now says teapot. Import-Module -Force, or a new window, would load the saved file.' },
+
+    { type: 'set', lbl: 'a module: ~/ps-scripts/Shop/Shop.psm1 holds these lines',
+      scen: "function Get-Pan { 'pan' }\nfunction Get-Lid { 'lid' }\nfunction Get-Cup { 'cup' }\nExport-ModuleMember -Function Get-Pan, Get-Cup",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/Shop/Shop.psm1 (make the folder first), then run the commands. Which names does the last one print? List them in any order, separated by commas.',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Module ~/ps-scripts/Shop/Shop.psm1 -Force\nPS C:\\Users\\you\\ps-lab> (Get-Command -Module Shop).Name", ans: 'Get-Cup, Get-Pan',
+      why: 'Get-Cup and Get-Pan. Export-ModuleMember shares only the two it names; Get-Lid stays inside the module, so Get-Command does not list it, though the module\u2019s own functions could still call it.' },
+
+    { type: 'value', lbl: 'a module: ~/ps-scripts/Shop/Shop.psm1 holds these lines',
+      scen: "function Get-Price { 5 }\nfunction Get-Total { (Get-Price) * 2 }\nExport-ModuleMember -Function Get-Total",
+      ask: 'Save the lines in the grey box as ~/ps-scripts/Shop/Shop.psm1 (make the folder first), then run the commands. What does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Module ~/ps-scripts/Shop/Shop.psm1 -Force\nPS C:\\Users\\you\\ps-lab> Get-Total", ans: '10', alt: ['ten'],
+      why: '10. Get-Price is not shared, so the prompt cannot call it, but Get-Total runs inside the module, where every function in the file can call every other one. (Get-Price) runs first, giving 5, and * 2 makes 10.' },
+
+    { type: 'value', lbl: 'a module and a script',
+      scen: "~/ps-scripts/Shop/Shop.psm1 holds:\n  function Show-Shop { \"Shop: [$shop]\" }\n\n~/ps-scripts/shop-name.ps1 holds:\n  $shop = 'Fernhill'\n  Import-Module \"$PSScriptRoot/Shop/Shop.psm1\" -Force\n  Show-Shop",
+      ask: 'Save both files (make the Shop folder first), then run the command. What does it print?',
+      code: 'PS C:\\Users\\you\\ps-lab> ~/ps-scripts/shop-name.ps1', ans: 'Shop: []',
+      why: 'Shop: []. Show-Shop lives in the module, which has variables of its own and cannot see the script\u2019s $shop, so the brackets hold nothing. A parameter, such as Show-Shop -Name $shop, would carry the value in.' },
+
+    { type: 'seq', lbl: 'a module and a script',
+      scen: "~/ps-scripts/Shop/Shop.psm1 holds:\n  function Show-Shop { param([string]$Name) \"Shop: [$Name]\" }\n\n~/ps-scripts/shop-name.ps1 holds:\n  $shop = 'Fernhill'\n  Import-Module \"$PSScriptRoot/Shop/Shop.psm1\" -Force\n  Show-Shop -Name $shop\n  Show-Shop",
+      ask: 'Save both files (make the Shop folder first), then run the command. What does it print, in order? Separate the lines with commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> ~/ps-scripts/shop-name.ps1', ans: 'Shop: [Fernhill], Shop: []',
+      why: 'Shop: [Fernhill], then Shop: []. The parameter carries the value into the module: -Name $shop hands Show-Shop the text Fernhill. Called with no -Name, $Name holds nothing: a parameter you leave out is empty, however the script was run.' },
+
+
+    { type: 'count', lbl: 'a test file: ~/ps-scripts/Shop/Mixed.Tests.ps1 holds these lines',
+      scen: "Describe 'Mixed' {\n  It 'adds' { 2 + 2 | Should -Be 4 }\n  It 'reads' { 'Pan' | Should -Be 'pan' }\n  It 'counts' { 'a', 'b', 'c' | Should -HaveCount 2 }\n  It 'stops' { { throw 'boom' } | Should -Throw }\n}",
+      ask: 'Save the lines in the grey box, then run the command. How many tests pass?',
+      code: 'PS C:\\Users\\you\\ps-lab> Invoke-Pester ~/ps-scripts/Shop/Mixed.Tests.ps1', ans: '3', alt: ['three'],
+      why: '3. adds passes (4 is 4); reads passes, because Should -Be ignores case on text, as -eq does; counts fails, because three things came down the pipe, not 2; stops passes, because the code in braces does throw.' },
+
+    { type: 'value', lbl: 'a test file: ~/ps-scripts/Shop/Kettle.Tests.ps1 holds these lines',
+      scen: "Describe 'Kettle' {\n  It 'is large' { 'Kettle, small' | Should -Be 'Kettle, large' }\n}",
+      ask: 'Save the lines in the grey box, then run the command. The failure report has a line starting Strings differ at index. What number ends that line?',
+      code: 'PS C:\\Users\\you\\ps-lab> Invoke-Pester ~/ps-scripts/Shop/Kettle.Tests.ps1', ans: '8', alt: ['eight'],
+      why: '8. The index counts from 0: K is 0, e 1, t 2, t 3, l 4, e 5, the comma 6, the space 7, and the s of small, where the strings first differ, 8. The ^ in the report sits under it.' },
+
+    { type: 'value', lbl: 'a test file: ~/ps-scripts/Shop/Read.Tests.ps1 holds these lines',
+      scen: "Describe 'Read' {\n  It 'stops on a missing file' {\n    { Get-Content ~/ps-lab/data/old.csv } | Should -Throw\n  }\n}",
+      ask: 'Save the lines in the grey box, then run the command. Does the test pass or fail? Answer passed or failed.',
+      code: 'PS C:\\Users\\you\\ps-lab> Invoke-Pester ~/ps-scripts/Shop/Read.Tests.ps1', ans: 'failed', alt: ['fail', 'fails'],
+      why: 'failed. Get-Content on a missing file reports its error and carries on (Session 7), so nothing stops inside the braces, and Should -Throw says: Expected an exception to be thrown, but no exception was thrown. With -ErrorAction Stop inside the braces, the error would stop the code and the test would pass.' },
+
+
+    { type: 'set', lbl: 'a test file: ~/ps-scripts/Shop/Drawer.Tests.ps1 holds these lines',
+      scen: "Describe 'Shelf' {\n  BeforeAll { 'pan' | Set-Content 'TestDrive:/shelf.txt' }\n  It 'has the pan' { Get-Content 'TestDrive:/shelf.txt' | Should -Be 'pan' }\n}\nDescribe 'Drawer' {\n  It 'sees the shelf file' { Test-Path 'TestDrive:/shelf.txt' | Should -BeTrue }\n  It 'starts empty' { Get-ChildItem 'TestDrive:/' | Should -HaveCount 0 }\n}",
+      ask: 'Save the lines in the grey box, then run the command. Which tests fail? Give each one\u2019s name, as in its It line, separated by commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> Invoke-Pester ~/ps-scripts/Shop/Drawer.Tests.ps1', ans: 'sees the shelf file',
+      why: 'Only sees the shelf file. Each Describe starts with an empty TestDrive:, so the Drawer group cannot see the file the Shelf group made. That same emptiness is why starts empty passes.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     One process with exactly one valid order: section G's loop, applied to its own bug. Each step needs
+     the one before it: a test needs a named bug, running it needs the test, a fix needs the failure
+     seen first (a test that never failed proves nothing, G), and the last run needs the fix. The
+     prompt does not narrate the order. Longest tile 46 characters (two columns allow about 54). */
+  var PARSONS = [
+    { prompt: 'Fix a bug the safe way, as section G does: from the first thing you do to the last. The bug: Write-Log fails when the folder its log goes in is missing.',
+      lines: ['Name the bug: a missing folder stops Write-Log',
+              'Write a test that logs into TestDrive:/new',
+              'Run Invoke-Pester: the new test fails',
+              'Change Write-Log to make the folder first',
+              'Run Invoke-Pester: every test passes'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    if (!wrap) return;          /* a session with no Parsons item has no container (Session 8) */
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: cmdlet names, the .psm1 extension, a
+     switch, Pester's keywords and parameters are all matched in any case (captured: describe, it and
+     should -be in lower case run). Each prompt names its blanks in order; hyphens sit outside the boxes. */
+  var FADED = [
+    { prompt: 'A module that shares one function, then loaded again after a change. Fill in the start of the command that chooses what the module shares, then the module file\u2019s extension, then the switch (its hyphen is already there) that loads the saved file even though the module is already loaded.',
+      code: "# Shop.psm1: one tool, shared.\n$ErrorActionPreference = 'Stop'\nfunction Get-Total { (Import-Csv \"$HOME/ps-lab/data/orders.csv\").Count }\n%%-ModuleMember -Function Get-Total\n\n# then, at the prompt:\nImport-Module ~/ps-scripts/Shop/Shop.%% -%%", ans: ['Export', 'psm1', 'Force'] },
+    { prompt: 'A test file for Format-LogLine. Fill in the word that starts a group of tests, the word that starts one test, then the end of the check that the line equals the text after it, ignoring case, as section E\u2019s first test does.',
+      code: "BeforeAll {\n  Import-Module \"$PSScriptRoot/Fernhill.psm1\" -Force\n}\n%% 'Format-LogLine' {\n  %% 'puts the time first, then the message' {\n    $time = Get-Date -Date '2026-03-04 08:05:09'\n    Format-LogLine -Message 'Started' -Time $time | Should -%% '2026-03-04 08:05:09 Started'\n  }\n}", ans: ['Describe', 'It', 'Be'] },
+    { prompt: 'Two tests that touch files without touching yours. Fill in the name of Pester\u2019s throwaway folder (both blanks), then the check that exactly the given number of lines came down the pipe, then the check that the code in braces stops with an error.',
+      code: "Describe 'Fernhill' {\n  It 'adds one line' {\n    Write-Log -Path '%%:/one.log' -Message 'x'\n    Get-Content '%%:/one.log' | Should -%% 1\n  }\n  It 'stops when the folder is missing' {\n    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -%%\n  }\n}", ans: ['TestDrive', 'TestDrive', 'HaveCount', 'Throw'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'Make a module ~/ps-scripts/Shop/Shop.psm1 with one function, Get-OrderCount, that takes a mandatory -Path to a CSV file and returns how many rows it has. The module stops on any error and shares only that function. Import it and count the lab\u2019s orders.',
+      sol: "# Shop.psm1: counts the rows of a CSV file.\n$ErrorActionPreference = 'Stop'\n\nfunction Get-OrderCount {\n  param([Parameter(Mandatory)][string]$Path)\n  (Import-Csv $Path).Count\n}\n\nExport-ModuleMember -Function Get-OrderCount\n\nThen, at the prompt, after making the Shop folder:\nImport-Module ~/ps-scripts/Shop/Shop.psm1 -Force\nGet-OrderCount -Path ~/ps-lab/data/orders.csv\n\nIt prints:\n8" },
+    { task: 'Write ~/ps-scripts/Shop/Shop.Tests.ps1 for Get-OrderCount: one test that it counts the rows of a three-row CSV it makes in TestDrive:, and one that it stops when the file is missing. Run it in detail.',
+      sol: "BeforeAll {\n  Import-Module \"$PSScriptRoot/Shop.psm1\" -Force\n}\n\nDescribe 'Get-OrderCount' {\n  It 'counts the rows' {\n    'Id,Item', '1,pan', '2,lid', '3,cup' | Set-Content 'TestDrive:/three.csv'\n    Get-OrderCount -Path 'TestDrive:/three.csv' | Should -Be 3\n  }\n  It 'stops when the file is missing' {\n    { Get-OrderCount -Path 'TestDrive:/none.csv' } | Should -Throw\n  }\n}\n\nInvoke-Pester ~/ps-scripts/Shop/Shop.Tests.ps1 -Output Detailed\nreports, with your own times (cut short: the test lines only):\nDescribing Get-OrderCount\n  [+] counts the rows\n  [+] stops when the file is missing\nTests Passed: 2, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0\n\nThe first line of the CSV names its columns, so three more lines make three rows." },
+    { task: 'Before installing a module called ImportExcel, look at it: print its name, version, author, published date and project link from the Gallery, then download it into out/inspect without installing it, and list what arrived.',
+      sol: "Find-Module ImportExcel | Select-Object Name, Version, Author, PublishedDate, ProjectUri\nNew-Item -ItemType Directory out/inspect -Force | Out-Null\nSave-Module ImportExcel -Path out/inspect\nGet-ChildItem out/inspect -Name\n\nThe Gallery\u2019s answers change as new versions come out, so yours are your own. Save-Module downloads into the folder you name and installs nothing: Get-Module -ListAvailable ImportExcel still finds nothing afterwards. Remove the folder when you are done: Remove-Item out/inspect -Recurse -Force (on Windows, Save-Module leaves a hidden file in it, which -Recurse alone will not remove)." },
+    { task: 'A real bug in Fernhill: Select-String ignores case, so Get-ErrorSummary also counts a line such as INFO no error found. Add a test that a log holding only that line gives no rows, watch it fail, then fix Get-ErrorSummary so it counts ERROR in capitals only, and run every test.',
+      sol: "Add this It to the Get-ErrorSummary group in Fernhill.Tests.ps1:\n  It 'counts ERROR in capitals only' {\n    New-Item -ItemType Directory 'TestDrive:/calm' | Out-Null\n    'INFO no error found' | Set-Content 'TestDrive:/calm/c.log'\n    Get-ErrorSummary -Path 'TestDrive:/calm' | Should -HaveCount 0\n  }\n\nRun Invoke-Pester ~/ps-scripts/Fernhill: the new test fails, because the line was counted.\n\nThe fix, in Get-ErrorSummary (Session 3\u2019s -CaseSensitive):\n  Get-ChildItem $Path -Recurse -File | Select-String ERROR -CaseSensitive |\n\nRun Invoke-Pester ~/ps-scripts/Fernhill again: every test passes, and the lab\u2019s own logs give the same four rows as before, since their ERROR lines are in capitals." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Sixteen cards, sized to the atoms THIS session has (band 12-16, cap 18). The deck stays
+     session-local: re-testing Sessions 1 to 8 is Part 6's job. */
+  var CARDS = [
+    { f: 'a .psm1 file', b: 'a script module: a file of functions that any script or prompt loads with Import-Module' },
+    { f: 'Import-Module PATH, and with -Force', b: 'loads the module; -Force loads the saved file again, since a second plain import keeps the old copy' },
+    { f: 'Get-Command -Module NAME', b: 'lists the commands a loaded module shares' },
+    { f: 'Remove-Module NAME', b: 'unloads the module from this window; the file stays where it is' },
+    { f: 'Export-ModuleMember -Function A, B', b: 'the last line of a module: shares only A and B; the rest still work inside the module' },
+    { f: 'a module function, and the calling script\u2019s variables', b: 'run by path, it cannot see them; give it what it needs through parameters' },
+    { f: "$ErrorActionPreference = 'Stop' at the top of a module", b: 'its functions stop on an error, and the error reaches the caller; run by path, the script\u2019s own Stop does not reach in' },
+    { f: '$env:PSModulePath', b: 'the folders where modules load by themselves; ; between them on Windows, : on Linux and macOS' },
+    { f: 'Get-Module -ListAvailable NAME', b: 'every copy of NAME in those folders, with its version (Windows has an old Pester 3.4.0)' },
+    { f: 'Find-Module NAME', b: 'asks the Gallery about a module, installs nothing; look at Author, PublishedDate and ProjectUri' },
+    { f: 'Save-Module NAME -Path FOLDER', b: 'downloads a module into a folder that exists, without installing it, so you can read it first' },
+    { f: 'Install-Module NAME -Scope CurrentUser', b: 'installs for you alone, no administrator rights; it asks first because the Gallery is untrusted' },
+    { f: "Describe 'X' { It 'does Y' { CODE | Should -Be Z } }", b: 'a group of tests, one test, and the check that what CODE gave equals Z (case ignored on text)' },
+    { f: 'Invoke-Pester PATH -Output Detailed', b: 'runs every .Tests.ps1 file at PATH and names each test, [+] passed or [-] failed' },
+    { f: 'TestDrive:', b: 'a temporary folder each Describe starts with empty, deleted when the tests end: tests that touch files leave yours alone' },
+    { f: '{ CODE } | Should -Throw', b: 'passes when CODE stops with an error; without the braces the error stops the test itself' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four questions on Session 9 and two spaced-review questions, Q5 from Session 8 and Q6 from
+     Session 7, whose review links open those sessions. Correct-option length ranks (longest = 1)
+     planned before writing: 3, 1, 2, 4, 2, 3 (longest on exactly one question, shortest on exactly
+     one, ranks 2 and 3 twice each, no tie with a distractor; rule 9). check-quiz.py confirms. */
+  var QUIZ = [
+    { q: 'You fix a bug in Fernhill.psm1, save it, and run the function again at the same prompt. It still has the bug. Why?',
+      o: ['The window still has the old copy loaded; import it again with -Force',
+          'A module saved in ps-scripts needs administrator rights before its file can change',
+          'A changed function needs Export-ModuleMember to run again before PowerShell uses it',
+          'The file must be renamed before the change counts'],
+      c: 0,
+      e: 'A second plain Import-Module sees the module already loaded and does nothing, so the window keeps running the copy it loaded first. Import-Module -Force, or a new window, loads the saved file. Nothing about ps-scripts needs administrator rights, Export-ModuleMember chooses what is shared, not what is current, and the name has nothing to do with it.',
+      part: { id: 'concept-a', label: 'A. From a script to a module: Import-Module' } },
+
+    { q: "A script with $ErrorActionPreference = 'Stop' calls a module function whose Add-Content fails. Run by its path, the script prints the error and carries on. Why?",
+      o: ['The module has its own variables, so the script\u2019s Stop preference does not reach its functions; put Stop at the top of the module',
+          'Add-Content errors can never be stopped, by any preference',
+          'A preference set in a script is switched off once it imports a module',
+          'The script needs -Force on Import-Module'],
+      c: 0,
+      e: 'A preference is a variable, and a module function reads its own module\u2019s variables, not the calling script\u2019s. With $ErrorActionPreference = \u0027Stop\u0027 at the top of the module, its Add-Content error stops the function and reaches the script. Add-Content errors do stop under a preference the function can see, the script\u2019s Stop still works for its own commands, and -Force only reloads the file. Run with pwsh -File, the script\u2019s variables are global, so this module would see Stop; this script was run by path.',
+      part: { id: 'concept-b', label: 'B. What a module shares, and what it keeps to itself' } },
+
+    { q: 'What does Save-Module do that Install-Module does not?',
+      o: ['It downloads the module into a folder you name, without installing it',
+          'It checks the module for viruses and other harmful code before you use it',
+          'It installs for every user on the computer at once',
+          'It marks the Gallery as trusted'],
+      c: 0,
+      e: 'Save-Module only downloads, so you can read the files first; nothing is installed and nothing loads by itself. It scans nothing, Install-Module -Scope CurrentUser is the one-user install, and Set-PSRepository is what marks a repository trusted.',
+      part: { id: 'concept-d', label: 'D. From the Gallery, after a look: Find-Module and Install-Module' } },
+
+    { q: "A test reads Get-ErrorSummary -Path 'TestDrive:/nope' | Should -Throw. The function does throw, yet the test fails. Why?",
+      o: ['It needs braces round the call',
+          'TestDrive: cannot hold a folder named nope',
+          'Should -Throw works only on errors from throw itself, not from a cmdlet',
+          'The test needs a BeforeAll that makes the nope folder first'],
+      c: 0,
+      e: 'Without braces, the call runs before Should sees anything, and its error stops the test. { Get-ErrorSummary -Path \u0027TestDrive:/nope\u0027 } | Should -Throw hands the code to Should, which runs it and passes when it throws. Any terminating error counts, and making the folder would stop the throw the test wants.',
+      part: { id: 'concept-f', label: 'F. Tests for code that touches files: TestDrive' } },
+
+    { q: 'Spaced review, from Session 8. A scheduled task starts a script in C:\\Windows\\System32. What does $PSScriptRoot hold inside it?',
+      o: ['The folder the script is saved in, wherever it started',
+          'C:\\Windows\\System32, where it started',
+          'Nothing, because a scheduled script has no folder of its own',
+          'Your home folder'],
+      c: 0,
+      e: '$PSScriptRoot is always the folder the script file is in, which is why paths built from it work under any scheduler. The folder it started in is what (Get-Location).Path gives, and it is empty only at the prompt, outside any script.',
+      part: { ext: S08_URL + '#concept-e', label: 'Session 8, E. Where a scheduled script starts: $PSScriptRoot' } },
+
+    { q: 'Spaced review, from Session 7. Get-Content on a missing file sits inside try, yet catch never runs. Why?',
+      o: ['Its error does not stop it, so try never sees one; add -ErrorAction Stop',
+          'catch runs only after a throw you write yourself, never for an error a cmdlet raises',
+          'try does not work around a single command; it needs at least two lines inside its braces',
+          'A missing file is not an error'],
+      c: 0,
+      e: 'Get-Content reports a missing file and carries on: a non-terminating error, which try does not see. -ErrorAction Stop (or the Stop preference) turns it into one that stops, and then catch runs. catch also runs for errors cmdlets raise, try works around any number of commands, and a missing file is an error.',
+      part: { ext: S07_URL + '#concept-b', label: 'Session 7, B. Catching an error: try and catch' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review with this page closed, then tick S09 on your Hub and move on to Session 10, the capstone.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry before moving on.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    var pz = document.getElementById('parsons'); if (pz) pz.innerHTML = '';
+    document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
