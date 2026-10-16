@@ -1,0 +1,2719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Session 10: Capstone and final</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The longest tile here is 51 characters, inside the ~54 that two
+     columns allow. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is SupportsShouldProcess (21 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Session 10 // Level 5 &middot; Professional Tooling</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>Capstone: a tested module on a schedule</h1>
+    <p class="goal">The last session puts the whole track to work. You grow Session 9&rsquo;s Fernhill module into a lab-maintenance tool: it archives logs that are too old and clears out old reports, with tests written first, a dry run you can trust, and a nightly script that runs the tests and refuses to touch anything if one fails. Then you schedule it in place of the old error report, break it on purpose, and finish with a final quiz that covers all ten sessions.</p>
+    <span class="milestone"><span class="flag">Milestone</span> Ship a tested module that runs on a schedule.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep one PowerShell 7 window open beside this page, in your lab, for the whole of Part 1.</b> This is a workbook, not a reading: you type every command yourself, because typing it is what makes it stick. Each section starts from the lab and the files you saved in <code>ps-scripts</code>, and loads the module again itself, so if you close the window, open a new one in <code>ps-lab</code> and carry on from the section you were in.</p>
+        <p><b>Two places to write today</b>, as in Sessions 5 to 9: reports go in <code>ps-lab/out</code>, and scripts, logs, the module and its tests in <code>ps-scripts</code> in your home folder. <b>Today, for the first time, your code moves files the lab ships with:</b> it archives old logs. That is safe, because pasting the setup block puts every file back where it was.</p>
+        <p><b>No internet needed:</b> Pester, the testing tool, has been installed since Session 9. <b>Windows, macOS or Linux:</b> the sections are the same everywhere; where Linux and macOS differ, a box says so.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/8</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">17</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">10</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Later sections use files saved in earlier ones, so work them in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. Every transcript was captured on Windows 11 in PowerShell 7.6 with Pester 6.2, in a window 120 characters wide, from a fresh lab, except the boxes marked <i>macOS and Linux</i>, which were captured in PowerShell 7.6 on Ubuntu Linux 26.04. Where a path shows <code>you</code>, your own user name appears instead. <b>Some lines change on every run:</b> a line marked <i>your time</i> holds the moment it ran, or how long a test took, so your numbers will differ; the rest of the line should match. A line marked <i>yours differs</i> holds a detail of your own computer or of the day you ran it, such as a temporary folder&rsquo;s name. A command too long for this page is wrapped after a <code>|</code>, or at a space where it has none, and marked <i>one line, wrapped here</i>: type it as one line. A printed line too long for this page is marked the same way. A box headed with a file name, such as <code>~/ps-scripts/nightly.ps1</code>, is a file you type into an editor and save.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab, and Session 9&rsquo;s module</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including your <code>out</code> folder, builds it fresh, exactly as Session 1 did, and moves you into it. It never touches anything outside <code>ps-lab</code>, so your scripts in <code>ps-scripts</code> are safe from it.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 to 9)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac; on Linux, your terminal&rsquo;s paste shortcut), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. On Windows it ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. On Linux the listing has more columns (who owns each file, and its permissions); the same four names are there. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+      <p>Then make the folder for today&rsquo;s reports, and make sure the module&rsquo;s folder exists (<code>-Force</code> keeps it, and everything in it, if it does, Session 8):</p>
+      <div class="filebox">
+        <div class="fbh">a place for reports, and for the module &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory ~/ps-scripts/Fernhill -Force | Out-Null</span></code></pre>
+      </div>
+      <p>Today builds on the three files Session 9 ended with: the <code>Fernhill</code> module, its seven tests, and <code>error-report.ps1</code>, which imports the module. If you do not have them, or are not sure yours match, save these three first:</p>
+      <details class="note"><summary><b>Show Session 9&rsquo;s three files</b></summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; Session 9&rsquo;s module</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; Session 9&rsquo;s seven tests</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/error-report.ps1 &middot; Session 9&rsquo;s report</div>
+<pre data-file="~/ps-scripts/error-report.ps1"><code>&lt;#
+.SYNOPSIS
+Counts the ERROR lines in each log and saves the counts as a CSV.
+.DESCRIPTION
+Searches every file under a folder, its subfolders included, for lines that
+contain ERROR. Outputs one row per log, Log and Count, biggest first, and
+saves the same rows to a CSV file ready for Excel. Stops with an error if the
+folder does not exist or the CSV cannot be saved; warns if it finds no ERROR
+lines. Adds a line to error-report.log, beside the script, when it starts,
+when it saves, and when it fails. Makes the lab's out folder if it is missing.
+Its logging and counting come from the Fernhill module, in the Fernhill
+folder beside it, which has its own tests.
+.PARAMETER Path
+The folder to search. The default is the practice lab's logs folder.
+.PARAMETER OutFile
+The CSV file to write. The default is error-summary.csv in the lab's out folder.
+.EXAMPLE
+~/ps-scripts/error-report.ps1 -Path ~/ps-lab/logs/archive
+#&gt;
+[CmdletBinding()]
+param(
+  [string]$Path = "$HOME/ps-lab/logs",
+  [string]$OutFile = "$HOME/ps-lab/out/error-summary.csv"
+)
+$ErrorActionPreference = 'Stop'
+Import-Module "$PSScriptRoot/Fernhill/Fernhill.psm1" -Force
+$log = "$PSScriptRoot/error-report.log"
+Write-Log -Path $log -Message "Started: $Path"
+try {
+  Write-Verbose "Searching $Path"
+  $summary = Get-ErrorSummary -Path $Path
+  if ($summary.Count -eq 0) { Write-Warning "No ERROR lines found in $Path" }
+  New-Item -ItemType Directory "$HOME/ps-lab/out" -Force | Out-Null
+  try {
+    $summary | Export-Csv $OutFile -Encoding utf8BOM
+  } catch {
+    throw "Could not save $OutFile. $($_.Exception.Message)"
+  }
+} catch {
+  Write-Log -Path $log -Message "FAILED: $($_.Exception.Message)"
+  throw
+}
+Write-Log -Path $log -Message "Saved $($summary.Count) rows to $OutFile"
+Write-Verbose "Saved $($summary.Count) rows to $OutFile"
+$summary</code></pre>
+      </div>
+      </details>
+      <p>Before changing anything, prove the starting point. The test-first habit from Session 9 begins with every test passing:</p>
+      <div class="filebox">
+        <div class="fbh">the starting point: seven tests, all passing &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 1.42s (7 tests)  <span class="cm">your time</span>
+Tests completed in 1.47s  <span class="cm">your time</span>
+Tests Passed: 7, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Start from green</div>
+        <ol>
+          <li>Rebuild the lab, make <code>out</code>, and check that <code>~/ps-scripts</code> holds the module, its tests and <code>error-report.ps1</code> (save Session 9&rsquo;s three files if not).</li>
+          <li>Run the tests, and read the totals line: seven passed, none failed.</li>
+        </ol>
+        <details><summary>Hint</summary><p><code>Get-ChildItem ~/ps-scripts -Recurse -Name</code> (Sessions 1 and 3) lists what is there. If a test fails, compare your module with Session 9&rsquo;s above.</p></details>
+        <label class="did"><input type="checkbox" data-task="1"> I started from a fresh lab and seven passing tests</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. How old is a file? Dates you can count with</h3>
+      <p>A real support job: logs pile up. A web shop writes a new log every day, and after a year the logs folder holds hundreds of files, most of which nobody will read again. The usual answer is to keep the recent ones where they are and move the rest into an <b>archive</b> folder, where they are kept but out of the way. To do that, a script has to know how old each file is.</p>
+      <p>Every file has a <b><code>LastWriteTime</code></b>, the moment it was last changed (Session 2 met it in <code>Get-Member</code>). It is a <code>[datetime]</code>, the date-and-time type from Session 9. The lab gives every file a fixed one, so the dates below are the same on every computer:</p>
+      <div class="filebox">
+        <div class="fbh">the logs and their dates &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -File | Select-Object Name, LastWriteTime</span>
+
+Name               LastWriteTime
+----               -------------
+app-2026-03-03.log 3/3/2026 11:59:00 PM
+web-2026-03-01.log 3/1/2026 11:59:00 PM
+web-2026-03-02.log 3/2/2026 11:59:00 PM
+web-2026-03-03.log 3/3/2026 11:59:00 PM</code></pre>
+      </div>
+      <p>The dates print in your computer&rsquo;s own layout; these are English (United States) settings. <code>-File</code> leaves out the <code>archive</code> folder, which already holds one older log.</p>
+      <p><b>Counting back from a date.</b> A <code>[datetime]</code> carries <b>methods</b>, actions you call with a dot and parentheses, as you called <code>.GetType()</code> in Session 5. <b><code>.AddDays(N)</code></b> gives the date N days later, and a minus number goes back. Store the date you count from in a variable first, written as a cast: <b><code>[datetime]'2026-03-04'</code></b> turns the text into a date the way Session 4&rsquo;s <code>[int]</code> turned text into a number, and it reads the text the same way on every computer. <code>Get-Date -Date '2026-03-04'</code>, which Session 9&rsquo;s tests use, reads it in your computer&rsquo;s own calendar instead: with Thai settings it gives the year 1483, with Persian settings 2647, and with Saudi Arabic settings an error (all checked by switching the language for one window). A <code>[datetime]</code> parameter in your own function or script, such as the <code>-AsOf</code> you will meet in section B, reads text the way the cast does; the date parameters of PowerShell&rsquo;s own commands, <code>Get-Date -Date</code> among them, read it in your calendar.</p>
+      <div class="filebox">
+        <div class="fbh">two days before 4 March &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $asOf = [datetime]'2026-03-04'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $asOf.AddDays(-2)</span>
+
+Monday, March 2, 2026 12:00:00 AM</code></pre>
+      </div>
+      <p>A date with no time is midnight, the very start of that day. Now <code>-lt</code> (Session 2) does the rest: on two dates it means &ldquo;earlier than&rdquo;. A file is <b>older than two days, as of 4 March</b> when its <code>LastWriteTime</code> is earlier than midnight on 2 March:</p>
+      <div class="filebox">
+        <div class="fbh">which logs are older than two days, as of 4 March &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $cutoff = $asOf.AddDays(-2)</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -File | Where-Object LastWriteTime -lt $cutoff |</span>
+<span class="cmd">  Select-Object -ExpandProperty Name</span>                                         <span class="cm">one line, wrapped here</span>
+web-2026-03-01.log</code></pre>
+      </div>
+      <p><b>Why a fixed date, and not today?</b> A job that runs every night counts from now, <code>(Get-Date)</code>. But &ldquo;now&rdquo; is different every time you run it, so its answer changes with the calendar: today, every lab log is months old. A test, a drill or a page like this one needs the same answer every time, so it counts from a date it is given. That is Session 9&rsquo;s <code>-Time</code> idea again: <b>the date is a parameter, with now as the default</b>. Counting from today, every log is more than thirty days old:</p>
+      <div class="filebox">
+        <div class="fbh">counting from now: the answer depends on the day you run it &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $old = (Get-Date).AddDays(-30)</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $old</span>
+
+Wednesday, September 16, 2026 2:47:33 PM  <span class="cm">your time</span>
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ChildItem logs -File | Where-Object LastWriteTime -lt $old).Count</span>
+4</code></pre>
+      </div>
+      <p><b>The trap: a copy can reset the dates.</b> A job that works by age is only as good as the dates it reads. PowerShell&rsquo;s <code>Copy-Item</code> keeps a file&rsquo;s <code>LastWriteTime</code>, and so does <code>Move-Item</code>. But a copy made some other way may stamp every file with the moment of the copy, and then a whole folder of old logs looks brand new, and nothing is ever archived. Check the dates on a copy before you trust a job that reads them.</p>
+      <div class="filebox">
+        <div class="fbh">Copy-Item keeps the date &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Copy-Item logs/web-2026-03-02.log out/copy.log</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-Item out/copy.log).LastWriteTime</span>
+
+Monday, March 2, 2026 11:59:00 PM</code></pre>
+      </div>
+      <div class="note"><span class="nk">In Bash</span>Linux&rsquo;s <code>cp</code> stamps a copy with the time of the copy unless you add <code>-p</code> (&ldquo;preserve&rdquo;), so <code>cp -r logs backup</code> makes every log look new, and <code>cp -rp logs backup</code> keeps the dates (so does <code>cp -a</code>; checked on Ubuntu 26.04). The usual tool for &ldquo;older than&rdquo; is <code>find FOLDER -mtime +N</code>, counting from now. It counts a file&rsquo;s age in whole days, rounded down, and lists it when that is more than N, so <code>-mtime +1</code> means two days old or more.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The same: <code>LastWriteTime</code>, <code>.AddDays()</code> and <code>-lt</code> on dates work alike in 5.1.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Old, as of a day you choose</div>
+        <ol>
+          <li>Print the date one day before 4 March 2026.</li>
+          <li>As of 4 March 2026, which logs in <code>logs</code> (not the archive) are older than one day?</li>
+          <li>As of 4 March 2026, how many files in <code>exports</code> are older than one day? Then copy one of them into <code>out</code> with <code>Copy-Item</code>, and check that the copy kept its date.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Change only the number in <code>.AddDays()</code>, and the folder in <code>Get-ChildItem</code>. Older than one day, as of 4 March, means earlier than midnight on 3 March.</p></details>
+        <details><summary>Show the commands</summary>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $asOf = [datetime]'2026-03-04'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $asOf.AddDays(-1)</span>
+
+Tuesday, March 3, 2026 12:00:00 AM
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -File | Where-Object LastWriteTime -lt $asOf.AddDays(-1) |</span>
+<span class="cmd">  Select-Object -ExpandProperty Name</span>                                         <span class="cm">one line, wrapped here</span>
+web-2026-03-01.log
+web-2026-03-02.log
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $cutoff = $asOf.AddDays(-1)</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ChildItem exports -File | Where-Object LastWriteTime -lt $cutoff).Count</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Copy-Item exports/report-final.csv out/old-report.csv</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-Item out/old-report.csv).LastWriteTime</span>
+
+Monday, March 2, 2026 7:00:00 AM</code></pre>
+<p>Only <code>report-final.csv</code>, written at 7:00 on 2 March, is earlier than midnight on 3 March; the other exports are from 3 and 4 March. Keep <code>out/old-report.csv</code>: section D uses it.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="2"> I found the files older than a number of days, counted from a date I chose</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. Archive old logs, tests first</h3>
+      <p>Now make it a tool: <code>Move-OldLog -Path FOLDER -Days N -AsOf DATE</code> moves every file in FOLDER older than N days into FOLDER/archive. Session 9&rsquo;s loop says the tests come first. They need files with known dates in <code>TestDrive:</code>, and a file&rsquo;s <code>LastWriteTime</code> can be <b>set</b>, the way Session 8 set <code>$trigger.StartBoundary</code>: <code>(Get-Item FILE).LastWriteTime = DATE</code>. The parentheses run first and give the file; the <code>=</code> changes its date.</p>
+      <p>Every test in this group needs the same two logs, one old and one new. <b><code>BeforeEach { }</code></b> is <code>BeforeAll</code>&rsquo;s partner: it runs again before <i>each</i> <code>It</code>, so every test starts from the same files, even after an earlier test moved one. Add this group to the end of the test file:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; one more group, at the end</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 2: run them before Move-OldLog exists &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[-] Move-OldLog.moves only the logs older than the days given 65ms  <span class="cm">your time</span>
+ CommandNotFoundException: The term 'Move-OldLog' is not recognized as a     <span class="cm">one line, wrapped here</span>
+name of a cmdlet, function, script file, or executable program.
+ Check the spelling of the name, or if a path was included, verify that      <span class="cm">one line, wrapped here</span>
+the path is correct and try again.
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:65
+Tests completed in 493ms  <span class="cm">your time</span>
+Tests Passed: 8, Failed: 1, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p><b>Only one new test fails.</b> The other, &ldquo;stops when the folder is missing&rdquo;, already passes, before <code>Move-OldLog</code> exists. Read why: <code>Should -Throw</code> passes for <i>any</i> error that stops the code, and &ldquo;the term &lsquo;Move-OldLog&rsquo; is not recognized&rdquo; is an error that stops the code. The test passes for the wrong reason, and it would keep passing if a typo broke the function. Session 9 put it this way: a test you have never seen fail proves little. So pin it to the error you mean. <b><code>-ExpectedMessage 'TEXT'</code></b> makes <code>Should -Throw</code> pass only when the error&rsquo;s message matches TEXT, and a <code>*</code> wildcard (Session 1) stands for the rest of it. Change that one line:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; the missing-folder test, pinned to its message</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 2 again: now both new tests fail, each for the right reason &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[-] Move-OldLog.moves only the logs older than the days given 52ms  <span class="cm">your time</span>
+ CommandNotFoundException: The term 'Move-OldLog' is not recognized as a     <span class="cm">one line, wrapped here</span>
+name of a cmdlet, function, script file, or executable program.
+ Check the spelling of the name, or if a path was included, verify that      <span class="cm">one line, wrapped here</span>
+the path is correct and try again.
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:65
+[-] Move-OldLog.stops when the folder is missing 80ms  <span class="cm">your time</span>
+ Expected an exception with message like 'No folder to tidy*' to be          <span class="cm">one line, wrapped here</span>
+thrown, but the message was 'The term 'Move-OldLog' is not recognized as a   <span class="cm">one line, wrapped here</span>
+name of a cmdlet, function, script file, or executable program.
+ Check the spelling of the name, or if a path was included, verify that      <span class="cm">one line, wrapped here</span>
+the path is correct and try again.'. from                                    <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:70 char:7
+     +     { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -Expected …
+     +       ~~~~~~~~~~~
+ at { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw                  <span class="cm">one line, wrapped here</span>
+-ExpectedMessage 'No folder to tidy*',                                       <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:70
+Tests completed in 463ms  <span class="cm">your time</span>
+Tests Passed: 7, Failed: 2, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>Both new tests fail now, the old seven still pass. Now the code. Finding the old files is a job the next function will need too, so it gets a small function of its own, <code>Get-OldFile</code>. It is left out of <code>Export-ModuleMember</code>, so it stays inside the module: a helper, as Session 9 described. <code>Move-OldLog</code> stops if the folder is missing, as <code>Get-ErrorSummary</code> does, makes the archive folder if it is not there (<code>-Force</code> keeps it if it is, Session 8), moves the old files, and outputs them, so the caller can count them:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; two functions added, before Export-ModuleMember</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+function Get-OldFile {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days,
+    [datetime]$AsOf
+  )
+  $cutoff = $AsOf.AddDays(-$Days)
+  Get-ChildItem $Path -File | Where-Object LastWriteTime -lt $cutoff
+}
+
+function Move-OldLog {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { throw "No folder to tidy: $Path" }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  New-Item -ItemType Directory "$Path/archive" -Force | Out-Null
+  $old | Move-Item -Destination "$Path/archive"
+  $old
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary, Move-OldLog</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 4: every test passes, then the real thing &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 387ms (9 tests)  <span class="cm">your time</span>
+Tests completed in 390ms  <span class="cm">your time</span>
+Tests Passed: 9, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $asOf = [datetime]'2026-03-04'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Move-OldLog -Path logs -Days 2 -AsOf $asOf).Name</span>
+web-2026-03-01.log
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs/archive -Name</span>
+web-2026-02-28.log
+web-2026-03-01.log
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Move-OldLog -Path logs -Days 2 -AsOf $asOf).Count</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ErrorSummary -Path logs</span>
+
+Log                Count
+---                -----
+web-2026-03-03.log     2
+web-2026-03-02.log     1
+web-2026-03-01.log     1
+web-2026-02-28.log     1</code></pre>
+      </div>
+      <p>Three things to read there. The move kept the log&rsquo;s date, so a second run finds nothing old left to move: <b>safe to run twice</b> (Session 8). <code>.Count</code> of nothing is 0 (Session 5). And the error report still finds the same four logs, because <code>Get-ErrorSummary</code> searches subfolders too (<code>-Recurse</code>): archiving tidied the folder and lost nothing. That last check is worth keeping in mind whenever a job moves files: <b>count before, count after</b>.</p>
+      <div class="note"><span class="nk">You will also see: Mock</span>Fernhill&rsquo;s tests never fake the clock: every date is a parameter, so a test simply passes one in. When you cannot pass something in (a web service, a real server), Pester&rsquo;s <code>Mock</code> stands in for a command during a test. Inside a module it needs <code>-ModuleName</code>, and it replaces every call to that command in the module, so read <a href="https://pester.dev/docs/usage/mocking" target="_blank" rel="noopener">Pester&rsquo;s page on mocking</a> before you reach for it. Where you can pass a value in, you do not have to fake it.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The module imports and <code>Move-OldLog</code> runs in 5.1 too (checked on this workbook&rsquo;s computer); the tests were run in PowerShell 7 only, as in Session 9.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Test first, then archive</div>
+        <ol>
+          <li>Add the <code>Move-OldLog</code> group to the tests, run them, read the one failure, and work out why the missing-folder test already passes. Pin it with <code>-ExpectedMessage</code>, and run them again: now both fail.</li>
+          <li>Add <code>Get-OldFile</code> and <code>Move-OldLog</code> to the module, add <code>Move-OldLog</code> to <code>Export-ModuleMember</code>, and run every test again.</li>
+          <li>As of 4 March 2026, archive the logs older than two days, run it a second time, and check the error report still lists four logs.</li>
+          <li>One more loop: a test that <code>Move-OldLog</code> moves nothing when every log is new (pass <code>-Days 10</code> with an <code>-AsOf</code> of 4 March, then check <code>old.log</code> is still in <code>logs</code>). Does the code need a change?</li>
+        </ol>
+        <details><summary>Hint</summary><p>In step 4, ten days before 4 March is 22 February, and both test logs are newer than that. Write the test, run it, and only then decide.</p></details>
+        <details><summary>Show the commands</summary>
+<p>Steps 1 to 3 are the boxes above. For step 4, add this <code>It</code> inside the <code>Move-OldLog</code> group:</p>
+<pre data-snippet="1"><code>  It 'moves nothing when every log is newer' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 10 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }</code></pre>
+<p>It passes at once: no code change needed, and the test now guards that case.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="3"> I wrote the tests first, then Move-OldLog, and archived the lab&rsquo;s old logs</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. A dry run you can trust: -WhatIf in your own function</h3>
+      <p>Session 3&rsquo;s rule: before anything deletes or moves files for real, ask it what it would do with <b><code>-WhatIf</code></b>. Cmdlets such as <code>Move-Item</code> and <code>Remove-Item</code> have it already. Your own function does not, until you ask for it. Test first, again: a dry run is code too, so it gets a test. Add this <code>It</code> to the <code>Move-OldLog</code> group:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; one more test, in the Move-OldLog group</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'moves nothing with -WhatIf' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf -WhatIf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">the new test fails &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+[-] Move-OldLog.moves nothing with -WhatIf 20ms  <span class="cm">your time</span>
+ ParameterBindingException: A parameter cannot be found that matches parameter name 'WhatIf'.
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:71
+Tests completed in 291ms  <span class="cm">your time</span>
+Tests Passed: 9, Failed: 1, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>That failure is the safe kind. <code>Move-OldLog</code> has <code>[CmdletBinding()]</code>, which makes it an advanced function (Session 6), and an advanced function refuses a parameter it does not have, loudly. <b>A plain function is worse:</b> one with no <code>[CmdletBinding()]</code> and no <code>[Parameter()]</code> line quietly ignores <code>-WhatIf</code>, just as Session 6&rsquo;s plain function ignored <code>-Verbose</code>, and then does the job for real:</p>
+      <div class="filebox">
+        <div class="fbh">a plain function ignores -WhatIf, and runs &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; function Move-Plain { param([string]$Path) "moved $Path for real" }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Move-Plain -Path old.log -WhatIf</span>
+moved old.log for real</code></pre>
+      </div>
+      <p><b>The fix is one word in <code>[CmdletBinding()]</code>:</b> <b><code>[CmdletBinding(SupportsShouldProcess)]</code></b>. It gives the function a <code>-WhatIf</code> switch, and while it is on, the cmdlets inside the function that change things (<code>New-Item</code>, <code>Move-Item</code>, <code>Remove-Item</code>) only say what they would do. Change the top of <code>Move-OldLog</code>:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; Move-OldLog learns -WhatIf</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+function Get-OldFile {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days,
+    [datetime]$AsOf
+  )
+  $cutoff = $AsOf.AddDays(-$Days)
+  Get-ChildItem $Path -File | Where-Object LastWriteTime -lt $cutoff
+}
+
+function Move-OldLog {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { throw "No folder to tidy: $Path" }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  New-Item -ItemType Directory "$Path/archive" -Force | Out-Null
+  $old | Move-Item -Destination "$Path/archive"
+  $old
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary, Move-OldLog</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">every test passes, then a dry run on the lab &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_zytb\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_zytb\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_zytb\logs\archive\old.log".  <span class="cm">yours differs</span>
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 282ms (10 tests)  <span class="cm">your time</span>
+Tests completed in 284ms  <span class="cm">your time</span>
+Tests Passed: 10, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $asOf = [datetime]'2026-03-04'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Move-OldLog -Path logs -Days 1 -AsOf $asOf -WhatIf).Name</span>
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\ps-lab\logs\archive".
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-lab\logs\web-2026-03-02.log Destination:                     <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-lab\logs\archive\web-2026-03-02.log".
+web-2026-03-02.log
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -File -Name</span>
+app-2026-03-03.log
+web-2026-03-02.log
+web-2026-03-03.log</code></pre>
+      </div>
+      <p>The new test passes, and its own &ldquo;What if:&rdquo; lines print in the middle of the test run: they are the dry run inside <code>TestDrive:</code>, saying what it would have done. On the lab, the dry run names the log it would move, prints the same kind of lines, and moves nothing. The function still outputs the file it <i>would</i> move, which is what a dry run is for.</p>
+      <p><b>Passing a switch on: <code>-WhatIf:$value</code>.</b> A switch can also be given a value after a colon, with no space: <code>-WhatIf:$true</code> turns it on, <code>-WhatIf:$false</code> off. That lets a script hand its own decision to a function, as section D does, handing <code>-WhatIf:$DryRun</code> to <code>Move-OldLog</code>.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The same in 5.1: <code>SupportsShouldProcess</code> gives a function <code>-WhatIf</code>, and the plain function ignores it.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make the dry run real</div>
+        <ol>
+          <li>Add the <code>-WhatIf</code> test, run it, and read the failure.</li>
+          <li>Add <code>SupportsShouldProcess</code> to <code>Move-OldLog</code>, and run every test.</li>
+          <li>On the lab, as of 4 March 2026, dry-run archiving the logs older than one day. Then list <code>logs</code> to prove nothing moved.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Step 2 changes only the <code>[CmdletBinding()]</code> line. After changing the module, import it again with <code>-Force</code> before you use it at the prompt.</p></details>
+        <label class="did"><input type="checkbox" data-task="4"> My function has a -WhatIf that a test proves moves nothing</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. The nightly job: tests first, then tidy, then report</h3>
+      <p>One more tool, the same shape: <code>Remove-OldReport -Path FOLDER -Days N -AsOf DATE</code> deletes the files in FOLDER older than N days, the reports that pile up in <code>out</code>. One difference, on purpose: if the folder is missing it does nothing, instead of stopping. A missing <code>logs</code> folder means something is wrong, but a missing <code>out</code> is normal: every lab rebuild deletes it (Session 8). Tests first, as always:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; one more group, at the end</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'moves nothing with -WhatIf' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf -WhatIf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}
+
+Describe 'Remove-OldReport' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/out' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/out/old.csv'
+    'new' | Set-Content 'TestDrive:/out/new.csv'
+    (Get-Item 'TestDrive:/out/old.csv').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/out/new.csv').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'removes only the reports older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Remove-OldReport -Path 'TestDrive:/out' -Days 2 -AsOf $asOf
+    Get-ChildItem 'TestDrive:/out' -Name | Should -Be 'new.csv'
+  }
+  It 'does nothing when the folder is missing' {
+    Remove-OldReport -Path 'TestDrive:/nope' | Should -HaveCount 0
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; Remove-OldReport, and shared</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+function Get-OldFile {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days,
+    [datetime]$AsOf
+  )
+  $cutoff = $AsOf.AddDays(-$Days)
+  Get-ChildItem $Path -File | Where-Object LastWriteTime -lt $cutoff
+}
+
+function Move-OldLog {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { throw "No folder to tidy: $Path" }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  New-Item -ItemType Directory "$Path/archive" -Force | Out-Null
+  $old | Move-Item -Destination "$Path/archive"
+  $old
+}
+
+function Remove-OldReport {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { return }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  $old | Remove-Item
+  $old
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary,
+  Move-OldLog, Remove-OldReport</code></pre>
+      </div>
+      <p>The <code>Export-ModuleMember</code> line grew too long for one line. PowerShell lets a line break straight after a comma in a list: it sees the list is not finished and reads on.</p>
+      <div class="filebox">
+        <div class="fbh">twelve tests, then a dry run on out &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_q5vh\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_q5vh\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_q5vh\logs\archive\old.log".  <span class="cm">yours differs</span>
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 395ms (12 tests)  <span class="cm">your time</span>
+Tests completed in 397ms  <span class="cm">your time</span>
+Tests Passed: 12, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $asOf = [datetime]'2026-03-04'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Remove-OldReport -Path out -Days 2 -AsOf $asOf -WhatIf).Name</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Remove-OldReport -Path out -Days 1 -AsOf $asOf -WhatIf).Name</span>
+What if: Performing the operation "Remove File" on target "C:\Users\you\ps-lab\out\copy.log".
+What if: Performing the operation "Remove File" on target                    <span class="cm">one line, wrapped here</span>
+"C:\Users\you\ps-lab\out\old-report.csv".
+copy.log
+old-report.csv</code></pre>
+      </div>
+      <p>The two copies from section A keep their old dates, 2 March at 11:59 at night and at 7:00 in the morning. With two days, the cutoff is midnight at the start of 2 March, and both are later than that, so nothing would go. With one day, the cutoff is midnight at the start of 3 March, and both are older.</p>
+      <p><b>Now the nightly script.</b> It does the whole job in one order that matters: run the tests, and refuse to touch anything if one fails; archive old logs; remove old reports; then run the error report. Two new pieces carry it.</p>
+      <p><b><code>Invoke-Pester -PassThru -Output None</code></b> runs the tests without printing them (<code>-Output None</code>) and hands back a result (<code>-PassThru</code>), the way a command&rsquo;s object goes into a variable (Session 5). It runs every <code>.Tests.ps1</code> file in the folder it is given, here the <code>Fernhill</code> folder, and none outside it. Its <b><code>FailedCount</code></b> and <code>PassedCount</code> properties say how it went, so an <code>if</code> that throws when <code>$tests.FailedCount</code> is more than 0 stops the script before it changes anything. And <b><code>Import-Module Pester -MinimumVersion 6.0</code></b> makes sure the tests run with Pester 6: without it, a computer that has only Windows&rsquo; old Pester 3.4.0 (Session 9) would load that one, the test run would stop at once with an error about a parameter named Output (3.4.0 has three that start that way), and the job would refuse every night with a reason that never mentions the version.</p>
+      <div class="filebox">
+        <div class="fbh">on a computer with only Windows&rsquo; Pester 3.4.0, the guard says why &middot; captured live</div>
+<pre data-shell="7" data-pre="oldpester"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module Pester -MinimumVersion 6.0</span>
+Import-Module: The specified module 'Pester' with version '6.0' was not      <span class="cm">one line, wrapped here</span>
+loaded because no valid module file was found in any module directory.</code></pre>
+      </div>
+      <p><b>A dry run for the whole job: <code>-DryRun</code>.</b> The script takes a switch of its own (Session 6) and hands it to each function that changes files: <code>-WhatIf:$DryRun</code>. Why not give the script <code>SupportsShouldProcess</code> and its own <code>-WhatIf</code>? Because it was tried, and the <code>-WhatIf</code> went to the wrong places both ways. Run by its path, it did not reach the module&rsquo;s <code>Move-OldLog</code> (the module cannot see the script&rsquo;s variables, Session 9): a short script that calls <code>Move-OldLog</code> with no test gate really moved the logs on a &ldquo;dry run&rdquo;. Yet it did reach the code inside the test files, whose writes to <code>TestDrive:</code> then did nothing, so six tests failed and the job refused. Run with <code>pwsh -File</code>, the way the scheduler runs it, it reached <i>everything</i>, <code>Write-Log</code> included, so nine tests failed, the job refused, and nothing was logged. A named switch, handed on by name, reaches exactly the two functions it is given to, however the script is started. <b>A dry run should switch off the risky steps, and nothing else.</b></p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/nightly.ps1 &middot; a script file, typed in VS Code</div>
+<pre data-file="~/ps-scripts/nightly.ps1"><code>&lt;#
+.SYNOPSIS
+Tidies the lab, then runs the error report: the Fernhill nightly job.
+.DESCRIPTION
+Runs the Fernhill module's tests first, and changes nothing if any fails.
+Then moves logs older than -Days into the logs folder's archive, deletes
+reports in the lab's out folder older than -Days, and runs error-report.ps1.
+Adds a line to nightly.log, beside the script, when it starts, when it has
+tidied, and when it fails. With -DryRun it moves and deletes nothing, and
+logs what it would have done.
+.PARAMETER Days
+How old a file must be, in days, to be tidied away. The default is 30.
+.PARAMETER AsOf
+The date the age is counted from. The default is now.
+.PARAMETER DryRun
+Shows what would be moved and deleted, and changes nothing.
+.EXAMPLE
+~/ps-scripts/nightly.ps1 -Days 1 -AsOf 2026-03-04 -DryRun
+#&gt;
+[CmdletBinding()]
+param(
+  [int]$Days = 30,
+  [datetime]$AsOf = (Get-Date),
+  [switch]$DryRun
+)
+$ErrorActionPreference = 'Stop'
+Import-Module "$PSScriptRoot/Fernhill/Fernhill.psm1" -Force
+$log = "$PSScriptRoot/nightly.log"
+Write-Log -Path $log -Message "Started with -Days $Days"
+try {
+  Import-Module Pester -MinimumVersion 6.0
+  $tests = Invoke-Pester -Path "$PSScriptRoot/Fernhill" -PassThru -Output None
+  if ($tests.FailedCount -gt 0) {
+    throw "Tests failed: $($tests.FailedCount). Nothing was changed."
+  }
+  $moved = Move-OldLog -Path "$HOME/ps-lab/logs" -Days $Days -AsOf $AsOf -WhatIf:$DryRun
+  $removed = Remove-OldReport -Path "$HOME/ps-lab/out" -Days $Days -AsOf $AsOf -WhatIf:$DryRun
+  $counts = "logs: $($moved.Count), reports: $($removed.Count)"
+  if ($DryRun) {
+    Write-Log -Path $log -Message "Dry run, would archive and remove $counts"
+  } else {
+    Write-Log -Path $log -Message "Archived and removed $counts"
+  }
+  &amp; "$PSScriptRoot/error-report.ps1"
+} catch {
+  Write-Log -Path $log -Message "FAILED: $($_.Exception.Message)"
+  throw
+}</code></pre>
+      </div>
+      <p>Its help sits at the top, as in Session 6; its log and its Stop preference are Sessions 7 and 8&rsquo;s. The last step runs Session 9&rsquo;s error report as it is, so its own log and table stay the same. A script&rsquo;s path typed on its own runs it (Session 5), but here the path is built from <code>$PSScriptRoot</code> inside quotes, and a string in quotes is just text. <b><code>&amp;</code></b>, the <b>call operator</b>, says &ldquo;run this&rdquo;: <code>&amp; "$PSScriptRoot/error-report.ps1"</code> runs the script that text names.</p>
+      <p>Run it as the scheduler will, from the top folder <code>/</code>: first dry, then for real, then again. The script&rsquo;s path goes in a variable first, only to keep the lines short:</p>
+      <div class="filebox">
+        <div class="fbh">dry run, real run, second run &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $job = "$HOME/ps-scripts/nightly.ps1"</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Set-Location /</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File $job -Days 1 -AsOf 2026-03-04 -DryRun</span>
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_mx15\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_mx15\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_mx15\logs\archive\old.log".  <span class="cm">yours differs</span>
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\ps-lab\logs\archive".
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-lab\logs\web-2026-03-02.log Destination:                     <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-lab\logs\archive\web-2026-03-02.log".
+What if: Performing the operation "Remove File" on target "C:\Users\you\ps-lab\out\copy.log".
+What if: Performing the operation "Remove File" on target                    <span class="cm">one line, wrapped here</span>
+"C:\Users\you\ps-lab\out\old-report.csv".
+
+Log                Count
+---                -----
+web-2026-03-03.log     2
+web-2026-03-02.log     1
+web-2026-03-01.log     1
+web-2026-02-28.log     1
+
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File $job -Days 1 -AsOf 2026-03-04 | Out-Null</span>
+<span class="cmd">PS C:\&gt; pwsh -NoProfile -NonInteractive -File $job -Days 1 -AsOf 2026-03-04 | Out-Null</span>
+<span class="cmd">PS C:\&gt; Get-Content ~/ps-scripts/nightly.log -Tail 6</span>
+2026-10-16 14:47:38 Started with -Days 1  <span class="cm">your time</span>
+2026-10-16 14:47:40 Dry run, would archive and remove logs: 1, reports: 2  <span class="cm">your time</span>
+2026-10-16 14:47:41 Started with -Days 1  <span class="cm">your time</span>
+2026-10-16 14:47:44 Archived and removed logs: 1, reports: 2  <span class="cm">your time</span>
+2026-10-16 14:47:45 Started with -Days 1  <span class="cm">your time</span>
+2026-10-16 14:47:48 Archived and removed logs: 0, reports: 0  <span class="cm">your time</span>
+<span class="cmd">PS C:\&gt; Get-ChildItem ~/ps-lab/logs/archive -Name</span>
+web-2026-02-28.log
+web-2026-03-01.log
+web-2026-03-02.log
+<span class="cmd">PS C:\&gt; Set-Location ~/ps-lab</span></code></pre>
+      </div>
+      <p>Read it in order. The dry run printed &ldquo;What if:&rdquo; lines: the first two come from the test that checks <code>-WhatIf</code>, inside <code>TestDrive:</code>, and the rest are the lab&rsquo;s, a log it would archive and two reports it would remove. Then it printed the report&rsquo;s table, and logged what it <i>would</i> archive and remove. The real run did it. The second run found nothing left: <b>safe to run twice</b>. The table is the same four logs every time. Runs two and three are piped to <code>Out-Null</code> only to keep this page short.</p>
+      <div class="note"><span class="nk">On macOS and Linux</span>The script is the same; the paths print with forward slashes.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The nightly script</div>
+        <ol>
+          <li>Write the two <code>Remove-OldReport</code> tests first, see them fail, then add the function and share it. Twelve tests should pass.</li>
+          <li>Save <code>nightly.ps1</code>, and read its help with <code>Get-Help ~/ps-scripts/nightly.ps1</code>.</li>
+          <li>From <code>/</code>, as of 4 March 2026 with one day: a dry run, a real run, and a second real run. Read the last six lines of <code>nightly.log</code>, and list the archive.</li>
+        </ol>
+        <details><summary>Hint</summary><p>If <code>old-report.csv</code> is not in <code>out</code>, copy <code>exports/report-final.csv</code> there with <code>Copy-Item</code> first (section A&rsquo;s task). The help needs the <code>&lt;# #&gt;</code> block at the very top of the file, above <code>[CmdletBinding()]</code> (Session 6).</p></details>
+        <label class="did"><input type="checkbox" data-task="5"> My nightly script tests first, dry-runs on request, and is safe to run twice</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Schedule it in place of the error report</h3>
+      <p>Session 8 scheduled <code>error-report.ps1</code> as <code>Fernhill error report</code>. The nightly script now runs that report itself, so keeping both would run the report twice, and a task named &ldquo;error report&rdquo; that also moves and deletes files would mislead the next person who reads the task list. So replace it: remove the old task, and register <code>Fernhill nightly</code>.</p>
+      <p><code>Unregister-ScheduledTask</code> asks you to confirm (Session 8). <b><code>-Confirm:$false</code></b> answers that question in advance: it is section C&rsquo;s <code>-Switch:$value</code> form, with the switch every cmdlet that asks has. Use it in a script; at the prompt, answering <code>Y</code> yourself is fine. If you never scheduled the error report, skip the first command.</p>
+      <div class="filebox">
+        <div class="fbh">on Windows: one task in place of the old one &middot; captured live</div>
+<pre data-shell="7" data-pre="regtask"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Unregister-ScheduledTask -TaskName 'Fernhill error report' -Confirm:$false</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $pwsh = (Get-Command pwsh).Source</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $script = "$HOME/ps-scripts/nightly.ps1"</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $arguments = '-NoProfile -NonInteractive -File "' + $script + '"'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $action = New-ScheduledTaskAction -Execute $pwsh -Argument $arguments</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger = New-ScheduledTaskTrigger -Daily -At '7:00 AM'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $trigger.StartBoundary = Get-Date '7:00 AM' -Format s</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries</span>
+<span class="cmd">  -DontStopIfGoingOnBatteries -StartWhenAvailable</span>                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Register-ScheduledTask -TaskName 'Fernhill nightly' -Action $action</span>
+<span class="cmd">  -Trigger $trigger -Settings $settings | Out-Null</span>                           <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ScheduledTask -TaskName 'Fernhill*' | Select-Object TaskName, State</span>
+
+TaskName         State
+--------         -----
+Fernhill nightly Ready</code></pre>
+      </div>
+      <p>The settings are Session 8&rsquo;s: it runs on battery, keeps running if you unplug, and runs late after a missed seven o&rsquo;clock; the <code>StartBoundary</code> line keeps it at seven when the clocks change. The scheduled run passes no <code>-Days</code> or <code>-AsOf</code>, so it counts thirty days back from the moment it runs. The lab&rsquo;s logs are from March 2026, so <b>its first run archives all four of them</b>, and the report still counts the same four. That is the job working; pasting the setup block puts them back.</p>
+      <p>Test it now rather than at seven tomorrow, as Session 8 did. Paste the setup block first, so the job finds the lab as it ships, with all four logs:</p>
+<pre data-shell="7" data-loud="1" data-rebuild="1"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Start-ScheduledTask -TaskName 'Fernhill nightly'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Start-Sleep -Seconds 15</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Get-ScheduledTaskInfo -TaskName 'Fernhill nightly').LastTaskResult</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/nightly.log -Tail 2</span>
+2026-10-16 15:03:43 Started with -Days 30  <span class="cm">your time</span>
+2026-10-16 15:03:45 Archived and removed logs: 4, reports: 0  <span class="cm">your time</span></code></pre>
+      <p>Fifteen seconds, not Session 8&rsquo;s five: the job runs twelve tests before it does anything, and the first run in a new window can take several seconds. If <code>LastTaskResult</code> prints <code>267009</code>, the task is still running: wait, and ask again.</p>
+      <p><b>On macOS and Linux</b>, change your crontab line from Session 8 the same way: the same daily schedule, the nightly script in place of the report. Paste the setup block first, then install the every-minute line to see it work, then the daily one. cron runs that line every minute, so by the time you look it may have run twice: the first run archived all four logs, and any later run found nothing left to move (safe to run twice). So the box picks out the line for the run that archived four:</p>
+<pre data-shell="linux" data-rebuild="1"><code><span class="cmd">PS /home/you/ps-lab&gt; $pwsh = (Get-Command pwsh).Source</span>
+<span class="cmd">PS /home/you/ps-lab&gt; $script = "$HOME/ps-scripts/nightly.ps1"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; $command = "$pwsh -NoProfile -NonInteractive -File $script"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Set-Content ~/ps-scripts/crontab.txt "* * * * * $command"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab ~/ps-scripts/crontab.txt</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Start-Sleep -Seconds 75</span>
+<span class="cmd">PS /home/you/ps-lab&gt; Get-Content ~/ps-scripts/nightly.log | Select-String 'logs: 4'</span>
+
+2026-10-16 14:49:03 Archived and removed logs: 4, reports: 0  <span class="cm">your time</span>
+
+<span class="cmd">PS /home/you/ps-lab&gt; Set-Content ~/ps-scripts/crontab.txt "0 7 * * * $command"</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab ~/ps-scripts/crontab.txt</span>
+<span class="cmd">PS /home/you/ps-lab&gt; crontab -l</span>
+0 7 * * * /opt/microsoft/powershell/7/pwsh -NoProfile -NonInteractive        <span class="cm">one line, wrapped here</span>
+-File /home/you/ps-scripts/nightly.ps1</code></pre>
+      <p><code>crontab FILE</code> replaces your whole crontab with the file (Session 8), so the error report&rsquo;s old line is gone: the file held only it. If your crontab holds other lines, keep them in the file.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span><code>Unregister-ScheduledTask</code>, <code>-Confirm:$false</code> and the rest are the same in 5.1. The task runs PowerShell 7, whichever shell registered it.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> One task, honestly named</div>
+        <ol>
+          <li>On Windows: remove <code>Fernhill error report</code> (if you have it), register <code>Fernhill nightly</code> for seven each morning, and list the Fernhill tasks.</li>
+          <li>Paste the setup block, then start the task once, wait, and read its <code>LastTaskResult</code> and the last two lines of <code>nightly.log</code>. Paste the setup block again afterwards to put the lab&rsquo;s logs back.</li>
+          <li>On macOS or Linux instead: install the every-minute line, read the log after a minute, then the daily line, and list your crontab.</li>
+        </ol>
+        <details><summary>Hint</summary><p>The commands are the box above. <code>Get-ScheduledTask -TaskName 'Fernhill*'</code> uses a wildcard (Session 1), so it lists every task whose name starts with Fernhill.</p></details>
+        <label class="did"><input type="checkbox" data-task="6"> Fernhill nightly is scheduled in place of the old task, and its first run logged</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Every level, in one script: a review pass</h3>
+      <p>Read <code>nightly.ps1</code> and the module once more, line by line, and name where each piece came from. That is the review of the whole track: nothing in the job is new except the dates and the dry run.</p>
+      <div class="fam">
+        <div class="frow lbl"><div class="fc">Level</div><div class="fn">What it gave the nightly job</div><div class="fd">Sessions</div></div>
+        <div class="frow"><div class="fc">1 Talking to the shell</div><div class="fn">commands and parameters, <code>Get-ChildItem</code>, the pipeline, <code>Where-Object LastWriteTime -lt</code>, <code>Select-Object</code></div><div class="fd">1, 2</div></div>
+        <div class="frow"><div class="fc">2 Working with data</div><div class="fn"><code>Select-String</code>, <code>Group-Object</code>, <code>Move-Item</code>, <code>Remove-Item</code>, <code>-WhatIf</code>, the report&rsquo;s CSV</div><div class="fd">3, 4</div></div>
+        <div class="frow"><div class="fc">3 Scripting</div><div class="fn">variables, <code>if</code>, <code>$( )</code> in messages, functions, <code>param()</code>, switches, help at the top</div><div class="fd">5, 6</div></div>
+        <div class="frow"><div class="fc">4 Robust automation</div><div class="fn">Stop, <code>try</code>/<code>catch</code>/<code>throw</code>, exit codes, the log, <code>$PSScriptRoot</code>, safe to run twice, the schedule</div><div class="fd">7, 8</div></div>
+        <div class="frow"><div class="fc">5 Professional tooling</div><div class="fn">the module, what it shares, Pester and <code>TestDrive:</code>, tests first; today: the test gate and a tested dry run</div><div class="fd">9, 10</div></div>
+      </div>
+      <p><b>Then break it, on purpose, the three ways a real night can go wrong</b>, and read what the job did each time. A scheduled job is only as good as how it fails (Session 8): it must fail loudly, log why, and change nothing it should not.</p>
+      <div class="filebox">
+        <div class="fbh">a failing test, a missing folder, a rebuilt lab &middot; captured live</div>
+<pre data-shell="7" data-rebuild="1"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $job = "$HOME/ps-scripts/nightly.ps1"</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "Describe 'Broken' { It 'fails' { 1 | Should -Be 2 } }" |</span>
+<span class="cmd">  Set-Content ~/ps-scripts/Fernhill/Broken.Tests.ps1</span>                         <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -NonInteractive -File $job -Days 1 -AsOf 2026-03-04 |</span>
+<span class="cmd">  Out-Null</span>                                                                   <span class="cm">one line, wrapped here</span>
+Exception: C:\Users\you\ps-scripts\nightly.ps1:34
+Line |
+  34 |      throw "Tests failed: $($tests.FailedCount). Nothing was changed."
+     |      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Tests failed: 1. Nothing was changed.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-ChildItem logs -File -Name</span>
+app-2026-03-03.log
+web-2026-03-01.log
+web-2026-03-02.log
+web-2026-03-03.log
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item ~/ps-scripts/Fernhill/Broken.Tests.ps1</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Rename-Item logs logs-away</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -NonInteractive -File $job -Days 1 -AsOf 2026-03-04 |</span>
+<span class="cmd">  Out-Null</span>                                                                   <span class="cm">one line, wrapped here</span>
+Exception: No folder to tidy: C:\Users\you/ps-lab/logs
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Rename-Item logs-away logs</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Remove-Item out -Recurse</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -NonInteractive -File $job -Days 1 -AsOf 2026-03-04 |</span>
+<span class="cmd">  Out-Null</span>                                                                   <span class="cm">one line, wrapped here</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/nightly.log -Tail 6</span>
+2026-10-16 14:47:54 Started with -Days 1  <span class="cm">your time</span>
+2026-10-16 14:47:57 FAILED: Tests failed: 1. Nothing was changed.  <span class="cm">your time</span>
+2026-10-16 14:47:58 Started with -Days 1  <span class="cm">your time</span>
+2026-10-16 14:48:01 FAILED: No folder to tidy: C:\Users\you/ps-lab/logs  <span class="cm">your time</span>
+2026-10-16 14:48:02 Started with -Days 1  <span class="cm">your time</span>
+2026-10-16 14:48:04 Archived and removed logs: 2, reports: 0  <span class="cm">your time</span></code></pre>
+      </div>
+      <p>The first break saves a second test file beside the real one, holding one test that cannot pass (1 is not 2), so the job&rsquo;s test run has a failure: the job logged <code>FAILED:</code>, ended with 1, and the logs list shows nothing moved. The second hid the logs folder: <code>Move-OldLog</code> threw, the job logged why and ended with 1. The third deleted <code>out</code>, as a lab rebuild does: <code>Remove-OldReport</code> found nothing to do, the report made the folder again (Session 8), and the job ended with 0. Each failure stopped before the risky step, and each one left a line in the log that says why.</p>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Break it three ways</div>
+        <ol>
+          <li>Rebuild the lab and make <code>out</code>. Make one test fail with a second test file, run the job, and read its exit code and the logs folder. Remove that file.</li>
+          <li>Rename <code>logs</code>, run the job, read the exit code, and rename it back.</li>
+          <li>Delete <code>out</code>, run the job, and read the exit code. Then read the last six lines of <code>nightly.log</code> and explain each.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Every run is the same <code>pwsh -NoProfile -NonInteractive -File</code> line; <code>$LASTEXITCODE</code> (Session 7) right after each one gives its exit code.</p></details>
+        <label class="did"><input type="checkbox" data-task="7"> I broke the job three ways, and it failed loudly or carried on as it should</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Where this track stops, and what comes next</h3>
+      <p>Ten sessions take you from opening a terminal to a tested, scheduled module. That is real, everyday automation. It is also a fraction of PowerShell, and it is worth knowing what was left out on purpose, so you know where to look when a job needs it:</p>
+      <ul>
+        <li><b>Remoting:</b> running commands on other computers (<code>Invoke-Command</code>, <code>Enter-PSSession</code>). Every session here ran on your own computer.</li>
+        <li><b>Desired State Configuration (DSC):</b> describing how a server should be set up, and letting PowerShell keep it that way.</li>
+        <li><b>Azure, Microsoft Graph and Active Directory:</b> the large modules for cloud, Microsoft 365 and Windows domain work. They are built on everything here (cmdlets, objects, the pipeline), but each needs an account or a server this track could not give you.</li>
+        <li><b>Graphical tools and classes:</b> windows and forms, and PowerShell&rsquo;s own object types (<code>class</code>). Most automation needs neither.</li>
+        <li><b>Packaging a module:</b> a module manifest (a <code>.psd1</code> file with a version number), publishing it, <code>Update-Module</code>, and running the tests automatically on every change, which teams call CI (continuous integration). Today&rsquo;s test gate is the same idea, run by your own scheduler.</li>
+      </ul>
+      <p>The natural next step is the shell PowerShell has been compared with all along: Bash, on Linux. Every &ldquo;In Bash&rdquo; box in this track was a bridge to it. The Hub&rsquo;s closing section lists where to go from here, including the two Microsoft certifications where PowerShell counts.</p>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: ship a tested module that runs on a schedule</h3>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: ship a tested module that runs on a schedule</div>
+        <ol>
+          <li>The <code>Fernhill</code> module holds Session 9&rsquo;s three functions plus <code>Move-OldLog</code> and <code>Remove-OldReport</code>, both with <code>-Path</code>, <code>-Days</code> (default 30), <code>-AsOf</code> (default now) and a working <code>-WhatIf</code>, sharing a private <code>Get-OldFile</code>. It shares exactly five functions.</li>
+          <li>Its tests cover both new functions: what they move or remove, a missing folder, and a dry run that changes nothing. Every test passes.</li>
+          <li><code>nightly.ps1</code> has help, <code>-Days</code>, <code>-AsOf</code> and <code>-DryRun</code>; runs the tests first and changes nothing if one fails; archives, removes, then runs the error report; and logs a start, a result, and any failure.</li>
+          <li>From <code>/</code> with <code>pwsh -NoProfile -NonInteractive -File</code>: a dry run, a real run and a second run as of 4 March 2026 with one day, then the three breaks from section F.</li>
+          <li><code>Fernhill nightly</code> is scheduled (or the crontab line installed) in place of the old error report, and one run has logged.</li>
+        </ol>
+        <p>You have hit the milestone when the tests pass, the dry run moved nothing, the real run archived and logged, the second run archived nothing, each break did what section F shows, the scheduled run logged, and you wrote it without copying from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<p>The module is section D&rsquo;s last <code>Fernhill.psm1</code>, the tests section D&rsquo;s last test file, with twelve tests, and the script section D&rsquo;s <code>nightly.ps1</code>, unchanged. All three, together:</p>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; the finished module</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+function Get-OldFile {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days,
+    [datetime]$AsOf
+  )
+  $cutoff = $AsOf.AddDays(-$Days)
+  Get-ChildItem $Path -File | Where-Object LastWriteTime -lt $cutoff
+}
+
+function Move-OldLog {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { throw "No folder to tidy: $Path" }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  New-Item -ItemType Directory "$Path/archive" -Force | Out-Null
+  $old | Move-Item -Destination "$Path/archive"
+  $old
+}
+
+function Remove-OldReport {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { return }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  $old | Remove-Item
+  $old
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary,
+  Move-OldLog, Remove-OldReport</code></pre>
+</div>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; the finished tests</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'moves nothing with -WhatIf' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf -WhatIf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}
+
+Describe 'Remove-OldReport' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/out' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/out/old.csv'
+    'new' | Set-Content 'TestDrive:/out/new.csv'
+    (Get-Item 'TestDrive:/out/old.csv').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/out/new.csv').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'removes only the reports older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Remove-OldReport -Path 'TestDrive:/out' -Days 2 -AsOf $asOf
+    Get-ChildItem 'TestDrive:/out' -Name | Should -Be 'new.csv'
+  }
+  It 'does nothing when the folder is missing' {
+    Remove-OldReport -Path 'TestDrive:/nope' | Should -HaveCount 0
+  }
+}</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill -Output Detailed</span>
+Pester v6.2.0
+
+Running tests from 1 files.
+
+Running tests from 'C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1'
+Describing Format-LogLine
+  [+] puts the time first, then the message 15ms  <span class="cm">your time</span>
+  [+] uses the hour from 00 to 23 1ms  <span class="cm">your time</span>
+
+Describing Write-Log
+  [+] adds one line each time 43ms  <span class="cm">your time</span>
+  [+] makes the folder if it is missing 6ms  <span class="cm">your time</span>
+  [+] writes a log with no folder in its name 10ms  <span class="cm">your time</span>
+
+Describing Get-ErrorSummary
+  [+] counts the ERROR lines in each log, biggest first 10ms  <span class="cm">your time</span>
+  [+] stops when the folder is missing 3ms  <span class="cm">your time</span>
+
+Describing Move-OldLog
+  [+] moves only the logs older than the days given 13ms  <span class="cm">your time</span>
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_a5kk\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_a5kk\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_a5kk\logs\archive\old.log".  <span class="cm">yours differs</span>
+  [+] moves nothing with -WhatIf 9ms  <span class="cm">your time</span>
+  [+] stops when the folder is missing 6ms  <span class="cm">your time</span>
+
+Describing Remove-OldReport
+  [+] removes only the reports older than the days given 15ms  <span class="cm">your time</span>
+  [+] does nothing when the folder is missing 7ms  <span class="cm">your time</span>
+Tests completed in 277ms  <span class="cm">your time</span>
+Tests Passed: 12, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+<p>Then the runs are section D&rsquo;s box, the breaks section F&rsquo;s, and the schedule section E&rsquo;s.</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="8"> I shipped a tested module that runs on a schedule</label>
+      </div>
+      <div class="note"><span class="nk">To remove it later</span>On Windows: <code>Unregister-ScheduledTask -TaskName 'Fernhill nightly'</code>, and answer <code>Y</code>. On macOS and Linux: take its line out of <code>~/ps-scripts/crontab.txt</code> and install the file again with <code>crontab ~/ps-scripts/crontab.txt</code>. Your module, tests, scripts and logs are plain files in <code>ps-scripts</code>.</div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from dates, through moving files and dry runs, to the nightly job.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh PowerShell 7 window with a fresh lab and an <code>out</code> folder</b>, with Pester 6 installed and the finished Fernhill module from section H saved in <code>~/ps-scripts/Fernhill</code>, and its commands run in the order shown, in that one window. Each was run on 2026-10-16 in PowerShell 7.6 on Windows with Pester 6.2, with English (United States) language settings. Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it: put the steps of a process in order, then fill the blanks in three pieces of code.</p>
+    <div id="parsons"></div>
+    <h3 style="font-size:16px;margin:22px 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the code in the box, run it in your terminal, then reveal the reference to compare. More than one answer can be right, so judge yours by what it did, and by whether its tests pass. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your code did what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this session. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">17</span></span>
+        <span>In pile <b id="fc-pile">17</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">The comprehensive final: 10 questions, one from each session of the track, in order, with the answer options shuffled every time you load the page. Pass with 8. If a wrong answer surprises you, use the review link that appears: it opens the session the question came from, at the section that teaches it.</p>
+    <div class="note">&#128257; <b>All ten sessions.</b> Questions 1 to 9 come from Sessions 1 to 9, one each, and question 10 from today. Each tests the trap from its session most likely to catch you in a real script, because recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. The review links for 1 to 9 open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Session 10 of 10 &middot; Hit the milestone unassisted, then tick <b>S10</b> on your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a>. <b>Level 5, Professional tooling, is complete, and so is the track:</b> you can write, test, schedule and trust a PowerShell tool of your own.
+    <br><br>
+    <b>Your 15-minute review, a week from now:</b> read a week of <code>~/ps-scripts/nightly.log</code> and explain every line: when it ran, what it archived and removed, and, if a line says <code>FAILED:</code>, why. Then run the tests once by hand. For what comes next, open the <b>Where to next</b> section at the end of your Hub. For depth on everything this track touched, <i>Learn PowerShell in a Month of Lunches</i> (Manning, paid) is the classic next read.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-s10-workbook-v1";
+  /* The comprehensive final: Part 6's Q1 to Q9 come from Sessions 1 to 9, one each, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S01_URL = "ps-session-01.html";
+  var S02_URL = "ps-session-02.html";
+  var S03_URL = "ps-session-03.html";
+  var S04_URL = "ps-session-04.html";
+  var S05_URL = "ps-session-05.html";
+  var S06_URL = "ps-session-06.html";
+  var S07_URL = "ps-session-07.html";
+  var S08_URL = "ps-session-08.html";
+  var S09_URL = "ps-session-09.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this session: transcripts print answer tokens as
+     bare values one per line (a count, a file name, True or False), as log lines and
+     as Pester's Tests Passed: 12, Failed: 0 totals. Parentheses are syntax here:
+     .AddDays(-2), (Get-Item FILE).LastWriteTime, $( ) and (Get-Date), so () in the
+     split class would accept wrong answers. No answer is wrapped in parentheses.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in Session 10 is: its
+     answers are True or False, counts and file names, none of which a learner could get
+     wrong by case alone (build contract section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in Session 10 is: its blanks are a method,
+     a property, an attribute's word, a variable's name and a switch, all of which
+     PowerShell matches in any case (captured).
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 5 value, 1 set, 1 seq, 3 count. S10's grader flags are in the build contract,
+     section 4: caseFold ON, parenLabels OFF, no drill cs: true (answers are True/False, counts, file
+     names, a Pester result word). Every drill was run on 2026-10-16 from a fresh lab with an out folder,
+     Pester 6.2.0 installed and section H's finished module saved, its commands typed into ONE PowerShell
+     7.6.7 window in order (_build/verify_s10.py). No answer is printed by a Part 1 transcript. */
+  var DRILLS = [
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> $asOf = [datetime]'2026-03-04'\nPS C:\\Users\\you\\ps-lab> $first = [datetime]'2026-03-01'\nPS C:\\Users\\you\\ps-lab> $asOf.AddDays(-3) -lt $first", ans: 'False', alt: ['$false'],
+      why: 'False. Three days before midnight on 4 March is midnight on 1 March, exactly the same moment as $first. -lt means strictly earlier, and a moment is not earlier than itself. That is why a file written at 23:59 on 1 March is not older than three days, as of 4 March.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> $asOf = [datetime]'2026-03-04'\nPS C:\\Users\\you\\ps-lab> $cutoff = $asOf.AddDays(-3)\nPS C:\\Users\\you\\ps-lab> (Get-ChildItem logs -Recurse -File | Where-Object LastWriteTime -lt $cutoff).Count", ans: '1', alt: ['one'],
+      why: '1. The cutoff is midnight at the start of 1 March. -Recurse also searches logs/archive, whose web-2026-02-28.log (23:59 on 28 February) is earlier. web-2026-03-01.log was written at 23:59 on 1 March, later than the cutoff, so it is not counted.' },
+
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. Which file names does the last one print? List them in any order, separated by commas.',
+      code: "PS C:\\Users\\you\\ps-lab> $asOf = [datetime]'2026-03-05'\nPS C:\\Users\\you\\ps-lab> $cutoff = $asOf.AddDays(-1)\nPS C:\\Users\\you\\ps-lab> Get-ChildItem exports -File | Where-Object LastWriteTime -lt $cutoff |\n  Select-Object -ExpandProperty Name", ans: 'report-final.csv, report-final-v2.csv',
+      why: 'report-final.csv and report-final-v2.csv. The cutoff is midnight at the start of 4 March. Those two were written at 7:00 on 2 and 3 March; every other export, report-FINAL-really.csv included, was written on the morning of 4 March, after the cutoff.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force\nPS C:\\Users\\you\\ps-lab> $asOf = [datetime]'2026-03-04'\nPS C:\\Users\\you\\ps-lab> Move-OldLog -Path logs -Days 1 -AsOf $asOf -WhatIf | Out-Null\nPS C:\\Users\\you\\ps-lab> (Get-ChildItem logs/archive).Count", ans: '1', alt: ['one'],
+      why: '1. With -WhatIf, Move-OldLog only says what it would move, so the archive still holds just the lab\u2019s own web-2026-02-28.log. (Out-Null hides the files it outputs, not its What if: lines.)' },
+
+    { type: 'seq', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What do the last two print, in order? Separate them with a comma.',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force\nPS C:\\Users\\you\\ps-lab> $asOf = [datetime]'2026-03-04'\nPS C:\\Users\\you\\ps-lab> (Move-OldLog -Path logs -Days 1 -AsOf $asOf).Count\nPS C:\\Users\\you\\ps-lab> (Move-OldLog -Path logs -Days 0 -AsOf $asOf).Count", ans: '2, 2',
+      why: '2, then 2. With one day the cutoff is midnight at the start of 3 March: web-2026-03-01.log and web-2026-03-02.log move. With 0 days the cutoff is midnight at the start of 4 March itself, so the two logs written on 3 March, app-2026-03-03.log and web-2026-03-03.log, are old enough now and move too. Afterwards logs holds no files at all.' },
+
+    { type: 'value', lbl: 'a plain function, typed at the prompt',
+      scen: "function Clear-Out {\n  param([string]$Path)\n  Remove-Item \"$Path/*\"\n}",
+      ask: 'Type the function in the grey box at the prompt, then run the commands. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> 'x' | Set-Content out/a.txt\nPS C:\\Users\\you\\ps-lab> Clear-Out -Path out -WhatIf\nPS C:\\Users\\you\\ps-lab> (Get-ChildItem out).Count", ans: '0', alt: ['zero'],
+      why: '0. Clear-Out has neither [CmdletBinding()] nor a [Parameter()] line, so it is a plain function: it quietly ignores -WhatIf, and Remove-Item deletes a.txt for real. [CmdletBinding(SupportsShouldProcess)] would have made -WhatIf work.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force\nPS C:\\Users\\you\\ps-lab> $asOf = [datetime]'2026-03-04'\nPS C:\\Users\\you\\ps-lab> Move-OldLog -Path logs -Days 1 -AsOf $asOf -WhatIf:$false | Out-Null\nPS C:\\Users\\you\\ps-lab> (Get-ChildItem logs -File).Count", ans: '2', alt: ['two'],
+      why: '2. -WhatIf:$false gives the switch the value off, so this is a real run: web-2026-03-01.log and web-2026-03-02.log move to the archive, leaving app-2026-03-03.log and web-2026-03-03.log.' },
+
+    { type: 'value', lbl: 'a test file: ~/ps-scripts/Shop/Tea.Tests.ps1 holds these lines',
+      scen: "Describe 'Tea' {\n  It 'boils' { 100 | Should -Be 100 }\n  It 'steeps' { 'green' | Should -Be 'black' }\n  It 'pours' { 'a', 'b' | Should -HaveCount 2 }\n}",
+      ask: 'Save the lines in the grey box (make the Shop folder first), then run the commands. What does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> $r = Invoke-Pester ~/ps-scripts/Shop/Tea.Tests.ps1 -PassThru -Output None\nPS C:\\Users\\you\\ps-lab> $r.FailedCount", ans: '1', alt: ['one'],
+      why: '1. -Output None prints nothing, and -PassThru hands back the result: steeps fails (green is not black), boils and pours pass. FailedCount is the number nightly.ps1 checks before it changes anything.' },
+
+    { type: 'count', lbl: 'in ps-lab, with section H\u2019s nightly.ps1 saved',
+      scen: "~/ps-scripts/Broken.Tests.ps1, beside the Fernhill folder, holds:\n  Describe 'Broken' { It 'fails' { 1 | Should -Be 2 } }",
+      ask: 'Save the test file in the grey box in ps-scripts itself, not in the Fernhill folder, then run the commands. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> $job = \"$HOME/ps-scripts/nightly.ps1\"\nPS C:\\Users\\you\\ps-lab> pwsh -NoProfile -NonInteractive -File $job -Days 1 -AsOf 2026-03-04 | Out-Null\nPS C:\\Users\\you\\ps-lab> (Get-ChildItem logs -File).Count", ans: '2', alt: ['two'],
+      why: '2. The job runs only the tests in the Fernhill folder (Invoke-Pester -Path "$PSScriptRoot/Fernhill"), so a failing test beside it is never run: every test the job runs passes, and it archives the two logs older than one day. A test gate guards only the tests it runs. Remove Broken.Tests.ps1 afterwards.' },
+
+    { type: 'value', lbl: 'a script: ~/ps-scripts/trial.ps1 holds these lines',
+      scen: "[CmdletBinding(SupportsShouldProcess)]\nparam()\nImport-Module \"$PSScriptRoot/Fernhill/Fernhill.psm1\" -Force\n$asOf = [datetime]'2026-03-04'\nMove-OldLog -Path \"$HOME/ps-lab/logs\" -Days 1 -AsOf $asOf | Out-Null",
+      ask: 'Save the lines in the grey box, then run the commands. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> ~/ps-scripts/trial.ps1 -WhatIf\nPS C:\\Users\\you\\ps-lab> (Get-ChildItem logs -File).Count", ans: '2', alt: ['two'],
+      why: '2. Run by its path, the script\u2019s own -WhatIf stays in the script: the module\u2019s Move-OldLog cannot see it (Session 9), so it moves two logs for real. That is why nightly.ps1 hands its -DryRun on by name, -WhatIf:$DryRun.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     One process with exactly one valid order, sections D and E: put the nightly job on the schedule
+     safely: dry run before the real run (section C), schedule only what has worked by hand, twice
+     (Session 8), start only what is registered. The prompt states the two rules, not the steps (re-review
+     m4: a prompt naming each stage could be solved by matching words), and the rules allow exactly one
+     order. Longest tile 51 characters (two columns allow about 54). */
+  var PARSONS = [
+    { prompt: 'Put the nightly job on the schedule safely, as sections D and E do. Two rules: nothing runs for real until you have seen what it would do, and nothing is scheduled until it has worked by hand.',
+      lines: ['Run nightly.ps1 -DryRun and read the What if lines',
+              'Run it for real, twice: the second archives nothing',
+              'Register Fernhill nightly in place of the old task',
+              'Start the task and read LastTaskResult'] }
+  ];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    if (!wrap) return;          /* a session with no Parsons item has no container (Session 8) */
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: method, property, attribute and switch
+     names are all matched in any case by PowerShell (captured: .adddays, lastwritetime,
+     supportsshouldprocess, -passthru and failedcount in lower case run). Each prompt names its blanks in
+     order; hyphens sit outside the boxes. */
+  var FADED = [
+    { prompt: 'Get-OldFile, the module\u2019s private helper. Fill in the method that counts back from a date, then the property that holds when a file was last changed.',
+      code: "function Get-OldFile {\n  param(\n    [Parameter(Mandatory)][string]$Path,\n    [int]$Days,\n    [datetime]$AsOf\n  )\n  $cutoff = $AsOf.%%(-$Days)\n  Get-ChildItem $Path -File | Where-Object %% -lt $cutoff\n}", ans: ['AddDays', 'LastWriteTime'] },
+    { prompt: 'A tidy function with a dry run, and a script handing its own switch on. Fill in the word inside CmdletBinding that gives the function -WhatIf, then the name of the script\u2019s switch after the colon.',
+      code: "function Remove-OldReport {\n  [CmdletBinding(%%)]\n  param([Parameter(Mandatory)][string]$Path, [int]$Days = 30, [datetime]$AsOf = (Get-Date))\n  # finds the old files and removes them, as section D shows\n}\n\n# in nightly.ps1, whose param() holds [switch]$DryRun:\nRemove-OldReport -Path \"$HOME/ps-lab/out\" -WhatIf:$%%", ans: ['SupportsShouldProcess', 'DryRun'] },
+    { prompt: 'The test gate at the top of nightly.ps1. Fill in the switch (its hyphen is already there) that hands back a result, then the property that counts the tests that failed.',
+      code: "Import-Module Pester -MinimumVersion 6.0\n$tests = Invoke-Pester -Path \"$PSScriptRoot/Fernhill\" -%% -Output None\nif ($tests.%% -gt 0) {\n  throw \"Tests failed: $($tests.FailedCount). Nothing was changed.\"\n}", ans: ['PassThru', 'FailedCount'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'As of 4 March 2026, list the names of every file in the lab, in every folder, that is older than two days, sorted by name.',
+      sol: "$asOf = [datetime]'2026-03-04'\n$cutoff = $asOf.AddDays(-2)\nGet-ChildItem ~/ps-lab -Recurse -File | Where-Object LastWriteTime -lt $cutoff |\n  Sort-Object Name | Select-Object -ExpandProperty Name\n\nIt prints, from a fresh lab:\nREADME.txt\nweb-2026-02-28.log\nweb-2026-03-01.log" },
+    { task: 'Remove-OldReport has no test for its dry run. Add one to its group in Fernhill.Tests.ps1: with -WhatIf, the old report is still there. Run every test.',
+      sol: "Add this It to the Remove-OldReport group:\n  It 'removes nothing with -WhatIf' {\n    $asOf = [datetime]'2026-03-04'\n    Remove-OldReport -Path 'TestDrive:/out' -Days 2 -AsOf $asOf -WhatIf\n    Test-Path 'TestDrive:/out/old.csv' | Should -BeTrue\n  }\n\nInvoke-Pester ~/ps-scripts/Fernhill\nreports, with your own times (cut short: the totals line only):\nTests Passed: 13, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0\n\nThe group\u2019s BeforeEach makes old.csv again before this test, so it does not matter that an earlier test removed it." },
+    { task: 'Add a third tidy tool to Fernhill: Remove-EmptyFile -Path FOLDER deletes every file of 0 bytes in that folder, with a working -WhatIf. Write its test first (one empty and one non-empty file in TestDrive:), then the function, then dry-run it on the lab\u2019s exports folder.',
+      sol: "The test, a new group in Fernhill.Tests.ps1:\nDescribe 'Remove-EmptyFile' {\n  It 'removes only the empty files' {\n    New-Item -ItemType Directory 'TestDrive:/tmp' -Force | Out-Null\n    New-Item 'TestDrive:/tmp/empty.txt' | Out-Null\n    'x' | Set-Content 'TestDrive:/tmp/full.txt'\n    Remove-EmptyFile -Path 'TestDrive:/tmp'\n    Get-ChildItem 'TestDrive:/tmp' -Name | Should -Be 'full.txt'\n  }\n}\n\nThe function, in Fernhill.psm1, before Export-ModuleMember (and add Remove-EmptyFile to that list):\nfunction Remove-EmptyFile {\n  [CmdletBinding(SupportsShouldProcess)]\n  param([Parameter(Mandatory)][string]$Path)\n  $empty = Get-ChildItem $Path -File | Where-Object Length -eq 0\n  $empty | Remove-Item\n  $empty\n}\n\nThen, at the prompt:\nImport-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force\n(Remove-EmptyFile -Path ~/ps-lab/exports -WhatIf).Name\n\nIt prints a What if: line, then:\nempty.tmp\n\nNew-Item with a file name (Session 3) makes an empty file, 0 bytes; Set-Content would write a line ending even for empty text." },
+    { task: 'Make nightly.ps1 say which logs it archived: with -Verbose, one VERBOSE line per moved log, naming it. Try it with a dry run as of 4 March 2026 with one day.',
+      sol: "In nightly.ps1, after the $moved line (the script already has [CmdletBinding()], so -Verbose works):\n  foreach ($file in $moved) { Write-Verbose \"Archiving $($file.Name)\" }\n\nRun with -Verbose, the job prints 188 VERBOSE lines on this workbook\u2019s computer: -Verbose also switches on the messages of every command the script calls, and Import-Module alone names every function it loads. Pick out yours with Select-String (Session 3):\n$job = \"$HOME/ps-scripts/nightly.ps1\"\npwsh -NoProfile -NonInteractive -File $job -Days 1 -AsOf 2026-03-04 -DryRun -Verbose |\n  Select-String 'VERBOSE: Archiving'\n\nprints, with a blank line before and after, as Select-String does (Session 3):\nVERBOSE: Archiving web-2026-03-01.log\nVERBOSE: Archiving web-2026-03-02.log\n\nWrite-Verbose (Session 6) is quiet unless the run asks for it, so the scheduled run, which does not, stays as it was." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Seventeen cards, sized to the atoms THIS session has (band 12-16, cap 18: -ExpectedMessage, added from
+     review M1, is the seventeenth). The deck stays
+     session-local: re-testing Sessions 1 to 9 is Part 6's job. */
+  var CARDS = [
+    { f: '$date.AddDays(-N)', b: 'the date N days earlier; a plus number goes forward' },
+    { f: '[datetime]\u00272026-03-04\u0027', b: 'midnight at the very start of that day, read the same way on every computer; Get-Date -Date reads the text in your own calendar' },
+    { f: 'Where-Object LastWriteTime -lt $cutoff', b: 'the files last changed before the cutoff: the older ones' },
+    { f: 'why a tidy job takes an -AsOf date', b: 'so tests and dry runs give the same answer every time; the default, now, is for the real job' },
+    { f: '(Get-Item FILE).LastWriteTime = DATE', b: 'sets a file\u2019s date, so a test can make old and new files in TestDrive:' },
+    { f: 'Copy-Item, Move-Item, and a file\u2019s date', b: 'both keep LastWriteTime; Linux cp keeps it only if asked (-p, or -a)' },
+    { f: 'BeforeEach { }', b: 'runs before every It in its group, so each test starts from the same files' },
+    { f: 'Should -Throw -ExpectedMessage \u0027No folder*\u0027', b: 'passes only when the error\u2019s message matches; plain -Throw passes for any error, even a command that does not exist' },
+    { f: '[CmdletBinding(SupportsShouldProcess)]', b: 'gives a function -WhatIf; while it is on, the cmdlets inside only say what they would change' },
+    { f: 'a plain function given -WhatIf', b: 'ignores it without a word, and does the job for real' },
+    { f: '-Switch:$value, such as -WhatIf:$DryRun', b: 'a switch given a value after a colon: $true turns it on, $false off' },
+    { f: '-Confirm:$false', b: 'answers a cmdlet\u2019s are-you-sure question in advance, for a script' },
+    { f: 'Invoke-Pester PATH -PassThru -Output None', b: 'runs the tests without printing them and hands back a result with PassedCount and FailedCount' },
+    { f: 'Import-Module Pester -MinimumVersion 6.0', b: 'loads Pester 6, or stops with an error, instead of quietly loading Windows\u2019 old 3.4.0' },
+    { f: 'nightly.ps1 -DryRun, not its own -WhatIf', b: 'run by path the module misses a script\u2019s -WhatIf; under pwsh -File it reaches everything; a switch handed on by name reaches only the risky steps' },
+    { f: '& "$PSScriptRoot/error-report.ps1"', b: 'the call operator: runs the script that a string names' },
+    { f: 'a job that moves or deletes files', b: 'tests first, a dry run, count before and after, safe to run twice, and a log line that says why it failed' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     The comprehensive final: one question from each session, in order, Q1 to Q9 from Sessions 1 to 9
+     (their review links open those sessions) and Q10 from today. Pass 8 of 10. Correct-option length
+     ranks (longest = 1) planned before writing: 3, 2, 1, 3, 2, 4, 3, 2, 3, 2 (longest once, shortest
+     once, ranks 2 and 3 four times each; rule 9). check-quiz.py confirms. */
+  var QUIZ = [
+    { q: 'Get-Help Get-ChildItem shows [[-Path] <string[]>]. What does the outer pair of square brackets tell you?',
+      o: ['You can leave the path out completely',
+          'The path is required, but you may leave out the word -Path',
+          'The path must be typed in capitals, as an exact name inside brackets',
+          'It takes a number'],
+      c: 0,
+      e: 'Brackets mark what is optional. [-Path] alone means the NAME is optional, so the value is required; brackets round the whole of [-Path] <string[]> make the value optional too, which is why Get-ChildItem on its own works. Capitals do not matter, and <string[]> means text, one or more.',
+      part: { ext: S01_URL + '#concept-f', label: 'Session 1, F. Finding commands you have never seen' } },
+
+    { q: 'Get-ChildItem exports -File | Where-Object Lenght -gt 50 prints no files and no error. What happened?',
+      o: ['Lenght is misspelt; PowerShell does not complain, and every file gets the same verdict',
+          'No file in exports is bigger than 50 bytes',
+          'Where-Object needs braces and $_ before it can compare a number',
+          'Every file failed because -gt compares the sizes as text, so 50 comes after every size; put [int] in front of the property first'],
+      c: 0,
+      e: 'A property that does not exist is empty on every file, so the test fails for all of them, silently (with -lt it would pass all of them). Several exports are over 50 bytes, Session 2 taught the simple form without braces first, and file sizes are numbers already.',
+      part: { ext: S02_URL + '#concept-e', label: 'Session 2, E. Filtering with Where-Object' } },
+
+    { q: 'Before Remove-Item out/*.csv deletes anything, how do you see exactly what it would delete?',
+      o: ['Run the same command with -WhatIf first: it prints a What if: line for each file it would delete, and deletes nothing',
+          'Add -Force, which lists each file before deleting it',
+          'Open each CSV with Get-Content first',
+          'Add -Confirm:$false so it asks before each file'],
+      c: 0,
+      e: '-WhatIf is the dry run Session 3 taught before any delete. -Force deletes more (hidden and read-only files), reading the files does not show what the wildcard matches, and -Confirm:$false answers the question in advance, so it asks nothing.',
+      part: { ext: S03_URL + '#concept-g', label: 'Session 3, G. Copy, rename, move and delete' } },
+
+    { q: 'On inventory-dump.csv, Where-Object Stock -gt 30 lets through 126 rows, but only 60 items have more than 30. Why?',
+      o: ['Import-Csv gives text, so a value like 9 is compared as text, after 30',
+          'Some Stock values are blank',
+          'Where-Object rounds every value half to even before it compares, so a stock of 30.5 counts as 31',
+          'Import-Csv reads the header line as a row, and -gt counts it once for each line of the file'],
+      c: 0,
+      e: 'Every CSV value arrives as text, and with text on the left, -gt compares as text, so 4 to 9 sort after 30. A cast, { [int]$_.Stock -gt 30 }, compares numbers. No value is blank, rounding happens only in a cast, and the header names the columns.',
+      part: { ext: S04_URL + '#concept-b', label: 'Session 4, B. Text that looks like a number' } },
+
+    { q: "$row holds the first order. What does \"Total: $row.Total\" print?",
+      o: ['The whole row, then .Total; write $($row.Total) to get the price',
+          'Total: 34.00',
+          'Nothing after Total:, because a variable in double quotes is swapped in only when it holds plain text',
+          'An error: double quotes cannot hold a dot'],
+      c: 0,
+      e: 'In double quotes, only $row is swapped in, as the whole row in its @{ } form, and .Total is printed as it is. $( ) runs the whole expression first: "Total: $($row.Total)" gives Total: 34.00.',
+      part: { ext: S05_URL + '#concept-c', label: 'Session 5, C. Messages with values in them: single and double quotes' } },
+
+    { q: "A function has [Parameter(ValueFromPipeline)] but no process block. What does it see of 'a', 'b', 'c' | the function?",
+      o: ['Only c',
+          'All three, one at a time, in order',
+          'Only a, the first item, and then it stops',
+          'Nothing at all: it stops with an error, because pipeline input needs a process block'],
+      c: 0,
+      e: 'Without process { }, the body runs once, after the pipeline has finished, with the parameter holding the last item. process { } runs once for each item. No error is raised.',
+      part: { ext: S06_URL + '#concept-e', label: 'Session 6, E. Taking input from the pipeline: process' } },
+
+    { q: "In the lab, where data/old.csv does not exist: try { Get-Content data/old.csv; 'next' } catch { 'caught' }. What does it print?",
+      o: ['The error, then next',
+          'caught',
+          'The error, then caught',
+          'Only next, because try hides the error message'],
+      c: 0,
+      e: 'Get-Content reports a missing file and carries on: a non-terminating error, which try does not see, so catch never runs and next prints. -ErrorAction Stop on Get-Content would make it stop, and then catch would print caught.',
+      part: { ext: S07_URL + '#concept-b', label: 'Session 7, B. Catching an error: try and catch' } },
+
+    { q: 'A script reads data/orders.csv. It works when you run it from ps-lab, but fails as a scheduled task. Why?',
+      o: ['The task starts in C:\\Windows\\System32, so build the path from $PSScriptRoot instead',
+          'A scheduled task cannot read a CSV file until it is registered with administrator rights',
+          'The task ran Windows PowerShell 5.1',
+          'The file was locked'],
+      c: 0,
+      e: 'A relative path is read from the folder you start in, and a task starts in System32. $PSScriptRoot is the folder the script is saved in, wherever it starts, so a path built from it, or a full path, always works. Reading needs no administrator rights, and the program the task runs is the one you named.',
+      part: { ext: S08_URL + '#concept-e', label: 'Session 8, E. Where a scheduled script starts: $PSScriptRoot' } },
+
+    { q: 'A script sets $log, imports a module, and calls a module function that writes to $log without being handed it. Run by its path, what happens?',
+      o: ['The module cannot see the script\u2019s $log, so the write fails; hand it in with -Path',
+          'It writes into the module\u2019s own folder',
+          'It works, because a module sees every variable of the script that imported it, however the script runs',
+          'It works only once Export-ModuleMember lists $log, because a module shares variables the way it shares functions'],
+      c: 0,
+      e: 'A module has variables of its own; run by its path, a script\u2019s variables do not reach it, so $log is empty and Add-Content fails. A parameter carries the value in, which is why Write-Log takes -Path. Under pwsh -File the script\u2019s variables are global and the module would see them: never rely on that.',
+      part: { ext: S09_URL + '#concept-b', label: 'Session 9, B. What a module shares, and what it keeps to itself' } },
+
+    { q: 'Why does nightly.ps1 run the tests before it archives or deletes anything?',
+      o: ['So a broken module stops the job before it can move or delete the wrong files',
+          'To make the job run faster',
+          'Pester has to run before -WhatIf works',
+          'Move-OldLog and Remove-OldReport only work after Invoke-Pester has loaded the module into the scheduler\u2019s window'],
+      c: 0,
+      e: 'The tests prove the module still does what it should; if one fails, the job throws, logs FAILED: and changes nothing. They make the job slower, not faster, -WhatIf needs SupportsShouldProcess, not Pester, and the script loads the module itself with Import-Module.',
+      part: { id: 'concept-d', label: 'D. The nightly job: tests first, then tidy, then report' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 8
+              ? 'Final: ' + quizCorrect + '/' + QUIZ.length + '. You passed the comprehensive final. Do the 15-minute review a week from now, tick S10 on your Hub, and open its Where to next section: the track is complete.'
+              : 'Final: ' + quizCorrect + '/' + QUIZ.length + '. The pass mark is 8. Each review link above opens the session a miss came from: revisit those sections, then reset this part and take the final again.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    var pz = document.getElementById('parsons'); if (pz) pz.innerHTML = '';
+    document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
