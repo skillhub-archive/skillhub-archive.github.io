@@ -470,7 +470,7 @@ Set-Location $lab
 Get-ChildItem</code></pre>
       </div>
       <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
-      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. It ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac; on Linux, your terminal&rsquo;s paste shortcut), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. It ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
       </details>
       <p>Then make the folder for today&rsquo;s reports. <code>| Out-Null</code> throws away what <code>New-Item</code> would print, as in Session 4.</p>
       <div class="filebox">
@@ -952,7 +952,7 @@ Read 0 orders.</code></pre>
 bash: hello.sh: command not found
 <span class="cmd">$ ./hello.sh</span>
 hello from a Bash script</code></pre>
-</div>
+On Ubuntu (checked on 26.04) the error line reads <code>hello.sh: command not found</code>, without the <code>bash: </code>.</div>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> Save and run a script</div>
         <ol>
@@ -1051,11 +1051,12 @@ A script from the internet ran.
           <li>Undo it with Undefined, and run <code>hello.ps1</code> again.</li>
           <li>Only if step 1 showed Restricted in force, or every row Undefined: set RemoteSigned for your account.</li>
         </ol>
+        <p>On Linux (checked on Ubuntu 26.04), step 2 stops with <code>Operation is not supported on this platform.</code> and your script still runs: that error is your result; skip steps 3 and 4.</p>
         <details><summary>Hint</summary><p>The deciding row is the first one, from the top, that is not Undefined. Steps 2 and 3 use <code>-Scope Process</code>; step 4 uses <code>-Scope CurrentUser</code>.</p></details>
         <details><summary>Show the commands</summary>
 <p>Steps 1 to 3 are the first two transcripts in this section; step 4 is the fix box. On a computer like this one, step 1&rsquo;s deciding row is LocalMachine, RemoteSigned, and step 4 is not needed.</p>
         </details>
-        <label class="did"><input type="checkbox" data-task="7"> I checked my execution policy and saw a refusal for myself</label>
+        <label class="did"><input type="checkbox" data-task="7"> I checked my execution policy, and saw what it does on my computer</label>
       </div>
     </div>
 
@@ -1499,7 +1500,7 @@ web-2026-02-28.log: 1
       code: '%% ($o %% $orders) { $o.Customer }', ans: ['foreach', 'in'] },
     { prompt: 'Compare order 5008’s Total, held in $big, as a number that can have a decimal point. Fill in the conversion this workbook uses for prices, square brackets included, then the keyword for what to do when the test is False.',
       code: "if (%%$big.Total -gt 100) { 'Over 100' } %% { 'Not over 100' }", ans: ['[double]', 'else'] },
-    { prompt: 'Let the scripts you write run, for your own account only and lasting, then run hello.ps1 from the folder it is in. Fill in the scope, then the one character that goes before the backslash.',
+    { prompt: 'On Windows: let the scripts you write run, for your own account only and lasting, then run hello.ps1 from the folder it is in. Fill in the scope, then the one character that goes before the backslash.',
       code: 'Set-ExecutionPolicy -Scope %% RemoteSigned\nSet-Location ~/ps-scripts\n%%\\hello.ps1', ans: ['CurrentUser', '.'] }
   ];
   function buildFaded() {
