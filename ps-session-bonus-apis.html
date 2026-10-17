@@ -1,0 +1,2686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerShell Sprint &middot; Bonus: PowerShell meets APIs</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9881;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  /* Palette: olive (hue ~72), the only open band on the family's colour wheel, between
+     the shared --gold (~33) and --good (~153). Crimson would read as --bad and navy would
+     sit beside git's blue. Every text token clears WCAG AA 4.5:1 on every surface in
+     BOTH modes (rule 28); weakest pairs: --ink-faint 4.91 light / 4.94 dark, the accent
+     5.27 light, --gold on --surface-2 (every transcript) 4.97 light. Declared four times
+     (light, dark media query, and both [data-theme] overrides): change all four
+     together. See _SHARED-BUILD-CONTRACT.md section 1. */
+  :root {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+      --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+      --accent-soft: #2A3112; --on-accent: #1A1F06;
+      --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F2F2E8; --surface: #FAFAF3; --surface-2: #F0F1E7; --ink: #1A1C12;
+    --ink-soft: #4A4D3C; --ink-faint: #64685A; --border: #E2E4D6; --accent: #56690C;
+    --accent-soft: #F0F4DC; --on-accent: #FFFFFF;
+    --gold: #95590E; --gold-bright: #C77F1A; --gold-soft: #FBF1DF;
+    --good: #1C7B51; --good-soft: #E4F1EA; --bad: #C0392B; --bad-soft: #FBEAE7;
+    --shadow: 0 1px 2px rgba(26,28,18,.04), 0 6px 20px rgba(26,28,18,.06);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12130D; --surface: #1A1C14; --surface-2: #23251B; --ink: #EEEFE6;
+    --ink-soft: #B6B9A6; --ink-faint: #9A9E8B; --border: #2E3124; --accent: #C8E066;
+    --accent-soft: #2A3112; --on-accent: #1A1F06;
+    --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #12261D; --bad: #F0715F; --bad-soft: #2C1714;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+  /* Rule 15: disable programming ligatures so code shows the exact characters you
+     type. Cascadia Code leads the --mono stack and ligates // as well as != and ->,
+     and the eyebrow on the first line reads "Session NN // Level N", so this has to
+     reach everything rather than just code blocks. Both properties are INHERITED, so
+     declaring them on body covers every element, including any that take var(--mono)
+     from an inline style attribute, which no selector list can ever reach. The form
+     controls are named explicitly because browsers do not inherit font properties
+     into them. This replaced a hand-maintained selector list on 2026-09-10, after
+     that list was found stale on four tracks at once: an enumeration that has to be
+     extended by hand every time a selector takes var(--mono) will always drift. */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 30px 0 24px; border-bottom: 1px solid var(--border); }
+  .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .crumb { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .hublink { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; }
+  .hublink:hover { color: var(--accent); border-color: var(--accent); }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.08; margin: 6px 0 12px; letter-spacing: -.02em; font-weight: 800; text-wrap: balance; }
+  .goal { font-size: 17px; color: var(--ink-soft); margin: 0 0 16px; max-width: 62ch; }
+  .milestone { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gold); background: var(--gold-soft); border-radius: 9px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--gold-bright) 30%, transparent); font-weight: 600; }
+  .milestone .flag { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+
+  .howto { margin-top: 22px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .howto .ic { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 16px; flex: none; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink); }
+  .howto p + p { margin-top: 9px; }
+  .howto b { color: var(--accent); }
+
+  .prog { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); }
+  .prog .p { text-align: center; }
+  .prog .p .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prog .p .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-top: 2px; }
+  .prog .reset { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+  .prog .reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .save-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .save-hint { font-size: 12px; color: var(--ink-faint); }
+
+  .sec { margin-top: 46px; }
+  .sec > .sh { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 6px; }
+  .sec > .sh .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--on-accent); background: var(--accent); padding: 4px 9px; border-radius: 7px; letter-spacing: .04em; }
+  .sec > .sh h2 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sec > .sh .part-reset { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .03em; flex: none; }
+  .sec > .sh .part-reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .sec > .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 14.5px; max-width: 70ch; }
+
+  .block { margin-bottom: 26px; }
+  .block h3 { font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .block p { margin: 0 0 12px; color: var(--ink-soft); }
+  .block p b, .block li b { color: var(--ink); }
+  ul.pts { margin: 0 0 12px; padding-left: 20px; }
+  ul.pts li { margin-bottom: 5px; color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; color: var(--ink); overflow-wrap: anywhere; }
+
+  pre { margin: 0 0 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.7; display: block; }
+  /* Rule 28, semantic half: --ink-faint is for text that is MEANT to recede.
+     .cm carries every explanatory annotation inside a transcript ("three are open",
+     "one line, wrapped here"), which the learner has to read, so it takes a
+     prose-weight token. */
+  .cm { color: var(--ink-soft); }
+  /* a prompt plus the typed command inside a transcript, so it is never confused with what PowerShell printed */
+  .cmd { color: var(--accent); font-weight: 700; }
+  .filebox { border: 1px solid var(--border); border-radius: 10px; margin: 0 0 12px; overflow: hidden; }
+  .filebox .fbh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); background: var(--surface); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .filebox pre { margin: 0; border: none; border-radius: 0; }
+
+  /* per-platform instruction rows (Windows / macOS / Linux), so a learner on any system can follow (rule 27) */
+  .shells { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .srow { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 13px; align-items: baseline; }
+  .srow + .srow { border-top: 1px dashed var(--border); }
+  .srow .sl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .srow code { background: none; padding: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 620px) { .srow { grid-template-columns: 1fr; gap: 2px; } }
+
+  /* a small table: cmdlets, path shortcuts, SYNTAX marks, Bash equivalents */
+  .fam { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 0 12px; background: var(--surface); }
+  .frow { display: grid; grid-template-columns: 62px 200px 1fr; gap: 12px; padding: 9px 13px; align-items: baseline; }
+  .frow + .frow { border-top: 1px dashed var(--border); }
+  .frow .fc { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--gold); }
+  .frow .fn { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .frow .fd { font-size: 13px; color: var(--ink-soft); }
+  .frow.lbl .fc, .frow.lbl .fn, .frow.lbl .fd { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 600; }
+  @media (max-width: 680px) { .frow { grid-template-columns: 62px 1fr; } .frow .fd { grid-column: 1 / -1; } }
+
+  /* a wider first column, for rows whose first cell is a name or a SYNTAX fragment
+     ([[-Path] <string[]>]) rather than a short word. Same tokens as .fam (rule 28). */
+  .fam.wide .frow { grid-template-columns: 190px 200px 1fr; }
+  .fam.wide .frow .fc { font-size: 12.5px; word-break: break-word; }
+  @media (max-width: 760px) { .fam.wide .frow { grid-template-columns: 1fr; gap: 3px; } }
+
+  .task { border: 1px solid color-mix(in srgb, var(--gold-bright) 35%, var(--border)); background: var(--gold-soft); border-radius: 12px; padding: 16px 18px; margin: 4px 0 6px; }
+  .task .th { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .task .th .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; background: color-mix(in srgb, var(--gold-bright) 22%, transparent); padding: 2px 7px; border-radius: 5px; }
+  .task p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .task ol, .task ul { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink); }
+  .task li { margin-bottom: 4px; }
+  .task details { margin-top: 8px; }
+  .task summary { cursor: pointer; font-size: 13px; font-family: var(--mono); color: var(--gold); user-select: none; }
+  .task details pre { margin-top: 10px; }
+  .task .did { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13.5px; cursor: pointer; color: var(--ink); font-weight: 600; user-select: none; }
+  .task .did input { width: 17px; height: 17px; accent-color: var(--good); cursor: pointer; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+  .card .ch { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .card .cn { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .card .cd { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-left: auto; }
+  .card .prompt { font-size: 15.5px; font-weight: 600; margin: 2px 0 12px; }
+
+  /* the grey "before you predict" box on a predict drill */
+  .scen { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 9px; padding: 10px 12px; margin: 0 0 11px; font-size: 12.5px; color: var(--ink-soft); }
+  .scen .sch { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .scen pre { margin: 0; background: none; border: none; padding: 0; }
+  .scen pre code { font-size: 12.5px; line-height: 1.65; }
+
+  .ans-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  input.pred { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); }
+  input.pred:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea.code { width: 100%; min-height: 120px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--ink); resize: vertical; tab-size: 4; }
+  textarea.code:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 600; border-radius: 9px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink); transition: background .15s, border-color .15s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .btn.sm { padding: 7px 12px; font-size: 12.5px; }
+  .btn.good { border-color: var(--good); color: var(--good); }
+  .btn.bad { border-color: var(--bad); color: var(--bad); }
+  .btn.good.on { background: var(--good); color: var(--on-accent); }
+  .card.done { border-color: color-mix(in srgb, var(--good) 45%, var(--border)); }
+
+  .reveal { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; display: none; }
+  .reveal.show { display: block; }
+  .reveal .verdict { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .reveal.right .verdict { color: var(--good); }
+  .reveal.wrong .verdict { color: var(--bad); }
+  .reveal .lbl { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .reveal p { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+  .reveal .selfgrade { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  /* Rule 28: this reads "After comparing yours with the reference:" and tells the learner
+     WHEN to press the two self-grade buttons, so it is an instruction, not a label. */
+  .reveal .sg-q { font-size: 13px; color: var(--ink-soft); }
+
+  /* Parsons: two side-by-side columns, the layout decided once for this whole
+     track. The bonus has no Parsons item (contract section 4's escape hatch), so
+     these rules style nothing here; they stay so the engine is Session 9's. minmax(0, 1fr) rather than 1fr so a long line cannot widen
+     its own track and push the card past the page edge. */
+  .parsons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 8px; }
+  .pcol { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 10px; min-height: 130px; min-width: 0; }
+  .pcol .pcl { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); margin-bottom: 8px; display: block; }
+  .pline { display: block; width: 100%; text-align: left; font-family: var(--mono); font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; margin-bottom: 7px; cursor: pointer; color: var(--ink); white-space: pre; overflow-x: auto; }
+  .pline:hover { border-color: var(--accent); }
+  .pcol.sol .pline { border-left: 3px solid var(--accent); }
+  @media (max-width: 560px) { .parsons { grid-template-columns: minmax(0, 1fr); } }
+
+  /* faded blanks: 22ch, the longest answer here is ErrorDetails (12 chars) */
+  .faded pre { position: relative; }
+  input.blank { font-family: var(--mono); font-size: 13px; width: 22ch; text-align: center; padding: 1px 4px; border: none; border-bottom: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--ink); border-radius: 3px 3px 0 0; }
+  input.blank:focus { outline: none; background: var(--accent-soft); }
+  input.blank.ok { border-color: var(--good); background: var(--good-soft); }
+  input.blank.no { border-color: var(--bad); background: var(--bad-soft); }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; }
+  .opt { text-align: left; width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 9px; padding: 11px 14px; font-family: var(--sans); font-size: 14.5px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt .key { font-family: var(--mono); font-weight: 700; color: var(--ink-faint); flex: none; }
+  .pt { font-family: var(--mono); font-size: 11.5px; color: var(--accent); text-decoration: none; }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-soft); border-color: var(--good); }
+  .opt.correct .key { color: var(--good); }
+  .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+  .opt.wrong .key { color: var(--bad); }
+  .opt.dim { opacity: .5; }
+
+  .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
+  .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
+  .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
+  /* Rule 28: "tap card to reveal the answer" / "Did you recall it?" are the deck's
+     interaction instructions, which the learner has to read at least once. */
+  .flashcard .hint { font-size: 12.5px; color: var(--ink-soft); }
+  .deck-controls { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .deck-meta { display: flex; justify-content: center; gap: 22px; margin-top: 16px; font-size: 12px; color: var(--ink-faint); font-family: var(--mono); }
+  .deck-meta b { color: var(--ink); }
+  .deck-done { font-size: 15px; color: var(--good); font-weight: 600; }
+
+  .finalmsg { margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  .note { font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-bottom: 16px; border: 1px dashed var(--border); }
+  .note b { color: var(--ink); }
+  /* A collapsible .note (inherited from the API track's engine, unused in S1 but kept
+     so the component stays in the track's shared CSS): its summary must read as
+     clickable. Its text stays --ink-soft / --ink, both prose-weight (rule 28). */
+  details.note summary { cursor: pointer; }
+  details.note p { margin: 10px 0; }
+  details.note pre { background: var(--surface); }
+  /* Rule 28, semantic half: the footer holds the 15-minute review assignment,
+     which is an instruction, not a receding label. Prose-weight token. */
+  footer { margin-top: 52px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  footer b { color: var(--ink); }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .prog { grid-template-columns: repeat(2, 1fr); }
+    .prog .reset { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* The two bridge callouts, "Windows PowerShell 5.1" and "In Bash", are ordinary
+     .note boxes with a kicker. The kicker is --accent on --surface-2, 5.27:1 light and
+     well above in dark (rule 28); the box's prose stays --ink-soft. */
+  .note .nk { display: block; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  .note pre { margin: 8px 0; background: var(--surface); }
+  /* The lab block's select button sits under the block; its hint is an instruction,
+     so prose-weight (rule 28). */
+  .sel-hint { font-size: 13px; color: var(--ink-soft); }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+<div class="wrap">
+  <header class="hero">
+    <div class="topnav">
+      <div class="crumb">Bonus // beyond the sprint</div>
+      <!-- lh-theme:toggle:start -->
+      <button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button>
+      <script>
+        /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+        (function () {
+          var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+          if (!btn || !root) return;
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+          function system() { return mq && mq.matches ? 'dark' : 'light'; }
+          function chosen() {
+            try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+          }
+          function choose(t) {
+            mem = t;
+            try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+          }
+          function render() {
+            var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+            if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+            btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+            btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+          }
+          btn.addEventListener('click', function () {
+            var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+            choose(next === system() ? null : next);
+            render();
+          });
+          if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+          if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+          render();
+        })();
+      </script>
+      <!-- lh-theme:toggle:end -->
+      <a class="hublink" href="ps-hub.html" target="_blank" rel="noopener">&#8617; Hub</a>
+    </div>
+    <h1>PowerShell meets APIs</h1>
+    <p class="goal">An optional workbook, outside the graded ten. Your scripts so far have read files on your own computer. Today they talk to web services: you send requests with <code>Invoke-RestMethod</code>, read the JSON that comes back as the objects you already know how to filter and sort, catch the errors a server sends, and add a <code>Get-LowStock</code> function to the Fernhill module that reads a supplier&rsquo;s catalogue. Then you test it with no network at all, using Pester&rsquo;s <code>Mock</code>, the tool Session 10 named and left for here.</p>
+    <span class="milestone"><span class="flag">Milestone</span> A tested web call in the Fernhill module, and a low-stock report from it.</span>
+
+    <div class="howto">
+      <span class="ic">PS&gt;</span>
+      <div>
+        <p><b>Keep one PowerShell 7 window open beside this page, in your lab, for the whole of Part 1.</b> As in every session, you type each command yourself. Each section starts from the lab and the files in <code>ps-scripts</code>, and loads the module again itself, so if you close the window, open a new one in <code>ps-lab</code> and carry on from the section you were in.</p>
+        <p><b>Today needs the internet, for the first time since the installs.</b> You talk to two free public practice services that anyone may use with no account and no key: <b>postman-echo.com</b>, which sends back whatever you send it, and <b>dummyjson.com</b>, which serves made-up shop data. Neither asks who you are. Still, never send anything private or real (a password, a customer&rsquo;s details) to a public practice service: you cannot see what it keeps. The tests you write in sections F and G need no network: that is the point of them.</p>
+        <p><b>Their data is a demo, and a demo can change.</b> Every graded answer in Parts 2 to 6 comes from a reply printed on this page, or from postman-echo, which only repeats what you sent. If a catalogue number in Part 1 differs from yours, the service changed its demo data; the lesson holds. <b>Windows, macOS or Linux:</b> the steps are the same everywhere; where Linux prints something differently, a box says so.</p>
+      </div>
+    </div>
+
+    <div class="prog">
+      <div class="p"><div class="n"><span id="c-tasks">0</span>/9</div><div class="l">Hands-on done</div></div>
+      <div class="p"><div class="n"><span id="c-drills">0</span>/<span id="c-drills-total">10</span></div><div class="l">Drills correct</div></div>
+      <div class="p"><div class="n"><span id="c-cards">0</span>/<span id="c-cards-total">16</span></div><div class="l">Cards mastered</div></div>
+      <div class="p"><div class="n"><span id="c-writes">0</span>/<span id="c-writes-total">4</span></div><div class="l">Write-its done</div></div>
+      <div class="p"><div class="n"><span id="c-quiz">0</span>/<span id="c-quiz-total">6</span></div><div class="l">Quiz correct</div></div>
+      <button class="reset" id="reset-all">reset</button>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn">Export progress (download)</button>
+      <button class="save-btn" id="import-btn">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Save or load a progress file (covers the whole sprint).</span>
+    </div>
+  </header>
+
+  <!-- ============ PART 1: LEARN & DO ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 1</span><h2>Learn &amp; Do</h2><button class="part-reset" id="reset-part-1">&#8635; reset part</button></div>
+    <p class="sub">Short concept, then immediately your turn, in your terminal. Tick each box once you have done the task, not just read it. Later sections use files saved in earlier ones, so work them in order.</p>
+
+    <div class="note"><b>How to read the transcripts below.</b> A line in olive is a prompt followed by the command you type; the lines under it are what PowerShell prints back. Every transcript was captured on Windows 11 in PowerShell 7.6 with Pester 6.2, in a window 120 characters wide, from a fresh lab, and the replies from postman-echo and dummyjson on 2026-10-16. Where a path shows <code>you</code>, your own user name appears instead. <b>Some lines change on every run:</b> a line marked <i>your time</i> holds the moment it ran, or how long a test took, so your numbers will differ; the rest of the line should match. A line marked <i>yours differs</i> holds a detail of your own computer, such as your PowerShell version or a temporary folder&rsquo;s name. A command too long for this page is wrapped after a <code>|</code>, or at a space where it has none, and marked <i>one line, wrapped here</i>: type it as one line. A printed line too long for this page is marked the same way. A box headed with a file name, such as <code>~/ps-scripts/low-stock.ps1</code>, is a file you type into an editor and save. <b>On Linux</b>, a path shown here starting <code>C:\Users\you\</code> starts <code>/home/you/</code> instead, and Pester&rsquo;s temporary folders start <code>/tmp/</code>.</div>
+
+    <div class="block" id="concept-lab">
+      <h3>Before you start: a fresh lab, and Session 10&rsquo;s module</h3>
+      <p>Everything today runs on the Fernhill Goods lab you built in Session 1, in the <code>ps-lab</code> folder in your home folder. Start from a fresh lab: paste the setup block again. It deletes <code>ps-lab</code>, including your <code>out</code> folder, builds it fresh, exactly as Session 1 did, and moves you into it. It never touches anything outside <code>ps-lab</code>, so your scripts in <code>ps-scripts</code> are safe from it.</p>
+      <details class="note"><summary><b>Show the lab setup block</b> (the same block as Sessions 1 to 10)</summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">the lab setup block &middot; paste into PowerShell 7</div>
+<pre id="lab-block"><code># Builds the Fernhill Goods practice lab in your home folder.
+# Safe to paste again at any time: it deletes ps-lab and rebuilds it.
+$lab = Join-Path $HOME 'ps-lab'
+Set-Location $HOME   # step out first: a folder you are standing in cannot be deleted
+if (Test-Path $lab) { Remove-Item $lab -Recurse -Force }
+$enc = New-Object System.Text.UTF8Encoding($false)
+function Add-LabFile($rel, $lines, $when) {
+  $path = Join-Path $lab $rel
+  $dir = Split-Path $path -Parent
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $text = ''
+  if ($lines.Count -gt 0) { $text = ($lines -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($path, $text, $enc)
+  (Get-Item $path).LastWriteTime = [datetime]$when
+}
+Add-LabFile 'README.txt' @(
+  'Fernhill Goods: practice lab'
+  'A made-up online shop that sells kitchenware.'
+  'Everything here is fake and safe to change or delete.'
+  'Rebuild it any time by pasting the setup block again.'
+) '2026-03-01 08:00'
+Add-LabFile 'logs/web-2026-03-01.log' @(
+  '2026-03-01 09:00:01 INFO  GET /products 200'
+  '2026-03-01 09:00:07 INFO  GET /products/1042 200'
+  '2026-03-01 09:02:15 WARN  GET /cart 200 slow 2300ms'
+  '2026-03-01 09:05:42 INFO  POST /cart 201'
+  '2026-03-01 09:06:03 ERROR POST /checkout 500 payment timeout'
+  '2026-03-01 09:06:40 INFO  POST /checkout 201'
+) '2026-03-01 23:59'
+Add-LabFile 'logs/web-2026-03-02.log' @(
+  '2026-03-02 10:11:00 INFO  GET /products 200'
+  '2026-03-02 10:11:30 INFO  GET /products/1077 200'
+  '2026-03-02 10:12:02 ERROR GET /products/9999 404 not found'
+  '2026-03-02 10:14:55 INFO  POST /cart 201'
+) '2026-03-02 23:59'
+Add-LabFile 'logs/web-2026-03-03.log' @(
+  '2026-03-03 14:20:10 INFO  GET /products 200'
+  '2026-03-03 14:20:41 WARN  GET /products 200 slow 3100ms'
+  '2026-03-03 14:21:05 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:21:30 ERROR POST /checkout 500 payment timeout'
+  '2026-03-03 14:22:12 INFO  POST /checkout 201'
+  '2026-03-03 14:25:00 INFO  GET /orders/5003 200'
+  '2026-03-03 14:26:18 WARN  GET /cart 200 slow 2800ms'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/app-2026-03-03.log' @(
+  '2026-03-03 02:00:00 INFO  nightly backup started'
+  '2026-03-03 02:04:31 INFO  nightly backup finished'
+  '2026-03-03 06:00:00 WARN  disk 81% full on /var'
+) '2026-03-03 23:59'
+Add-LabFile 'logs/archive/web-2026-02-28.log' @(
+  '2026-02-28 16:40:00 INFO  GET /products 200'
+  '2026-02-28 16:41:12 ERROR GET /cart 503 maintenance'
+) '2026-02-28 23:59'
+Add-LabFile 'data/orders.csv' @(
+  'OrderId,Date,Customer,Product,Qty,Total,Status'
+  '5001,2026-03-01,Ana Ruiz,Cast iron pan,1,34.00,shipped'
+  '5002,2026-03-01,Ben Okafor,Chef knife,2,58.00,shipped'
+  '5003,2026-03-02,Chen Wei,Mixing bowls,1,22.50,shipped'
+  '5004,2026-03-02,Dara Singh,Cast iron pan,1,34.00,refunded'
+  '5005,2026-03-02,Eli Moss,Tea kettle,1,41.00,shipped'
+  '5006,2026-03-03,Ana Ruiz,Chef knife,1,29.00,pending'
+  '5007,2026-03-03,Femi Adeyemi,Spice rack,3,45.00,shipped'
+  '5008,2026-03-03,Gus Lind,Tea kettle,2,82.00,pending'
+) '2026-03-03 18:00'
+Add-LabFile 'data/tickets.csv' @(
+  'TicketId,Opened,Customer,Topic,Priority,State'
+  'T-101,2026-03-01,Dara Singh,refund,high,closed'
+  'T-102,2026-03-02,Chen Wei,delivery,low,closed'
+  'T-103,2026-03-03,Gus Lind,payment,high,open'
+  'T-104,2026-03-03,Ana Ruiz,payment,medium,open'
+  'T-105,2026-03-03,Eli Moss,delivery,low,open'
+) '2026-03-03 18:05'
+Add-LabFile 'exports/report-final.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+) '2026-03-02 07:00'
+Add-LabFile 'exports/report-final-v2.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+) '2026-03-03 07:00'
+Add-LabFile 'exports/report-FINAL-really.csv' @(
+  'Day,Orders,Revenue'
+  '2026-03-01,2,92.00'
+  '2026-03-02,3,97.50'
+  '2026-03-03,3,156.00'
+) '2026-03-04 07:00'
+Add-LabFile 'exports/notes.txt' @(
+  'Which report is the real one? Ask Femi.'
+) '2026-03-04 07:05'
+Add-LabFile 'exports/empty.tmp' @() '2026-03-04 07:06'
+$rows = @('Sku,Name,Stock')
+foreach ($i in 1..400) { $rows += ('SKU-{0:D4},Item {0},{1}' -f $i, ($i % 37)) }
+Add-LabFile 'exports/inventory-dump.csv' $rows '2026-03-04 07:10'
+foreach ($d in 'logs/archive', 'logs', 'data', 'exports') {
+  (Get-Item (Join-Path $lab $d)).LastWriteTime = [datetime]'2026-03-04 08:00'
+}
+Set-Location $lab
+Get-ChildItem</code></pre>
+      </div>
+      <p style="margin-top:-2px"><button class="btn sm" id="lab-select" type="button">Select the whole block</button> <span class="sel-hint" id="lab-select-hint">then press Ctrl+C, or Cmd+C on a Mac</span></p>
+      <p>Paste it into PowerShell 7 with Ctrl+V (Cmd+V on a Mac; on Linux, your terminal&rsquo;s paste shortcut), and press Enter if nothing starts. If Windows Terminal asks whether to paste several lines, choose to paste. On Windows it ends by listing the lab: three folders, <code>data</code>, <code>exports</code> and <code>logs</code>, and the file <code>README.txt</code>, 183 bytes. On Linux the listing has more columns (who owns each file, and its permissions); the same four names are there. If it stops with an error saying a folder is in use, close any other terminal window that is inside <code>ps-lab</code> and paste it again.</p>
+      </details>
+      <p>Then make the folder for today&rsquo;s report, and make sure the module&rsquo;s folder exists (<code>-Force</code> keeps it, and everything in it, if it does, Session 8):</p>
+      <div class="filebox">
+        <div class="fbh">a place for the report, and for the module &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory out | Out-Null</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; New-Item -ItemType Directory ~/ps-scripts/Fernhill -Force | Out-Null</span></code></pre>
+      </div>
+      <p>Today builds on the Fernhill module and its twelve tests as Session 10 finished them. If you do not have them, or are not sure yours match, save these two first (you do not need <code>nightly.ps1</code> or the scheduled task today):</p>
+      <details class="note"><summary><b>Show Session 10&rsquo;s module and tests</b></summary>
+      <div class="filebox" style="margin-top:10px">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; Session 10&rsquo;s module</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+function Get-OldFile {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days,
+    [datetime]$AsOf
+  )
+  $cutoff = $AsOf.AddDays(-$Days)
+  Get-ChildItem $Path -File | Where-Object LastWriteTime -lt $cutoff
+}
+
+function Move-OldLog {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { throw "No folder to tidy: $Path" }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  New-Item -ItemType Directory "$Path/archive" -Force | Out-Null
+  $old | Move-Item -Destination "$Path/archive"
+  $old
+}
+
+function Remove-OldReport {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { return }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  $old | Remove-Item
+  $old
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary,
+  Move-OldLog, Remove-OldReport</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; Session 10&rsquo;s twelve tests</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'moves nothing with -WhatIf' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf -WhatIf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}
+
+Describe 'Remove-OldReport' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/out' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/out/old.csv'
+    'new' | Set-Content 'TestDrive:/out/new.csv'
+    (Get-Item 'TestDrive:/out/old.csv').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/out/new.csv').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'removes only the reports older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Remove-OldReport -Path 'TestDrive:/out' -Days 2 -AsOf $asOf
+    Get-ChildItem 'TestDrive:/out' -Name | Should -Be 'new.csv'
+  }
+  It 'does nothing when the folder is missing' {
+    Remove-OldReport -Path 'TestDrive:/nope' | Should -HaveCount 0
+  }
+}</code></pre>
+      </div>
+      </details>
+      <p>Before changing anything, prove the starting point: every test passes.</p>
+      <div class="filebox">
+        <div class="fbh">the starting point: twelve tests, all passing &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_jgwm\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_jgwm\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_jgwm\logs\archive\old.log".  <span class="cm">yours differs</span>
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 1.75s (12 tests)  <span class="cm">your time</span>
+Tests completed in 1.8s  <span class="cm">your time</span>
+Tests Passed: 12, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Start from green</div>
+        <ol>
+          <li>Rebuild the lab, make <code>out</code>, and check that <code>~/ps-scripts/Fernhill</code> holds the module and its tests (save Session 10&rsquo;s two files if not).</li>
+          <li>Run the tests, and read the totals line: twelve passed, none failed.</li>
+        </ol>
+        <details><summary>Hint</summary><p><code>Get-ChildItem ~/ps-scripts -Recurse -Name</code> (Sessions 1 and 3) lists what is there. If a test fails, compare your files with Session 10&rsquo;s above.</p></details>
+        <label class="did"><input type="checkbox" data-task="1"> I started from a fresh lab and twelve passing tests</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-a">
+      <h3>A. Your first web call: Invoke-RestMethod</h3>
+      <p>A <b>web service</b>, often called an <b>API</b>, is a program on another computer that answers requests sent over the web. You send a <b>request</b> to an address, a <b>URL</b> such as <code>https://postman-echo.com/get</code>, and it sends back a <b>response</b>: usually JSON, the text format for data from Session 4. Support work is full of them: a ticket system, a shop&rsquo;s order service, a supplier&rsquo;s price list. If you took the APIs &amp; Integrations track, you sent requests like these from Postman; today PowerShell sends them.</p>
+      <p>The end of a URL can carry a <b>query</b>: a <code>?</code>, then <code>name=value</code> pairs joined by <code>&amp;</code>. It is how a request asks for something in particular. postman-echo&rsquo;s <code>/get</code> address answers any request by sending back what it received, so it is the safest place to start: whatever you ask, it tells you what it heard.</p>
+      <p><b><code>Invoke-RestMethod URL</code></b> sends the request (a <b>GET</b>, the kind that asks for something) and turns the JSON reply into objects, the way <code>Import-Csv</code> turned a CSV&rsquo;s rows into objects in Session 4. So you read the reply with the dot, as you read any property. Put the URL in single quotes: <code>&amp;</code> means something else to PowerShell outside them.</p>
+      <div class="filebox">
+        <div class="fbh">a request with a query, and the reply as an object &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $reply = Invoke-RestMethod</span>                           <span class="cm">one line, wrapped here</span>
+<span class="cmd">  'https://postman-echo.com/get?shop=fernhill&amp;item=wok'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $reply.args</span>
+
+shop     item
+----     ----
+fernhill wok
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $reply.args.item</span>
+wok
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $reply.url</span>
+https://postman-echo.com/get?shop=fernhill&amp;item=wok</code></pre>
+      </div>
+      <p><code>args</code> is postman-echo&rsquo;s name for the query it received, and it came back as an object with one property for each pair. <code>url</code> is the address it was asked.</p>
+      <p><b>The longer way, which shows what Invoke-RestMethod saves you.</b> <b><code>Invoke-WebRequest URL</code></b> sends the same request but hands you the whole response: its <b>status code</b>, a number saying how the request went (200 means OK; section D covers the rest), and its <code>Content</code>, the reply as plain text. Text is not objects, so you would turn it into objects yourself with <b><code>ConvertFrom-Json</code></b>, the reverse of Session 4&rsquo;s <code>ConvertTo-Json</code>:</p>
+      <div class="filebox">
+        <div class="fbh">the same request, the long way &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $page = Invoke-WebRequest</span>                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">  'https://postman-echo.com/get?shop=fernhill' -UseBasicParsing</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $page.StatusCode</span>
+200
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $page.Content.GetType().Name</span>
+String
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ($page.Content | ConvertFrom-Json).args.shop</span>
+fernhill</code></pre>
+      </div>
+      <p><code>Invoke-RestMethod</code> does all three steps in one, and when the status is not a success, one of the 200s (section D), it raises an error instead (unless it is a redirect it can follow to another address), which section D turns into something useful. Use <code>Invoke-WebRequest</code> when you need the status code or the raw text of a reply that worked. <code>-UseBasicParsing</code> changes nothing in PowerShell 7; Windows PowerShell 5.1 needs it (see the 5.1 box below).</p>
+      <p><b>Headers.</b> Besides the URL, every request carries <b>headers</b>: named details about the request, such as which program sent it. <code>-Headers</code> adds your own, given as a hashtable (Session 4&rsquo;s <code>@{ name = value }</code>). postman-echo&rsquo;s <code>/headers</code> address sends back every header it received, under its own names in small letters:</p>
+      <div class="filebox">
+        <div class="fbh">a header of your own, and the one PowerShell sends &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $heard = Invoke-RestMethod</span>                           <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://postman-echo.com/headers -Headers @{ 'X-Shop' = 'fernhill' }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $heard.headers.'x-shop'</span>
+fernhill
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $heard.headers.'user-agent'</span>
+Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; en-US) PowerShell/7.6.7  <span class="cm">yours differs</span></code></pre>
+      </div>
+      <p>A property whose name holds a <code>-</code> goes in quotes after the dot. The <b>user agent</b> is the header in which a program names itself: PowerShell tells every server its version and your operating system. Some real services ask you to send a user agent of your own, and their documentation says what to send; <code>Invoke-RestMethod</code> takes <code>-UserAgent TEXT</code> for that.</p>
+      <div class="note"><span class="nk">In Bash</span><code>curl -s URL</code> sends the same GET and prints the reply as plain text: JSON, not objects, the way <code>Invoke-WebRequest</code>&rsquo;s <code>Content</code> is. Reading one value out of it takes another tool, such as <code>jq</code>, which Ubuntu does not install by default. That gap is the object pipeline from Session 2, now over the web.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span><code>Invoke-RestMethod</code> works the same. <code>Invoke-WebRequest</code> is different without <code>-UseBasicParsing</code>: 5.1 reads a reply as a web page, which can run code inside it, so since a December 2025 security update it first asks a &ldquo;Security Warning: Script Execution Risk&rdquo; question (<a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-webrequest?view=powershell-5.1" target="_blank" rel="noopener">Microsoft&rsquo;s 5.1 page</a>), ending <code>Do you want to continue?</code> with No as the default. Answered N in a real 5.1 window on this workbook&rsquo;s computer, it stopped with <code>Operation cancelled due to security concerns. Use -UseBasicParsing parameter for safe HTML parsing without script execution.</code> Run where nothing can answer it, as when a script runs on a schedule, it failed on this workbook&rsquo;s computer with <code>Object reference not set to an instance of an object.</code> With <code>-UseBasicParsing</code> there is no question and it works, which is why this page always adds it (in PowerShell 7 it does nothing: 7 always reads replies the basic way). The user agent names Windows PowerShell 5.1 instead.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Ask, and read the answer</div>
+        <ol>
+          <li>Send postman-echo&rsquo;s <code>/get</code> a query of your own with two pairs, say a colour and a size, and print just the size from the reply.</li>
+          <li>Send the same request with <code>Invoke-WebRequest</code>, print its status code, and get the colour out of its <code>Content</code>.</li>
+          <li>Send <code>/headers</code> a header named <code>X-Ticket</code> with a ticket number as its value, and read it back.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Keep the whole URL in single quotes. Header names come back in small letters: <code>'x-ticket'</code>.</p></details>
+        <label class="did"><input type="checkbox" data-task="2"> I sent requests with a query and a header, and read their replies</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-b">
+      <h3>B. The supplier&rsquo;s catalogue: a reply to filter</h3>
+      <p>Now a real job. Fernhill buys its kitchenware from a supplier, and the supplier&rsquo;s catalogue is a web service. dummyjson&rsquo;s <code>kitchen-accessories</code> category plays it: about thirty products, each with a <code>stock</code> number. Someone asks you every Monday which products are running low. That is a question a script can answer.</p>
+      <p>The catalogue takes a query too. dummyjson&rsquo;s <code>select</code> asks for only the fields you name. Rather than typing the query into the URL, give it to <b><code>-Body</code></b> as a hashtable: on a GET, <code>Invoke-RestMethod</code> turns each pair into the <code>?name=value</code> part itself, and writes any comma or space in the safe form a URL needs.</p>
+      <div class="filebox">
+        <div class="fbh">the kitchen category, and what came back &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $url = 'https://dummyjson.com/products/category/kitchen-accessories'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $cat = Invoke-RestMethod $url -Body @{ select = 'title,stock' }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $cat.total</span>
+30
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $cat.products | Select-Object -First 3</span>
+
+id title               stock
+-- -----               -----
+48 Bamboo Spatula         37
+49 Black Aluminium Cup    75
+50 Black Whisk            73</code></pre>
+      </div>
+      <p>The reply is one object with a <code>total</code> and a <code>products</code> property, and <code>products</code> holds the list: one object per product, with the <code>id</code> dummyjson always sends and the two fields asked for. From here it is Sessions 2 and 4: <code>Where-Object</code>, then <code>Sort-Object</code> with a tie-breaker:</p>
+      <div class="filebox">
+        <div class="fbh">running low: fewer than 15 in stock &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $cat.products | Where-Object stock -lt 15 | Sort-Object stock, id</span>
+
+id title          stock
+-- -----          -----
+58 Fork               7
+64 Knife              7
+51 Boxed Blender      9
+62 Ice Cube Tray     13
+53 Chopping Board    14</code></pre>
+      </div>
+      <p>Notice what you did not need: an <code>[int]</code> cast. Session 4&rsquo;s CSV gave every value as text, so <code>-lt</code> compared text. JSON keeps numbers as numbers, and <code>ConvertFrom-Json</code> (inside <code>Invoke-RestMethod</code>) keeps them that way.</p>
+      <p><b>Trap one: a <code>?</code> straight after a variable.</b> Building the URL yourself in double quotes looks natural, but PowerShell reads a <code>?</code> straight after a variable&rsquo;s name as part of the name. <code>$slug?select</code> is a variable nobody set, so it is empty, and the query vanishes with the category:</p>
+      <div class="filebox">
+        <div class="fbh">the question mark joins the variable&rsquo;s name &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $slug = 'kitchen-accessories'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; "https://dummyjson.com/products/category/$slug?select=title"</span>
+https://dummyjson.com/products/category/=title</code></pre>
+      </div>
+      <p><code>-Body</code> keeps the query out of the string, which is why the rest of this workbook uses it. (Braces round the name, <code>${slug}</code>, also end it, if you ever need a query in a string.)</p>
+      <p><b>Trap two: a failure that looks like success.</b> Misspell the category and nothing goes wrong, as far as PowerShell can tell. The catalogue answers with an empty list, and a status code of 200:</p>
+      <div class="filebox">
+        <div class="fbh">a misspelt category: no error, just nothing &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $typo = Invoke-RestMethod</span>                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">  'https://dummyjson.com/products/category/kitchen-acessories'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $typo.total</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; ($typo.products | Where-Object stock -lt 15).Count</span>
+0</code></pre>
+      </div>
+      <p>A report built on that would say &ldquo;nothing is running low&rdquo;, and be wrong. A script that reads a service has to check the reply makes sense, and stop when it does not (Session 7&rsquo;s <code>throw</code>): <code>if ($typo.total -eq 0) { throw 'No products' }</code>. Section F builds that check into the function.</p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The same replies and the same list. 5.1 turns JSON numbers into slightly different number types (stock is <code>Int32</code>, price <code>Decimal</code>; 7 gives <code>Int64</code> and <code>Double</code>), which changes nothing you do with them here.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Read the catalogue</div>
+        <ol>
+          <li>Ask the kitchen category for <code>title</code> and <code>price</code>, and print the three cheapest products, cheapest first.</li>
+          <li>List the products with fewer than 20 in stock, lowest stock first.</li>
+          <li>Ask for a category that does not exist, check its <code>total</code>, and write the <code>if</code> line that would stop a script there.</li>
+        </ol>
+        <details><summary>Hint</summary><p><code>Sort-Object price, id | Select-Object -First 3</code>. The <code>if</code> is Session 5&rsquo;s, and the stop is Session 7&rsquo;s <code>throw</code>.</p></details>
+        <label class="did"><input type="checkbox" data-task="3"> I filtered the catalogue, and caught a reply that looked fine but was empty</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-c">
+      <h3>C. A list that arrives as one object</h3>
+      <p>Not every reply wraps its list in a property. dummyjson&rsquo;s list of categories is a JSON list on its own, square brackets and all. Pipe it straight into <code>Measure-Object</code> (Session 4) and count:</p>
+      <div class="filebox">
+        <div class="fbh">one thing, or twenty-odd? &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-RestMethod</span>                                    <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://dummyjson.com/products/categories | Measure-Object</span>
+
+Count             : 1
+Average           : 
+Sum               : 
+Maximum           : 
+Minimum           : 
+StandardDeviation : 
+Property          : 
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; (Invoke-RestMethod</span>                                   <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://dummyjson.com/products/categories) | Measure-Object</span>
+
+Count             : 24
+Average           : 
+Sum               : 
+Maximum           : 
+Minimum           : 
+StandardDeviation : 
+Property          : </code></pre>
+      </div>
+      <p>One, then twenty-four. <b><code>Invoke-RestMethod</code> sends a JSON list down the pipe as ONE object: the whole list.</b> Every command after it sees one thing, so <code>Where-Object</code> tests the list itself, not each category in it, and the result is wrong without any error:</p>
+      <div class="filebox">
+        <div class="fbh">the filter that quietly finds nothing, and the fix &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-RestMethod</span>                                    <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://dummyjson.com/products/categories | Where-Object slug -like 'kitchen*'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $all = Invoke-RestMethod https://dummyjson.com/products/categories</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $all | Where-Object slug -like 'kitchen*'</span>
+
+slug                name                url
+----                ----                ---
+kitchen-accessories Kitchen Accessories                                      <span class="cm">one line, wrapped here</span>
+https://dummyjson.com/products/category/kitchen-accessories</code></pre>
+      </div>
+      <p>The first line printed nothing. The fix is either of two things you already know: wrap the call in parentheses, which run first (Session 10), so the call finishes before the pipe starts, or save the reply in a variable first. Either way, the pipe then carries the items one at a time. Section B never hit this, because <code>$cat.products</code> is a property holding a list, and a list read from a property or a variable goes down the pipe item by item. <b>The habit: save the reply, then pipe the variable.</b></p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The same: one object through the pipe, twenty-four from a variable. <code>ConvertFrom-Json</code> differs, though: in PowerShell 7 it sends a JSON list item by item, and in 5.1 as one object, like <code>Invoke-RestMethod</code> in both. Saving to a variable first works the same in every version.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Count it both ways</div>
+        <ol>
+          <li>Count the categories by piping <code>Invoke-RestMethod</code> straight into <code>Measure-Object</code>, then with the call in parentheses.</li>
+          <li>Save the categories in a variable, and list the <code>slug</code> of every category whose name starts with s.</li>
+        </ol>
+        <details><summary>Hint</summary><p><code>Where-Object slug -like 's*' | Select-Object -ExpandProperty slug</code> (Sessions 1 and 2).</p></details>
+        <label class="did"><input type="checkbox" data-task="4"> I saw a list arrive as one object, and fixed it with a variable</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-d">
+      <h3>D. When the server says no: status codes and errors</h3>
+      <p>Every response carries a status code. The ones you will meet most: <b>200</b> OK; <b>401</b> Unauthorized, the service did not accept who you said you were (a missing or wrong key); <b>404</b> Not Found, the address names nothing; <b>429</b> Too Many Requests, you asked too often and must wait; <b>500</b> Internal Server Error and <b>503</b> Service Unavailable, the trouble is on the server&rsquo;s side. The rule of thumb: a 4 at the start means the request was wrong, a 5 means the server was. postman-echo&rsquo;s <code>/status/CODE</code> answers with whatever code you put in place of CODE, so you can see each one on purpose:</p>
+      <div class="filebox">
+        <div class="fbh">a 404, at the prompt &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-RestMethod https://postman-echo.com/status/404</span>
+Invoke-RestMethod: 
+{
+  "status": 404
+}</code></pre>
+      </div>
+      <p>PowerShell 7 shows the body the server sent with its error, here postman-echo&rsquo;s own <code>"status": 404</code>; a real service often sends a sentence saying what was wrong.</p>
+      <p><b>Which kind of error is it?</b> Session 7 met three: one that carries on, one that stops only its own statement, and one that stops everything. Try it. <code>try</code> catches it with no <code>-ErrorAction Stop</code>; the next statement still runs; and <code>-ErrorAction SilentlyContinue</code> does not hide it:</p>
+      <div class="filebox">
+        <div class="fbh">it stops its own statement, and only that &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try { Invoke-RestMethod</span>                              <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://postman-echo.com/status/503; 'got it' } catch { 'caught' }</span>
+caught
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-RestMethod https://postman-echo.com/status/404; 'next line ran'</span>
+Invoke-RestMethod: 
+{
+  "status": 404
+}
+next line ran
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-RestMethod</span>                                    <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://postman-echo.com/status/404 -ErrorAction SilentlyContinue</span>
+Invoke-RestMethod: 
+{
+  "status": 404
+}</code></pre>
+      </div>
+      <p>That is Session 7&rsquo;s section C exactly: a <b>statement-terminating</b> error, like <code>Import-Csv</code> on a missing file. It stops the line it is on, <code>try</code> sees it, and <code>-ErrorAction</code> does not touch it. So a script that calls a web service does not need <code>-ErrorAction Stop</code> to catch a bad reply, but it does need <code>try</code>, or the script carries on past it.</p>
+      <p><b>Reading the error.</b> Inside <code>catch</code>, <code>$_</code> is the error (Session 7). For a web call it carries three useful things. <code>$_.Exception.Message</code> is the sentence. <code>$_.Exception.Response.StatusCode</code> is the status as a name: the code&rsquo;s description with the spaces taken out, so 503 Service Unavailable is <code>ServiceUnavailable</code>; an <code>[int]</code> cast (Session 4) gives its number. <code>$_.ErrorDetails.Message</code> is the body the server sent with the error, often its own explanation:</p>
+      <div class="filebox">
+        <div class="fbh">three things to read in catch &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $bad = 'https://postman-echo.com/status/503'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try { Invoke-RestMethod $bad } catch { $_.Exception.Message }</span>
+Response status code does not indicate success: 503 (Service Unavailable).
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try { Invoke-RestMethod $bad } catch {</span>               <span class="cm">one line, wrapped here</span>
+<span class="cmd">  [int]$_.Exception.Response.StatusCode }</span>
+503
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try { Invoke-RestMethod $bad } catch { $_.ErrorDetails.Message }</span>
+
+{
+  "status": 503
+}</code></pre>
+      </div>
+      <p><b>No reply at all.</b> When the server cannot be reached (a wrong address, no network), there is no response, so no status: <code>$_.Exception.Response</code> is empty, and <code>[int]</code> of nothing is <b>0</b>. A 0 in your log means the request never got an answer:</p>
+      <div class="filebox">
+        <div class="fbh">an address that does not exist &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; try { Invoke-RestMethod</span>                              <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://fernhill.invalid/stock } catch { $_.Exception.Message }</span>
+No such host is known. (fernhill.invalid:443)
+<span class="cmd">PS C:\Users\you\ps-lab&gt; try { Invoke-RestMethod</span>                              <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://fernhill.invalid/stock } catch { [int]$_.Exception.Response.StatusCode }</span>
+0</code></pre>
+      </div>
+      <p>(<code>.invalid</code> is a name the web keeps for exactly this: no address will ever end in it.)</p>
+      <div class="note"><span class="nk">PowerShell 7 only: no error at all</span><code>-SkipHttpErrorCheck</code> tells <code>Invoke-RestMethod</code> not to raise an error for a bad status, and <code>-StatusCodeVariable NAME</code> saves the status in a variable of that name (no <code>$</code> before it). Then an <code>if</code> on the code replaces the <code>try</code>: <code>$r = Invoke-RestMethod $bad -SkipHttpErrorCheck -StatusCodeVariable code; if ($code -ne 200) { CODE }</code>, where CODE is what to do about it. Windows PowerShell 5.1 has neither parameter (&ldquo;A parameter cannot be found that matches parameter name&rdquo;), so this workbook uses <code>try</code>, which works in both. 7 can also retry a failed request by itself, with <code>-MaximumRetryCount</code>; read <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-restmethod" target="_blank" rel="noopener">Microsoft&rsquo;s page</a> before you rely on it.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The same kind of error, read the same three ways: the status number matches, and so does the body, though 5.1 prints it on one line. The sentence differs: <code>The remote server returned an error: (503) Server Unavailable.</code> where 7 says <code>Response status code does not indicate success: 503 (Service Unavailable).</code>, and 5.1 prints its long error form at the prompt.</div>
+      <div class="note"><span class="nk">On Linux</span>The same, except the bad-host sentence (checked on Ubuntu 26.04): <code>Name or service not known (fernhill.invalid:443)</code>, with the status still 0.</div>
+      <div class="note"><span class="nk">In Bash</span><code>curl</code> treats a 404 as a success: it prints the body and exits with 0 (Session 7&rsquo;s exit codes). Add <code>--fail</code> and it exits with 22 instead, and with <code>-s</code> as well, <code>curl -s --fail</code>, it prints nothing; <code>-w '%{http_code}'</code> prints the status.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Make the server say no</div>
+        <ol>
+          <li>Ask postman-echo for a 429, and a 500, each inside <code>try</code>, printing the status number from <code>catch</code>.</li>
+          <li>For the 500, print the body the server sent with it.</li>
+          <li>Show that a 404 does not stop the next statement on the same line, and that <code>-ErrorAction SilentlyContinue</code> does not hide it.</li>
+        </ol>
+        <details><summary>Hint</summary><p>Change only the number at the end of the URL. The body is <code>$_.ErrorDetails.Message</code>.</p></details>
+        <label class="did"><input type="checkbox" data-task="5"> I caught bad replies, and read the status and the body from them</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-e">
+      <h3>E. Sending data: a POST with a JSON body</h3>
+      <p>A GET asks; a <b>POST</b> sends something for the server to act on, such as a new order. <code>-Method Post</code> chooses it. What you send is the <b>body</b>: here, an order turned into JSON with Session 4&rsquo;s <code>ConvertTo-Json</code>. <code>-ContentType 'application/json'</code> is a header telling the server the body is JSON, so it reads it as JSON. postman-echo&rsquo;s <code>/post</code> sends back what it received, with the JSON it read under <code>json</code>:</p>
+      <div class="filebox">
+        <div class="fbh">an order, sent and echoed back &middot; captured live</div>
+<pre><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $order = @{ shop = 'fernhill'; item = 'Carbon Steel Wok'; qty = 2 }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $body = $order | ConvertTo-Json</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sent = Invoke-RestMethod</span>                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://postman-echo.com/post -Method Post -Body $body -ContentType 'application/json'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sent.json.item</span>
+Carbon Steel Wok
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sent.json.qty</span>
+2</code></pre>
+      </div>
+      <p>On a POST, <code>-Body</code> is sent as it is, so here it is the JSON text, not a query. (A hashtable&rsquo;s pairs come out in an order PowerShell chooses, so read them by name, as above, rather than printing the whole object.) postman-echo only sends it back; a real order service would store the order and reply with its number.</p>
+      <p><b>Session 4&rsquo;s depth trap, back.</b> <code>ConvertTo-Json</code> writes only two levels of nesting by default; anything deeper becomes text. A real order has lines, and a line can have its own details, which is three levels:</p>
+      <div class="filebox">
+        <div class="fbh">a nested order, sent with the default depth, then with -Depth &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; $order = @{ shop = 'fernhill'; lines = @( @{ item</span>    <span class="cm">one line, wrapped here</span>
+<span class="cmd">  = 'Wok'; extras = @{ lid = 'glass' } } ) }</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sent = Invoke-RestMethod</span>                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://postman-echo.com/post -Method Post -Body ($order |</span>                 <span class="cm">one line, wrapped here</span>
+<span class="cmd">  ConvertTo-Json) -ContentType 'application/json'</span>
+WARNING: Resulting JSON is truncated as serialization has exceeded the set depth of 2.
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sent.json.lines[0].extras</span>
+System.Collections.Hashtable
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sent = Invoke-RestMethod</span>                            <span class="cm">one line, wrapped here</span>
+<span class="cmd">  https://postman-echo.com/post -Method Post -Body ($order |</span>                 <span class="cm">one line, wrapped here</span>
+<span class="cmd">  ConvertTo-Json -Depth 5) -ContentType 'application/json'</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $sent.json.lines[0].extras.lid</span>
+glass</code></pre>
+      </div>
+      <p>The server received the text <code>System.Collections.Hashtable</code> where the lid should be, and a real order service would have stored that. <code>[0]</code> is the first item of a list, counting from 0 (Session 9). <b>Give <code>-Depth</code> whenever you send something nested.</b></p>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The order is sent and echoed the same. As in Session 4, 5.1 truncates the nested order SILENTLY, with no warning, so the wrong body goes out without a word; <code>-Depth 5</code> fixes it the same way.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Send an order</div>
+        <ol>
+          <li>POST an order of your own with three fields to postman-echo, and read two of them back from <code>json</code>.</li>
+          <li>Add a list of lines where one line has its own details, send it without <code>-Depth</code>, and find what arrived in place of the details. Then send it again with <code>-Depth 5</code>.</li>
+        </ol>
+        <details><summary>Hint</summary><p>The order in the box above is the shape to copy. Read the echo one level at a time: <code>$sent.json</code>, then <code>.lines</code>, then <code>[0]</code>.</p></details>
+        <label class="did"><input type="checkbox" data-task="6"> I sent a JSON body, and saw the depth trap on the wire</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-f">
+      <h3>F. Get-LowStock, tests first, with Mock</h3>
+      <p>Now the tool: <code>Get-LowStock -Below N -Category NAME</code> in the Fernhill module, giving the products with fewer than N in stock, lowest first. Sessions 9 and 10 say the tests come first. But a test that calls the real catalogue is a bad test: it needs the network, it is slow, and its answer changes whenever the supplier&rsquo;s stock does. A test must give the same answer every time.</p>
+      <p>Session 10 had the answer for dates: pass the date in. A web reply cannot be passed in that way, because the function asks for it itself. This is where <b><code>Mock</code></b> comes in. <code>Mock COMMAND { CODE }</code>, inside a test, stands in for COMMAND: while the test runs, every call to COMMAND runs CODE instead, and gets CODE&rsquo;s output. Mock <code>Invoke-RestMethod</code>, and the function receives a reply you wrote, with no network at all. Two more pieces make the fake reply:</p>
+      <ul>
+        <li><b><code>[pscustomobject]@{ NAME = VALUE; NAME = VALUE }</code></b>, with as many pairs as you need, turns a hashtable into an object with those properties, the same kind of object <code>Import-Csv</code> gives a row (Session 4) and <code>Invoke-RestMethod</code> gives a reply.</li>
+        <li><b><code>@( ITEMS )</code></b> holds a list of ITEMS, here one item per line, the way the reply&rsquo;s <code>products</code> does.</li>
+      </ul>
+      <p>The fake reply copies the shape of the real one from section B: a <code>total</code>, and a <code>products</code> list of objects with <code>id</code>, <code>title</code> and <code>stock</code>. Three more new words:</p>
+      <ul>
+        <li><b><code>-ModuleName Fernhill</code></b>: <code>Get-LowStock</code> lives in the module, and a Mock reaches a module&rsquo;s own calls only when you name the module. Session 10 said so, and below you see what happens without it.</li>
+        <li><b><code>Should -Invoke COMMAND -Times N -Exactly</code></b> checks how many times the mocked command was called during the test: here, once.</li>
+        <li><b><code>-ParameterFilter { TEST }</code></b> counts only the calls whose parameters pass TEST. In it, each parameter is a variable: <code>$Uri</code> is the address <code>Invoke-RestMethod</code> was given. So the second test checks the function asked for the right category.</li>
+      </ul>
+      <p>Add this group to the end of the test file. The third test overrides the group&rsquo;s Mock with an empty reply, for one test only, and pins its error with Session 10&rsquo;s <code>-ExpectedMessage</code>, so it cannot pass for the wrong reason:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; one more group, at the end</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'moves nothing with -WhatIf' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf -WhatIf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}
+
+Describe 'Remove-OldReport' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/out' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/out/old.csv'
+    'new' | Set-Content 'TestDrive:/out/new.csv'
+    (Get-Item 'TestDrive:/out/old.csv').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/out/new.csv').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'removes only the reports older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Remove-OldReport -Path 'TestDrive:/out' -Days 2 -AsOf $asOf
+    Get-ChildItem 'TestDrive:/out' -Name | Should -Be 'new.csv'
+  }
+  It 'does nothing when the folder is missing' {
+    Remove-OldReport -Path 'TestDrive:/nope' | Should -HaveCount 0
+  }
+}
+
+Describe 'Get-LowStock' {
+  BeforeAll {
+    Mock Invoke-RestMethod -ModuleName Fernhill {
+      [pscustomobject]@{
+        total    = 3
+        products = @(
+          [pscustomobject]@{ id = 58; title = 'Fork'; stock = 7 }
+          [pscustomobject]@{ id = 48; title = 'Bamboo Spatula'; stock = 37 }
+          [pscustomobject]@{ id = 51; title = 'Boxed Blender'; stock = 9 }
+        )
+      }
+    }
+  }
+  It 'lists the products below the line, lowest stock first' {
+    (Get-LowStock -Below 15).title | Should -Be 'Fork', 'Boxed Blender'
+  }
+  It 'asks the catalogue once, for the category given' {
+    Get-LowStock -Category 'kitchen-accessories' | Out-Null
+    Should -Invoke Invoke-RestMethod -ModuleName Fernhill -Times 1 -Exactly -ParameterFilter {
+      $Uri -like '*/category/kitchen-accessories'
+    }
+  }
+  It 'stops when the category is empty' {
+    Mock Invoke-RestMethod -ModuleName Fernhill { [pscustomobject]@{ total = 0; products = @() } }
+    { Get-LowStock -Category 'nope' } | Should -Throw -ExpectedMessage 'No products in category*'
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 2: run them before Get-LowStock exists &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_woa3\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_woa3\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_woa3\logs\archive\old.log".  <span class="cm">yours differs</span>
+[-] Get-LowStock.lists the products below the line, lowest stock first 35ms  <span class="cm">your time</span>
+ CommandNotFoundException: The term 'Get-LowStock' is not recognized as a    <span class="cm">one line, wrapped here</span>
+name of a cmdlet, function, script file, or executable program.
+ Check the spelling of the name, or if a path was included, verify that      <span class="cm">one line, wrapped here</span>
+the path is correct and try again.
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:111
+[-] Get-LowStock.asks the catalogue once, for the category given 27ms  <span class="cm">your time</span>
+ CommandNotFoundException: The term 'Get-LowStock' is not recognized as a    <span class="cm">one line, wrapped here</span>
+name of a cmdlet, function, script file, or executable program.
+ Check the spelling of the name, or if a path was included, verify that      <span class="cm">one line, wrapped here</span>
+the path is correct and try again.
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:114
+[-] Get-LowStock.stops when the category is empty 83ms  <span class="cm">your time</span>
+ Expected an exception with message like 'No products in category*' to be    <span class="cm">one line, wrapped here</span>
+thrown, but the message was 'The term 'Get-LowStock' is not recognized as    <span class="cm">one line, wrapped here</span>
+a name of a cmdlet, function, script file, or executable program.
+ Check the spelling of the name, or if a path was included, verify that      <span class="cm">one line, wrapped here</span>
+the path is correct and try again.'. from                                    <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:121 char:7
+     +     { Get-LowStock -Category 'nope' } | Should -Throw -ExpectedMessag …
+     +       ~~~~~~~~~~~~
+ at { Get-LowStock -Category 'nope' } | Should -Throw -ExpectedMessage 'No   <span class="cm">one line, wrapped here</span>
+products in category*',                                                      <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:121
+Tests completed in 754ms  <span class="cm">your time</span>
+Tests Passed: 12, Failed: 3, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>All three new tests fail, each because <code>Get-LowStock</code> does not exist yet, and the old twelve pass. Now the function. It is section B&rsquo;s commands, with the check from B&rsquo;s second trap, in Session 6&rsquo;s shape:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; Get-LowStock added, and shared</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+function Get-OldFile {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days,
+    [datetime]$AsOf
+  )
+  $cutoff = $AsOf.AddDays(-$Days)
+  Get-ChildItem $Path -File | Where-Object LastWriteTime -lt $cutoff
+}
+
+function Move-OldLog {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { throw "No folder to tidy: $Path" }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  New-Item -ItemType Directory "$Path/archive" -Force | Out-Null
+  $old | Move-Item -Destination "$Path/archive"
+  $old
+}
+
+function Remove-OldReport {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { return }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  $old | Remove-Item
+  $old
+}
+
+function Get-LowStock {
+  [CmdletBinding()]
+  param(
+    [int]$Below = 15,
+    [string]$Category = 'kitchen-accessories'
+  )
+  $url = "https://dummyjson.com/products/category/$Category"
+  $reply = Invoke-RestMethod $url -Body @{ select = 'title,stock' }
+  if ($reply.total -eq 0) { throw "No products in category: $Category" }
+  $reply.products | Where-Object stock -lt $Below | Sort-Object stock, id
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary,
+  Move-OldLog, Remove-OldReport, Get-LowStock</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 4: every test passes, then the real thing &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_rttu\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_rttu\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_rttu\logs\archive\old.log".  <span class="cm">yours differs</span>
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 730ms (15 tests)  <span class="cm">your time</span>
+Tests completed in 731ms  <span class="cm">your time</span>
+Tests Passed: 15, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-LowStock</span>
+
+id title          stock
+-- -----          -----
+58 Fork               7
+64 Knife              7
+51 Boxed Blender      9
+62 Ice Cube Tray     13
+53 Chopping Board    14</code></pre>
+      </div>
+      <p>The tests passed without the catalogue; the last command used it. Notice the tests&rsquo; Fork and Boxed Blender came from the fake reply, not the supplier: the tests check what the function DOES with a reply, whatever the stock is today.</p>
+      <p><b>The trap: leave out <code>-ModuleName</code>.</b> Here is the same group with <code>-ModuleName Fernhill</code> taken off the group&rsquo;s Mock, so you can see what Session 10 warned of. Save it, run it, then put <code>-ModuleName Fernhill</code> back:</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; the group&rsquo;s Mock without -ModuleName (to undo afterwards)</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'moves nothing with -WhatIf' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf -WhatIf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}
+
+Describe 'Remove-OldReport' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/out' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/out/old.csv'
+    'new' | Set-Content 'TestDrive:/out/new.csv'
+    (Get-Item 'TestDrive:/out/old.csv').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/out/new.csv').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'removes only the reports older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Remove-OldReport -Path 'TestDrive:/out' -Days 2 -AsOf $asOf
+    Get-ChildItem 'TestDrive:/out' -Name | Should -Be 'new.csv'
+  }
+  It 'does nothing when the folder is missing' {
+    Remove-OldReport -Path 'TestDrive:/nope' | Should -HaveCount 0
+  }
+}
+
+Describe 'Get-LowStock' {
+  BeforeAll {
+    Mock Invoke-RestMethod {
+      [pscustomobject]@{
+        total    = 3
+        products = @(
+          [pscustomobject]@{ id = 58; title = 'Fork'; stock = 7 }
+          [pscustomobject]@{ id = 48; title = 'Bamboo Spatula'; stock = 37 }
+          [pscustomobject]@{ id = 51; title = 'Boxed Blender'; stock = 9 }
+        )
+      }
+    }
+  }
+  It 'lists the products below the line, lowest stock first' {
+    (Get-LowStock -Below 15).title | Should -Be 'Fork', 'Boxed Blender'
+  }
+  It 'asks the catalogue once, for the category given' {
+    Get-LowStock -Category 'kitchen-accessories' | Out-Null
+    Should -Invoke Invoke-RestMethod -ModuleName Fernhill -Times 1 -Exactly -ParameterFilter {
+      $Uri -like '*/category/kitchen-accessories'
+    }
+  }
+  It 'stops when the category is empty' {
+    Mock Invoke-RestMethod -ModuleName Fernhill { [pscustomobject]@{ total = 0; products = @() } }
+    { Get-LowStock -Category 'nope' } | Should -Throw -ExpectedMessage 'No products in category*'
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">a mock the module never sees &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_eyvp\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_eyvp\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_eyvp\logs\archive\old.log".  <span class="cm">yours differs</span>
+[-] Get-LowStock.lists the products below the line, lowest stock first 688ms  <span class="cm">your time</span>
+ Expected a collection @('Fork', 'Boxed Blender') with length 2, but got a   <span class="cm">one line, wrapped here</span>
+collection @('Fork', 'Knife', 'Boxed Blender', 'Ice Cube Tray', 'Chopping    <span class="cm">one line, wrapped here</span>
+Board') with length 5.
+ at (Get-LowStock -Below 15).title | Should -Be 'Fork', 'Boxed Blender',     <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:111
+[-] Get-LowStock.asks the catalogue once, for the category given 275ms  <span class="cm">your time</span>
+ RuntimeException: Should -Invoke: Could not find Mock for command           <span class="cm">one line, wrapped here</span>
+Invoke-RestMethod in module Fernhill. Was the mock defined? Did you use      <span class="cm">one line, wrapped here</span>
+the same -ModuleName as on the Mock? When using InModuleScope are            <span class="cm">one line, wrapped here</span>
+InModuleScope, Mock and Should -Invoke using the same -ModuleName?
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:115
+Tests completed in 1.32s  <span class="cm">your time</span>
+Tests Passed: 13, Failed: 2, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <p>Read the first failure: it got FIVE products, the supplier&rsquo;s real ones. Without <code>-ModuleName</code>, the Mock stood in for <code>Invoke-RestMethod</code> only in the test file itself; <code>Get-LowStock</code>, inside the module, called the real one, so your offline test quietly went online. The second failure is <code>Should -Invoke</code> saying it found no Mock in the module at all. <b>Mocking a module&rsquo;s call: always <code>-ModuleName</code>.</b> And remember Session 10&rsquo;s other half: with it, the Mock replaces EVERY call to that command in the module. <code>Get-LowStock</code> makes one web call, so one Mock serves; a module that called two services would need a <code>-ParameterFilter</code> on each Mock, too.</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; -ModuleName back in</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'moves nothing with -WhatIf' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf -WhatIf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}
+
+Describe 'Remove-OldReport' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/out' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/out/old.csv'
+    'new' | Set-Content 'TestDrive:/out/new.csv'
+    (Get-Item 'TestDrive:/out/old.csv').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/out/new.csv').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'removes only the reports older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Remove-OldReport -Path 'TestDrive:/out' -Days 2 -AsOf $asOf
+    Get-ChildItem 'TestDrive:/out' -Name | Should -Be 'new.csv'
+  }
+  It 'does nothing when the folder is missing' {
+    Remove-OldReport -Path 'TestDrive:/nope' | Should -HaveCount 0
+  }
+}
+
+Describe 'Get-LowStock' {
+  BeforeAll {
+    Mock Invoke-RestMethod -ModuleName Fernhill {
+      [pscustomobject]@{
+        total    = 3
+        products = @(
+          [pscustomobject]@{ id = 58; title = 'Fork'; stock = 7 }
+          [pscustomobject]@{ id = 48; title = 'Bamboo Spatula'; stock = 37 }
+          [pscustomobject]@{ id = 51; title = 'Boxed Blender'; stock = 9 }
+        )
+      }
+    }
+  }
+  It 'lists the products below the line, lowest stock first' {
+    (Get-LowStock -Below 15).title | Should -Be 'Fork', 'Boxed Blender'
+  }
+  It 'asks the catalogue once, for the category given' {
+    Get-LowStock -Category 'kitchen-accessories' | Out-Null
+    Should -Invoke Invoke-RestMethod -ModuleName Fernhill -Times 1 -Exactly -ParameterFilter {
+      $Uri -like '*/category/kitchen-accessories'
+    }
+  }
+  It 'stops when the category is empty' {
+    Mock Invoke-RestMethod -ModuleName Fernhill { [pscustomobject]@{ total = 0; products = @() } }
+    { Get-LowStock -Category 'nope' } | Should -Throw -ExpectedMessage 'No products in category*'
+  }
+}</code></pre>
+      </div>
+      <div class="note"><span class="nk">You will also see</span>a <code>-ParameterFilter</code> on a <code>Mock</code> itself, so it stands in only for the calls that pass the filter. In Pester 6, a call that matches no filter and has no plain Mock to fall back on fails the test with <code>No mock for command 'Invoke-RestMethod' matched the call</code> and lists the parameters it got: a sign the code asked for something the test did not expect.</div>
+      <div class="note"><span class="nk">Windows PowerShell 5.1</span>The module imports and <code>Get-LowStock</code> runs in 5.1 too (checked on this workbook&rsquo;s computer); the tests were run in PowerShell 7 only, as in Sessions 9 and 10.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> A web call, tested offline</div>
+        <ol>
+          <li>Add the test group, run it, and see the three new tests fail.</li>
+          <li>Add <code>Get-LowStock</code> to the module, share it, and run the tests until all fifteen pass. Then run <code>Get-LowStock -Below 10</code> for real.</li>
+          <li>Take <code>-ModuleName Fernhill</code> off the group&rsquo;s Mock, run the tests, read where the five products came from, and put it back.</li>
+        </ol>
+        <details><summary>Hint</summary><p>If a new test passes before the function exists, check it has <code>-ExpectedMessage</code> (Session 10). If <code>Get-LowStock</code> is not found at the prompt, check <code>Export-ModuleMember</code> names it, then import with <code>-Force</code>.</p></details>
+        <label class="did"><input type="checkbox" data-task="7"> I tested a web call with a Mock, and saw what -ModuleName is for</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-g">
+      <h3>G. Testing the failure, and proving the tests need no network</h3>
+      <p>Mock&rsquo;s best use is the one a live service cannot give you on demand: <b>failure</b>. You cannot make the supplier go down to test your error handling, but a Mock can throw. First, the function needs error handling worth testing. Section D&rsquo;s pattern, in the function: the call goes in <code>try</code>; <code>catch</code> reads the status (0 when no reply came), logs a <code>FAILED:</code> line with Session 8&rsquo;s <code>Write-Log</code>, then <code>throw</code> on its own throws the same error on to the caller (Session 8), so the failure is recorded AND still stops the script. The empty-category check comes after the <code>try</code> block, so a 0 in the log still means no reply came, and it logs a <code>FAILED:</code> line of its own. Two new parameters, each with a default:</p>
+      <ul>
+        <li><b><code>-LogPath</code></b>, the log file, so a test can point it into <code>TestDrive:</code> and leave your real log alone (Session 9).</li>
+        <li><b><code>-BaseUrl</code></b>, the start of the address, so you can point the function at another server without editing it. Teams use the same idea to point a tool at a test copy of a service.</li>
+      </ul>
+      <p>Tests first. The empty-category test gains a <code>-LogPath</code> (or it would write to your real log) and checks the line it logs, and a new test mocks a call that throws. It checks the error is passed on, then reads the log line with <b><code>Should -BeLike 'PATTERN'</code></b>, which passes when the text matches a pattern with Session 1&rsquo;s <code>*</code> wildcard. Each test logs to its own file. Session 9&rsquo;s <code>TestDrive:</code> starts empty for each Describe, but the tests inside one Describe share it, so two tests writing one file would see each other&rsquo;s lines.</p>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.Tests.ps1 &middot; the last test changed, one test added</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.Tests.ps1"><code>BeforeAll {
+  Import-Module "$PSScriptRoot/Fernhill.psm1" -Force
+}
+
+Describe 'Format-LogLine' {
+  It 'puts the time first, then the message' {
+    $time = Get-Date -Date '2026-03-04 08:05:09'
+    Format-LogLine -Message 'Started' -Time $time | Should -Be '2026-03-04 08:05:09 Started'
+  }
+  It 'uses the hour from 00 to 23' {
+    $time = Get-Date -Date '2026-03-04 20:05:09'
+    Format-LogLine -Message 'Done' -Time $time | Should -Be '2026-03-04 20:05:09 Done'
+  }
+}
+
+Describe 'Write-Log' {
+  It 'adds one line each time' {
+    Write-Log -Path 'TestDrive:/test.log' -Message 'one'
+    Write-Log -Path 'TestDrive:/test.log' -Message 'two'
+    Get-Content 'TestDrive:/test.log' | Should -HaveCount 2
+  }
+  It 'makes the folder if it is missing' {
+    Write-Log -Path 'TestDrive:/new/test.log' -Message 'one'
+    Test-Path 'TestDrive:/new/test.log' | Should -BeTrue
+  }
+  It 'writes a log with no folder in its name' {
+    $here = Get-Location
+    try {
+      Set-Location 'TestDrive:/'
+      Write-Log -Path 'plain.log' -Message 'one'
+      Test-Path 'TestDrive:/plain.log' | Should -BeTrue
+    } finally {
+      Set-Location $here
+    }
+  }
+}
+
+Describe 'Get-ErrorSummary' {
+  BeforeAll {
+    New-Item -ItemType Directory 'TestDrive:/logs' | Out-Null
+    'INFO ok', 'ERROR one', 'ERROR two' | Set-Content 'TestDrive:/logs/a.log'
+    'ERROR three' | Set-Content 'TestDrive:/logs/b.log'
+  }
+  It 'counts the ERROR lines in each log, biggest first' {
+    $rows = Get-ErrorSummary -Path 'TestDrive:/logs'
+    $rows | Should -HaveCount 2
+    $rows[0].Log | Should -Be 'a.log'
+    $rows[0].Count | Should -Be 2
+  }
+  It 'stops when the folder is missing' {
+    { Get-ErrorSummary -Path 'TestDrive:/nope' } | Should -Throw
+  }
+}
+
+Describe 'Move-OldLog' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/logs' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/logs/old.log'
+    'new' | Set-Content 'TestDrive:/logs/new.log'
+    (Get-Item 'TestDrive:/logs/old.log').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/logs/new.log').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'moves only the logs older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf
+    Test-Path 'TestDrive:/logs/archive/old.log' | Should -BeTrue
+    Test-Path 'TestDrive:/logs/new.log' | Should -BeTrue
+  }
+  It 'moves nothing with -WhatIf' {
+    $asOf = [datetime]'2026-03-04'
+    Move-OldLog -Path 'TestDrive:/logs' -Days 2 -AsOf $asOf -WhatIf
+    Test-Path 'TestDrive:/logs/old.log' | Should -BeTrue
+  }
+  It 'stops when the folder is missing' {
+    { Move-OldLog -Path 'TestDrive:/nope' } | Should -Throw -ExpectedMessage 'No folder to tidy*'
+  }
+}
+
+Describe 'Remove-OldReport' {
+  BeforeEach {
+    New-Item -ItemType Directory 'TestDrive:/out' -Force | Out-Null
+    'old' | Set-Content 'TestDrive:/out/old.csv'
+    'new' | Set-Content 'TestDrive:/out/new.csv'
+    (Get-Item 'TestDrive:/out/old.csv').LastWriteTime = [datetime]'2026-03-01 23:59'
+    (Get-Item 'TestDrive:/out/new.csv').LastWriteTime = [datetime]'2026-03-03 23:59'
+  }
+  It 'removes only the reports older than the days given' {
+    $asOf = [datetime]'2026-03-04'
+    Remove-OldReport -Path 'TestDrive:/out' -Days 2 -AsOf $asOf
+    Get-ChildItem 'TestDrive:/out' -Name | Should -Be 'new.csv'
+  }
+  It 'does nothing when the folder is missing' {
+    Remove-OldReport -Path 'TestDrive:/nope' | Should -HaveCount 0
+  }
+}
+
+Describe 'Get-LowStock' {
+  BeforeAll {
+    Mock Invoke-RestMethod -ModuleName Fernhill {
+      [pscustomobject]@{
+        total    = 3
+        products = @(
+          [pscustomobject]@{ id = 58; title = 'Fork'; stock = 7 }
+          [pscustomobject]@{ id = 48; title = 'Bamboo Spatula'; stock = 37 }
+          [pscustomobject]@{ id = 51; title = 'Boxed Blender'; stock = 9 }
+        )
+      }
+    }
+  }
+  It 'lists the products below the line, lowest stock first' {
+    (Get-LowStock -Below 15).title | Should -Be 'Fork', 'Boxed Blender'
+  }
+  It 'asks the catalogue once, for the category given' {
+    Get-LowStock -Category 'kitchen-accessories' | Out-Null
+    Should -Invoke Invoke-RestMethod -ModuleName Fernhill -Times 1 -Exactly -ParameterFilter {
+      $Uri -like '*/category/kitchen-accessories'
+    }
+  }
+  It 'stops when the category is empty' {
+    Mock Invoke-RestMethod -ModuleName Fernhill { [pscustomobject]@{ total = 0; products = @() } }
+    { Get-LowStock -Category 'nope' -LogPath 'TestDrive:/empty.log' } |
+      Should -Throw -ExpectedMessage 'No products in category*'
+    Get-Content 'TestDrive:/empty.log' | Should -BeLike '*FAILED: no products in category: nope'
+  }
+  It 'logs a failure, then passes it on' {
+    Mock Invoke-RestMethod -ModuleName Fernhill { throw 'No reply from the catalogue' }
+    { Get-LowStock -LogPath 'TestDrive:/fail.log' } | Should -Throw -ExpectedMessage 'No reply*'
+    Get-Content 'TestDrive:/fail.log' | Should -BeLike '*FAILED: status 0, No reply*'
+  }
+}</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 2: the changed test and the new one fail &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_30e0\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_30e0\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_30e0\logs\archive\old.log".  <span class="cm">yours differs</span>
+[-] Get-LowStock.stops when the category is empty 57ms  <span class="cm">your time</span>
+ Expected an exception with message like 'No products in category*' to be    <span class="cm">one line, wrapped here</span>
+thrown, but the message was 'A parameter cannot be found that matches        <span class="cm">one line, wrapped here</span>
+parameter name 'LogPath'.'. from                                             <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:121 char:37
+     +     { Get-LowStock -Category 'nope' -LogPath 'TestDrive:/empty.log' } …
+     +                                     ~~~~~~~~
+ at Should -Throw -ExpectedMessage 'No products in category*',               <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:122
+ at &lt;ScriptBlock&gt;, C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:121
+[-] Get-LowStock.logs a failure, then passes it on 44ms  <span class="cm">your time</span>
+ Expected an exception with message like 'No reply*' to be thrown, but the   <span class="cm">one line, wrapped here</span>
+message was 'A parameter cannot be found that matches parameter name         <span class="cm">one line, wrapped here</span>
+'LogPath'.'. from C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:127    <span class="cm">one line, wrapped here</span>
+char:20
+     +     { Get-LowStock -LogPath 'TestDrive:/fail.log' } | Should -Throw - …
+     +                    ~~~~~~~~
+ at { Get-LowStock -LogPath 'TestDrive:/fail.log' } | Should -Throw          <span class="cm">one line, wrapped here</span>
+-ExpectedMessage 'No reply*',                                                <span class="cm">one line, wrapped here</span>
+C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1:127
+Tests completed in 873ms  <span class="cm">your time</span>
+Tests Passed: 14, Failed: 2, Skipped: 0, Inconclusive: 0, NotRun: 0</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">~/ps-scripts/Fernhill/Fernhill.psm1 &middot; Get-LowStock logs, then passes the failure on</div>
+<pre data-file="~/ps-scripts/Fernhill/Fernhill.psm1"><code># Fernhill.psm1: the Fernhill Goods log tools, for any script that imports them.
+$ErrorActionPreference = 'Stop'
+
+function Format-LogLine {
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [datetime]$Time = (Get-Date)
+  )
+  "$(Get-Date -Date $Time -Format 'yyyy-MM-dd HH:mm:ss') $Message"
+}
+
+function Write-Log {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Message
+  )
+  $folder = Split-Path $Path
+  if ($folder -ne '') { New-Item -ItemType Directory $folder -Force | Out-Null }
+  Format-LogLine -Message $Message | Add-Content $Path
+}
+
+function Get-ErrorSummary {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path $Path)) { throw "No folder to search: $Path" }
+  Get-ChildItem $Path -Recurse -File | Select-String ERROR |
+    Group-Object Filename | Sort-Object Count, Name -Descending |
+    Select-Object @{ Name = 'Log'; Expression = { $_.Name } }, Count
+}
+
+function Get-OldFile {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days,
+    [datetime]$AsOf
+  )
+  $cutoff = $AsOf.AddDays(-$Days)
+  Get-ChildItem $Path -File | Where-Object LastWriteTime -lt $cutoff
+}
+
+function Move-OldLog {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { throw "No folder to tidy: $Path" }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  New-Item -ItemType Directory "$Path/archive" -Force | Out-Null
+  $old | Move-Item -Destination "$Path/archive"
+  $old
+}
+
+function Remove-OldReport {
+  [CmdletBinding(SupportsShouldProcess)]
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [int]$Days = 30,
+    [datetime]$AsOf = (Get-Date)
+  )
+  if (-not (Test-Path $Path)) { return }
+  $old = Get-OldFile -Path $Path -Days $Days -AsOf $AsOf
+  $old | Remove-Item
+  $old
+}
+
+function Get-LowStock {
+  [CmdletBinding()]
+  param(
+    [int]$Below = 15,
+    [string]$Category = 'kitchen-accessories',
+    [string]$BaseUrl = 'https://dummyjson.com',
+    [string]$LogPath = "$HOME/ps-scripts/stock.log"
+  )
+  try {
+    $url = "$BaseUrl/products/category/$Category"
+    $reply = Invoke-RestMethod $url -Body @{ select = 'title,stock' }
+  } catch {
+    $status = [int]$_.Exception.Response.StatusCode
+    Write-Log -Path $LogPath -Message "FAILED: status $status, $($_.Exception.Message)"
+    throw
+  }
+  if ($reply.total -eq 0) {
+    Write-Log -Path $LogPath -Message "FAILED: no products in category: $Category"
+    throw "No products in category: $Category"
+  }
+  $reply.products | Where-Object stock -lt $Below | Sort-Object stock, id
+}
+
+Export-ModuleMember -Function Format-LogLine, Write-Log, Get-ErrorSummary,
+  Move-OldLog, Remove-OldReport, Get-LowStock</code></pre>
+      </div>
+      <div class="filebox">
+        <div class="fbh">step 4: every test passes; then a real failure, from a real server &middot; captured live</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; Invoke-Pester ~/ps-scripts/Fernhill</span>
+
+Running tests from 1 files.
+What if: Performing the operation "Create Directory" on target               <span class="cm">one line, wrapped here</span>
+"Destination: C:\Users\you\AppData\Local\Temp\Pester_inxg\logs\archive".  <span class="cm">yours differs</span>
+What if: Performing the operation "Move File" on target "Item:               <span class="cm">one line, wrapped here</span>
+C:\Users\you\AppData\Local\Temp\Pester_inxg\logs\old.log Destination:        <span class="cm">one line, wrapped here</span>  <span class="cm">yours differs</span>
+C:\Users\you\AppData\Local\Temp\Pester_inxg\logs\archive\old.log".  <span class="cm">yours differs</span>
+[+] C:\Users\you\ps-scripts\Fernhill\Fernhill.Tests.ps1 426ms (16 tests)  <span class="cm">your time</span>
+Tests completed in 428ms  <span class="cm">your time</span>
+Tests Passed: 16, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-LowStock -BaseUrl https://postman-echo.com -LogPath out/stock.log</span>
+Invoke-RestMethod: Response status code does not indicate success: 404 (Not Found).
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content out/stock.log</span>
+2026-10-16 21:28:53 FAILED: status 404, Response status code does not        <span class="cm">one line, wrapped here</span>  <span class="cm">your time</span>
+indicate success: 404 (Not Found).</code></pre>
+      </div>
+      <p>postman-echo has no <code>/products</code> address, so it answered 404, and the function logged the status and the sentence before stopping. That is the line you want to find in a log on a Monday morning: what failed, and how.</p>
+      <p><b>Prove the tests need no network.</b> Turn your computer&rsquo;s network off (Wi-Fi off, or the cable out), and run the tests again: all sixteen pass, because every call to <code>Invoke-RestMethod</code> they make is a Mock. Then try <code>Get-LowStock</code> at the prompt: it fails, with status 0 in your log, because no reply came. Turn the network back on afterwards. (This workbook&rsquo;s computer was taken offline for one PowerShell window by sending its requests to a proxy that does not exist: the tests passed, sixteen of sixteen, and a real call failed.)</p>
+      <div class="note"><span class="nk">Why this is not in the nightly job</span>Session 10&rsquo;s <code>Fernhill nightly</code> job could call <code>Get-LowStock</code> too, and at work you might. This workbook does not, on purpose: a scheduled job that depends on a free demo service would fail whenever that service is slow or changes, for reasons that are not yours to fix, and the track&rsquo;s core sessions need no network. If you do schedule a web call, the log line from this section is how you will know why a run failed.</div>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> Test the failure</div>
+        <ol>
+          <li>Change the empty-category test, add the failure test, and see the two fail.</li>
+          <li>Change <code>Get-LowStock</code> as shown, run the tests until all sixteen pass, then make it fail for real with <code>-BaseUrl https://postman-echo.com</code> and read the log line.</li>
+          <li>With the network off, run the tests (all pass) and <code>Get-LowStock</code> (it fails, status 0). Network back on.</li>
+        </ol>
+        <details><summary>Hint</summary><p>If the failure test reads two lines from its log, it is sharing a file with another test: give it a name of its own. If a test fails with the network off, check its Mock has <code>-ModuleName Fernhill</code>: without it, that test was calling the real service.</p></details>
+        <label class="did"><input type="checkbox" data-task="8"> I tested a failure with a Mock that throws, and ran my tests offline</label>
+      </div>
+    </div>
+
+    <div class="block" id="concept-h">
+      <h3>H. The milestone: a tested web call, and a low-stock report</h3>
+      <div class="task">
+        <div class="th"><span class="k">Your turn</span> The milestone: a tested web call in the Fernhill module, and a low-stock report from it</div>
+        <ol>
+          <li><code>Get-LowStock</code> in the Fernhill module takes <code>-Below</code> (default 15), <code>-Category</code>, <code>-BaseUrl</code> and <code>-LogPath</code>; stops on an empty category; and logs every failure before passing it on: a failed call with its status, an empty category with a line of its own.</li>
+          <li>Its tests use a Mock with <code>-ModuleName</code>, check the list and its order, the one call and its category, an empty category, and a failure&rsquo;s log line. All pass with the network off.</li>
+          <li><code>~/ps-scripts/low-stock.ps1</code> has help and <code>-Below</code> and <code>-Category</code>; logs a start and a result to <code>stock.log</code> beside it; and saves the low products to <code>ps-lab/out/low-stock.csv</code> for Excel (Session 4&rsquo;s <code>utf8BOM</code>).</li>
+          <li>Run it as a program, <code>pwsh -NoProfile -NonInteractive -File</code>, twice: once below 10, once with a misspelt category, and read its exit code and log each time.</li>
+        </ol>
+        <p>You have hit the milestone when the tests pass offline, the report holds the products below your line, the misspelt run exited with 1 and logged why, and you wrote it without copying from this page.</p>
+        <details><summary>Show one reference to compare against</summary>
+<p>The module and tests are section G&rsquo;s, unchanged. The script imports the module from its own folder, as Session 9&rsquo;s did:</p>
+<div class="filebox">
+  <div class="fbh">~/ps-scripts/low-stock.ps1 &middot; the report</div>
+<pre data-file="~/ps-scripts/low-stock.ps1"><code>&lt;#
+.SYNOPSIS
+Saves Fernhill's low-stock report from the supplier's catalogue.
+.DESCRIPTION
+Asks the catalogue for the products in -Category with fewer than -Below in
+stock, saves them to low-stock.csv in the lab's out folder for Excel, and
+adds a line to stock.log, beside the script, when it starts and when it has
+saved. A failure is logged by Get-LowStock and stops the script.
+.PARAMETER Below
+The stock line: products with fewer than this many are listed. Default 15.
+.PARAMETER Category
+The catalogue category to read. Default kitchen-accessories.
+.EXAMPLE
+~/ps-scripts/low-stock.ps1 -Below 10
+#&gt;
+param(
+  [int]$Below = 15,
+  [string]$Category = 'kitchen-accessories'
+)
+$ErrorActionPreference = 'Stop'
+Import-Module "$PSScriptRoot/Fernhill/Fernhill.psm1" -Force
+$log = "$PSScriptRoot/stock.log"
+$csv = "$HOME/ps-lab/out/low-stock.csv"
+Write-Log -Path $log -Message "Started: $Category, below $Below"
+$low = Get-LowStock -Below $Below -Category $Category -LogPath $log
+$low | Export-Csv $csv -Encoding utf8BOM
+Write-Log -Path $log -Message "Saved $(@($low).Count) products to $csv"</code></pre>
+</div>
+<pre data-shell="7"><code><span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -NonInteractive -File</span>                <span class="cm">one line, wrapped here</span>
+<span class="cmd">  ~/ps-scripts/low-stock.ps1 -Below 10</span>
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+0
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Import-Csv out/low-stock.csv</span>
+
+id title         stock
+-- -----         -----
+58 Fork          7
+64 Knife         7
+51 Boxed Blender 9
+
+<span class="cmd">PS C:\Users\you\ps-lab&gt; pwsh -NoProfile -NonInteractive -File</span>                <span class="cm">one line, wrapped here</span>
+<span class="cmd">  ~/ps-scripts/low-stock.ps1 -Category kitchen-acessories</span>
+Exception: No products in category: kitchen-acessories
+<span class="cmd">PS C:\Users\you\ps-lab&gt; $LASTEXITCODE</span>
+1
+<span class="cmd">PS C:\Users\you\ps-lab&gt; Get-Content ~/ps-scripts/stock.log</span>
+2026-10-16 21:28:55 Started: kitchen-accessories, below 10  <span class="cm">your time</span>
+2026-10-16 21:28:55 Saved 3 products to C:\Users\you/ps-lab/out/low-stock.csv  <span class="cm">your time</span>
+2026-10-16 21:28:56 Started: kitchen-acessories, below 15  <span class="cm">your time</span>
+2026-10-16 21:28:56 FAILED: no products in category: kitchen-acessories  <span class="cm">your time</span></code></pre>
+<p>The first run printed nothing and exited with 0: its report is the CSV, and its record the log. The second stopped at the empty category with exit code 1, which a scheduler records as a failure (Session 8), and its log says why. (If you ran <code>low-stock.ps1</code> or section G&rsquo;s offline step before, your log also holds those earlier lines.)</p>
+        </details>
+        <label class="did"><input type="checkbox" data-task="9"> I shipped a tested web call and a low-stock report</label>
+      </div>
+      <div class="note"><span class="nk">To tidy up later</span><code>Get-LowStock</code> and its tests can stay in the module: they need no network to pass. <code>low-stock.ps1</code> and <code>stock.log</code> are plain files in <code>ps-scripts</code>; delete them when you are done.</div>
+    </div>
+  </section>
+
+  <!-- ============ PART 2: PREDICT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 2</span><h2>Predict the Output</h2><button class="part-reset" id="reset-part-2">&#8635; reset part</button></div>
+    <p class="sub">Commit to an answer before you check it. Each drill states the shape of answer it wants. They ramp from reading a reply, through errors, to tests with a Mock.</p>
+    <div class="note"><b>Every drill starts in <code>ps-lab</code>, in a fresh PowerShell 7 window with a fresh lab and an <code>out</code> folder</b>, with Pester 6 installed and the finished Fernhill module and tests from section G saved in <code>~/ps-scripts/Fernhill</code>, and its commands run in the order shown, in that one window. Each was run on 2026-10-16 in PowerShell 7.6 on Windows with Pester 6.2. The web drills use postman-echo, which only repeats what it is sent, or depend on nothing the catalogue could change. Where a drill needs to show you something first, it is in the grey box just below the question: read it before you answer.</div>
+    <div id="drills"></div>
+  </section>
+
+  <!-- ============ PART 3: ARRANGE & FILL ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 3</span><h2>Arrange &amp; Fill</h2><button class="part-reset" id="reset-part-3">&#8635; reset part</button></div>
+    <p class="sub">The bridge between reading code and writing it: fill the blanks in four pieces of code. (Today has no put-it-in-order item. The one process here with a single right order, write the test, see it fail, write the code, see it pass, is the one Session 9&rsquo;s put-it-in-order item already practised.)</p>
+
+    <h3 style="font-size:16px;margin:0 0 12px;color:var(--ink-soft)">Fill the blanks (faded code)</h3>
+    <div id="faded"></div>
+  </section>
+
+  <!-- ============ PART 4: WRITE IT ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 4</span><h2>Write It Yourself</h2><button class="part-reset" id="reset-part-4">&#8635; reset part</button></div>
+    <p class="sub">No scaffolding now. Write the code in the box, run it in your terminal, then reveal the reference to compare. More than one answer can be right, so judge yours by what it did, and by whether its tests pass. The workbook cannot see your terminal, so the two buttons under each are honest self-tracking: tap <b>Mine worked</b> once your code did what the task asked, or <b>Needs another pass</b> to keep going. Try each without scrolling back up to Part 1.</p>
+    <div id="writes"></div>
+  </section>
+
+  <!-- ============ PART 5: FLASHCARDS ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
+    <p class="sub">The atoms you should be able to summon without thinking, all from this workbook. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
+    <div class="deck">
+      <div class="flashcard" id="flashcard">
+        <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
+        <div class="fc-front" id="fc-text"></div>
+        <span class="hint" id="fc-hint">tap card to reveal the answer</span>
+      </div>
+      <div class="deck-controls" id="fc-controls" style="display:none">
+        <button class="btn bad sm" id="fc-review">Review again</button>
+        <button class="btn good sm" id="fc-got">Got it</button>
+      </div>
+      <div class="deck-meta">
+        <span>Mastered <b id="fc-mastered">0</b>/<span id="fc-total">16</span></span>
+        <span>In pile <b id="fc-pile">16</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 6: QUICK CHECK ============ -->
+  <section class="sec">
+    <div class="sh"><span class="tag">Part 6</span><h2>Quick Check</h2><button class="part-reset" id="reset-part-6">&#8635; reset part</button></div>
+    <p class="sub">Six questions, with the answer options shuffled every time you load the page. Pass with 5. If a wrong answer surprises you, use the review link that appears: it scrolls to the section that teaches it.</p>
+    <div class="note">&#128257; <b>Spaced review.</b> Four questions are on this workbook; one comes from <b>Session 7</b> and one from <b>Session 4</b>, because this workbook leaned on both, and recalling something after a delay is what moves it from &ldquo;I read that&rdquo; to &ldquo;I know that&rdquo;. Their review links open those sessions rather than scrolling this page.</div>
+    <div id="quiz"></div>
+    <div class="finalmsg" id="final"></div>
+  </section>
+
+  <footer>
+    Bonus workbook &middot; outside the graded ten. &middot; There is nothing to tick: your <a href="ps-hub.html" target="_blank" rel="noopener">Hub</a> still reads 10/10, and this workbook does not change it, because the track was finished before you opened this. You reached it from the Hub&rsquo;s <b>Where to next</b> section, which lists what to learn after it.
+    <br><br>
+    <b>Your 15-minute review, a week from now:</b> with this page closed, write on paper the call that asks the catalogue for its kitchen products, the <code>catch</code> that logs a failure&rsquo;s status, and the Mock that lets a test run with no network. Then run your tests once with the network off. For the full reference, Microsoft&rsquo;s <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/invoke-restmethod" target="_blank" rel="noopener">Invoke-RestMethod page</a> and <a href="https://pester.dev/docs/usage/mocking" target="_blank" rel="noopener">Pester&rsquo;s page on mocking</a>.
+  </footer>
+</div>
+
+<script>
+  var STORE = "ps-bonus-apis-workbook-v1";
+  /* Spaced review: Part 6's Q5 comes from Session 7 and Q6 from Session 4, so their
+     review backlinks leave this page instead of scrolling it. Kept as plain string
+     literals because build-site-variant.js rewrites artifact URLs to local site filenames
+     by plain text replacement, and it has to find them. */
+  var S07_URL = "ps-session-07.html";
+  var S04_URL = "ps-session-04.html";
+
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+  function save(s) { try { localStorage.setItem(STORE, JSON.stringify(s)); } catch (e) {} }
+  var state = load();
+  if (!state.tasks) state.tasks = {};
+  if (!state.writes) state.writes = {};
+  if (!state.drills) state.drills = {};
+  if (!state.cards) state.cards = {};
+  if (!state.quiz) state.quiz = {};
+  /* Part 3 persists too, so closing the tab mid-session never discards work.
+     Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
+     in the progress strip; that stays at five by deliberate design decision. */
+  if (!state.parsons) state.parsons = {};
+  if (!state.faded) state.faded = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  /* caseFold is ON for this track: PowerShell's cmdlet names, parameter names and
+     variable names are case-insensitive, so get-content and Get-Content are the same
+     answer. parenLabels is OFF for this workbook: transcripts print answer tokens as
+     status numbers, JSON property names and values (braces, colons and quotes), product
+     titles, counts and Pester's [+] and [-] lines. PowerShell 7's error text, such as
+     404 (Not Found), puts a reason in parentheses that must not be split off as a label,
+     and parentheses are syntax too: (Invoke-RestMethod URL), $( ) and [int]$_.Exception,
+     so () in the split class would accept wrong answers.
+     Decision recorded in _SHARED-BUILD-CONTRACT.md section 4.
+     norm() is copied from sql-session-01.html, which meets the 2026-09-30 contract:
+     curly quotes count as straight, and a trailing . ; or : is forgiven unless
+     nothing would survive the strip. */
+  /* keepCase is passed only for a drill marked cs: true. No drill in the bonus is: its
+     answers are status numbers, counts, property names, product titles, a URL and passed
+     or failed, none of which a learner could get wrong by case alone (build contract
+     section 4). */
+  function norm(s, keepCase) {
+    s = String(s).trim().replace(/\s+/g, ' ');
+    if (!keepCase) s = s.toLowerCase();
+    s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");   // curly quotes anywhere count as straight (2026-09-30)
+    if (s.length >= 2 && ((s[0] === '"' && s[s.length-1] === '"') || (s[0] === "'" && s[s.length-1] === "'"))) s = s.slice(1, -1);
+    var stripped = s.replace(/[.;:]+$/, '');
+    if (stripped.length) s = stripped;
+    return s;
+  }
+  /* Fill-in blanks are CODE, so quotes are part of the answer and this never strips
+     them. Curly quotes count as straight, spaces next to brackets and commas are
+     ignored, a trailing . ; or : is forgiven unless nothing would survive. An item
+     marked cs: true keeps case exact. No item in the bonus is: its blanks are the end of
+     a cmdlet name, parameter names, property names, a method and Pester's Mock and Invoke,
+     all of which PowerShell and Pester match in any case (captured).
+     Copied from sql-session-01.html. */
+  function fadedOk(f, i, val) {
+    function q(s) {
+      s = String(s).trim().replace(/\s+/g, ' ')
+        .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+        .replace(/\s*([(){}\[\],])\s*/g, '$1');
+      if (!f.cs) s = s.toLowerCase();
+      var stripped = s.replace(/[.;:]+$/, '');
+      return stripped.length ? stripped : s;
+    }
+    return q(val) === q(f.ans[i]);
+  }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+
+  /* The split class (whitespace, comma, period, semicolon, colon, quotes) is the skill
+     contract, carried from the API track's engine. Whenever a session prints an answer
+     token inside punctuation, that punctuation belongs in this class. Note . splits
+     README.txt into two tokens on BOTH sides, so it still compares fairly. */
+  function toks(s) { return String(s).toLowerCase().trim().split(/[\s,.;:"'‘’“”]+/).filter(Boolean); }
+  /* `alt` holds additional accepted spellings of the SAME answer. It never accepts a
+     different answer. One shared comparator so alt reaches set and seq as well. */
+  function matchesOne(d, val, ans) {
+    if (d.type === 'set') { var a = toks(val).sort(), b = toks(ans).sort(); return a.length === b.length && a.every(function (x, k) { return x === b[k]; }); }
+    if (d.type === 'seq') { var p = toks(val), q = toks(ans); return p.length === q.length && p.every(function (x, k) { return x === q[k]; }); }
+    return norm(val, d.cs) === norm(ans, d.cs);
+  }
+
+  function gradeDrill(d, val) {
+    var cands = [d.ans].concat(d.alt || []);
+    for (var i = 0; i < cands.length; i++) { if (matchesOne(d, val, cands[i])) return true; }
+    return false;
+  }
+
+  var drillCorrect = {};
+  function refreshCounters() {
+    var t = 0; for (var k in state.tasks) if (state.tasks[k]) t++;
+    document.getElementById('c-tasks').textContent = t;
+    var d = 0; for (var j in drillCorrect) if (drillCorrect[j]) d++;
+    document.getElementById('c-drills').textContent = d;
+    var w = 0; for (var m in state.writes) if (state.writes[m]) w++;
+    document.getElementById('c-writes').textContent = w;
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) {
+    var id = cb.getAttribute('data-task');
+    cb.checked = !!state.tasks[id];
+    cb.addEventListener('change', function () { state.tasks[id] = cb.checked; save(state); refreshCounters(); });
+  });
+
+  /* ---------- Part 2: predict drills ----------
+     Answer-type spread: 4 value, 1 set, 2 seq, 3 count. The bonus's grader flags are in the build contract,
+     section 4: caseFold ON, parenLabels OFF, no drill cs: true. Every drill was run on 2026-10-16 from a fresh
+     lab with an out folder, Pester 6.2.0 installed and section G's module and tests saved, its commands typed
+     into ONE PowerShell 7.6.7 window in order (_build/verify_bonus.py). Bonus decision 2: no answer depends on
+     live catalogue data. The web drills use postman-echo (it repeats what it is sent), an answer that is the
+     same whatever the catalogue holds (D2, D7), or a Mock (D7 to D10 are test files). No answer is printed by
+     a Part 1 transcript. */
+  var DRILLS = [
+    { type: 'set', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. Which names does the last one print? List them in any order, separated by commas.',
+      code: "PS C:\\Users\\you\\ps-lab> $r = Invoke-RestMethod 'https://postman-echo.com/get?shop=fernhill&qty=2&state=open'\nPS C:\\Users\\you\\ps-lab> $r.args | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name", ans: 'qty, shop, state',
+      why: 'qty, shop and state. postman-echo sends the query back under args, and Invoke-RestMethod makes each name=value pair a property of that object; Get-Member -MemberType NoteProperty (Sessions 2 and 4) lists them, sorted by name.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What number does the command print?',
+      code: "PS C:\\Users\\you\\ps-lab> (Invoke-RestMethod https://dummyjson.com/products/categories | Where-Object slug -like 'k*' | Measure-Object).Count", ans: '0', alt: ['zero'],
+      why: '0, whatever categories the service holds. Invoke-RestMethod sends the JSON list down the pipe as one object, the whole list, so Where-Object tests the list, not each category, and passes nothing. Saved in a variable first, the list goes down the pipe item by item.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What does the command print? Type it exactly.',
+      code: "PS C:\\Users\\you\\ps-lab> (Invoke-RestMethod https://postman-echo.com/get -Body @{ id = 48 }).url", ans: 'https://postman-echo.com/get?id=48',
+      why: 'https://postman-echo.com/get?id=48. On a GET, -Body turns each pair of the hashtable into the query, after a ? at the end of the address, and postman-echo sends back the address it was asked.' },
+
+    { type: 'seq', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What does the command print, in order? Separate the lines with commas.',
+      code: "PS C:\\Users\\you\\ps-lab> try { 'one'; Invoke-RestMethod https://postman-echo.com/status/500; 'two' } catch { 'three' }; 'four'", ans: 'one, three, four',
+      why: 'one, three, four. one prints; the 500 is a statement-terminating error, which try sees, so two never runs and catch prints three; the statement after the whole try and catch runs as usual, and prints four.' },
+
+    { type: 'value', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'What does the command print?',
+      code: "PS C:\\Users\\you\\ps-lab> try { Invoke-RestMethod https://postman-echo.com/status/401 } catch { $_.Exception.Response.StatusCode }", ans: 'Unauthorized',
+      why: 'Unauthorized. postman-echo answers with the status asked for, and Invoke-RestMethod raises an error for it. In catch, $_.Exception.Response.StatusCode is the status by its name; it takes the [int] cast in front to give the number, 401.' },
+
+    { type: 'count', lbl: 'in ps-lab',
+      scen: '',
+      ask: 'The commands run in order. What number does the last one print?',
+      code: "PS C:\\Users\\you\\ps-lab> $n = 0\nPS C:\\Users\\you\\ps-lab> foreach ($code in 200, 404, 500) { try { Invoke-RestMethod \"https://postman-echo.com/status/$code\" | Out-Null; $n = $n + 1 } catch { } }\nPS C:\\Users\\you\\ps-lab> $n", ans: '1', alt: ['one'],
+      why: '1. Only the 200 reaches $n = $n + 1. The 404 and the 500 each raise an error inside try, so the rest of try is skipped for them, and the empty catch swallows the error.' },
+
+    { type: 'value', lbl: 'a test file: ~/ps-scripts/Shop/Fake.Tests.ps1 holds these lines',
+      scen: "BeforeAll { Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force }\nDescribe 'Fake' {\n  It 'gets the fake teapot' {\n    Mock Invoke-RestMethod {\n      [pscustomobject]@{ total = 1; products = @([pscustomobject]@{ id = 1; title = 'Teapot'; stock = 2 }) }\n    }\n    (Get-LowStock).title | Should -Be 'Teapot'\n  }\n}",
+      ask: 'Save the lines in the grey box (make the Shop folder first), then run the command. Does the test pass or fail? Answer passed or failed.',
+      code: 'PS C:\\Users\\you\\ps-lab> Invoke-Pester ~/ps-scripts/Shop/Fake.Tests.ps1', ans: 'failed', alt: ['fail', 'fails'],
+      why: 'failed. The Mock has no -ModuleName, so it stands in only for calls made in the test file. Get-LowStock lives in the Fernhill module and called the real Invoke-RestMethod, so it listed the supplier\u2019s real products, and no Teapot.' },
+
+    { type: 'count', lbl: 'a test file: ~/ps-scripts/Shop/Twice.Tests.ps1 holds these lines',
+      scen: "BeforeAll { Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force }\nDescribe 'Twice' {\n  It 'asks the catalogue once' {\n    Mock Invoke-RestMethod -ModuleName Fernhill { [pscustomobject]@{ total = 1; products = @() } }\n    Get-LowStock | Out-Null\n    Get-LowStock -Below 5 | Out-Null\n    Should -Invoke Invoke-RestMethod -ModuleName Fernhill -Times 1 -Exactly\n  }\n}",
+      ask: 'Save the lines in the grey box (make the Shop folder first), then run the command. The test fails, and its message says how many times Invoke-RestMethod was called. What number?',
+      code: 'PS C:\\Users\\you\\ps-lab> Invoke-Pester ~/ps-scripts/Shop/Twice.Tests.ps1', ans: '2', alt: ['two'],
+      why: '2. Each Get-LowStock asks the catalogue once, and both calls ran inside this test, so Should -Invoke counted two where -Times 1 -Exactly allows exactly one.' },
+
+    { type: 'seq', lbl: 'a test file: ~/ps-scripts/Shop/Order.Tests.ps1 holds these lines',
+      scen: "BeforeAll { Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force }\nDescribe 'Order' {\n  It 'lists them' {\n    Mock Invoke-RestMethod -ModuleName Fernhill {\n      [pscustomobject]@{ total = 4; products = @(\n        [pscustomobject]@{ id = 1; title = 'Pan'; stock = 12 }\n        [pscustomobject]@{ id = 2; title = 'Mug'; stock = 9 }\n        [pscustomobject]@{ id = 3; title = 'Cup'; stock = 20 }\n        [pscustomobject]@{ id = 4; title = 'Lid'; stock = 3 }\n      ) }\n    }\n    (Get-LowStock -Below 10).title | Should -Be 'Mug', 'Lid'\n  }\n}",
+      ask: 'Save the lines in the grey box (make the Shop folder first), then run the command. The test fails. Which titles did Get-LowStock really give, in order? Separate them with commas.',
+      code: 'PS C:\\Users\\you\\ps-lab> Invoke-Pester ~/ps-scripts/Shop/Order.Tests.ps1', ans: 'Lid, Mug',
+      why: 'Lid, then Mug. Only those two have fewer than 10 in stock, and Get-LowStock sorts by stock, lowest first: Lid with 3 before Mug with 9. The test expected them the other way round, the order they stand in the reply.' },
+
+    { type: 'value', lbl: 'a test file: ~/ps-scripts/Shop/Line.Tests.ps1 holds these lines',
+      scen: "BeforeAll { Import-Module ~/ps-scripts/Fernhill/Fernhill.psm1 -Force }\nDescribe 'Line' {\n  It 'lists the cup only' {\n    Mock Invoke-RestMethod -ModuleName Fernhill {\n      [pscustomobject]@{ total = 2; products = @(\n        [pscustomobject]@{ id = 1; title = 'Pan'; stock = 5 }\n        [pscustomobject]@{ id = 2; title = 'Cup'; stock = 2 }\n      ) }\n    }\n    (Get-LowStock -Below 5).title | Should -Be 'Cup'\n  }\n}",
+      ask: 'Save the lines in the grey box (make the Shop folder first), then run the command. Does the test pass or fail? Answer passed or failed.',
+      code: 'PS C:\\Users\\you\\ps-lab> Invoke-Pester ~/ps-scripts/Shop/Line.Tests.ps1', ans: 'passed', alt: ['pass', 'passes'],
+      why: 'passed. Get-LowStock keeps products whose stock is -lt the line: fewer than 5. The Pan has exactly 5, which is not fewer, so only the Cup is listed.' }
+  ];
+  function buildDrills() {
+    var wrap = document.getElementById('drills');
+    document.getElementById('c-drills-total').textContent = DRILLS.length;
+    DRILLS.forEach(function (d, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      var scenHtml = d.scen
+        ? '<div class="scen"><span class="sch">' + esc(d.lbl || 'already sent') + '</span><pre><code>' + esc(d.scen) + '</code></pre></div>'
+        : '';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">D' + (i+1) + '</span><span class="cd">predict</span></div>' +
+        '<div class="prompt">' + esc(d.ask) + '</div>' +
+        scenHtml +
+        '<pre><code>' + esc(d.code) + '</code></pre>' +
+        '<div class="ans-row"><input class="pred" type="text" placeholder="Your answer" />' +
+        '<button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct answer</span><code>' + esc(d.ans) + '</code></p>' +
+        '<p><span class="lbl">Why</span>' + esc(d.why) + '</p></div>';
+      var input = el.querySelector('.pred'), btn = el.querySelector('.btn'), rev = el.querySelector('.reveal');
+      function markDone(ok) {
+        input.disabled = true; btn.disabled = true;
+        if (ok) drillCorrect[i] = true;
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Not a match';
+      }
+      function check() {
+        if (el.dataset.done) return;
+        if (!input.value.trim()) return;
+        el.dataset.done = '1';
+        var ok = gradeDrill(d, input.value);
+        state.drills[i] = ok; save(state);
+        markDone(ok); refreshCounters();
+      }
+      btn.disabled = true;
+      input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3a: Parsons ----------
+     None in the bonus (contract section 4's escape hatch, as in Session 8): nothing in this workbook has
+     exactly one valid order that Session 9's test-first Parsons did not already practise. A fourth faded
+     item takes its place. The engine tolerates a page with no #parsons container. */
+  var PARSONS = [];
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildParsons() {
+    var wrap = document.getElementById('parsons');
+    if (!wrap) return;          /* a session with no Parsons item has no container (Session 8) */
+    PARSONS.forEach(function (p, pi) {
+      var order = shuffle(p.lines);
+      if (order.join('\n') === p.lines.join('\n')) order.reverse();
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">P' + (pi+1) + '</span><span class="cd">arrange</span></div>' +
+        '<div class="prompt">' + esc(p.prompt) + '</div>' +
+        '<div class="parsons"><div class="pcol bank"><span class="pcl">Scrambled steps</span></div>' +
+        '<div class="pcol sol"><span class="pcl">Your sequence (click to add / remove)</span></div></div>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Check order</button></div>' +
+        '<div class="reveal"><div class="verdict"></div>' +
+        '<p><span class="lbl">Correct order</span></p><pre><code>' + esc(p.lines.join('\n')) + '</code></pre></div>';
+      var bank = el.querySelector('.bank'), sol = el.querySelector('.sol');
+      var rev = el.querySelector('.reveal'), btn = el.querySelector('.btn.primary');
+      var checked = false; btn.disabled = true;
+      function insertIntoBank(b) {
+        var pos = +b.getAttribute('data-pos');
+        var sibs = bank.querySelectorAll('.pline'), ref = null;
+        for (var i = 0; i < sibs.length; i++) {
+          if (+sibs[i].getAttribute('data-pos') > pos) { ref = sibs[i]; break; }
+        }
+        if (ref) bank.insertBefore(b, ref); else bank.appendChild(b);
+      }
+      function mkLine(text, idx) {
+        var b = document.createElement('button'); b.className = 'pline'; b.textContent = text;
+        b.setAttribute('data-pos', idx);
+        b.addEventListener('click', function () {
+          if (checked) return;
+          if (b.parentNode === bank) sol.appendChild(b); else insertIntoBank(b);
+          btn.disabled = !sol.querySelector('.pline');
+        });
+        bank.appendChild(b);
+      }
+      order.forEach(function (t, idx) { mkLine(t, idx); });
+      /* One path for a live check and for a restore from localStorage, the same
+         shape as the drills' markDone, so the two can never drift apart. */
+      function markParsonsDone(ok) {
+        checked = true; btn.disabled = true;
+        Array.prototype.forEach.call(el.querySelectorAll('.pline'), function (n) { n.style.cursor = 'default'; });
+        rev.classList.add('show', ok ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = ok ? '✓ Correct order' : '✗ Not yet, compare below';
+      }
+      btn.addEventListener('click', function () {
+        var current = Array.prototype.map.call(sol.querySelectorAll('.pline'), function (n) { return n.textContent; });
+        var ok = current.join('\n') === p.lines.join('\n');
+        state.parsons[pi] = { ok: ok, order: current }; save(state);
+        markParsonsDone(ok);
+      });
+      /* Restore the arrangement the learner left, then replay the checked state.
+         The bank is reshuffled on every load, so this moves lines by their text
+         rather than by position. */
+      var savedP = state.parsons[pi];
+      if (savedP && savedP.order) {
+        savedP.order.forEach(function (text) {
+          var avail = bank.querySelectorAll('.pline');
+          for (var i = 0; i < avail.length; i++) {
+            if (avail[i].textContent === text) { sol.appendChild(avail[i]); break; }
+          }
+        });
+        markParsonsDone(!!savedP.ok);
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 3b: faded ----------
+     Graded with fadedOk(), never norm(). No item is cs: true: cmdlet, parameter and property names are all
+     matched in any case by PowerShell (captured). Each prompt names its blanks in order; hyphens sit outside
+     the boxes. */
+  var FADED = [
+    { prompt: 'Ask the catalogue for two fields, and keep the products. Fill in the end of the command that turns a JSON reply into objects, then the parameter (its hyphen is already there) that turns a hashtable into the query on a GET, then the reply\u2019s property that holds the list.',
+      code: "$url = 'https://dummyjson.com/products/category/kitchen-accessories'\n$cat = Invoke-%% $url -%% @{ select = 'title,stock' }\n$cat.%% | Where-Object stock -lt 15", ans: ['RestMethod', 'Body', 'products'] },
+    { prompt: 'Read a bad reply in catch. Fill in the property of the exception that holds the response, then the property of the error that holds the body the server sent with it.',
+      code: "try {\n  Invoke-RestMethod https://postman-echo.com/status/503\n} catch {\n  [int]$_.Exception.%%.StatusCode\n  $_.%%.Message\n}", ans: ['Response', 'ErrorDetails'] },
+    { prompt: 'Send a nested order as JSON. Fill in the ConvertTo-Json parameter (its hyphen is already there) that keeps the nested details, then the method that sends something for the server to act on, then the last word of the content type.',
+      code: "$order = @{ shop = 'fernhill'; lines = @( @{ item = 'Wok'; extras = @{ lid = 'glass' } } ) }\n$body = $order | ConvertTo-Json -%% 5\nInvoke-RestMethod https://postman-echo.com/post -Method %% -Body $body -ContentType 'application/%%'", ans: ['Depth', 'Post', 'json'] },
+    { prompt: 'A test that runs with no network. Fill in the command that stands in for another during a test, then the parameter (its hyphen is already there) that makes it reach the module\u2019s own calls, then the check that counts the calls, then the switch that makes the count exact.',
+      code: "It 'asks the catalogue once' {\n  %% Invoke-RestMethod -%% Fernhill { [pscustomobject]@{ total = 1; products = @() } }\n  Get-LowStock | Out-Null\n  Should -%% Invoke-RestMethod -ModuleName Fernhill -Times 1 -%%\n}", ans: ['Mock', 'ModuleName', 'Invoke', 'Exactly'] }
+  ];
+  function buildFaded() {
+    var wrap = document.getElementById('faded');
+    FADED.forEach(function (f, fi) {
+      var el = document.createElement('div'); el.className = 'card faded';
+      var segs = f.code.split('%%');
+      var html = '<div class="ch"><span class="cn">F' + (fi+1) + '</span><span class="cd">fill</span></div>' +
+        '<div class="prompt">' + esc(f.prompt) + '</div><pre><code>';
+      segs.forEach(function (s, i) {
+        html += esc(s);
+        if (i < segs.length - 1) html += '<input class="blank" data-bi="' + i + '" spellcheck="false" />';
+      });
+      html += '</code></pre><div style="margin-top:2px"><button class="btn primary sm">Check</button></div>' +
+        '<div class="reveal"><div class="verdict"></div><p><span class="lbl">Answers</span><code>' +
+        esc(f.ans.join('   ·   ')) + '</code></p></div>';
+      el.innerHTML = html;
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var blanks = el.querySelectorAll('.blank');
+      btn.disabled = true;
+      Array.prototype.forEach.call(blanks, function (bl) { bl.addEventListener('input', function () { btn.disabled = Array.prototype.some.call(blanks, function (b2) { return !b2.value.trim(); }); }); });
+      /* Grades whatever is currently in the blanks, so a live check and a restore
+         from localStorage run the identical path. */
+      function markFadedDone() {
+        btn.disabled = true;
+        var allOk = true;
+        Array.prototype.forEach.call(blanks, function (b, i) {
+          b.disabled = true;
+          var ok = fadedOk(f, i, b.value);
+          b.classList.add(ok ? 'ok' : 'no');
+          if (!ok) allOk = false;
+        });
+        rev.classList.add('show', allOk ? 'right' : 'wrong');
+        rev.querySelector('.verdict').textContent = allOk ? '✓ All blanks correct' : '✗ Check the highlighted blanks';
+        return allOk;
+      }
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var vals = Array.prototype.map.call(blanks, function (b) { return b.value; });
+        state.faded[fi] = { ok: markFadedDone(), vals: vals }; save(state);
+      });
+      /* Restore what the learner typed into each blank, then re-grade it. */
+      var savedF = state.faded[fi];
+      if (savedF && savedF.vals) {
+        Array.prototype.forEach.call(blanks, function (b, i) { b.value = savedF.vals[i] || ''; });
+        markFadedDone();
+      }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 4: write-it ---------- */
+  var WRITES = [
+    { task: 'In ONE request to postman-echo\u2019s /get address, send the order number 5001 as a query given to -Body, and a header named X-Shop holding fernhill. Then print the order number and the header, as postman-echo heard them.',
+      sol: "$r = Invoke-RestMethod https://postman-echo.com/get -Body @{ order = 5001 } -Headers @{ 'X-Shop' = 'fernhill' }\n$r.args.order\n$r.headers.'x-shop'\n\nIt prints:\n5001\nfernhill\n\nThe query comes back under args and the header under headers, its name in small letters, so it goes in quotes after the dot." },
+    { task: 'Write a function Get-CategorySlug that returns the slug of every dummyjson category, one per line, so that Get-CategorySlug | Where-Object { $_ -like \u0027kitchen*\u0027 } finds kitchen-accessories.',
+      sol: "function Get-CategorySlug {\n  $all = Invoke-RestMethod https://dummyjson.com/products/categories\n  $all | Select-Object -ExpandProperty slug\n}\n\nGet-CategorySlug | Where-Object { $_ -like 'kitchen*' }\n\nIt prints:\nkitchen-accessories\n\nSaving the reply in $all first is what makes it work: piped straight from Invoke-RestMethod, the list would arrive as one object." },
+    { task: 'Write a loop that asks postman-echo for the statuses 200, 404, 429 and 503, and prints CODE ok for a reply that worked, or the status number and failed for one that did not.',
+      sol: "foreach ($code in 200, 404, 429, 503) {\n  try {\n    Invoke-RestMethod \"https://postman-echo.com/status/$code\" | Out-Null\n    \"$code ok\"\n  } catch {\n    \"$([int]$_.Exception.Response.StatusCode) failed\"\n  }\n}\n\nIt prints:\n200 ok\n404 failed\n429 failed\n503 failed\n\nThe failed lines read the status from the error itself, so they would be right even for a code you did not ask for." },
+    { task: 'Add a test to the Get-LowStock group: a product whose stock is exactly the line is not listed. Use the group\u2019s own Mock (Fork 7, Bamboo Spatula 37, Boxed Blender 9) and a line of 7. Run every test.',
+      sol: "Add this It to the Get-LowStock group in Fernhill.Tests.ps1:\n  It 'leaves out a product exactly at the line' {\n    Get-LowStock -Below 7 | Should -HaveCount 0\n  }\n\nInvoke-Pester ~/ps-scripts/Fernhill\nreports, with your own times (the totals line only):\nTests Passed: 17, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0\n\nThe Fork has 7, which is not fewer than 7, and the other two have more, so nothing is listed. The group\u2019s Mock serves this test too, so it needs no network." }
+  ];
+  function buildWrites() {
+    var wrap = document.getElementById('writes');
+    document.getElementById('c-writes-total').textContent = WRITES.length;
+    WRITES.forEach(function (w, i) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">W' + (i+1) + '</span><span class="cd">produce</span></div>' +
+        '<div class="prompt">' + esc(w.task) + '</div>' +
+        '<textarea class="code" placeholder="# write your command here, run it in your terminal, then compare"></textarea>' +
+        '<div style="margin-top:10px"><button class="btn primary sm">Reveal reference solution</button></div>' +
+        '<div class="reveal"><span class="lbl">One correct approach</span>' +
+        '<pre><code>' + esc(w.sol) + '</code></pre>' +
+        '<div class="selfgrade"><span class="sg-q">After comparing yours with the reference:</span>' +
+        '<button class="btn good sm">Mine worked</button>' +
+        '<button class="btn bad sm">Needs another pass</button></div></div>';
+      var ta = el.querySelector('textarea');
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') { e.preventDefault();
+          var s = ta.selectionStart, en = ta.selectionEnd;
+          ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(en);
+          ta.selectionStart = ta.selectionEnd = s + 4;
+        }
+      });
+      var btn = el.querySelector('.btn.primary'), rev = el.querySelector('.reveal');
+      var grades = el.querySelectorAll('.selfgrade .btn');
+      btn.disabled = true;
+      ta.addEventListener('input', function () { if (!rev.classList.contains('show')) btn.disabled = !ta.value.trim(); });
+      function renderMark() {
+        var done = !!state.writes[i];
+        el.classList.toggle('done', done);
+        grades[0].textContent = done ? '✓ Marked done (tap to undo)' : 'Mine worked';
+        grades[0].classList.toggle('on', done);
+      }
+      btn.addEventListener('click', function () { rev.classList.add('show'); btn.disabled = true; });
+      grades[0].addEventListener('click', function () {
+        state.writes[i] = !state.writes[i]; save(state); renderMark(); refreshCounters();
+      });
+      grades[1].addEventListener('click', function () {
+        if (state.writes[i]) { state.writes[i] = false; save(state); renderMark(); refreshCounters(); }
+        ta.focus();
+      });
+      if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      renderMark();
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- Part 5: flashcards ----------
+     Sixteen cards, sized to the atoms THIS workbook has (band 12-16, cap 18). The deck stays session-local:
+     re-testing Sessions 4 and 7 is Part 6's job. */
+  var CARDS = [
+    { f: 'Invoke-RestMethod URL', b: 'sends a request (a GET unless told otherwise) and turns the JSON reply into objects you read with the dot' },
+    { f: 'Invoke-WebRequest URL -UseBasicParsing', b: 'the whole response: StatusCode, and Content as plain text; the switch matters only in 5.1' },
+    { f: 'ConvertFrom-Json', b: 'turns JSON text into objects: the reverse of ConvertTo-Json' },
+    { f: '-Body @{ name = value } on a GET', b: 'becomes the ?name=value query at the end of the URL, written safely' },
+    { f: '"https://site/$name?x=1"', b: 'the ? joins the variable\u2019s name, so the query vanishes; use -Body, or ${name}' },
+    { f: 'a reply with status 200 and total 0', b: 'a failure that looks like success: check it, and throw' },
+    { f: 'Invoke-RestMethod URL | Where-Object FILTER', b: 'the JSON list arrives as ONE object; save the reply in a variable, then pipe the variable' },
+    { f: 'status codes 200, 404, 429, 500 and 503', b: 'OK; not found; too many requests; the server\u2019s own trouble (4: your request, 5: the server)' },
+    { f: 'a bad status from Invoke-RestMethod', b: 'a statement-terminating error: try catches it with no -ErrorAction Stop; without try the next line runs' },
+    { f: '[int]$_.Exception.Response.StatusCode, in catch', b: 'the status as a number; 0 when no reply came at all' },
+    { f: '$_.ErrorDetails.Message, in catch', b: 'the body the server sent with its error, often its own explanation' },
+    { f: "-Method Post -Body $json -ContentType 'application/json'", b: 'sends a JSON body for the server to act on' },
+    { f: 'ConvertTo-Json -Depth 5', b: 'keeps nested data; by default the third level becomes text, such as System.Collections.Hashtable' },
+    { f: 'Mock COMMAND -ModuleName M { CODE }', b: 'in a test, M\u2019s own calls to COMMAND run CODE instead; without -ModuleName the module calls the real one' },
+    { f: 'Should -Invoke C -ModuleName M -Times 1 -Exactly', b: 'passes when the mocked C was called exactly once in the test; -ParameterFilter { } counts only matching calls' },
+    { f: "Should -BeLike 'PATTERN'", b: 'passes when the text matches the pattern, * standing for any run of characters' }
+  ];
+  var pile, mastered, showingBack;
+  var fcCard = document.getElementById('flashcard'), fcText = document.getElementById('fc-text');
+  var fcSide = document.getElementById('fc-sidelbl'), fcHint = document.getElementById('fc-hint');
+  var fcControls = document.getElementById('fc-controls');
+  function initDeck() {
+    pile = CARDS.map(function (c, i) { return i; }).filter(function (i) { return !state.cards[i]; });
+    mastered = 0; for (var mk in state.cards) if (state.cards[mk]) mastered++;
+    showingBack = false;
+    document.getElementById('fc-total').textContent = CARDS.length;
+    document.getElementById('c-cards-total').textContent = CARDS.length;
+    document.getElementById('c-cards').textContent = mastered;
+    document.getElementById('fc-mastered').textContent = mastered;
+    renderCard();
+  }
+  function resetCards() { state.cards = {}; save(state); initDeck(); }
+  function renderCard() {
+    document.getElementById('fc-pile').textContent = pile.length;
+    document.getElementById('fc-mastered').textContent = mastered;
+    document.getElementById('c-cards').textContent = mastered;
+    if (pile.length === 0) {
+      fcCard.style.cursor = 'default'; fcSide.textContent = 'Deck clear';
+      fcText.innerHTML = '<span class="deck-done">All ' + CARDS.length + ' cards mastered. Use the reset button up top to run them again.</span>';
+      fcHint.textContent = ''; fcControls.style.display = 'none'; return;
+    }
+    var c = CARDS[pile[0]]; showingBack = false;
+    fcCard.style.cursor = 'pointer'; fcSide.textContent = 'Prompt · tap to flip';
+    fcText.textContent = c.f; fcHint.textContent = 'tap card to reveal the answer'; fcControls.style.display = 'none';
+  }
+  function flip() {
+    if (pile.length === 0 || showingBack) return;
+    var c = CARDS[pile[0]]; showingBack = true;
+    fcSide.textContent = 'Answer';
+    fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
+    fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+  }
+  fcCard.addEventListener('click', flip);
+  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
+  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+
+  /* ---------- Part 6: quiz ----------
+     Four questions on this workbook and two spaced-review questions, Q5 from Session 7 and Q6 from Session 4,
+     whose review links open those sessions (bonus decision 5). Correct-option length ranks (longest = 1)
+     planned before writing: 3, 1, 2, 4, 2, 3 (longest on exactly one question, shortest on exactly one, ranks
+     2 and 3 twice each; rule 9). check-quiz.py confirms. */
+  var QUIZ = [
+    { q: 'A script pipes Invoke-RestMethod\u2019s list of categories straight into Where-Object, and the filter finds nothing, though the list holds a match. Which change makes the filter work?',
+      o: ['Save the reply in a variable first, then pipe the variable',
+          'Add -ErrorAction Stop to Invoke-RestMethod, so a failure inside the list shows up',
+          'Pipe the reply through ConvertFrom-Json first, so the JSON text becomes objects that Where-Object can read',
+          'Write the pattern in capitals'],
+      c: 0,
+      e: 'Invoke-RestMethod sends a JSON list down the pipe as one object, the whole list, so Where-Object tests the list itself and passes nothing. Saved in a variable (or with the call in parentheses), the list goes down the pipe one item at a time. No error happened for -ErrorAction to show, the reply is already objects, and -like ignores case.',
+      part: { id: 'concept-c', label: 'C. A list that arrives as one object' } },
+
+    { q: 'A Monday report reads the kitchen category, but someone misspelt it in the script. It reports that nothing is running low, and prints no error. Why no error?',
+      o: ['The service answered 200 with an empty list, which PowerShell counts as a success',
+          'Invoke-RestMethod hides errors unless the script sets -ErrorAction Stop',
+          'A misspelt address is a non-terminating error, so the script carried on',
+          'The service never answered at all'],
+      c: 0,
+      e: 'dummyjson answers a category it does not have with 200 and total 0, a failure that looks like success. Only the script knows an empty kitchen is wrong, so it checks the total, and throws when it is 0. Invoke-RestMethod does raise an error for a bad status, with no -ErrorAction Stop needed, and here a reply did come.',
+      part: { id: 'concept-b', label: 'B. The supplier\u2019s catalogue: a reply to filter' } },
+
+    { q: 'A test mocks Invoke-RestMethod with a fake reply, yet its failure message lists the supplier\u2019s real products. What is missing?',
+      o: ['-ModuleName Fernhill on the Mock, so it reaches the module\u2019s own calls',
+          'A Should -Invoke line after the call',
+          'The network has to be off while the test runs, or Pester calls the real service anyway',
+          'Import-Module -Force at the top of the It block'],
+      c: 0,
+      e: 'Without -ModuleName, a Mock stands in only for calls made in the test file. Get-LowStock is in the Fernhill module, so it called the real Invoke-RestMethod and went online. Should -Invoke only counts calls, turning the network off would just make the real call fail, and the module was already imported.',
+      part: { id: 'concept-f', label: 'F. Get-LowStock, tests first, with Mock' } },
+
+    { q: 'In catch, what does [int]$_.Exception.Response.StatusCode give when the address does not exist at all?',
+      o: ['404, the not-found status', '0, since no reply came', '503, as the server is down', 'An error, because there is no status to read'],
+      c: 1,
+      e: 'With no server to answer, there is no response and so no status: $_.Exception.Response is empty, and [int] of nothing is 0. A 404 needs a server that answered "not found", and a 503 a server that answered it was unavailable.',
+      part: { id: 'concept-d', label: 'D. When the server says no: status codes and errors' } },
+
+    { q: "Spaced review, from Session 7. try { Invoke-RestMethod https://postman-echo.com/status/503 } catch { 'caught' } prints caught, with no -ErrorAction Stop anywhere. Why?",
+      o: ['A bad status raises a statement-terminating error, and try sees that kind',
+          'Invoke-RestMethod turns on the Stop preference for the whole window while it runs',
+          'try catches every error, including ones that carry on',
+          'A 503 is the one status code that stops a script'],
+      c: 0,
+      e: 'Session 7 section C: a statement-terminating error stops its own statement, and try sees it, as it saw Import-Csv on a missing file. Errors that carry on, such as Get-Content on a missing file, slip past try without -ErrorAction Stop. Nothing changes the preference, and every bad status behaves the same way.',
+      part: { ext: S07_URL + '#concept-c', label: 'Session 7, C. Errors that stop only their own line' } },
+
+    { q: 'Spaced review, from Session 4. An order with lines, each line with its own details, is sent with ConvertTo-Json, and the server receives System.Collections.Hashtable where the details should be. What fixes it?',
+      o: ['-Depth 5 on ConvertTo-Json, before it is sent',
+          'Sending it with -Method Get instead',
+          '-ContentType \u0027application/json\u0027 on Invoke-RestMethod, so the server reads the nested parts',
+          'Converting the order with ConvertFrom-Json first'],
+      c: 0,
+      e: 'ConvertTo-Json writes two levels of nesting by default and turns anything deeper into text. -Depth raises the limit, so the details go out as JSON. The content type only labels the body; the damage is done before it is sent. A GET has no JSON body, and ConvertFrom-Json goes the other way.',
+      part: { ext: S04_URL + '#concept-g', label: 'Session 4, G. Writing JSON: ConvertTo-Json' } }
+  ];
+  function buildQuiz() {
+    var wrap = document.getElementById('quiz'); var answered = 0, quizCorrect = 0;
+    document.getElementById('c-quiz').textContent = '0';
+    document.getElementById('c-quiz-total').textContent = QUIZ.length;
+    QUIZ.forEach(function (item, qi) {
+      var el = document.createElement('div'); el.className = 'card';
+      el.innerHTML =
+        '<div class="ch"><span class="cn">Q' + (qi+1) + '</span><span class="cd">check</span></div>' +
+        '<div class="prompt">' + esc(item.q) + '</div><div class="opts"></div>' +
+        '<div class="reveal"><div class="verdict"></div><p class="ex"></p><p class="backlink"></p></div>';
+      var opts = el.querySelector('.opts'), rev = el.querySelector('.reveal');
+      var choices = shuffle(item.o.map(function (text, i) { return { text: text, correct: i === item.c }; }));
+      var correctIdx = 0;
+      choices.forEach(function (c, i) { if (c.correct) correctIdx = i; });
+      choices.forEach(function (choice, oi) {
+        var b = document.createElement('button'); b.className = 'opt';
+        b.innerHTML = '<span class="key">' + LETTERS[oi] + '</span><span>' + esc(choice.text) + '</span>';
+        b.addEventListener('click', function () {
+          if (el.dataset.done) return; el.dataset.done = '1'; answered++;
+          var ok = choice.correct; if (ok) quizCorrect++;
+          state.quiz[qi] = ok; save(state);
+          document.getElementById('c-quiz').textContent = quizCorrect;
+          Array.prototype.forEach.call(opts.children, function (bb, i) {
+            bb.disabled = true;
+            if (i === correctIdx) bb.classList.add('correct');
+            else if (i === oi) bb.classList.add('wrong');
+            else bb.classList.add('dim');
+          });
+          rev.classList.add('show', ok ? 'right' : 'wrong');
+          rev.querySelector('.verdict').textContent = ok ? '✓ Correct' : '✗ Answer: ' + LETTERS[correctIdx];
+          rev.querySelector('.ex').textContent = item.e;
+          if (item.part) {
+            var bl = rev.querySelector('.backlink');
+            /* Styling lives in the .pt rule, not here: an inline font-family cannot be
+               found by reading the stylesheet. */
+            if (item.part.ext) {
+              /* A spaced-review question: the concept lives in an earlier session,
+                 so this leaves the page instead of scrolling it. */
+              bl.innerHTML = '<a class="pt" href="' + item.part.ext + '" target="_blank" rel="noopener">↗ Review: ' + esc(item.part.label) + '</a>';
+            } else {
+              bl.innerHTML = '<a class="pt" href="#' + item.part.id + '">↑ Review: ' + esc(item.part.label) + '</a>';
+              bl.querySelector('a').addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(item.part.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          }
+          if (answered === QUIZ.length) {
+            var f = document.getElementById('final');
+            f.textContent = quizCorrect >= 5
+              ? 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Solid. Do the 15-minute review a week from now, with this page closed. There is nothing to tick: this workbook sits outside the graded ten, and your Hub stays at 10/10.'
+              : 'Quick check: ' + quizCorrect + '/' + QUIZ.length + '. Use the review links above to revisit each miss, then reset this part and retry.';
+          }
+        });
+        opts.appendChild(b);
+      });
+      if (qi in state.quiz) { opts.children[state.quiz[qi] ? correctIdx : (correctIdx === 0 ? 1 : 0)].click(); }
+      wrap.appendChild(el);
+    });
+  }
+
+  /* ---------- per-part + whole-session reset ---------- */
+  function resetTasks() {
+    state.tasks = {}; save(state);
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-task]'), function (cb) { cb.checked = false; });
+    refreshCounters();
+  }
+  function resetDrills() {
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+  }
+  function resetArrange() {
+    state.parsons = {}; state.faded = {}; save(state);
+    var pz = document.getElementById('parsons'); if (pz) pz.innerHTML = '';
+    document.getElementById('faded').innerHTML = '';
+    buildParsons(); buildFaded();
+  }
+  function resetWrites() {
+    state.writes = {}; save(state);
+    document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
+  }
+  function resetQuiz() {
+    document.getElementById('quiz').innerHTML = ''; document.getElementById('final').textContent = ''; state.quiz = {}; save(state); buildQuiz();
+  }
+
+  document.getElementById('reset-part-1').addEventListener('click', resetTasks);
+  document.getElementById('reset-part-2').addEventListener('click', resetDrills);
+  document.getElementById('reset-part-3').addEventListener('click', resetArrange);
+  document.getElementById('reset-part-4').addEventListener('click', resetWrites);
+  document.getElementById('reset-part-5').addEventListener('click', resetCards);
+  document.getElementById('reset-part-6').addEventListener('click', resetQuiz);
+
+  document.getElementById('reset-all').addEventListener('click', function () {
+    resetTasks(); resetDrills(); resetArrange(); resetWrites(); resetQuiz(); resetCards();
+  });
+
+  /* Select the lab setup block for copying. Selection only, which works in every
+     browser and inside the artifact sandbox; the clipboard API is tried on top and
+     the hint says "copied" only if it actually succeeded. */
+  (function () {
+    var btn = document.getElementById('lab-select'), hint = document.getElementById('lab-select-hint');
+    var block = document.getElementById('lab-block');
+    if (!btn || !block) return;
+    btn.addEventListener('click', function () {
+      var r = document.createRange(); r.selectNodeContents(block);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      hint.textContent = 'Selected: now press Ctrl+C, or Cmd+C on a Mac';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(block.textContent).then(function () {
+            hint.textContent = 'Selected, and copied for you: paste it into PowerShell 7';
+          }, function () {});
+        }
+      } catch (e) {}
+    });
+  })();
+
+  /* initial build */
+  buildDrills(); buildParsons(); buildFaded(); buildWrites(); buildQuiz(); initDeck();
+  refreshCounters();
+
+  /* ---- Export / import ALL progress (shared across the Hub and every session on this origin) ---- */
+  (function () {
+    function collectProgress() {
+      var out = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k) { out[k] = localStorage.getItem(k); }
+      }
+      return out;
+    }
+    var sHint = document.getElementById('save-hint');
+    var xb = document.getElementById('export-btn'), ib = document.getElementById('import-btn'), sFile = document.getElementById('import-file');
+    if (xb) xb.addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify(collectProgress())], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (sHint) sHint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    if (ib) ib.addEventListener('click', function () { sFile.click(); });
+    if (sFile) sFile.addEventListener('change', function () {
+      var file = sFile.files && sFile.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { if (sHint) sHint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        if (sHint) sHint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(file);
+      sFile.value = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
