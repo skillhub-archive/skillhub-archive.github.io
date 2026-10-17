@@ -415,8 +415,8 @@ git tag -a v1.0.0 -m "First release"</code></pre>
       <div class="filebox">
         <div class="fbh">run in plumbing-lab &middot; two commits and a tag</div>
 <pre><code><span class="cmd">&gt; git log --oneline --decorate=short</span>
-0e0dcc4 (HEAD -&gt; main, tag: v1.0.0) Update the rate table
-8614be1 Add the first files</code></pre>
+59c78f1 (HEAD -&gt; main, tag: v1.0.0) Update the rate table
+2ffc884 Add the first files</code></pre>
       </div>
       <p><b>Those two hashes are commit hashes, so yours will be different.</b> That is the last time this session will say so about a commit; from section C on, assume it.</p>
     </div>
@@ -554,9 +554,9 @@ commit
 
 <span class="cmd">&gt; git cat-file -p HEAD</span>
 tree a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
-parent 8614be1bb23151ed06a5ed561a84e10ee5d88305
-author Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
-committer Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
+parent 2ffc884af1ffe2133b505e68d70d05b54885a8d8
+author Rae Okafor &lt;rae@example.com&gt; 1788109131 -0500
+committer Rae Okafor &lt;rae@example.com&gt; 1788109131 -0500
 
 Update the rate table</code></pre>
       </div>
@@ -567,8 +567,8 @@ Update the rate table</code></pre>
         <div class="fbh">run in plumbing-lab &middot; the root commit has no parent line at all</div>
 <pre><code><span class="cmd">&gt; git cat-file -p HEAD~1</span>
 tree bfe40343cf529a54663a9b712ce92cf8ce3d03bf
-author Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
-committer Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
+author Rae Okafor &lt;rae@example.com&gt; 1788109131 -0500
+committer Rae Okafor &lt;rae@example.com&gt; 1788109131 -0500
 
 Add the first files</code></pre>
       </div>
@@ -577,12 +577,12 @@ Add the first files</code></pre>
       <div class="filebox">
         <div class="fbh">run in plumbing-lab &middot; cat-file --batch-check</div>
 <pre><code><span class="cmd">&gt; "HEAD`nHEAD^{tree}`ndeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" | git cat-file --batch-check</span>
-0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026 commit 246
+59c78f13f9df062d5ba04dceed400b640dafc1c4 commit 226
 a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794 tree 105
 deadbeefdeadbeefdeadbeefdeadbeefdeadbeef missing</code></pre>
       </div>
       <p><b>Three inputs, three lines, and an unknown object reports <code>missing</code> rather than failing.</b> That is deliberate: a script feeding a thousand names wants a thousand answers, not an error on the first bad one. <b>In Git Bash the same command uses <code>printf</code></b> to make the three lines rather than PowerShell's backtick-n.</p>
-      <div class="note"><b>The tree size of <code>105</code> is reproducible; the commit size of <code>246</code> is not.</b> A tree's size depends only on the names, modes and hashes inside it, all of which the lab block fixes. A commit's size includes your name and your email address, so yours will differ by however many characters your name differs by. <b>That is a small thing, and it is exactly the distinction this session keeps making.</b></div>
+      <div class="note"><b>The tree size of <code>105</code> is reproducible; the commit size of <code>226</code> is not.</b> A tree's size depends only on the names, modes and hashes inside it, all of which the lab block fixes. A commit's size includes your name and your email address, so yours will differ by however many characters your name differs by. <b>That is a small thing, and it is exactly the distinction this session keeps making.</b></div>
     </div>
 
     <div class="block" id="concept-revparse">
@@ -591,10 +591,10 @@ deadbeefdeadbeefdeadbeefdeadbeefdeadbeef missing</code></pre>
       <div class="filebox">
         <div class="fbh">run in plumbing-lab &middot; the five forms worth knowing</div>
 <pre><code><span class="cmd">&gt; git rev-parse HEAD</span>
-0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026
+59c78f13f9df062d5ba04dceed400b640dafc1c4
 
 <span class="cmd">&gt; git rev-parse --short HEAD</span>
-0e0dcc4
+59c78f1
 
 <span class="cmd">&gt; git rev-parse HEAD^{tree}</span>
 a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
@@ -603,7 +603,7 @@ a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
 ce013625030ba8dba906f756967f9e9ca394464a
 
 <span class="cmd">&gt; git rev-parse v1.0.0^{}</span>
-0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026</code></pre>
+59c78f13f9df062d5ba04dceed400b640dafc1c4</code></pre>
       </div>
       <div class="refmap">
         <div class="refrow"><span class="rr">HEAD</span><span class="rd">The commit you are standing on, in full. The form you will use most.</span></div>
@@ -616,13 +616,13 @@ ce013625030ba8dba906f756967f9e9ca394464a
       <div class="filebox">
         <div class="fbh">run in plumbing-lab &middot; a tag name resolves two ways</div>
 <pre><code><span class="cmd">&gt; git rev-parse v1.0.0</span>
-1592c31ac94c7e42f4cda8a7b5ae3b539b5ca83b
+64d2f0b97782ca000e12232caf62c79a04e207a2
 
 <span class="cmd">&gt; git rev-parse v1.0.0^{}</span>
-0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026
+59c78f13f9df062d5ba04dceed400b640dafc1c4
 
 <span class="cmd">&gt; git rev-parse HEAD</span>
-0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026</code></pre>
+59c78f13f9df062d5ba04dceed400b640dafc1c4</code></pre>
       </div>
       <p><b>Without the braces you get the tag object. With them you get the commit</b>, which is the same hash as <code>HEAD</code>. A script that checks "is the current commit the tagged release" and forgets the braces compares a tag hash against a commit hash, finds they differ, and reports that you are not on the release when you are. <b>Section G has the same trap in a second syntax.</b></p>
       <p><b>Two more small ones, both useful and both plumbing:</b></p>
@@ -699,10 +699,10 @@ printf 'rate table v2\r\n' &gt; rates.txt</code></div>
       <div class="filebox">
         <div class="fbh">run in plumbing-lab &middot; for-each-ref, and the star that matters</div>
 <pre><code><span class="cmd">&gt; git for-each-ref refs/tags --format="%(refname:short) %(objecttype) %(objectname:short) %(*objectname:short) %(*objecttype)"</span>
-v1.0.0 tag 1592c31 0e0dcc4 commit
+v1.0.0 tag 64d2f0b 59c78f1 commit
 
 <span class="cmd">&gt; git rev-parse --short main</span>
-0e0dcc4</code></pre>
+59c78f1</code></pre>
       </div>
       <p><b>Read the five fields across.</b> The ref is <code>v1.0.0</code>. Its object type is <code>tag</code>, because an annotated tag is its own object. <code>%(objectname)</code> is that tag object's hash. <b>And <code>%(*objectname)</code>, with a star, is the object the tag points at</b>, which is the commit, and which matches <code>main</code> exactly.</p>
       <div class="danger"><b>This is the same trap as <code>v1.0.0^{}</code>, in a second syntax, and it is the one thing in this session most likely to bite you in a real script.</b> A release check that reads <code>%(objectname)</code> for an annotated tag and compares it against a commit hash <b>will never match</b>, and it will fail silently rather than erroring, because both values are perfectly valid hashes. <b>The star is the dereference.</b> Learn the pair together: <code>^{}</code> in <code>rev-parse</code>, and <code>*</code> in a <code>for-each-ref</code> format.</div>
@@ -728,18 +728,18 @@ v1.0.0 tag 1592c31 0e0dcc4 commit
       <div class="filebox">
         <div class="fbh">run in plumbing-lab &middot; before and after an amend</div>
 <pre><code><span class="cmd">&gt; git rev-parse HEAD</span>
-0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026
+59c78f13f9df062d5ba04dceed400b640dafc1c4
 
 <span class="cmd">&gt; git rev-parse HEAD^{tree}</span>
 a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
 
 <span class="cmd">&gt; git commit --amend -m "Update the published rate table"</span>
-[main 8a2a3cc] Update the published rate table
- Date: Sat Aug 30 19:45:27 2026 -0500
+[main 152c4a6] Update the published rate table
+ Date: Sun Aug 30 11:58:51 2026 -0500
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 <span class="cmd">&gt; git rev-parse HEAD</span>
-8a2a3cc1f4fabaf4ad7421c1dc074568d64830a1
+152c4a6fbb74a81cad741e56a2a499e3dd7bf507
 
 <span class="cmd">&gt; git rev-parse HEAD^{tree}</span>
 a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794</code></pre>
@@ -750,9 +750,9 @@ a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794</code></pre>
         <div class="fbh">run in plumbing-lab &middot; the amended commit</div>
 <pre><code><span class="cmd">&gt; git cat-file -p HEAD</span>
 tree a4b0f5cc388f3552c72c8ab4dd8ddf0299cf0794
-parent 8614be1bb23151ed06a5ed561a84e10ee5d88305
-author Patrick Burdette &lt;patrick@example.com&gt; 1788109131 -0500
-committer Patrick Burdette &lt;patrick@example.com&gt; 1788109141 -0500
+parent 2ffc884af1ffe2133b505e68d70d05b54885a8d8
+author Rae Okafor &lt;rae@example.com&gt; 1788109131 -0500
+committer Rae Okafor &lt;rae@example.com&gt; 1788109141 -0500
 
 Update the published rate table</code></pre>
       </div>
@@ -778,7 +778,7 @@ Update the published rate table</code></pre>
       <div class="filebox">
         <div class="fbh">run in plumbing-lab &middot; undo the amend</div>
 <pre><code><span class="cmd">&gt; git reset --hard v1.0.0</span>
-HEAD is now at 0e0dcc4 Update the rate table</code></pre>
+HEAD is now at 59c78f1 Update the rate table</code></pre>
       </div>
       <p><b>Confirm it worked</b> with <code>git status</code>, which should report a clean tree, and by checking that <code>git rev-parse HEAD</code> and <code>git rev-parse v1.0.0^{}</code> now print the same hash. Everything after this point assumes the lab as the lab block built it.</p>
     </div>
@@ -1030,7 +1030,7 @@ git cat-file -s HEAD:hello.txt</code></pre>
       why: 'ls-files reads the index. ls-tree reads a commit, so it tells you what the repository looked like at a point in history, and for-each-ref reads the refs, meaning the branch and tag names rather than any content. The distinction is exactly Session 1 three areas seen from underneath, and you can watch two of them disagree: stage a change and ls-files reports one blob hash for a path while ls-tree HEAD reports a different one for the same path.' },
 
     { type: 'value',
-      scen: '> git rev-parse v1.0.0\n1592c31ac94c7e42f4cda8a7b5ae3b539b5ca83b\n> git rev-parse HEAD\n0e0dcc4b7fe2d14b5b69b9fcf1f9af18aaf5a026\n\nv1.0.0 is an annotated tag on the current commit, yet the two\nhashes above are not the same.',
+      scen: '> git rev-parse v1.0.0\n64d2f0b97782ca000e12232caf62c79a04e207a2\n> git rev-parse HEAD\n59c78f13f9df062d5ba04dceed400b640dafc1c4\n\nv1.0.0 is an annotated tag on the current commit, yet the two\nhashes above are not the same.',
       ask: 'Which suffix, added to the tag name, makes rev-parse return the commit instead? Type just the suffix.',
       code: 'git rev-parse v1.0.0___', ans: '^{}',
       why: 'The empty braces, written as a caret then an opening and closing brace, which read as follow this until it is no longer a tag. Without them rev-parse hands you the tag object, because that is genuinely what the name points at. This is the single most likely thing here to break a real script: a release check that compares a tag name against a commit hash and forgets to dereference will never match, and it fails silently rather than erroring, because both values are perfectly valid hashes.' },
@@ -1054,7 +1054,7 @@ git cat-file -s HEAD:hello.txt</code></pre>
       why: 'cat-file and ls-tree only read. commit-tree builds a new commit object and update-ref moves a branch or tag to point somewhere else, so both change the repository, and update-ref in particular can move a branch with none of the safety a porcelain command would give you. This session deliberately teaches only the reading half, which is enough to answer questions about any repository, including one belonging to somebody else that you would rather not disturb.' },
 
     { type: 'value',
-      scen: '> git for-each-ref refs/tags --format="%(refname:short) %(objecttype) %(objectname:short) %(*objectname:short)"\nv1.0.0 tag 1592c31 0e0dcc4\n> git rev-parse --short main\n0e0dcc4',
+      scen: '> git for-each-ref refs/tags --format="%(refname:short) %(objecttype) %(objectname:short) %(*objectname:short)"\nv1.0.0 tag 64d2f0b 59c78f1\n> git rev-parse --short main\n59c78f1',
       ask: 'Which of the two objectname fields printed the commit rather than the tag object? Type it exactly as it appears in the format string above.',
       code: 'git for-each-ref refs/tags --format=...', ans: '%(*objectname:short)',
       why: 'The one with the star. In a for-each-ref format a star in front of a field name means dereference first, so %(objectname:short) gives the tag object and %(*objectname:short) gives the object the tag points at, which here is the commit and matches main exactly. The :short is only an abbreviation, exactly as in rev-parse --short, and the star is the part doing the work. It is the same trap as forgetting the empty braces in rev-parse, in a second syntax, and it is worth learning the two together because a script that gets it wrong compares two real hashes and quietly concludes they are different things.' }
