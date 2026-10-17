@@ -879,6 +879,10 @@ example names the docs never tell the stranger</code></pre>
   if (!state.drills) state.drills = {};
   if (!state.cards) state.cards = {};
   if (!state.quiz) state.quiz = {};
+  /* What the learner typed, kept beside the verdicts (2026-10-17): a drill's answer and a
+     write-it's draft come back after a reload, and Export carries them with the rest. */
+  if (!state.drillText) state.drillText = {};
+  if (!state.writeText) state.writeText = {};
   /* Part 3 persists too, so closing the tab mid-session never discards work.
      Parsons stores {ok, order}, faded stores {ok, vals}. Neither feeds a counter
      in the progress strip; that stays at five by deliberate design decision. */
@@ -1057,14 +1061,14 @@ example names the docs never tell the stranger</code></pre>
         if (!input.value.trim()) return;
         el.dataset.done = '1';
         var ok = gradeDrill(d, input.value);
-        state.drills[i] = ok; save(state);
+        state.drills[i] = ok; state.drillText[i] = input.value; save(state);
         markDone(ok); refreshCounters();
       }
       btn.disabled = true;
       input.addEventListener('input', function () { if (!el.dataset.done) btn.disabled = !input.value.trim(); });
       btn.addEventListener('click', check);
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
-      if (i in state.drills) { el.dataset.done = '1'; markDone(state.drills[i]); }
+      if (i in state.drills) { el.dataset.done = '1'; input.value = state.drillText[i] || ''; markDone(state.drills[i]); }
       wrap.appendChild(el);
     });
   }
@@ -1250,6 +1254,8 @@ example names the docs never tell the stranger</code></pre>
         '<button class="btn good sm">Mine worked</button>' +
         '<button class="btn bad sm">Needs another pass</button></div></div>';
       var ta = el.querySelector('textarea');
+      ta.value = state.writeText[i] || '';
+      ta.addEventListener('input', function () { state.writeText[i] = ta.value; save(state); });
       ta.addEventListener('keydown', function (e) {
         if (e.key === 'Tab') { e.preventDefault();
           var s = ta.selectionStart, en = ta.selectionEnd;
@@ -1276,6 +1282,7 @@ example names the docs never tell the stranger</code></pre>
         ta.focus();
       });
       if (state.writes[i]) { rev.classList.add('show'); btn.disabled = true; }
+      else if (ta.value.trim()) btn.disabled = false;
       renderMark();
       wrap.appendChild(el);
     });
@@ -1471,7 +1478,7 @@ example names the docs never tell the stranger</code></pre>
     refreshCounters();
   }
   function resetDrills() {
-    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; save(state); buildDrills(); refreshCounters();
+    document.getElementById('drills').innerHTML = ''; drillCorrect = {}; state.drills = {}; state.drillText = {}; save(state); buildDrills(); refreshCounters();
   }
   function resetArrange() {
     state.parsons = {}; state.faded = {}; save(state);
@@ -1479,7 +1486,7 @@ example names the docs never tell the stranger</code></pre>
     buildParsons(); buildFaded();
   }
   function resetWrites() {
-    state.writes = {}; save(state);
+    state.writes = {}; state.writeText = {}; save(state);
     document.getElementById('writes').innerHTML = ''; buildWrites(); refreshCounters();
   }
   function resetQuiz() {
