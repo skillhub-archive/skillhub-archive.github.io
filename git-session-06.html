@@ -245,6 +245,7 @@
 
   .deck { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px; text-align: center; }
   .flashcard { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none; }
+  .flashcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .flashcard .side-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
   .flashcard .fc-front { font-size: 18px; font-weight: 600; color: var(--ink); max-width: 48ch; }
   .flashcard .fc-back { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 10px 16px; border-radius: 9px; max-width: 52ch; }
@@ -1090,9 +1091,9 @@ index 0000000..3af4dff
     <div class="sh"><span class="tag">Part 5</span><h2>Rapid Recall</h2><button class="part-reset" id="reset-part-5">&#8635; reset part</button></div>
     <p class="sub">The atoms you should be able to summon without thinking. Say the answer out loud <i>before</i> you flip the card. "Review again" sends a card to the back of the pile so it keeps coming round until it is automatic.</p>
     <div class="deck">
-      <div class="flashcard" id="flashcard">
+      <div class="flashcard" id="flashcard" role="button" tabindex="0">
         <span class="side-lbl" id="fc-sidelbl">Prompt &middot; tap to flip</span>
-        <div class="fc-front" id="fc-text"></div>
+        <div class="fc-front" id="fc-text" aria-live="polite"></div>
         <span class="hint" id="fc-hint">tap card to reveal the answer</span>
       </div>
       <div class="deck-controls" id="fc-controls" style="display:none">
@@ -1563,10 +1564,17 @@ index 0000000..3af4dff
     fcSide.textContent = 'Answer';
     fcText.innerHTML = '<span class="fc-back">' + esc(c.b) + '</span>';
     fcHint.textContent = 'Did you recall it?'; fcControls.style.display = 'flex';
+    if (document.activeElement === fcCard) document.getElementById('fc-got').focus();
   }
   fcCard.addEventListener('click', flip);
-  document.getElementById('fc-got').addEventListener('click', function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); });
-  document.getElementById('fc-review').addEventListener('click', function () { var f = pile.shift(); pile.push(f); renderCard(); });
+  /* The card is a div, so Enter and Space flip it the way a click does (2026-10-17). */
+  fcCard.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); }
+  });
+  /* renderCard() hides the buttons, so a choice made from them hands focus back to the card. */
+  function backToCard(fn) { return function () { var kb = fcControls.contains(document.activeElement); fn(); if (kb) fcCard.focus(); }; }
+  document.getElementById('fc-got').addEventListener('click', backToCard(function () { if (pile.length) { state.cards[pile[0]] = true; save(state); } pile.shift(); mastered++; renderCard(); }));
+  document.getElementById('fc-review').addEventListener('click', backToCard(function () { var f = pile.shift(); pile.push(f); renderCard(); }));
 
   /* ---------- Part 6: quiz ---------- */
   /* Four new Session-6 questions carry an in-page scrollIntoView backlink (part).
