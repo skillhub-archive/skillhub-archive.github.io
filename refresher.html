@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning Hub Refresher</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128260;</text></svg>">
+<script>/* lh-theme:head */ (function () { try { var t = localStorage.getItem('lh-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();</script>
+</head>
+<body>
+<style>
+  :root {
+    color-scheme: light;
+    /* The Refresher spans every track, so it wears the LANDING page's chrome (warm, almost
+       colourless) and lets each question carry its own track's colour, exactly as the
+       landing cards do. Values copied from index.html; keep them in step. */
+    --bg: #F4F1EB; --surface: #FCFAF6; --surface-2: #EFEBE4; --ink: #1F1B16;
+    --ink-soft: #554E45; --ink-faint: #716960; --border: #E4DED4; --accent: #5A5047;
+    --accent-soft: #EDE8E0; --on-accent: #FFFFFF; --gold: #8F5A0E; --gold-bright: #B2751A; --gold-soft: #F3E4C6;
+    --good: #1B7950; --good-soft: #E4F3EC; --bad: #B3261E; --bad-soft: #FBE9E7;
+    --track-py: #4B47D6; --track-py-soft: #EEEDFB; --track-py-ink: #FFFFFF;
+    --track-sql: #0D7C88; --track-sql-soft: #E1F0F2; --track-sql-ink: #FFFFFF;
+    --track-git: #1B62C4; --track-git-soft: #E5EDFA; --track-git-ink: #FFFFFF;
+    --track-api: #A82FC6; --track-api-soft: #F7E9FC; --track-api-ink: #FFFFFF;
+    --track-ps: #56690C; --track-ps-soft: #F0F4DC; --track-ps-ink: #FFFFFF;
+    --shadow: 0 1px 2px rgba(40,32,20,.05), 0 6px 20px rgba(40,32,20,.07);
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12100E; --surface: #1B1815; --surface-2: #24211D; --ink: #F2EFEA;
+      --ink-soft: #B8B1A7; --ink-faint: #8E877C; --border: #302C27; --accent: #B5AA9A;
+      --accent-soft: #262220; --on-accent: #1B1815; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+      --good: #3FBE82; --good-soft: #14261D; --bad: #FF8A80; --bad-soft: #3A1A17;
+      --track-py: #8A85FF; --track-py-soft: #211F3A; --track-py-ink: #14162A;
+      --track-sql: #17A093; --track-sql-soft: #0E2A2A; --track-sql-ink: #05201E;
+      --track-git: #7FB3FF; --track-git-soft: #16243A; --track-git-ink: #0E1218;
+      --track-api: #EB99FF; --track-api-soft: #3A1F45; --track-api-ink: #2A1030;
+      --track-ps: #C8E066; --track-ps-soft: #2A3112; --track-ps-ink: #1A1F06;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F4F1EB; --surface: #FCFAF6; --surface-2: #EFEBE4; --ink: #1F1B16;
+    --ink-soft: #554E45; --ink-faint: #716960; --border: #E4DED4; --accent: #5A5047;
+    --accent-soft: #EDE8E0; --on-accent: #FFFFFF; --gold: #8F5A0E; --gold-bright: #B2751A; --gold-soft: #F3E4C6;
+    --good: #1B7950; --good-soft: #E4F3EC; --bad: #B3261E; --bad-soft: #FBE9E7;
+    --track-py: #4B47D6; --track-py-soft: #EEEDFB; --track-py-ink: #FFFFFF;
+    --track-sql: #0D7C88; --track-sql-soft: #E1F0F2; --track-sql-ink: #FFFFFF;
+    --track-git: #1B62C4; --track-git-soft: #E5EDFA; --track-git-ink: #FFFFFF;
+    --track-api: #A82FC6; --track-api-soft: #F7E9FC; --track-api-ink: #FFFFFF;
+    --track-ps: #56690C; --track-ps-soft: #F0F4DC; --track-ps-ink: #FFFFFF;
+    --shadow: 0 1px 2px rgba(40,32,20,.05), 0 6px 20px rgba(40,32,20,.07);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12100E; --surface: #1B1815; --surface-2: #24211D; --ink: #F2EFEA;
+    --ink-soft: #B8B1A7; --ink-faint: #8E877C; --border: #302C27; --accent: #B5AA9A;
+    --accent-soft: #262220; --on-accent: #1B1815; --gold: #E6A94B; --gold-bright: #E6A94B; --gold-soft: #2A2213;
+    --good: #3FBE82; --good-soft: #14261D; --bad: #FF8A80; --bad-soft: #3A1A17;
+    --track-py: #8A85FF; --track-py-soft: #211F3A; --track-py-ink: #14162A;
+    --track-sql: #17A093; --track-sql-soft: #0E2A2A; --track-sql-ink: #05201E;
+    --track-git: #7FB3FF; --track-git-soft: #16243A; --track-git-ink: #0E1218;
+    --track-api: #EB99FF; --track-api-soft: #3A1F45; --track-api-ink: #2A1030;
+    --track-ps: #C8E066; --track-ps-soft: #2A3112; --track-ps-ink: #1A1F06;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Rule 15: no programming ligatures anywhere (declared once on body; form controls
+     do not inherit font properties, so they are named too). */
+  body, input, textarea, button, select
+  { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
+  code { font-family: var(--mono); font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+
+  /* ---- Header (the family skeleton) ---- */
+  header.hero { padding: 56px 0 32px; border-bottom: 1px solid var(--border); }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .trackback { display: inline-block; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); text-decoration: none; margin-bottom: 14px; }
+  .trackback:hover { color: var(--ink); }
+  h1 { font-size: clamp(32px, 5vw, 52px); line-height: 1.05; margin: 14px 0 10px; letter-spacing: -.02em; text-wrap: balance; font-weight: 800; }
+  .lede { font-size: 18px; color: var(--ink-soft); max-width: 62ch; margin: 0; }
+  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 36px; align-items: center; }
+  @media (max-width: 860px) { .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+
+  /* Hero specimen: one review question exactly as the page shows it, static. */
+  .specimen { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px; box-shadow: var(--shadow); }
+  .specimen .sp-q { font-size: 14px; margin: 8px 0; }
+  .specimen pre { margin: 0 0 10px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--ink); background: var(--surface-2); border-radius: 8px; padding: 9px 11px; overflow-x: auto; }
+  .sp-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .sp-opt { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; }
+  .sp-opt.right { color: var(--good); background: var(--good-soft); border-color: var(--good); font-weight: 700; }
+  .specimen-note { margin-top: 11px; padding-top: 9px; border-top: 1px dashed var(--border); font-size: 12.5px; color: var(--ink-soft); }
+
+  /* ---- Progress panel ---- */
+  .progress-panel { margin-top: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow); display: grid; grid-template-columns: 1fr auto; gap: 18px 32px; align-items: center; }
+  .pp-stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .pp-stat .num { font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; }
+  .pp-stat .lbl { font-size: 12px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .08em; margin-top: 6px; }
+  .pp-stat .num.accent { color: var(--gold); }
+  .bar-wrap { grid-column: 1 / -1; }
+  .bar-track { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--good), var(--gold-bright)); border-radius: 99px; transition: width .5s ease; }
+  .bar-caption { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
+  .reset-btn { background: none; border: 1px solid var(--border); color: var(--ink-faint); font-family: var(--mono); font-size: 11px; padding: 5px 10px; border-radius: 7px; cursor: pointer; letter-spacing: .04em; }
+  .reset-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .reset-btn.armed { color: var(--bad); border-color: var(--bad); }
+  .save-row { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .save-btn { background: var(--surface); border: 1px solid var(--border); color: var(--ink); font-family: var(--mono); font-size: 12px; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  .save-btn:hover { border-color: var(--accent); color: var(--ink); }
+  .save-hint { font-size: 12px; color: var(--ink-soft); }
+
+  /* ---- Sections ---- */
+  .sec { margin-top: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .sec-head h2 { font-size: 24px; margin: 0; letter-spacing: -.01em; font-weight: 750; }
+  .sec-kicker { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: .1em; }
+  .sec-sub { color: var(--ink-soft); margin: 0 0 26px; max-width: 68ch; }
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .fact { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .fact .k { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); }
+  .fact .v { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* Each track maps the shared --track-* trio onto local names (as on the landing page). */
+  .t-py  { --track: var(--track-py);  --track-soft: var(--track-py-soft);  --track-ink: var(--track-py-ink); }
+  .t-sql { --track: var(--track-sql); --track-soft: var(--track-sql-soft); --track-ink: var(--track-sql-ink); }
+  .t-git { --track: var(--track-git); --track-soft: var(--track-git-soft); --track-ink: var(--track-git-ink); }
+  .t-api { --track: var(--track-api); --track-soft: var(--track-api-soft); --track-ink: var(--track-api-ink); }
+  .t-ps  { --track: var(--track-ps);  --track-soft: var(--track-ps-soft);  --track-ink: var(--track-ps-ink); }
+
+  /* ---- Track picker ---- */
+  .tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .trk { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: inset 0 3px 0 var(--track, transparent), var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+  .trk.off { box-shadow: none; border-style: dashed; background: transparent; }
+  .trk-top { display: flex; align-items: center; gap: 10px; }
+  .trk-name { font-weight: 750; font-size: 17px; }
+  .trk-count { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); }
+  .trk-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-soft); }
+  .trk-row label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink); }
+  .trk-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--good); cursor: pointer; }
+  .trk select { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 3px 6px; }
+  .trk-hub { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); }
+  .trk-hub a { color: var(--ink-soft); }
+  .trk-soon { font-family: var(--mono); font-size: 11.5px; color: var(--gold); }
+
+  /* ---- Review ---- */
+  .rv-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .rv-bar label { font-size: 13.5px; color: var(--ink-soft); display: inline-flex; gap: 8px; align-items: center; }
+  .rv-bar select { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 4px 6px; }
+  .btn { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--on-accent); background: var(--accent); border: 1px solid var(--accent); padding: 9px 16px; border-radius: 9px; cursor: pointer; }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+  .btn.ghost { color: var(--ink); background: var(--surface); border-color: var(--border); }
+  .btn:focus-visible, .opt:focus-visible, .reset-btn:focus-visible, .save-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .rv-msg { font-size: 14px; color: var(--ink-soft); }
+
+  .qcard { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; box-shadow: inset 4px 0 0 var(--track, var(--accent)), var(--shadow); }
+  .q-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .chip { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--track-ink); background: var(--track); padding: 3px 9px; border-radius: 6px; letter-spacing: .03em; }
+  .q-sess { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+  .q-pos { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+  .q-text { font-size: 17px; margin: 4px 0 12px; }
+  .q-code { margin: 0 0 14px; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; white-space: pre; }
+  .opts { display: grid; gap: 8px; }
+  .opt { text-align: left; font: inherit; font-size: 15px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+  .opt:hover:not(:disabled) { border-color: var(--ink-faint); }
+  .opt .n { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); padding-top: 2px; flex: none; }
+  .opt .t { min-width: 0; overflow-wrap: anywhere; }
+  .opt.mono .t { font-family: var(--mono); font-size: 14px; white-space: pre-wrap; }
+  .opt:disabled { cursor: default; }
+  .opt.right { border-color: var(--good); background: var(--good-soft); }
+  .opt.right .n, .opt.right .t { color: var(--ink); }
+  .opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+  .verdict { font-weight: 750; margin: 14px 0 6px; }
+  .verdict.ok { color: var(--good); }
+  .verdict.no { color: var(--bad); }
+  .why { color: var(--ink-soft); font-size: 14.5px; margin: 0 0 10px; }
+  .why b { color: var(--ink); }
+  .q-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+  .src-link { font-size: 13.5px; color: var(--ink); }
+  .q-next-due { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+  .summary h3 { margin: 0 0 6px; font-size: 20px; }
+  .summary ul { margin: 10px 0 0; padding-left: 20px; }
+  .summary li { margin-bottom: 6px; color: var(--ink-soft); font-size: 14px; }
+  .summary li a { color: var(--ink); }
+  .kbd-hint { font-size: 12px; color: var(--ink-faint); margin-top: 10px; }
+
+  /* ---- Cheat sheets ---- */
+  .cheats { display: grid; gap: 12px; }
+  details.cheat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: inset 4px 0 0 var(--track, var(--accent)), var(--shadow); }
+  details.cheat > summary { cursor: pointer; padding: 14px 18px; font-weight: 750; font-size: 16px; list-style-position: inside; }
+  details.cheat > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 12px; }
+  .cheat-body { padding: 0 18px 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px 24px; }
+  .cheat-body h4 { margin: 6px 0 6px; font-size: 13px; font-family: var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+  .cheat-body table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .cheat-body td { padding: 5px 0; border-top: 1px dashed var(--border); vertical-align: top; color: var(--ink-soft); }
+  .cheat-body td:first-child { padding-right: 12px; width: 50%; }
+  .cheat-body td code { color: var(--ink); }
+
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 13px; }
+  @media (max-width: 720px) {
+    .progress-panel { grid-template-columns: 1fr; }
+    .facts { grid-template-columns: 1fr 1fr; }
+    .sp-opts { grid-template-columns: 1fr; }
+    .cheat-body { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* lh-theme:css:start  site-only theme toggle, from tools/learning-hub-hosting/theme-toggle.snippet.html */
+  .theme-toggle { font-family: var(--mono); font-size: 12px; line-height: inherit; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .topnav .theme-toggle { margin-left: auto; margin-right: 8px; flex: none; }
+  .topnav .theme-toggle ~ .hublink { flex: none; white-space: nowrap; }
+  .theme-slot { position: relative; height: 0; }
+  .theme-slot .theme-toggle { position: absolute; top: -6px; right: 0; }
+  .theme-slot:has(~ .trackback) .theme-toggle { top: -1px; }
+  /* lh-theme:css:end */
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <!-- lh-theme:toggle:start -->
+    <div class="theme-slot"><button type="button" class="theme-toggle" id="theme-toggle">Dark theme</button></div>
+    <script>
+      /* lh-theme:toggle  one site-wide key; stored only when it differs from the OS */
+      (function () {
+        var KEY = 'lh-theme', root = document.documentElement, btn = document.getElementById('theme-toggle');
+        if (!btn || !root) return;
+        var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null, mem = null;
+        function system() { return mq && mq.matches ? 'dark' : 'light'; }
+        function chosen() {
+          try { var t = localStorage.getItem(KEY); return t === 'light' || t === 'dark' ? t : null; } catch (e) { return mem; }
+        }
+        function choose(t) {
+          mem = t;
+          try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {}
+        }
+        function render() {
+          var c = chosen(), now = c || system(), next = now === 'dark' ? 'light' : 'dark';
+          if (c) root.setAttribute('data-theme', c); else root.removeAttribute('data-theme');
+          btn.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
+          btn.setAttribute('aria-label', 'Switch to the ' + next + ' theme. Showing the ' + now + ' theme, ' + (c ? 'your saved choice.' : 'following your system.'));
+        }
+        btn.addEventListener('click', function () {
+          var next = (chosen() || system()) === 'dark' ? 'light' : 'dark';
+          choose(next === system() ? null : next);
+          render();
+        });
+        if (mq) { if (mq.addEventListener) mq.addEventListener('change', render); else if (mq.addListener) mq.addListener(render); }
+        if (window.addEventListener) window.addEventListener('storage', function (e) { if (!e.key || e.key === KEY) render(); });
+        render();
+      })();
+    </script>
+    <!-- lh-theme:toggle:end -->
+    <a class="trackback" href="index.html">&#8592; Learning Hub</a>
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">Learning Hub // Refresher</div>
+        <h1>Refresher, keep what you learned</h1>
+        <p class="lede">Short, mixed review sets drawn from every track you have finished. Each concept comes back just before you would forget it, and every answer links to the session that teaches it.</p>
+      </div>
+      <div class="specimen t-py" aria-hidden="true">
+        <div class="q-meta"><span class="chip">Python</span><span class="q-sess">Session 3</span></div>
+        <div class="sp-q">What does this print?</div>
+<pre>customer = {"name": "Ada", "city": "Denver"}
+print("Ada" in customer, "city" in customer)</pre>
+        <div class="sp-opts"><span class="sp-opt">True True</span><span class="sp-opt right">False True</span><span class="sp-opt">True False</span><span class="sp-opt">False False</span></div>
+        <div class="specimen-note">Right answer: back in 3 days, then 7, 14, 30. Wrong: back tomorrow.</div>
+      </div>
+    </div>
+
+    <div class="progress-panel">
+      <div class="pp-stats">
+        <div class="pp-stat"><div class="num accent" id="stat-due">0</div><div class="lbl">Due now</div></div>
+        <div class="pp-stat"><div class="num" id="stat-pool">0</div><div class="lbl">Concepts in review</div></div>
+        <div class="pp-stat"><div class="num" id="stat-solid">0</div><div class="lbl">Solid</div></div>
+        <div class="pp-stat"><div class="num" id="stat-today">0</div><div class="lbl">Answered today</div></div>
+      </div>
+      <button class="reset-btn" id="reset" type="button">reset refresher</button>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+        <div class="bar-caption"><span id="bar-label">Pick a track below to start</span><span id="bar-pct">0%</span></div>
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="save-btn" id="export-btn" type="button">Export progress (download)</button>
+      <button class="save-btn" id="import-btn" type="button">Import progress (file)</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      <span class="save-hint" id="save-hint">Backs up every track and the Refresher in one file.</span>
+    </div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// the shape</span><h2>How the Refresher Works</h2></div>
+    <p class="sec-sub">Ten to fifteen minutes, a few times a week, keeps a finished track from fading while you work on the next one. It works by making you pull each idea back out of memory, which is what makes it stick.</p>
+    <div class="facts">
+      <div class="fact"><div class="k">Mixed</div><div class="v">One set pulls from every track you include, so ideas from different tracks sit side by side.</div></div>
+      <div class="fact"><div class="k">Spaced</div><div class="v">Get one right and it waits longer each time: 3, 7, 14, then 30 days. Miss it and it is back tomorrow.</div></div>
+      <div class="fact"><div class="k">Fresh</div><div class="v">New questions, not the session quizzes again, so you recall the idea rather than recognise a question.</div></div>
+      <div class="fact"><div class="k">&#8599;</div><div class="v">Every answer links to the exact concept in the session that teaches it.</div></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// your tracks</span><h2>Choose What to Review</h2></div>
+    <p class="sec-sub">Include a track once you have worked through it. Mid-track? Set "through Session" to the last one you finished, and only those sessions are asked.</p>
+    <div class="tracks" id="tracks"></div>
+  </section>
+
+  <section class="sec" id="review-sec">
+    <div class="sec-head"><span class="sec-kicker">// today</span><h2>Review Set</h2></div>
+    <p class="sec-sub">Concepts that are due come first, then ones you have not seen yet, taking turns between tracks. Your answer counts the moment you pick it, so you can stop at any point.</p>
+    <div class="rv-bar">
+      <label for="set-size">Questions per set
+        <select id="set-size"><option value="6">6</option><option value="12" selected>12</option><option value="20">20</option></select>
+      </label>
+      <button class="btn" id="start" type="button">Start a review set</button>
+      <span class="rv-msg" id="rv-msg"></span>
+    </div>
+    <div id="stage"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// keep handy</span><h2>Cheat Sheets</h2></div>
+    <p class="sec-sub">The commands and ideas from each track on one screen. Glance at one before a ticket or a meeting; use the review set to actually keep them.</p>
+    <div class="cheats" id="cheats"></div>
+  </section>
+
+  <footer>
+    Learning Hub Refresher. Your review history lives in this browser; Export keeps a copy, and the same file restores it on another device.
+  </footer>
+</div>
+
+<script id="refresher-bank">var REFRESHER_BANK = {"version":1,"tracks":[{"key":"py","name":"Python","title":"Python","hub":"python-hub.html","page":"python-session-{nn}.html","items":[{"id":"py-01-run","s":1,"c":"concept-a","topic":"What the Run button does","kind":"concept","q":"In VS Code you click the ▷ Run button on `hello.py`. What does that button actually do for you?","opts":["Runs the file with Python in the terminal, the same as typing `python hello.py`","Converts `hello.py` into an .exe, then launches that","Opens the REPL and pastes the file in","Checks for errors only"],"why":"The Run button is a shortcut: it runs your file with Python in the terminal, the same as typing `python hello.py` yourself (on Windows it types the full path to python.exe and to your file). Knowing that keeps the button from being a mystery when something breaks."},{"id":"py-01-snapshot","s":1,"c":"concept-b","topic":"Assignment is a snapshot","kind":"predict","q":"What does this print?","code":"a = 5\nb = a + 1\na = 10\nprint(b)","opts":["6","11","10","5"],"why":"`b = a + 1` copies the value at that moment (6) into `b`. Re-pointing `a` at 10 later never reaches back to change `b`: assignment is a snapshot, not a live link."},{"id":"py-01-printsep","s":1,"c":"concept-b","topic":"print() separates with a space","kind":"predict","q":"What does this print?","code":"name = \"Sam\"\nage = 30\nprint(name, age)","opts":["Sam 30","Sam, 30","Sam,30","name age"],"why":"Commas between `print()` arguments are separators in your code, not characters in the output. `print` puts a single space between the values. To show a comma, write it yourself: `print(f\"{name}, {age}\")`."},{"id":"py-01-ops","s":1,"c":"concept-c","topic":"/, // and %","kind":"predict","q":"What does this print?","code":"print(7 // 2, 7 % 2, 10 / 2)","opts":["3 1 5.0","3 1 5","3.5 1 5.0","3 2 5.0"],"why":"`//` is floor division (drops the remainder, 3), `%` is the remainder (1), and `/` always gives a float, so 10 / 2 is `5.0`, not `5`."},{"id":"py-01-fstring","s":1,"c":"concept-d","topic":"f-strings","kind":"concept","q":"With `name = \"Sam\"` and `age = 30`, which line prints `Hi Sam, age 30`?","opts":["`print(f\"Hi {name}, age {age}\")`","`print(\"Hi {name}, age {age}\")`","`print(\"Hi \" + name + \", age \" + age)`","`print(f\"Hi name, age age\")`"],"why":"Only an f-string (the `f` before the quote) swaps `{name}` for its value. Without the `f`, the braces print literally. The `+` version crashes, because `+` cannot join a string to the number 30 unless you `str()` it first."},{"id":"py-01-escape","s":1,"c":"concept-d","topic":"Escapes: \\n and \\t","kind":"predict","q":"What does this print?","code":"print(\"Line one\\nLine two\")","opts":["Line one\nLine two","Line one\\nLine two","Line one Line two","Line oneLine two"],"why":"`\\n` is an escape: a backslash plus a letter that stands for a character you cannot type into a string directly. `\\n` is a new line, so the text splits onto two lines. (`\\t` is a tab.)"},{"id":"py-01-concat","s":1,"c":"concept-d","topic":"+ needs str() for numbers","kind":"concept","q":"`age = 30`. Why does `print(\"Age: \" + age)` fail?","opts":["`+` cannot join text to a number; it needs `str(age)`","`print` cannot show numbers","`print` takes only one argument","Strings cannot contain a colon"],"why":"Concatenation with `+` only joins strings, so every number has to be converted with `str()` first. That missed conversion is exactly why the f-string, `f\"Age: {age}\"`, is the modern default: it converts for you."},{"id":"py-01-input","s":1,"c":"concept-e","topic":"input() always returns a string","kind":"predict","q":"The user types `5` at the prompt. What prints after it?","code":"raw = input(\"How many? \")\nprint(raw * 2)","opts":["55","10","5 5","an error"],"why":"`input()` always hands back a string, so `raw` is the text \"5\", and `*` on a string repeats it: \"55\". Convert first with `int(raw)` to get the number 10."},{"id":"py-01-money","s":1,"c":"concept-e","topic":":.2f for money","kind":"predict","q":"What does this print?","code":"tip = 10.0\nprint(f\"${tip:.2f}\")","opts":["$10.00","$10.0","$10","${tip:.2f}"],"why":"`:.2f` after a value inside an f-string's braces means \"show 2 decimal places\", which is how money should look. The `$` outside the braces is just a literal dollar sign."},{"id":"py-02-eq","s":2,"c":"concept-a","topic":"= vs ==","kind":"concept","q":"Which line is True exactly when `x` is 5, and changes nothing?","opts":["`x == 5`","`x = 5`","`x => 5`","`x === 5`"],"why":"A single `=` assigns (puts 5 into x). A double `==` compares and hands back True or False. `=>` and `===` are not Python operators at all (the `=` always comes second, as in `>=`)."},{"id":"py-02-truthy","s":2,"c":"concept-b","topic":"Truthiness","kind":"predict","q":"What does this print?","code":"print(bool(\"\"), bool(\"0\"), bool(0))","opts":["False True False","False False False","True True False","False True True"],"why":"The falsy values are the empty or zero ones: `0`, `\"\"`, `[]` and `None`. The string `\"0\"` is not empty (it holds one character), so it is truthy."},{"id":"py-02-andor","s":2,"c":"concept-b","topic":"and / or / not","kind":"predict","q":"What does this print?","code":"age = 20\nhas_ticket = False\nprint(age >= 18 and has_ticket, age >= 18 or has_ticket, not has_ticket)","opts":["False True True","True True False","False False True","True False True"],"why":"`and` is True only if BOTH sides are True (20 >= 18 is True, has_ticket is False, so False). `or` needs at least one (True). `not` flips False to True."},{"id":"py-02-elif","s":2,"c":"concept-c","topic":"elif runs the first match only","kind":"predict","q":"What does this print?","code":"score = 85\nif score >= 60:\n    print(\"pass\")\nelif score >= 80:\n    print(\"great\")\nelse:\n    print(\"fail\")","opts":["pass","great","pass\ngreat","fail"],"why":"Python checks an if / elif / else chain top to bottom and runs the FIRST branch whose condition is True, then skips the rest. 85 >= 60 matches first, so `great` is never reached even though 85 >= 80 is also True."},{"id":"py-02-range","s":2,"c":"concept-d","topic":"range stops before the end","kind":"predict","q":"What does this print?","code":"for i in range(2, 5):\n    print(i)","opts":["2\n3\n4","2\n3\n4\n5","3\n4\n5","0\n1\n2\n3\n4"],"why":"`range(start, stop)` starts at `start` and stops BEFORE `stop`, so `range(2, 5)` gives 2, 3, 4."},{"id":"py-02-continue","s":2,"c":"concept-e","topic":"continue skips one pass","kind":"predict","q":"What does this print?","code":"for n in range(1, 6):\n    if n % 2 == 0:\n        continue\n    print(n)","opts":["1\n3\n5","1","2\n4","1\n2\n3\n4\n5"],"why":"`n % 2 == 0` is True for even numbers (`%` is the remainder, Session 1). `continue` skips the rest of that pass only, so the evens are skipped and the loop carries on. `break` would have stopped the whole loop instead."},{"id":"py-02-infinite","s":2,"c":"concept-e","topic":"Why a while loop never ends","kind":"concept","q":"A `while` loop runs forever. What is the most likely cause?","opts":["Nothing inside it ever makes the condition False","It uses `while` where a `for` loop was needed","Its body is indented by 4 spaces","The condition line ends with a colon"],"why":"A while loop repeats as long as its condition stays True, so something inside the loop has to change (a counter going down, a new guess) so the condition can eventually turn False. The colon and the 4-space indent are required syntax, not bugs."},{"id":"py-02-break","s":2,"c":"concept-e","topic":"break leaves the loop","kind":"predict","q":"What does this print?","code":"for n in range(1, 6):\n    if n == 3:\n        break\n    print(n)","opts":["1\n2","1\n2\n4\n5","1\n2\n3","3"],"why":"`break` leaves the whole loop the moment it runs, so when n reaches 3 the loop stops before printing it. `continue` would only have skipped 3 and carried on to 4 and 5."},{"id":"py-03-index","s":3,"c":"concept-a","topic":"Indexes start at 0","kind":"predict","q":"What does this print?","code":"jobs = [\"Move\", \"Pack\", \"Storage\"]\nprint(jobs[1], jobs[-1])","opts":["Pack Storage","Move Storage","Move Pack","Pack Move"],"why":"Indexes start at 0, so `jobs[1]` is the SECOND item, Pack. A negative index counts from the end, so `jobs[-1]` is the last item, Storage."},{"id":"py-03-slice","s":3,"c":"concept-b","topic":"Slices exclude the stop","kind":"predict","q":"What does this print?","code":"nums = [10, 20, 30, 40, 50]\nprint(nums[1:3])","opts":["[20, 30]","[10, 20, 30]","[20, 30, 40]","[10, 20]"],"why":"`list[start:stop]` takes items from index `start` up to but NOT including `stop`: indexes 1 and 2, which hold 20 and 30. Same \"stop is excluded\" rule as `range`."},{"id":"py-03-set","s":3,"c":"concept-c","topic":"Sets drop duplicates","kind":"concept","q":"You have a list of email addresses with repeats and want each address once. Which built-in does the de-duping for you?","opts":["`set(emails)`","`list(emails)`","`emails.sort()`","`len(emails)`"],"why":"A set holds only unique items, so `set(emails)` drops the repeats in one step. `list()` keeps every repeat, and `.sort()` reorders without removing anything."},{"id":"py-03-dictin","s":3,"c":"concept-d","topic":"in on a dict checks keys","kind":"predict","q":"What does this print?","code":"customer = {\"name\": \"Ada\", \"city\": \"Denver\"}\nprint(\"Ada\" in customer, \"city\" in customer)","opts":["False True","True True","True False","False False"],"why":"`in` on a dictionary looks at the KEYS, not the values. \"city\" is a key, so True. \"Ada\" is a value, so False."},{"id":"py-03-get","s":3,"c":"concept-d","topic":".get() for a key that might be missing","kind":"concept","q":"A customer record might not have an `email` key. Which line reads it without crashing when it is missing?","opts":["`customer.get(\"email\", \"none\")`","`customer[\"email\"]`","`customer.email`","`customer[email]`"],"why":"`.get(key, default)` returns the value if the key exists and your default if it does not. `customer[\"email\"]` on a missing key is an error (Session 6 gives it its name, KeyError). The other two are not how you reach into a dict at all."},{"id":"py-03-mutate","s":3,"c":"concept-d","topic":"Assigning to a dict key","kind":"predict","q":"What does this print?","code":"job = {\"name\": \"Move\", \"done\": False}\njob[\"done\"] = True\njob[\"price\"] = 300\nprint(job)","opts":["{'name': 'Move', 'done': True, 'price': 300}","{'name': 'Move', 'done': False, 'price': 300}","{'name': 'Move', 'done': True}","an error: price does not exist"],"why":"Assigning to an existing key changes that field; assigning to a new key adds a new field. Neither is an error: only READING a missing key with `[ ]` is."},{"id":"py-03-comp","s":3,"c":"concept-e","topic":"List comprehension with a filter","kind":"predict","q":"What does this print?","code":"nums = [3, -1, 4, -2]\nprint([n * 2 for n in nums if n > 0])","opts":["[6, 8]","[6, -2, 8, -4]","[3, 4]","[6, 8, 0, 0]"],"why":"Read it as \"n * 2 for each n in nums, keeping only n > 0\". The filter drops -1 and -2 before anything is doubled, so only 3 and 4 survive, doubled to 6 and 8."},{"id":"py-04-define","s":4,"c":"concept-a","topic":"Defining does not run","kind":"concept","q":"A file contains only `def welcome():` with `print(\"hi\")` indented under it. You run the file and nothing prints. Why?","opts":["Nothing calls `welcome()`, and defining it does not run it","`print` cannot run inside a function body","The function needs a `return` before anything can print","Function names must start with a capital"],"why":"`def` only teaches Python the recipe. The body runs when something CALLS the function by writing `welcome()`. Define once, call as often as you like."},{"id":"py-04-args","s":4,"c":"concept-b","topic":"Keyword and default arguments","kind":"predict","q":"What does this print?","code":"def order(item, qty, size=\"medium\"):\n    return f\"{qty} {size} {item}\"\n\nprint(order(qty=2, item=\"tea\"))","opts":["2 medium tea","tea medium 2","2 tea medium","an error: arguments are out of order"],"why":"Keyword arguments (`name=value`) match by name, so their order does not matter. `size` was left out, so its default, \"medium\", fills in. The f-string (Session 1) drops each value into the text, and `return` hands that text back to `print`."},{"id":"py-04-return","s":4,"c":"concept-c","topic":"print is not return","kind":"predict","q":"What does this print?","code":"def add(a, b):\n    print(a + b)\n\nresult = add(2, 3)\nprint(result)","opts":["5\nNone","5\n5","None","None\n5"],"why":"`add` PRINTS 5 but never RETURNS anything, so the caller gets `None` (Python's \"no value\"). If another part of the program needs the answer, `return` it."},{"id":"py-04-scope","s":4,"c":"concept-d","topic":"Local variables vanish","kind":"predict","q":"What happens on the last line?","code":"def make_total():\n    total = 42\n    return total\n\nmake_total()\nprint(total)","opts":["A NameError","It prints 42","It prints None","It prints 0"],"why":"A variable created inside a function is local: it exists only while that function runs. Outside, the name `total` was never defined, so Python raises a NameError. Use the returned value instead: `print(make_total())`."},{"id":"py-04-import","s":4,"c":"concept-e","topic":"from module import name","kind":"concept","q":"After `from random import randint`, how do you call it?","opts":["`randint(1, 6)`","`random.randint(1, 6)`","`import randint(1, 6)`","`random(randint)`"],"why":"`from module import name` pulls in just that one name, so you call it directly with no prefix. `random.randint` would need `import random` instead, which brings in the whole module."},{"id":"py-04-docstring","s":4,"c":"concept-e","topic":"Docstrings","kind":"concept","q":"Where does a function's docstring go?","opts":["The first line inside the body, in triple quotes","In a `#` comment above the `def` line","After the `return` line","In a separate .txt file named after the function"],"why":"A docstring is a triple-quoted string placed as the very first line inside the function. It documents what the function does, and tools such as `help()` can read it."},{"id":"py-05-with","s":5,"c":"concept-a","topic":"Why use with for files","kind":"concept","q":"What does `with open(\"notes.txt\", \"w\") as f:` give you that a plain `f = open(...)` does not?","opts":["It closes the file when the block ends","It opens the file faster than `open()` alone","It lets you read and write the same file at once","Nothing; `with` is only a style choice here"],"why":"`with` is a context manager: it sets something up and guarantees the teardown when the block ends. For a file, the teardown is closing it, so you can never forget `f.close()`."},{"id":"py-05-read","s":5,"c":"concept-b","topic":"Lines keep their newline","kind":"concept","q":"You loop `for line in f:` and print each line, and get a blank line between every one. What fixes it?","opts":["Print `line.strip()`","Open the file with mode \"r\" spelled out","Read with `f.read()` instead of looping","Pass `newline=\"\"` to `print()`"],"why":"Each line read from a file still ends in its newline character (`\\n`), and `print` adds another, so you get a gap. `.strip()` shaves the newline (and stray spaces) off each line. (`.read()` avoids the gaps but leaves one trailing blank line; `.strip()` per line is the clean fix.)"},{"id":"py-05-mode","s":5,"c":"concept-c","topic":"\"w\" overwrites, \"a\" appends","kind":"concept","q":"Your script writes to `log.txt` every run, but each run wipes the lines from the run before. Which mode keeps them and adds to the end?","opts":["`\"a\"`","`\"w\"`","`\"r\"`","`\"wa\"`"],"why":"\"w\" (write) opens the file EMPTY, erasing what was there. \"a\" (append) keeps the contents and writes onto the end. \"r\" is read-only."},{"id":"py-05-write","s":5,"c":"concept-c","topic":".write() adds no newline","kind":"concept","q":"You call `f.write(\"one\")` then `f.write(\"two\")` on a file opened with \"w\". What does the file hold?","opts":["`onetwo` on one line","`one` and `two` on separate lines","Only `two`, since \"w\" wipes","`one two` with a space"],"why":"Unlike `print`, `.write()` adds no newline for you, so the two writes run together. End each line with `\\n` yourself. (Each `open(..., \"w\")` wipes the file once, when it opens, not on every write.)"},{"id":"py-05-dictreader","s":5,"c":"concept-d","topic":"csv.DictReader rows","kind":"concept","q":"What does `csv.DictReader` hand you for each data row?","opts":["A dict keyed by the headers, every value a string","A list of strings, one per column","A dict keyed by the headers, with numbers already converted to int","One string with the commas still in it"],"why":"DictReader uses the first row as the keys, so each later row comes back like `{\"name\": \"Move\", \"price\": \"300\"}`. Note \"300\" is a STRING: nothing in a CSV arrives as a number."},{"id":"py-05-newline","s":5,"c":"concept-d","topic":"newline=\"\" when writing CSV","kind":"concept","q":"On Windows, the CSV your script writes has a blank row between every data row. What is missing?","opts":["`newline=\"\"` in the `open()` call","a call to `.writeheader()`","`\"a\"` mode instead of `\"w\"`","`.strip()` on each row before writing it"],"why":"When you open a file for CSV writing on Windows, pass `newline=\"\"` (for example `open(\"out.csv\", \"w\", newline=\"\")`), or the csv module and Windows both add a line ending and every row is double-spaced."},{"id":"py-05-dictwriter","s":5,"c":"concept-d","topic":"DictWriter: fieldnames and writeheader","kind":"concept","q":"With `csv.DictWriter`, what writes the `name,total` header row?","opts":["`writer.writeheader()`, after declaring `fieldnames`","The first `writer.writerows()` call does it automatically","`f.write(\"name,total\")` is the only way","`csv.reader(f)` reads it in for you"],"why":"DictWriter needs the column names once as `fieldnames=[...]`, then `.writeheader()` lays down that header row and `.writerows(rows)` writes the data. Nothing writes the header unless you ask."},{"id":"py-05-strtrap","s":5,"c":"concept-e","topic":"The string trap","kind":"predict","q":"Both values came straight out of a CSV. What does this print?","code":"price = \"42\"\ntax = \"8\"\nprint(price + tax)","opts":["428","50","42 8","an error"],"why":"CSV values are text, and `+` on two strings glues them end to end, so \"42\" + \"8\" is \"428\". No error warns you. Convert first: `int(price) + int(tax)` gives 50."},{"id":"py-06-traceback","s":6,"c":"concept-a","topic":"Read a traceback bottom-up","kind":"concept","q":"A script crashes with a long traceback. Where do you look first?","opts":["The last line: the error type and its message","The first line of the traceback","The middle, where the call chain starts","The line that names your file first"],"why":"Read it bottom-up. The last line names the error (for example `ValueError`) and explains it, and the lines just above it give the file and line number where it blew up."},{"id":"py-06-indexerror","s":6,"c":"concept-a","topic":"Which exception is which","kind":"predict","q":"Which exception does this raise?","code":"items = [1, 2, 3]\nprint(items[99])","opts":["IndexError","KeyError","ValueError","NameError"],"why":"Asking a LIST for a position past its end is an IndexError (only indexes 0, 1, 2 exist here). A KeyError is the dict version, a missing key; a ValueError is a value of the wrong kind, like `int(\"12x\")`."},{"id":"py-06-zero","s":6,"c":"concept-a","topic":"ZeroDivisionError","kind":"predict","q":"Which exception does this raise?","code":"total = 10\ncount = 0\nprint(total / count)","opts":["ZeroDivisionError","ValueError","IndexError","FileNotFoundError"],"why":"Dividing by zero is undefined, so Python raises ZeroDivisionError. A ValueError is a value of the wrong kind (`int(\"12x\")`), and FileNotFoundError is opening a file that is not there."},{"id":"py-06-try","s":6,"c":"concept-b","topic":"try / except keeps the program alive","kind":"predict","q":"What does this print?","code":"try:\n    n = int(\"12x\")\n    print(\"parsed\")\nexcept ValueError:\n    print(\"bad\")\nprint(\"done\")","opts":["bad\ndone","parsed\ndone","bad","parsed\nbad\ndone"],"why":"`int(\"12x\")` raises a ValueError, so Python abandons the rest of the try block (\"parsed\" never prints) and jumps to except. The error is handled, so the program carries on to \"done\"."},{"id":"py-06-bare","s":6,"c":"concept-c","topic":"Catch the specific error","kind":"concept","q":"Why is a bare `except:` (catch everything) a bad habit?","opts":["It also hides bugs you did not expect, like a misspelled name","It runs slower than a named except","It is a syntax error in Python 3","It only catches ValueError"],"why":"A catch-all swallows every error, including real bugs such as a typo'd variable (a NameError), and shows your friendly message instead. Name the error you expect (`except ValueError:`) so anything else still surfaces loudly."},{"id":"py-06-elsefinally","s":6,"c":"concept-c","topic":"else and finally","kind":"predict","q":"What does this print?","code":"try:\n    n = int(\"5\")\nexcept ValueError:\n    print(\"bad\")\nelse:\n    print(\"ok\", n)\nfinally:\n    print(\"end\")","opts":["ok 5\nend","end","ok 5","ok 5\nbad\nend"],"why":"The try succeeded, so except is skipped and `else` (the \"no error\" path) runs. `finally` runs no matter what, error or not."},{"id":"py-06-raise","s":6,"c":"concept-d","topic":"raise your own error, catch it with as e","kind":"predict","q":"What does this print?","code":"def charge(amount):\n    if amount < 0:\n        raise ValueError(\"amount cannot be negative\")\n    return amount\n\ntry:\n    charge(-1)\nexcept ValueError as e:\n    print(\"Error:\", e)","opts":["Error: amount cannot be negative","Error: ValueError","ValueError: amount cannot be negative","Error: -1"],"why":"`raise` throws an exception on purpose with your message. `except ValueError as e` names the caught exception `e`, and printing `e` shows its message."},{"id":"py-06-venv","s":6,"c":"concept-e","topic":"What a venv is for","kind":"concept","q":"What problem does a virtual environment solve?","opts":["Projects colliding over package versions","It makes your scripts run noticeably faster","It lets pip install packages without an internet connection","It hides your code from other people on the machine"],"why":"A venv gives each project its own private folder of packages. venv is the isolated room; pip is the tool that puts packages into it."},{"id":"py-06-freeze","s":6,"c":"concept-e","topic":"pip freeze vs pip install -r","kind":"concept","q":"Which command WRITES your exact installed package versions into a file?","opts":["`pip freeze > requirements.txt`","`pip install -r requirements.txt`","`python -m venv requirements.txt`","`pip list -r requirements.txt`"],"why":"`pip freeze` prints each installed package with its version, and `>` redirects that printout into the file. `pip install -r requirements.txt` is the mirror: it READS the file and reinstalls everything on it."},{"id":"py-06-policy","s":6,"c":"concept-e","topic":"Activate.ps1 cannot be loaded","kind":"concept","q":"On Windows, `venv\\Scripts\\Activate.ps1` fails with \"running scripts is disabled on this system\". What is a fix that needs no administrator rights?","opts":["`Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`","Delete the venv folder and reinstall Python","Rename the file to `Activate.py` and run it with python instead","Run `pip install activate` inside the venv folder"],"why":"Windows ships with script running switched off, and Activate.ps1 is a script. RemoteSigned for your own user turns it on without admin rights. Or skip activation and call `venv\\Scripts\\python` directly."},{"id":"py-07-5xx","s":7,"c":"concept-a","topic":"Status code families","kind":"concept","q":"A request comes back with status 503. Whose side is the problem on?","opts":["The server's: retrying later may help","Yours: fix the request and resend it","Nobody's: 5xx means success with a warning attached","Yours: the URL has a typo"],"why":"Read the first digit: 2xx success, 4xx your request was wrong (fix it), 5xx the server had a problem. Knowing the family tells you instantly whose fault a failure is."},{"id":"py-07-methods","s":7,"c":"concept-a","topic":"HTTP methods","kind":"concept","q":"Which HTTP method do you use to CREATE a new record?","opts":["POST","GET","PUT","DELETE"],"why":"GET reads, POST creates or sends new data, PUT updates or replaces something that already exists, DELETE removes."},{"id":"py-07-4xx","s":7,"c":"concept-a","topic":"4xx means fix your request","kind":"concept","q":"A request comes back 404. What does the 4xx family tell you?","opts":["Your request was wrong; fix it before retrying","The server crashed; wait and retry","It worked, the data is just empty","The network dropped the connection"],"why":"The first digit names the family: 2xx success, 4xx a client error (your request is wrong, so retrying the same thing will not help), 5xx a server error (retrying later might)."},{"id":"py-07-ok","s":7,"c":"concept-b","topic":"response.ok and raise_for_status()","kind":"concept","q":"`response.status_code` is 404. What are `response.ok` and `response.raise_for_status()`?","opts":["`ok` is False; `raise_for_status()` raises","`ok` is True, since a response still arrived from the server","`ok` is False; `raise_for_status()` does nothing","`ok` is None until you parse the body"],"why":"`response.ok` is True only for a 2xx. `raise_for_status()` does nothing on success but raises an exception for a 4xx or 5xx, so a bad status crashes loudly instead of slipping past."},{"id":"py-07-jsontext","s":7,"c":"concept-c","topic":"JSON is text until you parse it","kind":"predict","q":"`body` is exactly what `response.text` handed back. What happens?","code":"body = '{\"temp\": 72}'\nprint(body[\"temp\"])","opts":["A TypeError","It prints 72","It prints {'temp': 72}","A KeyError: 'temp'"],"why":"`body` is a string, and a string can only be indexed by a number (its position), never by a key. Parse it first: `json.loads(body)[\"temp\"]`, or use `response.json()`, which parses for you."},{"id":"py-07-dumps","s":7,"c":"concept-c","topic":"json.dumps output","kind":"predict","q":"What does this print?","code":"import json\nprint(json.dumps({\"ok\": True}))","opts":["{\"ok\": true}","{'ok': True}","{\"ok\":true}","{\"ok\": True}"],"why":"`json.dumps` turns a dict into a JSON string. JSON writes the boolean in lowercase (`true`), uses double quotes, and `dumps` puts a space after each colon and comma."},{"id":"py-07-nested","s":7,"c":"concept-d","topic":"Drilling into nested JSON","kind":"predict","q":"What does this print?","code":"data = {\"results\": [{\"name\": \"Ada\"}, {\"name\": \"Linus\"}]}\nprint(data[\"results\"][1][\"name\"])","opts":["Linus","Ada","{'name': 'Linus'}","a KeyError"],"why":"Read the path left to right: into \"results\" (a list), take index 1 (the SECOND item, since indexes start at 0), then read its \"name\"."},{"id":"py-07-params","s":7,"c":"concept-e","topic":"params= builds the query string","kind":"concept","q":"What does `params={\"q\": \"python\"}` do in `requests.get(url, params=...)`?","opts":["Adds `?q=python` to the URL","Sends the dict as a POST instead of a GET","Saves the response to a file named q","Parses the JSON body into a dict called q"],"why":"Query parameters are the `?key=value` part of a URL. Passing a `params=` dict lets requests build that string correctly instead of you gluing it together."},{"id":"py-07-network","s":7,"c":"concept-e","topic":"Catching network failures","kind":"concept","q":"Your script calls `requests.get` with no wifi. Which `except` keeps it from crashing?","opts":["`except requests.RequestException:`","`except ValueError:`","`except FileNotFoundError:`","`except KeyError:`"],"why":"When requests cannot complete the round trip at all (no connection, server down), it raises `requests.RequestException`, the base type for all its network errors. A bad status is different: that arrives as a normal response."},{"id":"py-08-403","s":8,"c":"concept-a","topic":"401 vs 403","kind":"concept","q":"Your token is valid, but your account is not allowed to do what you asked. Which status comes back?","opts":["403 Forbidden","401 Unauthorized","404 Not Found","500 Internal Server Error"],"why":"401 means \"I do not know who you are\" (the credential is missing or wrong). 403 means \"I know who you are, but you are not allowed\". Both are 4xx, so both are yours to fix."},{"id":"py-08-shapes","s":8,"c":"concept-a","topic":"The three credential shapes","kind":"concept","q":"Which way of sending an API key is the weakest, and why?","opts":["In a query parameter, because the URL gets logged","In a header, because headers are public","As a bearer token, because anyone can read it","In a custom header, because headers go with every request"],"why":"A key in `?api_key=...` sits in the URL, which ends up in logs and browser history. A custom header (like X-API-Key) or a bearer token in the Authorization header keeps it out of the visible URL."},{"id":"py-08-getenv","s":8,"c":"concept-b","topic":"os.getenv on a missing variable","kind":"predict","q":"No environment variable called `NO_SUCH_VAR_123` exists. What does this print?","code":"import os\nprint(os.getenv(\"NO_SUCH_VAR_123\"))","opts":["None","an empty line","a KeyError","NO_SUCH_VAR_123"],"why":"`os.getenv(\"NAME\")` returns `None` when the variable is not set, instead of crashing. `None` is falsy (Session 2), which is why `if not token:` catches a missing token."},{"id":"py-08-hardcode","s":8,"c":"concept-b","topic":"Never hardcode a secret","kind":"concept","q":"Why read your token with `os.getenv(\"GITHUB_TOKEN\")` instead of pasting it into the script?","opts":["Committed code leaks the token to anyone who reads it","Environment variables make requests faster","GitHub rejects tokens written as strings","`os.getenv` encrypts the token"],"why":"A token is a secret that lets someone act as you. Once a file holding it is committed and pushed, the secret is public in the code and its history. Kept in an environment variable, it never enters the file."},{"id":"py-08-bearer","s":8,"c":"concept-c","topic":"The bearer header","kind":"concept","q":"Which `headers` dict sends a bearer token correctly?","opts":["`{\"Authorization\": f\"Bearer {token}\"}`","`{\"Bearer\": token}`","`{\"Authorization\": token}`","`{\"Authorization\": f\"Bearer: {token}\"}`"],"why":"The header is named Authorization and its value is the word Bearer, a space, then the token. The f-string (Session 1) drops the token's value into that text."},{"id":"py-08-jsonkw","s":8,"c":"concept-d","topic":"json= vs data=","kind":"concept","q":"You are POSTing a dict to a JSON API. Which call sends it as a JSON body?","opts":["`requests.post(url, json=payload)`","`requests.post(url, data=payload)`","`requests.post(url, params=payload)`","`requests.post(url, headers=payload)`"],"why":"`json=` serializes the dict to JSON and sets the content-type header to say so. `data=` sends old-style HTML form fields (`a=1&b=2`), and `params=` puts the values on the URL."},{"id":"py-08-extend","s":8,"c":"concept-e","topic":".extend vs .append","kind":"predict","q":"What does this print?","code":"a = [1, 2]\na.extend([3, 4])\nb = [1, 2]\nb.append([3, 4])\nprint(a, b)","opts":["[1, 2, 3, 4] [1, 2, [3, 4]]","[1, 2, 3, 4] [1, 2, 3, 4]","[1, 2, [3, 4]] [1, 2, 3, 4]","[1, 2, [3, 4]] [1, 2, [3, 4]]"],"why":"`.extend` adds EVERY item of another list onto this one. `.append` (Session 3) adds a single item, so the whole list `[3, 4]` goes in as one nested item."},{"id":"py-08-stop","s":8,"c":"concept-e","topic":"When pagination stops","kind":"concept","q":"You page through an endpoint with `per_page=100`. When should the loop stop?","opts":["The first time a page has fewer than 100 items","After page 1","When a page returns exactly 100 items","When the status code is 200"],"why":"A full page (100 items) means more may follow. A short or empty page is the last one. Stop too early and you silently miss data; never stop and you loop forever."},{"id":"py-08-429","s":8,"c":"concept-e","topic":"429 Too Many Requests","kind":"concept","q":"An API answers your requests with status 429. What should a polite client do?","opts":["Slow down and wait before retrying","Retry immediately in a tight loop until it works","Switch the request from GET to POST","Nothing; 429 is a success code"],"why":"429 Too Many Requests means you are sending too fast. The reply often carries a Retry-After header saying how many seconds to wait. Slowing down is the fix; hammering the API makes it worse."},{"id":"py-09-series","s":9,"c":"concept-a","topic":"Series vs DataFrame","kind":"concept","q":"In pandas, what is a single labelled column of data called?","opts":["A Series","A DataFrame","A dict","A tuple"],"why":"A Series is one column with an index; a DataFrame is a whole table, many Series side by side sharing the same row index."},{"id":"py-09-shape","s":9,"c":"concept-b","topic":"df.shape","kind":"predict","q":"What does this print?","code":"import pandas as pd\ndf = pd.DataFrame({\"name\": [\"A\", \"B\", \"C\"], \"amount\": [1, 2, 3]})\nprint(df.shape)","opts":["(3, 2)","(2, 3)","6","3"],"why":"`df.shape` is a tuple (the fixed, parenthesised group from Session 3) of (rows, columns): three rows, two columns. `len(df)` would give just the row count."},{"id":"py-09-mask","s":9,"c":"concept-c","topic":"Combining masks with &","kind":"concept","q":"Which line keeps the rows where amount is over 100 AND status is \"won\"?","opts":["`df[(df[\"amount\"] > 100) & (df[\"status\"] == \"won\")]`","`df[df[\"amount\"] > 100 and df[\"status\"] == \"won\"]`","`df[df[\"amount\"] > 100 & df[\"status\"] == \"won\"]`","`df[(df[\"amount\"] > 100) | (df[\"status\"] == \"won\")]`"],"why":"A mask is a whole column of True/False, so you need the elementwise `&` (and) or `|` (or), not Python's `and`. Each condition needs its own parentheses because `&` binds more tightly than the comparisons. `|` would keep rows where EITHER is true."},{"id":"py-09-brackets","s":9,"c":"concept-c","topic":"Single vs double brackets","kind":"concept","q":"What is the difference between `df[\"amount\"]` and `df[[\"name\", \"amount\"]]`?","opts":["The first is a Series; the second is a smaller DataFrame","They are identical; the extra brackets are optional","The first filters rows; the second filters columns","The first is a DataFrame; the second is a list"],"why":"One name in the brackets returns that single column as a Series. A LIST of names (hence the double brackets) returns a DataFrame with just those columns."},{"id":"py-09-nan","s":9,"c":"concept-d","topic":"A blank cell makes the column float","kind":"predict","q":"What does this print?","code":"import pandas as pd\ndf = pd.DataFrame({\"amount\": [100, None, 300]})\nprint(df[\"amount\"].dtype)","opts":["float64","int64","object","NaN"],"why":"A missing value is stored as NaN (\"not a number\"), which is itself a float, so a column of whole numbers with one hole is read as float64."},{"id":"py-09-order","s":9,"c":"concept-d","topic":"Clean, then convert","kind":"concept","q":"`df[\"amount\"].astype(int)` raises an error because the column holds a NaN. You need whole numbers. What is the fix?","opts":["Drop or fill the NaNs first, then convert","Convert to text with `astype(str)` first, then to int","Wrap the whole column in Python's `int()` instead","Call `.sum()` on the column first so the NaN is skipped"],"why":"There is no integer for \"missing\", so pandas cannot convert a NaN to int. The order is always the same: clean (drop or fill the holes), then convert."},{"id":"py-09-fillna","s":9,"c":"concept-d","topic":"dropna vs fillna","kind":"predict","q":"What does this print?","code":"import pandas as pd\ndf = pd.DataFrame({\"amount\": [100, None, 300]})\nprint(len(df.dropna()), len(df.fillna(0)))","opts":["2 3","3 3","2 2","3 2"],"why":"`dropna()` removes every row holding a missing value (3 rows become 2). `fillna(0)` keeps every row and replaces the missing value with 0, so it still has 3."},{"id":"py-09-groupby","s":9,"c":"concept-e","topic":"groupby and sum","kind":"predict","q":"What does this print?","code":"import pandas as pd\ndf = pd.DataFrame({\"salesperson\": [\"Sam\", \"Amy\", \"Sam\"], \"amount\": [100, 200, 50]})\ntotals = df.groupby(\"salesperson\")[\"amount\"].sum()\nprint(totals[\"Sam\"])","opts":["150","100","350","50"],"why":"groupby splits the rows by salesperson, `.sum()` adds amount within each group, and the result is labelled by group, so `totals[\"Sam\"]` reads Sam's total like a dict key: 100 + 50."},{"id":"py-09-index","s":9,"c":"concept-e","topic":"to_csv(index=False)","kind":"concept","q":"Your exported report has an extra first column of 0, 1, 2, ... What removes it?","opts":["`df.to_csv(\"summary.csv\", index=False)`","`df.dropna()`","`df.reset_index()`","Opening the summary file in \"a\" mode first"],"why":"By default `to_csv` also writes pandas' row numbers (the index). `index=False` leaves them out. `reset_index()` does something else: it turns group labels back into a normal column."},{"id":"py-10-pipeline","s":10,"c":"concept-a","topic":"list of dicts to DataFrame","kind":"concept","q":"Why can `pd.DataFrame(repos)` turn a paginated API pull straight into a table?","opts":["`repos` is a list of dicts, one per row","`repos` is already saved as a CSV file on disk","requests hands back DataFrames","pandas parses any string into a table"],"why":"`response.json()` on a list endpoint hands back a list of dicts, and `pd.DataFrame` builds one row per dict and one column per key. That shape is the bridge from API to report."},{"id":"py-10-tryfetch","s":10,"c":"concept-b","topic":"Why fetch_repos wraps the loop in try/except","kind":"concept","q":"Why does the capstone wrap `fetch_repos`'s whole paging loop in `try` / `except requests.RequestException`?","opts":["So a network problem prints a clear message instead of a raw traceback","So a 401 is retried with a new token","Because `while True` loops must be inside a `try`","To make each page download faster"],"why":"`requests.RequestException` is what requests raises when the round trip itself fails (no connection, server down; Session 7). Catching it around the loop turns that crash into one readable message. A bad token is different: a 401 still arrives as a normal response, which is why it gets its own status check."},{"id":"py-10-clean","s":10,"c":"concept-c","topic":"Select columns, then dropna","kind":"predict","q":"What does this print?","code":"import pandas as pd\nrepos = [{\"name\": \"toolbox\", \"language\": \"Python\", \"stars\": 12, \"fork\": False},\n         {\"name\": \"scratch\", \"language\": None, \"stars\": 0, \"fork\": True}]\ndf = pd.DataFrame(repos)[[\"name\", \"language\"]].dropna()\nprint(df.shape)","opts":["(1, 2)","(2, 2)","(1, 4)","(2, 4)"],"why":"Double brackets keep just two columns, so the table is 2 wide. `dropna()` then removes the scratch row, whose language is missing (None becomes NaN), leaving 1 row."},{"id":"py-10-summary","s":10,"c":"concept-d","topic":"Summarize, flatten, export","kind":"concept","q":"Why call `.reset_index()` after `df.groupby(\"language\")[\"stargazers_count\"].sum()` and before `to_csv`?","opts":["To turn the language labels back into a normal column","To drop the missing values","To sort the totals from largest to smallest","To delete pandas' 0, 1, 2 row numbers"],"why":"A grouped result is a Series labelled by group. `reset_index()` flattens it into a plain table with a language column and a total column. Leaving out the 0, 1, 2 row numbers is a different job: `to_csv(..., index=False)`."},{"id":"py-10-main","s":10,"c":"concept-e","topic":"if __name__ == \"__main__\"","kind":"concept","q":"What does `if __name__ == \"__main__\": main()` at the bottom of a script do?","opts":["Runs `main()` only when run directly","Makes `main()` run before every other function","Runs `main()` once each time another file imports it","Marks the file as an importable package"],"why":"Python sets `__name__` to \"__main__\" for the file you run directly, and to the module's name when another file imports it. So running the tool does the work, while importing it just loads the functions for reuse."},{"id":"py-10-functions","s":10,"c":"concept-e","topic":"Why split a tool into functions","kind":"concept","q":"Why split the capstone into `fetch_repos`, `to_dataframe` and `summarize` instead of one top-to-bottom script?","opts":["Each step can be tested and reused on its own","Functions make Python run the script faster","pandas only works inside a function","It keeps the token hidden from other users"],"why":"One named job per function means you can run or test a piece without the whole pull, reuse the fetch elsewhere, and read the flow in `main()`. Each step returns what the next step takes in (Session 4)."}],"cheats":[["Basics",[["print(a, b)","prints a and b separated by a space"],["f\"Hi {name}\"","an f-string: drops values into text"],["f\"{x:.2f}\"","show x with 2 decimal places"],["int(t) / float(t)","text to number (input() and CSV give text)"],["// and %","floor divide, remainder"],["== vs =","compare vs assign"],["range(a, b)","a up to but not including b"],["break / continue","leave the loop / skip to the next pass"]]],["Containers",[["lst[0], lst[-1]","first item, last item"],["lst[1:3]","slice: index 1 and 2 (stop excluded)"],["lst.append(x) / lst.extend(xs)","add one item / add every item"],["set(lst)","drop duplicates"],["d[\"k\"] / d.get(\"k\", default)","read a key / read it safely"],["\"k\" in d","checks KEYS, not values"],["[f(x) for x in xs if cond]","list comprehension with a filter"]]],["Functions and modules",[["def f(a, b=1):","define, with a default argument"],["return x","hand a value back (print only shows it)"],["from m import name","call name() with no prefix"],["if __name__ == \"__main__\":","run only when executed directly"]]],["Files, CSV, errors",[["with open(p, \"w\") as f:","auto-closes; \"w\" wipes, \"a\" appends"],["line.strip()","drop the trailing newline"],["csv.DictReader(f)","rows as dicts of STRINGS"],["open(p, \"w\", newline=\"\")","no blank rows when writing CSV on Windows"],["try / except E as e / else / finally","catch a specific error; else = no error; finally = always"],["raise ValueError(\"msg\")","stop with your own error"]]],["Environments",[["python -m venv venv","create a virtual environment"],["venv\\Scripts\\Activate.ps1","activate it (PowerShell)"],["pip freeze > requirements.txt","write exact versions to a file"],["pip install -r requirements.txt","reinstall from that file"]]],["HTTP and APIs",[["requests.get(url, params=..., headers=...)","GET with a query string and headers"],["r.ok / r.raise_for_status()","2xx check / raise on 4xx or 5xx"],["r.json()","parse the body into a dict or list"],["{\"Authorization\": f\"Bearer {token}\"}","bearer auth header"],["os.getenv(\"NAME\")","read a secret from the environment (None if unset)"],["requests.post(url, json=payload)","send a JSON body"],["401 / 403 / 429","who are you? / not allowed / slow down"]]],["pandas",[["import pandas as pd","the standard alias"],["pd.read_csv(p) / pd.DataFrame(rows)","load a table"],["df.shape, df.head(), df.columns","look before you leap"],["df[(df[\"a\"] > 1) & (df[\"b\"] == \"x\")]","filter with a mask: &, |, parentheses"],["df.dropna() then .astype(int)","clean, then convert"],["df.groupby(\"k\")[\"v\"].sum().reset_index()","total per group, as a flat table"],["df.to_csv(p, index=False)","export without the 0,1,2 column"]]]]},{"key":"sql","name":"SQL","title":"SQL & Relational Databases","hub":"sql-hub.html","page":"sql-session-{nn}.html","items":[],"cheats":[]},{"key":"git","name":"Git","title":"Git & Collaborative Workflow","hub":"git-hub.html","page":"git-session-{nn}.html","items":[],"cheats":[]},{"key":"api","name":"APIs","title":"APIs & Integrations","hub":"api-hub.html","page":"api-session-{nn}.html","items":[],"cheats":[]},{"key":"ps","name":"PowerShell","title":"PowerShell & Automation","hub":"ps-hub.html","page":"ps-session-{nn}.html","items":[],"cheats":[]}]};</script>
+<script>
+(function () {
+  var KEY = 'refresher-v1';
+  var INTERVAL = [0, 1, 3, 7, 14, 30];   // days until due again, by box after answering
+  var SOLID = 4;                        // box 4 or 5 = recalled right across spaced gaps
+  var HUBKEY = { py: 'py-sprint-progress-v1', sql: 'sql-sprint-progress-v1', git: 'git-sprint-progress-v1', api: 'api-sprint-progress-v1', ps: 'ps-sprint-progress-v1' };
+  var BANK = REFRESHER_BANK;
+  var BYID = {};
+  BANK.tracks.forEach(function (t) { t.items.forEach(function (it) { it.track = t; BYID[it.id] = it; }); });
+
+  /* ---- state ---- */
+  var mem = null;
+  function blank() { return { inc: {}, thru: {}, size: 12, items: {}, cur: null, log: {} }; }
+  function load() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) { s = mem; }
+    var b = blank();
+    if (!s || typeof s !== 'object') return b;
+    for (var k in b) if (s[k] === undefined) s[k] = b[k];
+    return s;
+  }
+  var S = load();
+  function save() {
+    mem = S;
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  }
+
+  /* ---- dates (local calendar days) ---- */
+  function iso(d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day; }
+  function today() { return iso(new Date()); }
+  function addDays(n) { var d = new Date(); d.setDate(d.getDate() + n); return iso(d); }
+  function daysUntil(s) { var p = s.split('-'); var d = new Date(+p[0], +p[1] - 1, +p[2]); var t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((d - t) / 86400000); }
+  function whenText(s) { var n = daysUntil(s); return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days'; }
+
+  /* ---- text helpers: escape, then `code` ---- */
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function md(s) { return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>'); }
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
+  function sessionUrl(it) { var n = it.s < 10 ? '0' + it.s : '' + it.s; return it.track.page.replace('{nn}', n) + '#' + it.c; }
+  function conceptLetter(c) { return c.replace('concept-', '').toUpperCase(); }
+
+  /* ---- the pool: included tracks, up to the chosen session ---- */
+  function pool() {
+    var out = [];
+    BANK.tracks.forEach(function (t) {
+      if (!S.inc[t.key]) return;
+      var thru = S.thru[t.key] || 10;
+      t.items.forEach(function (it) { if (it.s <= thru) out.push(it); });
+    });
+    return out;
+  }
+  function isDue(it) { var r = S.items[it.id]; return r && r.d <= today(); }
+  function isNew(it) { return !S.items[it.id]; }
+
+  /* Due first (oldest due, lowest box), then unseen in session order, taking turns between tracks. */
+  function buildSet(n, ahead) {
+    var queues = {}, order = [];
+    var p = pool();
+    p.forEach(function (it) { if (!queues[it.track.key]) { queues[it.track.key] = []; order.push(it.track.key); } });
+    order.forEach(function (k) {
+      var mine = p.filter(function (it) { return it.track.key === k; });
+      var due = mine.filter(isDue).sort(function (a, b) { var A = S.items[a.id], B = S.items[b.id]; return A.d < B.d ? -1 : A.d > B.d ? 1 : A.b - B.b; });
+      var fresh = mine.filter(isNew);
+      var q = due.concat(fresh);
+      if (ahead) q = mine.filter(function (it) { return !isDue(it) && !isNew(it); }).sort(function (a, b) { return S.items[a.id].d < S.items[b.id].d ? -1 : 1; });
+      queues[k] = q;
+    });
+    var picked = [];
+    while (picked.length < n) {
+      var took = false;
+      order.forEach(function (k) { if (picked.length < n && queues[k].length) { picked.push(queues[k].shift().id); took = true; } });
+      if (!took) break;
+    }
+    return picked;
+  }
+
+  /* ---- progress panel ---- */
+  function renderStats() {
+    var p = pool(), due = 0, solid = 0, seen = 0;
+    p.forEach(function (it) { var r = S.items[it.id]; if (r) { seen++; if (r.d <= today()) due++; if (r.b >= SOLID) solid++; } });
+    document.getElementById('stat-due').textContent = due;
+    document.getElementById('stat-pool').textContent = p.length;
+    document.getElementById('stat-solid').textContent = solid;
+    document.getElementById('stat-today').textContent = S.log[today()] || 0;
+    var pct = p.length ? Math.round(100 * solid / p.length) : 0;
+    document.getElementById('bar').style.width = pct + '%';
+    document.getElementById('bar-pct').textContent = pct + '%';
+    var lbl = !p.length ? 'Pick a track below to start'
+      : seen < p.length ? seen + ' of ' + p.length + ' concepts seen; ' + solid + ' solid'
+      : solid + ' of ' + p.length + ' concepts solid';
+    document.getElementById('bar-label').textContent = lbl;
+    var msg = document.getElementById('rv-msg'), start = document.getElementById('start');
+    start.disabled = !p.length;
+    if (S.cur && S.cur.ids.length && S.cur.i < S.cur.ids.length) { start.textContent = 'Resume your set'; msg.textContent = ''; }
+    else { start.textContent = 'Start a review set'; msg.textContent = !p.length ? 'Include a track first.' : ''; }
+  }
+
+  /* ---- track picker ---- */
+  function hubDone(k) {
+    try { var h = JSON.parse(localStorage.getItem(HUBKEY[k])) || {}; var n = 0; for (var x in h) if (h[x]) n++; return n; } catch (e) { return 0; }
+  }
+  function renderTracks() {
+    var box = document.getElementById('tracks'); box.innerHTML = '';
+    BANK.tracks.forEach(function (t) {
+      var ready = t.items.length > 0;
+      var card = el('div', 'trk t-' + t.key + (S.inc[t.key] && ready ? '' : ' off'));
+      var top = el('div', 'trk-top');
+      top.appendChild(el('span', 'chip', esc(t.name)));
+      top.appendChild(el('span', 'trk-name', esc(t.title)));
+      if (ready) top.appendChild(el('span', 'trk-count', t.items.length + ' concepts'));
+      card.appendChild(top);
+      if (!ready) {
+        card.appendChild(el('div', 'trk-soon', 'Review questions for this track are on the way.'));
+      } else {
+        var row = el('div', 'trk-row');
+        var lab = el('label');
+        var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!S.inc[t.key];
+        cb.id = 'inc-' + t.key;
+        lab.appendChild(cb); lab.appendChild(document.createTextNode('Include in review'));
+        lab.setAttribute('for', cb.id);
+        row.appendChild(lab);
+        var sl = el('label'); sl.appendChild(document.createTextNode('through Session'));
+        var sel = document.createElement('select'); sel.id = 'thru-' + t.key;
+        sel.setAttribute('aria-label', t.name + ': review through session');
+        for (var i = 1; i <= 10; i++) { var o = document.createElement('option'); o.value = i; o.textContent = i; sel.appendChild(o); }
+        sel.value = S.thru[t.key] || 10;
+        sl.appendChild(sel); row.appendChild(sl);
+        card.appendChild(row);
+        cb.addEventListener('change', function () { S.inc[t.key] = cb.checked; save(); renderTracks(); renderStats(); });
+        sel.addEventListener('change', function () { S.thru[t.key] = +sel.value; save(); renderStats(); });
+      }
+      var hub = el('div', 'trk-hub', 'Hub: ' + hubDone(t.key) + '/10 sessions ticked &middot; <a href="' + esc(t.hub) + '">open the ' + esc(t.name) + ' Hub</a>');
+      card.appendChild(hub);
+      box.appendChild(card);
+    });
+  }
+
+  /* ---- review stage ---- */
+  var stage = document.getElementById('stage');
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
+
+  function record(it, ok) {
+    var r = S.items[it.id] || { b: 0, n: 0, r: 0 };
+    r.n++; if (ok) r.r++;
+    /* right: an unseen or just-missed concept jumps to box 2 (3 days), then 7, 14, 30; wrong: box 1 (tomorrow) */
+    r.b = ok ? Math.min(Math.max(r.b, 1) + 1, 5) : 1;
+    r.d = addDays(INTERVAL[r.b]);
+    S.items[it.id] = r;
+    S.log[today()] = (S.log[today()] || 0) + 1;
+    S.cur.res.push({ id: it.id, ok: ok });
+  }
+
+  function showQuestion() {
+    var cur = S.cur;
+    if (!cur || cur.i >= cur.ids.length) { showSummary(); return; }
+    var it = BYID[cur.ids[cur.i]];
+    if (!it) { cur.i++; save(); showQuestion(); return; }
+    stage.innerHTML = '';
+    var card = el('div', 'qcard t-' + it.track.key);
+    var meta = el('div', 'q-meta');
+    meta.appendChild(el('span', 'chip', esc(it.track.name)));
+    meta.appendChild(el('span', 'q-sess', 'Session ' + it.s));
+    meta.appendChild(el('span', 'q-pos', (cur.i + 1) + ' / ' + cur.ids.length));
+    card.appendChild(meta);
+    card.appendChild(el('div', 'q-text', md(it.q)));
+    if (it.code) { var pre = el('pre', 'q-code'); pre.textContent = it.code; card.appendChild(pre); }
+    var opts = el('div', 'opts'); opts.setAttribute('role', 'group'); opts.setAttribute('aria-label', 'Answer options');
+    var order = shuffle([0, 1, 2, 3]);
+    var buttons = [];
+    order.forEach(function (oi, pos) {
+      var b = el('button', 'opt' + (it.kind === 'predict' ? ' mono' : ''));
+      b.type = 'button';
+      b.innerHTML = '<span class="n">' + (pos + 1) + '</span><span class="t">' + (it.kind === 'predict' ? esc(it.opts[oi]) : md(it.opts[oi])) + '</span>';
+      b.addEventListener('click', function () { answer(oi); });
+      buttons.push({ b: b, oi: oi });
+      opts.appendChild(b);
+    });
+    card.appendChild(opts);
+    var after = el('div'); card.appendChild(after);
+    card.appendChild(el('div', 'kbd-hint', 'Keys: 1 to 4 to answer, Enter for next.'));
+    stage.appendChild(card);
+
+    var answered = false;
+    function answer(oi) {
+      if (answered) return;
+      answered = true;
+      var ok = oi === 0;
+      record(it, ok); cur.i++; save();
+      buttons.forEach(function (x) {
+        x.b.disabled = true;
+        if (x.oi === 0) x.b.classList.add('right');
+        else if (x.oi === oi) x.b.classList.add('wrong');
+      });
+      after.appendChild(el('div', 'verdict ' + (ok ? 'ok' : 'no'), ok ? 'Right.' : 'Not quite.'));
+      after.appendChild(el('p', 'why', '<b>' + md(it.topic) + '.</b> ' + md(it.why)));
+      var foot = el('div', 'q-foot');
+      var link = el('a', 'src-link', 'Review it: ' + esc(it.track.name) + ' Session ' + it.s + ', concept ' + conceptLetter(it.c) + ' &#8599;');
+      link.href = sessionUrl(it); link.target = '_blank'; link.rel = 'noopener';
+      foot.appendChild(link);
+      foot.appendChild(el('span', 'q-next-due', 'Back ' + whenText(S.items[it.id].d)));
+      var next = el('button', 'btn', cur.i >= cur.ids.length ? 'See your results' : 'Next question');
+      next.type = 'button'; next.id = 'next';
+      next.addEventListener('click', function () { showQuestion(); stage.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
+      foot.appendChild(next);
+      after.appendChild(foot);
+      next.focus({ preventScroll: true });
+      renderStats();
+    }
+    keyHandler = function (e) {
+      if (answered) return;
+      var n = parseInt(e.key, 10);
+      if (n >= 1 && n <= 4 && buttons[n - 1]) { e.preventDefault(); answer(buttons[n - 1].oi); }
+    };
+    buttons[0].b.focus({ preventScroll: true });
+  }
+  var keyHandler = null;
+  document.addEventListener('keydown', function (e) {
+    var t = e.target && e.target.tagName;
+    if (t === 'INPUT' || t === 'SELECT' || t === 'TEXTAREA') return;
+    if (keyHandler && stage.querySelector('.qcard')) keyHandler(e);
+  });
+
+  function showSummary() {
+    var cur = S.cur; keyHandler = null;
+    stage.innerHTML = '';
+    if (!cur || !cur.res.length) { renderStats(); return; }
+    var right = cur.res.filter(function (r) { return r.ok; }).length;
+    var card = el('div', 'qcard summary');
+    card.appendChild(el('h3', '', right + ' of ' + cur.res.length + ' right'));
+    var missed = cur.res.filter(function (r) { return !r.ok; });
+    card.appendChild(el('p', 'why', missed.length ? 'The ones you missed come back tomorrow. A quick look at each source concept now makes tomorrow count:' : 'Clean sweep. Each of these waits longer before it comes back.'));
+    if (missed.length) {
+      var ul = el('ul');
+      missed.forEach(function (r) {
+        var it = BYID[r.id]; if (!it) return;
+        var li = el('li', '', esc(it.track.name) + ' S' + it.s + ': ' + md(it.topic) + ' &middot; ');
+        var a = el('a', '', 'open concept ' + conceptLetter(it.c) + ' &#8599;'); a.href = sessionUrl(it); a.target = '_blank'; a.rel = 'noopener';
+        li.appendChild(a); ul.appendChild(li);
+      });
+      card.appendChild(ul);
+    }
+    var foot = el('div', 'q-foot');
+    var again = el('button', 'btn', 'Start another set'); again.type = 'button';
+    again.addEventListener('click', function () { start(false); });
+    foot.appendChild(again);
+    card.appendChild(foot);
+    stage.appendChild(card);
+    S.cur = null; save(); renderStats();
+  }
+
+  function start(ahead) {
+    if (S.cur && S.cur.ids.length && S.cur.i < S.cur.ids.length && !ahead) { showQuestion(); stage.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+    var ids = buildSet(S.size || 12, ahead);
+    if (!ids.length) {
+      stage.innerHTML = '';
+      var next = null;
+      pool().forEach(function (it) { var r = S.items[it.id]; if (r && (!next || r.d < next)) next = r.d; });
+      var card = el('div', 'qcard summary');
+      card.appendChild(el('h3', '', 'All caught up'));
+      card.appendChild(el('p', 'why', next ? 'Nothing is due. The next concept comes back ' + whenText(next) + '. Reviewing early still helps, it just counts for a little less.' : 'Nothing to review yet.'));
+      if (next) {
+        var foot = el('div', 'q-foot');
+        var ah = el('button', 'btn ghost', 'Practice ahead anyway'); ah.type = 'button';
+        ah.addEventListener('click', function () { start(true); });
+        foot.appendChild(ah); card.appendChild(foot);
+      }
+      stage.appendChild(card);
+      return;
+    }
+    S.cur = { ids: ids, i: 0, res: [] }; save();
+    showQuestion();
+    stage.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+
+  document.getElementById('start').addEventListener('click', function () { start(false); });
+  var sizeSel = document.getElementById('set-size');
+  sizeSel.value = String(S.size || 12);
+  sizeSel.addEventListener('change', function () { S.size = +sizeSel.value; save(); });
+
+  /* ---- cheat sheets ---- */
+  (function () {
+    var box = document.getElementById('cheats');
+    BANK.tracks.forEach(function (t) {
+      if (!t.cheats || !t.cheats.length) return;
+      var d = el('details', 'cheat t-' + t.key);
+      d.appendChild(el('summary', '', esc(t.name) + ' cheat sheet'));
+      var body = el('div', 'cheat-body');
+      t.cheats.forEach(function (grp) {
+        var g = el('div');
+        g.appendChild(el('h4', '', esc(grp[0])));
+        var tb = el('table'), rows = '';
+        grp[1].forEach(function (r) { rows += '<tr><td><code>' + esc(r[0]) + '</code></td><td>' + md(r[1]) + '</td></tr>'; });
+        tb.innerHTML = rows; g.appendChild(tb); body.appendChild(g);
+      });
+      d.appendChild(body); box.appendChild(d);
+    });
+  })();
+
+  /* ---- two-tap reset (a browser dialog fails silently in an artifact viewer, rule 24) ---- */
+  (function () {
+    var btn = document.getElementById('reset'), armed = null;
+    btn.addEventListener('click', function () {
+      if (!armed) {
+        btn.classList.add('armed'); btn.textContent = 'tap again to clear';
+        armed = setTimeout(function () { armed = null; btn.classList.remove('armed'); btn.textContent = 'reset refresher'; }, 4000);
+        return;
+      }
+      clearTimeout(armed); armed = null;
+      S = blank(); save();
+      btn.classList.remove('armed'); btn.textContent = 'reset refresher';
+      stage.innerHTML = ''; renderTracks(); renderStats();
+    });
+  })();
+
+  /* ---- export / import of ALL site progress (same contract as index.html) ---- */
+  (function () {
+    var hint = document.getElementById('save-hint'), file = document.getElementById('import-file');
+    document.getElementById('export-btn').addEventListener('click', function () {
+      var out = {};
+      try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k) out[k] = localStorage.getItem(k); } } catch (e) {}
+      var blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = 'learning-hub-progress.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      hint.textContent = 'Downloaded learning-hub-progress.json';
+    });
+    document.getElementById('import-btn').addEventListener('click', function () { file.click(); });
+    file.addEventListener('change', function () {
+      var f = file.files && file.files[0]; if (!f) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(reader.result); } catch (e) { hint.textContent = 'That file is not a valid progress file.'; return; }
+        if (!data || typeof data !== 'object') { hint.textContent = 'That file is not a valid progress file.'; return; }
+        var n = 0;
+        for (var k in data) { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} }
+        hint.textContent = 'Imported ' + n + ' section(s). Reloading...';
+        setTimeout(function () { location.reload(); }, 700);
+      };
+      reader.readAsText(f); file.value = '';
+    });
+  })();
+
+  renderTracks();
+  renderStats();
+  if (S.cur && S.cur.ids.length && S.cur.i < S.cur.ids.length) document.getElementById('rv-msg').textContent = 'You have a set in progress (' + S.cur.i + ' of ' + S.cur.ids.length + ' answered).';
+})();
+</script>
+</body>
+</html>

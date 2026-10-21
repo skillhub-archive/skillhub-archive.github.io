@@ -115,6 +115,8 @@
   .track.t-git { --track: var(--track-git); --track-soft: var(--track-git-soft); --track-ink: var(--track-git-ink); }
   .track.t-api { --track: var(--track-api); --track-soft: var(--track-api-soft); --track-ink: var(--track-api-ink); }
   .track.t-ps  { --track: var(--track-ps);  --track-soft: var(--track-ps-soft);  --track-ink: var(--track-ps-ink); }
+  /* The Refresher spans every track, so it takes the chrome's own accent rather than a track colour. */
+  .track.t-refresh { --track: var(--accent); --track-soft: var(--accent-soft); --track-ink: var(--surface); }
 
   /* The inset shadow draws the track-coloured bar inside the rounded top edge. */
   .track { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: inset 0 3px 0 var(--track, transparent), var(--shadow); display: flex; flex-direction: column; }
@@ -281,6 +283,23 @@
     </div>
   </section>
 
+  <section class="sec">
+    <div class="sec-head"><span class="sec-kicker">// keep it fresh</span><h2>The Refresher</h2></div>
+    <p class="sec-sub">Finished a track? Keep it from fading while you work on the next one. Short mixed review sets across every track you include, each concept spaced out so it comes back just before you would forget it.</p>
+    <div class="tracks">
+      <div class="track t-refresh">
+        <div class="icon">&#128260;</div>
+        <h3>Refresher</h3>
+        <p>Fresh questions on every concept, mixed across tracks, with a link back to the session that teaches each one. Plus a cheat sheet for each track.</p>
+        <div class="meta">10-15 minutes &middot; a few times a week</div>
+        <div class="foot">
+          <a class="open" href="refresher.html">Open the Refresher &#8599;</a>
+          <span class="prog none" id="rf-prog">Not started</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <footer>
     Learning Hub &middot; a home for self-paced, hands-on tracks. Your progress lives in this browser; use Export to keep a copy.
   </footer>
@@ -334,6 +353,16 @@
       var done = 0; for (var k in p) if (p[k]) done++;
       var el = document.getElementById('ps-prog');
       if (done > 0) { el.textContent = done + '/10 sessions done'; el.className = 'prog'; }
+    } catch (e) {}
+  })();
+
+  // Reflect Refresher use (read the Refresher's own saved state)
+  (function () {
+    try {
+      var r = JSON.parse(localStorage.getItem('refresher-v1')) || {};
+      var n = 0; for (var d in (r.log || {})) n += r.log[d];
+      var el = document.getElementById('rf-prog');
+      if (n > 0) { el.textContent = n + ' answers so far'; el.className = 'prog'; }
     } catch (e) {}
   })();
 
