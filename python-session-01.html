@@ -300,13 +300,13 @@
 print("Hello from my first script!")   <span class="out"># Hello from my first script!</span></code></pre>
       <p><b>Two ways to run it, and they do the exact same thing:</b></p>
       <ul class="pts">
-        <li><b>Easiest:</b> click the <b>&#9655; Run button</b> in the top-right of the editor, or press <code>Ctrl + F5</code>. VS Code runs the file and shows the output in the terminal.</li>
+        <li><b>Easiest:</b> click the <b>&#9655; Run button</b> in the top-right of the editor (choose <b>Run Python File</b> if it asks). VS Code runs the file and shows the output in the terminal.</li>
         <li><b>By hand:</b> in the terminal, type <code>python hello.py</code>. This is literally what the Run button types for you, worth knowing so the button is never a mystery when something breaks.</li>
       </ul>
       <p>For quick experiments there's also the <b>REPL</b>: type <code>python</code> in the terminal and enter one line at a time. Nothing is saved, it's a scratchpad for testing an idea.</p>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> Hello, script</div>
-        <p>Create a file <code>hello.py</code>, print your name, and run it with the <b>&#9655; Run button</b> (or <code>Ctrl + F5</code>).</p>
+        <p>Create a file <code>hello.py</code>, print your name, and run it with the <b>&#9655; Run button</b> (or type <code>python hello.py</code> in the terminal).</p>
         <details><summary>Show reference solution</summary>
 <pre><code><span class="cm"># hello.py</span>
 print("Patrick")   <span class="out"># Patrick</span></code></pre>
@@ -352,7 +352,7 @@ print(score)     <span class="out"># done</span></code></pre>
       </ul>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> Minutes to hours</div>
-        <p>With <code>total_minutes = 145</code>, print the whole hours and leftover minutes using <code>//</code> and <code>%</code>.</p>
+        <p>With <code>total_minutes = 145</code>, print the whole hours and leftover minutes using <code>//</code> and <code>%</code>, so it prints: <code>2 hours 25 minutes</code>.</p>
         <details><summary>Show reference solution</summary>
 <pre><code>total_minutes = 145
 hours = total_minutes // 60
@@ -376,7 +376,10 @@ print("Please enter your details")
 print("Hi " + name + ", age " + str(age))   <span class="cm"># clunky, and you MUST str() the number</span>
 
 <span class="cm"># The f-string way: cleaner, and it converts for you</span>
-print(f"Hi {name}, age {age}")               <span class="out"># Hi Sam, age 30</span></code></pre>
+print(f"Hi {name}, age {age}")               <span class="out"># Hi Sam, age 30</span>
+
+<span class="cm"># The braces can hold a calculation, not just a variable</span>
+print(f"Next year: {age + 1}")               <span class="out"># Next year: 31</span></code></pre>
       <p><b>When to use which:</b> plain string when the text never changes; <b>f-string whenever you're building text out of data</b> (a variable, a total, a calculation). With <code>+</code> you have to glue pieces and manually <code>str()</code> every number, one missed conversion is an error. The f-string just works, so it's the modern default. Once you have f-strings you'll almost never reach for <code>+</code> to build a message.</p>
       <p>Some characters can't just be typed inside a string, a line break, for example. An <b>escape</b> is a backslash <code>\</code> followed by a letter that stands in for one of them. The two you'll actually use: <code>\n</code> makes a <b>new line</b>, <code>\t</code> inserts a <b>tab</b>.</p>
 <pre><code>print("Line one\nLine two")
@@ -398,6 +401,7 @@ print("Name:\tSam")
 price = 12
 qty = 4
 print(f"{item} x{qty} = ${price * qty}")  <span class="out"># Boxes x4 = $48</span></code></pre>
+        <p>Only the parts inside <code>{ }</code> get filled in; everything else prints exactly as typed. The <code>x</code>, <code>=</code> and <code>$</code> are just receipt text, not math. The only calculation is <code>price * qty</code>, inside the last braces.</p>
         </details>
         <label class="did"><input type="checkbox" data-task="4"> I ran this and saw the output</label>
       </div>
@@ -889,7 +893,7 @@ print(f"Tip: ${tip:.2f}  |  Total: ${bill + tip:.2f}")
       e: 'The value is a string, so * repeats it. int("20") * 3 would give 60.', part: { id: 'concept-d', label: 'D. Strings & f-strings' } },
     { q: 'What is the type of the value 7.0?', o: ['float', 'int', 'bool', 'double'], c: 0,
       e: 'The decimal point makes it a float, even though it equals seven. Python has no double type; its float is what some other languages call a double.', part: { id: 'concept-c', label: 'C. Numbers & math operators' } },
-    { q: 'Which prints exactly: Hi Sam  (given name = "Sam")', o: ['print(f"Hi {name}")', 'print("Hi {name}")', 'print("Hi " + {name})', 'print("Hi" name)'], c: 0,
+    { q: 'Given name = "Sam", which line prints exactly: Hi Sam', o: ['print(f"Hi {name}")', 'print("Hi {name}")', 'print("Hi " + {name})', 'print("Hi" name)'], c: 0,
       e: 'An f-string needs both the f prefix and {braces}. Miss either and nothing is substituted, and braces outside a string build a set, which + cannot join to text (TypeError).', part: { id: 'concept-d', label: 'D. Strings & f-strings' } },
     { q: 'What does print(9 % 4) output?', o: ['1', '2.0', '2.25', '0.25'], c: 0,
       e: '% is the remainder. 9 = 4+4+1, so 1 is left over.', part: { id: 'concept-c', label: 'C. Numbers & math operators' } }
