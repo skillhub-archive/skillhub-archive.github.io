@@ -387,7 +387,7 @@ print(budget)              <span class="cm"># the global is untouched -&gt;</spa
       <p>The takeaway: functions can <i>read</i> a global value, but any variable they create lives and dies inside them. Reaching for a local variable from the outside is a <code>NameError</code>.</p>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> See a local variable vanish</div>
-        <p>Define a function that creates a local variable and returns it. Print the returned value (works). Then add a line that tries to print the local variable's name directly from outside the function, run it once to see the <code>NameError</code>, then comment that line back out.</p>
+        <p>Define a function that creates a local variable and returns it. Call it and print the value it returns (this line runs fine). Then add a line that tries to print the local variable's name directly from outside the function, run it once to see the <code>NameError</code>, then comment that line back out.</p>
         <details><summary>Show reference solution</summary>
 <pre><code>def make_total():
     total = 42          <span class="cm"># local to this function</span>
@@ -412,10 +412,11 @@ print(make_total())     <span class="out"># 42</span>
     return f"Hello, {name}!"
 
 import math                    <span class="cm"># bring in the whole math module</span>
-print(math.sqrt(144))          <span class="cm"># call into it with module.thing() -&gt;</span> <span class="out">12.0</span>
+print(math.sqrt(144))          <span class="cm"># call into it with module.thing() -&gt;</span> <span class="out">12.0</span> <span class="cm">(sqrt always returns a float)</span>
 
 from random import randint     <span class="cm"># or bring in just one name</span>
 print(randint(1, 6))           <span class="cm"># now call it directly, no prefix -&gt; a number 1 to 6 (changes each run)</span></code></pre>
+      <p><b>How do you know what's inside a module?</b> Nobody memorizes them. In VS Code, type the module name and a dot (<code>statistics.</code>) and pause: a list of everything in it appears, and typing a few letters narrows it. Hover over a name to read its docstring, the same docstring idea from above. In the terminal's Python prompt, <code>help(statistics.mean)</code> shows the same thing. And when you only know the task, not the name, search it in plain English ("python average of a list"): that is how you find out an average is <code>statistics.mean</code>. Every module also has a page at docs.python.org/3/library/, e.g. <code>statistics.html</code>.</p>
       <div class="task">
         <div class="th"><span class="k">Your turn</span> The milestone: refactor into functions</div>
         <p>This is your Session 4 milestone. Take the job-records idea from Session 3 and <b>refactor it into a reusable function</b>. Define <code>total_with_tax(price, rate=0.1)</code> that <b>returns</b> the price plus tax, give it a one-line <b>docstring</b>, then loop over a list of 3 job dicts and call your function for each. As a bonus, <b>import</b> the <code>statistics</code> module and print the average total. Turning a one-off script into clean functions is the whole point of today, so try it before peeking.</p>
@@ -590,7 +591,7 @@ print(f"Average: ${statistics.mean(totals):.2f}")   <span class="cm"># a module 
     { code: 'def add(a, b):\n    return a + b\nprint(add(2, 3) * 10)', ans: '50', why: 'add(2, 3) returns 5, and because it returned a value you can keep computing: 5 * 10 = 50.' },
     { code: 'n = 5\ndef f():\n    n = 99\n    return n\nprint(f())\nprint(n)', ans: '99\n5', why: 'The n=99 inside f is a separate LOCAL variable. f() returns 99, but the global n outside is still 5.' },
     { code: 'def rect(w, h):\n    return w * h\nprint(rect(h=2, w=5))', ans: '10', why: 'With keyword arguments the order does not matter: w=5, h=2, so 5 * 2 = 10.' },
-    { code: 'import math\nprint(math.sqrt(16))', ans: '4.0', why: 'math.sqrt is the square-root function from the math module. sqrt(16) is 4.0 (a float).' },
+    { code: 'import math\nprint(math.sqrt(16))', ans: '4.0', why: 'math.sqrt is the square-root function from the math module. It always returns a float, even when the root is a whole number (like / from Session 1), so sqrt(16) is 4.0, not 4.' },
     { code: 'from math import floor\nprint(floor(3.9))', ans: '3', why: 'from math import floor lets you call floor directly. floor rounds DOWN to 3.' }
   ];
   function buildDrills() {
@@ -770,9 +771,9 @@ print(f"Average: ${statistics.mean(totals):.2f}")   <span class="cm"># a module 
   var WRITES = [
     { task: 'Write a function greet(name) that RETURNS a greeting string (do not print inside it). Call it for two different names and print each result.',
       sol: 'def greet(name):\n    return f"Hello, {name}!"   # return, do not print\n\nprint(greet("Ada"))            # Hello, Ada!\nprint(greet("Sam"))            # Hello, Sam!' },
-    { task: 'Write area(width, height) where height DEFAULTS to 1 and it returns width * height. Call it once with a single argument, once with both.',
+    { task: 'Write area(width, height) where height DEFAULTS to 1 and it returns width * height. Print the result of calling it once with a single argument, once with both.',
       sol: 'def area(width, height=1):\n    return width * height\n\nprint(area(5))       # height defaults to 1 -> 5\nprint(area(5, 3))    # -> 15' },
-    { task: 'Refactor a tax calculation into a function: total_with_tax(price, rate=0.1) that returns the price plus tax. Use it on two different prices.',
+    { task: 'Refactor a tax calculation into a function: total_with_tax(price, rate=0.1) that returns the price plus tax, with a one-line docstring saying what it returns. Print it for one price using the default rate, and one price with a rate you pass in, each shown to 2 decimal places.',
       sol: 'def total_with_tax(price, rate=0.1):\n    """Return price plus a tax surcharge."""\n    return price * (1 + rate)\n\nprint(f"{total_with_tax(100):.2f}")     # 110.00  (:.2f keeps money to 2 decimals, from S1)\nprint(f"{total_with_tax(50, 0.2):.2f}") # 60.00' },
     { task: 'Import randint from the random module. Write a function roll() that RETURNS a random number from 1 to 6, then print one roll.',
       sol: 'from random import randint\n\ndef roll():\n    return randint(1, 6)   # hand back a random 1-6\n\nprint(roll())              # a number 1..6 (changes each run)' }
